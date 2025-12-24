@@ -9,6 +9,9 @@ import {
 import { Response } from 'express';
 import { ErrorCode, HTTP_STATUS_MAP } from '../constants/error-codes';
 
+// Export ErrorCode để các module khác có thể import
+export { ErrorCode };
+
 export class AppException extends HttpException {
   constructor(
     public readonly errorCode: ErrorCode,

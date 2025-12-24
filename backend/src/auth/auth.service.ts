@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import type { StringValue } from 'ms';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -113,11 +114,11 @@ export class AuthService {
   private generateAccessToken(userId: string): string {
     const payload = { sub: userId };
     return this.jwtService.sign(payload, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '15m',
+      expiresIn: (process.env.JWT_EXPIRES_IN || '15m') as StringValue,
     });
   }
 
-  private async generateRefreshToken(userId: string): string {
+  private async generateRefreshToken(userId: string): Promise<string> {
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = this.hashToken(token);
     const expiresIn = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';

@@ -27,7 +27,7 @@ export class ImagesController {
   async uploadImage(
     @Param('itemId') itemId: string,
     @UploadedFile() file: Express.Multer.File,
-    @Body() body: { is_cover?: string },
+    @Body() body: { is_cover?: string | boolean },
   ) {
     if (!file) {
       throw new Error('File is required');
