@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
@@ -18,6 +18,7 @@ export const ItemDetailPage = () => {
   const [modelBrand, setModelBrand] = useState('');
   const [condition, setCondition] = useState('');
   const [price, setPrice] = useState<string>('');
+  const [originalPrice, setOriginalPrice] = useState<string>('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
 
@@ -28,8 +29,12 @@ export const ItemDetailPage = () => {
       return response.data;
     },
     enabled: !!id && id !== 'new',
-    onSuccess: (data) => {
-      const item = data.data?.item;
+  });
+
+  // Load data into form when data changes
+  useEffect(() => {
+    if (data?.data) {
+      const item = data.data.item;
       if (item) {
         setName(item.name || '');
         setDescription(item.description || '');
@@ -39,9 +44,10 @@ export const ItemDetailPage = () => {
         setModelBrand(item.model_brand || '');
         setCondition(item.condition || '');
         setPrice(item.price ? item.price.toString() : '');
+        setOriginalPrice(item.original_price ? item.original_price.toString() : '');
       }
-    },
-  });
+    }
+  }, [data]);
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -89,24 +95,6 @@ export const ItemDetailPage = () => {
     },
   });
 
-  const uploadImageMutation = useMutation({
-    mutationFn: async ({ itemId, file, isCover }: { itemId: string; file: File; isCover: boolean }) => {
-      const token = localStorage.getItem('access_token');
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('is_cover', isCover ? 'true' : 'false');
-      
-      return axios.post(`${API_BASE_URL}/items/${itemId}/images`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['item', id] });
-    },
-  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +114,12 @@ export const ItemDetailPage = () => {
         itemData.price = priceNum;
       }
     }
+    if (originalPrice) {
+      const originalPriceNum = parseFloat(originalPrice);
+      if (!isNaN(originalPriceNum) && originalPriceNum >= 0) {
+        itemData.original_price = originalPriceNum;
+      }
+    }
     
     saveMutation.mutate(itemData);
   };
@@ -136,15 +130,32 @@ export const ItemDetailPage = () => {
     }
   };
 
-  const handleUploadImage = async (file: File, isCover: boolean = false) => {
+  const handleUploadImage = async (file: File, isCover: boolean = false): Promise<void> => {
     if (!id || id === 'new') return;
-    uploadImageMutation.mutate({ itemId: id, file, isCover });
+    
+    const token = localStorage.getItem('access_token');
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('is_cover', isCover ? 'true' : 'false');
+    
+    try {
+      await axios.post(`${API_BASE_URL}/items/${id}/images`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      queryClient.invalidateQueries({ queryKey: ['item', id] });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw error;
+    }
   };
 
   if (isLoading && id !== 'new') return <div>Loading...</div>;
 
-  const item = data?.data;
-  const images = item?.images || [];
+  const item = data?.data?.item;
+  const images = data?.data?.images || [];
 
   return (
     <div style={{ padding: '20px' }}>
@@ -198,6 +209,17 @@ export const ItemDetailPage = () => {
             <option value="new">Mới</option>
             <option value="old">Cũ</option>
           </select>
+        </div>
+        <div style={{ marginBottom: '10px' }}>
+          <label>Giá gốc (Original Price):</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={originalPrice}
+            onChange={(e) => setOriginalPrice(e.target.value)}
+            style={{ width: '100%', padding: '8px' }}
+          />
         </div>
         <div style={{ marginBottom: '10px' }}>
           <label>Giá (Price):</label>
@@ -259,15 +281,31 @@ export const ItemDetailPage = () => {
           <div style={{ marginBottom: '20px' }}>
             <input
               type="file"
+              multiple
               accept="image/*"
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  handleUploadImage(e.target.files[0], images.length === 0);
+              onChange={async (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  const files = Array.from(e.target.files);
+                  setUploadingImages(true);
+                  try {
+                    for (let i = 0; i < files.length; i++) {
+                      const file = files[i];
+                      await handleUploadImage(file, images.length === 0 && i === 0);
+                    }
+                  } catch (error) {
+                    console.error('Error uploading images:', error);
+                    alert('Có lỗi khi upload ảnh');
+                  } finally {
+                    setUploadingImages(false);
+                    // Reset input
+                    e.target.value = '';
+                  }
                 }
               }}
+              disabled={uploadingImages}
               style={{ marginBottom: '10px' }}
             />
-            {uploadImageMutation.isPending && <div>Uploading...</div>}
+            {uploadingImages && <div>Đang upload ảnh...</div>}
           </div>
           {images.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
@@ -283,17 +321,39 @@ export const ItemDetailPage = () => {
                       Cover Image
                     </div>
                   )}
-                  <button
-                    onClick={() => {
-                      // Set as cover image
-                      apiClient.patch(`/items/${id}/images/${img.id}`, { is_cover: true });
-                      queryClient.invalidateQueries({ queryKey: ['item', id] });
-                    }}
-                    disabled={img.is_cover}
-                    style={{ marginTop: '8px', padding: '4px 8px' }}
-                  >
-                    Set as Cover
-                  </button>
+                  <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await apiClient.patch(`/items/${id}/images/${img.id}`, { is_cover: true });
+                          queryClient.invalidateQueries({ queryKey: ['item', id] });
+                        } catch (error) {
+                          console.error('Error setting cover image:', error);
+                          alert('Có lỗi khi đặt ảnh đại diện');
+                        }
+                      }}
+                      disabled={img.is_cover}
+                      style={{ padding: '4px 8px', cursor: img.is_cover ? 'not-allowed' : 'pointer' }}
+                    >
+                      Set as Cover
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (confirm('Bạn có chắc muốn xóa ảnh này?')) {
+                          try {
+                            await apiClient.delete(`/items/${id}/images/${img.id}`);
+                            queryClient.invalidateQueries({ queryKey: ['item', id] });
+                          } catch (error) {
+                            console.error('Error deleting image:', error);
+                            alert('Có lỗi khi xóa ảnh');
+                          }
+                        }
+                      }}
+                      style={{ padding: '4px 8px', backgroundColor: '#dc3545', color: 'white', border: 'none', cursor: 'pointer' }}
+                    >
+                      Xóa
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

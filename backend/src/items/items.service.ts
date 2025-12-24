@@ -104,6 +104,7 @@ export class ItemsService {
       item: {
         ...itemData,
         price: itemData.price ? (itemData.price as any).toNumber() : null,
+        original_price: itemData.original_price ? (itemData.original_price as any).toNumber() : null,
       },
       images: item_images.map((img) => ({
         id: img.id,
@@ -144,6 +145,7 @@ export class ItemsService {
         model_brand: createDto.model_brand,
         condition: createDto.condition as 'new' | 'old' | undefined,
         price: createDto.price !== undefined && createDto.price !== null ? createDto.price : null,
+        original_price: createDto.original_price !== undefined && createDto.original_price !== null ? createDto.original_price : null,
         status: (createDto.status as any) || 'con_hang',
         is_public: createDto.is_public || false,
       },
@@ -174,6 +176,9 @@ export class ItemsService {
     if (updateDto.condition !== undefined) updateData.condition = updateDto.condition as 'new' | 'old' | null;
     if (updateDto.price !== undefined) {
       updateData.price = updateDto.price !== null ? updateDto.price : null;
+    }
+    if (updateDto.original_price !== undefined) {
+      updateData.original_price = updateDto.original_price !== null ? updateDto.original_price : null;
     }
     if (updateDto.status !== undefined) updateData.status = updateDto.status as any;
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
