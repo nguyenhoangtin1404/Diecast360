@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import * as path from 'path';
 import * as sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -50,7 +51,4 @@ export class ImageProcessorService {
     }
   }
 }
-
-// Import path for generateFilename
-import * as path from 'path';
 
