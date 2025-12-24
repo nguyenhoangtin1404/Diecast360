@@ -1,92 +1,136 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { CatalogItem } from '../components/catalog/CatalogItem';
+import { CatalogFilters } from '../components/catalog/CatalogFilters';
+import { CatalogSort } from '../components/catalog/CatalogSort';
+import { InfiniteScrollTrigger } from '../components/catalog/InfiniteScrollTrigger';
 
 export const PublicCatalogPage = () => {
-  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [carBrand, setCarBrand] = useState<string | null>(null);
+  const [modelBrand, setModelBrand] = useState<string | null>(null);
+  const [condition, setCondition] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'price' | 'created_at'>('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['public-items', page, search],
-    queryFn: async () => {
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['public-items', search, carBrand, modelBrand, condition, sortBy, sortOrder],
+    queryFn: async ({ pageParam = 1 }) => {
       const params = new URLSearchParams({
-        page: page.toString(),
+        page: pageParam.toString(),
         page_size: '20',
       });
       if (search) params.append('q', search);
+      if (carBrand) params.append('car_brand', carBrand);
+      if (modelBrand) params.append('model_brand', modelBrand);
+      if (condition) params.append('condition', condition);
+      if (sortBy) params.append('sort_by', sortBy);
+      if (sortOrder) params.append('sort_order', sortOrder);
+
       const response = await apiClient.get(`/public/items?${params.toString()}`);
       return response.data;
     },
+    getNextPageParam: (lastPage) => {
+      const { pagination } = lastPage;
+      if (pagination.page < pagination.total_pages) {
+        return pagination.page + 1;
+      }
+      return undefined;
+    },
+    initialPageParam: 1,
   });
 
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error loading catalog</div>;
+  const items = useMemo(() => {
+    return data?.pages.flatMap((page) => page.items) || [];
+  }, [data]);
+
+  const handleSortChange = (newSortBy: 'name' | 'price' | 'created_at', newSortOrder: 'asc' | 'desc') => {
+    setSortBy(newSortBy);
+    setSortOrder(newSortOrder);
+  };
+
+  if (error) {
+    console.error('Error loading catalog:', error);
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+            Error loading catalog. Please try again later.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>Diecast360 Catalog</h1>
-      <div style={{ marginBottom: '20px' }}>
-        <input
-          type="text"
-          placeholder="Search items..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          style={{ padding: '8px', width: '300px' }}
-        />
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '20px' }}>
-        {data?.data?.items?.map((item: any) => (
-          <Link
-            key={item.id}
-            to={`/items/${item.id}`}
-            style={{
-              textDecoration: 'none',
-              color: 'inherit',
-              border: '1px solid #ddd',
-              borderRadius: '8px',
-              padding: '15px',
-              display: 'block',
-            }}
-          >
-            {item.cover_image_url && (
-              <img
-                src={item.cover_image_url}
-                alt={item.name}
-                style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '4px' }}
-              />
-            )}
-            <h3 style={{ marginTop: '10px' }}>{item.name}</h3>
-            <p style={{ color: '#666', fontSize: '14px' }}>
-              {item.status === 'con_hang' ? 'Còn hàng' : item.status === 'giu_cho' ? 'Giữ chỗ' : 'Đã bán'}
-            </p>
-            {item.has_spinner && <span style={{ fontSize: '12px', color: '#007bff' }}>360° View</span>}
-          </Link>
-        ))}
-      </div>
-      {data?.data?.pagination && (
-        <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          <button
-            disabled={page === 1}
-            onClick={() => setPage(page - 1)}
-          >
-            Previous
-          </button>
-          <span style={{ margin: '0 10px' }}>
-            Page {page} of {data.data.pagination.total_pages}
-          </span>
-          <button
-            disabled={page >= data.data.pagination.total_pages}
-            onClick={() => setPage(page + 1)}
-          >
-            Next
-          </button>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Search Bar */}
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Tìm kiếm theo tên..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
         </div>
-      )}
+
+        {/* Filters */}
+        <CatalogFilters
+          carBrand={carBrand}
+          modelBrand={modelBrand}
+          condition={condition}
+          onCarBrandChange={setCarBrand}
+          onModelBrandChange={setModelBrand}
+          onConditionChange={setCondition}
+        />
+
+        {/* Sort */}
+        <CatalogSort sortBy={sortBy} sortOrder={sortOrder} onSortChange={handleSortChange} />
+
+        {/* Loading State */}
+        {isLoading && items.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-gray-500">Đang tải...</div>
+          </div>
+        )}
+
+        {/* Items Grid */}
+        {items.length === 0 && !isLoading && (
+          <div className="text-center py-12">
+            <p className="text-gray-600 text-lg">Không tìm thấy sản phẩm nào.</p>
+            {(search || carBrand || modelBrand || condition) && (
+              <p className="text-gray-500 mt-2">Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm.</p>
+            )}
+          </div>
+        )}
+
+        {items.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {items.map((item: any, index: number) => (
+                <CatalogItem key={item.id} item={item} index={index} />
+              ))}
+            </div>
+
+            {/* Infinite Scroll Trigger */}
+            <InfiniteScrollTrigger
+              onIntersect={() => fetchNextPage()}
+              hasMore={hasNextPage ?? false}
+              isLoading={isFetchingNextPage}
+            />
+          </>
+        )}
+      </div>
     </div>
   );
 };
-

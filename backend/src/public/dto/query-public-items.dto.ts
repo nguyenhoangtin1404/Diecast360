@@ -21,5 +21,25 @@ export class QueryPublicItemsDto {
   @IsOptional()
   @IsString()
   q?: string;
+
+  @IsOptional()
+  @IsString()
+  car_brand?: string;
+
+  @IsOptional()
+  @IsString()
+  model_brand?: string;
+
+  @IsOptional()
+  @IsIn(['new', 'old'])
+  condition?: string;
+
+  @IsOptional()
+  @IsIn(['name', 'price', 'created_at'])
+  sort_by?: string = 'created_at';
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sort_order?: string = 'desc';
 }
 

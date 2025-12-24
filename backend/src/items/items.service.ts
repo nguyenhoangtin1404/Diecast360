@@ -101,7 +101,10 @@ export class ItemsService {
     const { item_images, spin_sets, ...itemData } = item;
 
     return {
-      item: itemData,
+      item: {
+        ...itemData,
+        price: itemData.price ? (itemData.price as any).toNumber() : null,
+      },
       images: item_images.map((img) => ({
         id: img.id,
         item_id: img.item_id,
@@ -137,6 +140,10 @@ export class ItemsService {
         description: createDto.description,
         scale: createDto.scale || '1:64',
         brand: createDto.brand,
+        car_brand: createDto.car_brand,
+        model_brand: createDto.model_brand,
+        condition: createDto.condition as 'new' | 'old' | undefined,
+        price: createDto.price !== undefined && createDto.price !== null ? createDto.price : null,
         status: (createDto.status as any) || 'con_hang',
         is_public: createDto.is_public || false,
       },
@@ -162,6 +169,12 @@ export class ItemsService {
     if (updateDto.description !== undefined) updateData.description = updateDto.description;
     if (updateDto.scale !== undefined) updateData.scale = updateDto.scale;
     if (updateDto.brand !== undefined) updateData.brand = updateDto.brand;
+    if (updateDto.car_brand !== undefined) updateData.car_brand = updateDto.car_brand;
+    if (updateDto.model_brand !== undefined) updateData.model_brand = updateDto.model_brand;
+    if (updateDto.condition !== undefined) updateData.condition = updateDto.condition as 'new' | 'old' | null;
+    if (updateDto.price !== undefined) {
+      updateData.price = updateDto.price !== null ? updateDto.price : null;
+    }
     if (updateDto.status !== undefined) updateData.status = updateDto.status as any;
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
 
