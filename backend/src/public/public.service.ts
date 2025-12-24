@@ -86,6 +86,7 @@ export class PublicService {
       model_brand: item.model_brand,
       condition: item.condition,
       price: item.price ? item.price.toNumber() : null,
+      original_price: item.original_price ? item.original_price.toNumber() : null,
       status: item.status,
       is_public: item.is_public,
       cover_image_url: item.item_images[0]
@@ -139,7 +140,11 @@ export class PublicService {
     const defaultSpinSet = spin_sets[0] || null;
 
     return {
-      item: itemData,
+      item: {
+        ...itemData,
+        price: itemData.price ? itemData.price.toNumber() : null,
+        original_price: itemData.original_price ? itemData.original_price.toNumber() : null,
+      },
       images: item_images.map((img) => ({
         id: img.id,
         item_id: img.item_id,

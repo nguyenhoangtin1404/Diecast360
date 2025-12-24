@@ -36,6 +36,12 @@ export class CreateItemDto {
   price?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  original_price?: number;
+
+  @IsOptional()
   @IsIn(['con_hang', 'giu_cho', 'da_ban'])
   status?: string;
 

@@ -55,11 +55,12 @@ model Item {
   description String?
   scale       String      @default("1:64")
   brand       String?
-  car_brand   String?
-  model_brand String?
-  condition   String?
-  price       Decimal?    @db.Decimal(12, 2)
-  status      ItemStatus  @default(con_hang)
+  car_brand      String?
+  model_brand    String?
+  condition      String?
+  price          Decimal?    @db.Decimal(12, 2)
+  original_price Decimal?    @db.Decimal(12, 2)
+  status         ItemStatus  @default(con_hang)
   is_public   Boolean     @default(false)
   created_at  DateTime    @default(now()) @db.Timestamptz
   updated_at  DateTime    @updatedAt @db.Timestamptz

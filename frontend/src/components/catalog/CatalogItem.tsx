@@ -8,6 +8,7 @@ interface CatalogItemProps {
     status: string;
     has_spinner?: boolean;
     price?: number | null;
+    original_price?: number | null;
     condition?: string | null;
   };
   index: number;
@@ -18,6 +19,21 @@ export const CatalogItem = ({ item, index }: CatalogItemProps) => {
     item.status === 'con_hang' ? 'Còn hàng' : item.status === 'giu_cho' ? 'Giữ chỗ' : 'Đã bán';
 
   const conditionText = item.condition === 'new' ? 'Mới' : item.condition === 'old' ? 'Cũ' : null;
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+    }).format(price);
+  };
+
+  const calculateDiscount = (original: number, current: number) => {
+    if (original <= current) return 0;
+    return Math.round(((original - current) / original) * 100);
+  };
+
+  const hasDiscount = item.original_price && item.price && item.original_price > item.price;
+  const discountPercent = hasDiscount ? calculateDiscount(item.original_price, item.price) : 0;
 
   return (
     <Link
@@ -51,11 +67,22 @@ export const CatalogItem = ({ item, index }: CatalogItemProps) => {
             )}
           </div>
           {item.price && (
-            <div className="mt-2 text-lg font-bold text-gray-900">
-              {new Intl.NumberFormat('vi-VN', {
-                style: 'currency',
-                currency: 'VND',
-              }).format(item.price)}
+            <div className="mt-2">
+              {hasDiscount && item.original_price && (
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm text-gray-500 line-through">
+                    {formatPrice(item.original_price)}
+                  </span>
+                  {discountPercent > 0 && (
+                    <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded">
+                      -{discountPercent}%
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="text-lg font-bold text-gray-900">
+                {formatPrice(item.price)}
+              </div>
             </div>
           )}
         </div>
