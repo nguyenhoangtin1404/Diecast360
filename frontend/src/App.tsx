@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext.tsx';
 import { ProtectedRoute } from './components/admin/ProtectedRoute';
 import { LoginPage } from './pages/admin/LoginPage';
 import { ItemsPage } from './pages/admin/ItemsPage';

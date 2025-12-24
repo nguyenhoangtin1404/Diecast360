@@ -3,6 +3,31 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { Link } from 'react-router-dom';
 
+interface Item {
+  id: string;
+  name: string;
+  status: string;
+  is_public: boolean;
+}
+
+interface Pagination {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
+interface ItemsResponse {
+  items: Item[];
+  pagination: Pagination;
+}
+
+interface ApiResponse<T> {
+  ok: boolean;
+  data: T;
+  message: string;
+}
+
 export const ItemsPage = () => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -15,8 +40,9 @@ export const ItemsPage = () => {
         page_size: '20',
       });
       if (search) params.append('q', search);
-      const response = await apiClient.get(`/items?${params.toString()}`);
-      return response.data;
+      // Response interceptor đã unwrap, response = {ok: true, data: {items: [...], pagination: {...}}, message: ''}
+      const response = await apiClient.get(`/items?${params.toString()}`) as ApiResponse<ItemsResponse>;
+      return response.data; // response.data = {items: [...], pagination: {...}}
     },
   });
 
@@ -51,7 +77,7 @@ export const ItemsPage = () => {
           </tr>
         </thead>
         <tbody>
-          {data?.data?.items?.map((item: any) => (
+          {data?.items?.map((item: Item) => (
             <tr key={item.id}>
               <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.name}</td>
               <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.status}</td>
@@ -63,7 +89,7 @@ export const ItemsPage = () => {
           ))}
         </tbody>
       </table>
-      {data?.data?.pagination && (
+      {data?.pagination && (
         <div style={{ marginTop: '20px' }}>
           <button
             disabled={page === 1}
@@ -72,10 +98,10 @@ export const ItemsPage = () => {
             Previous
           </button>
           <span style={{ margin: '0 10px' }}>
-            Page {page} of {data.data.pagination.total_pages}
+            Page {page} of {data.pagination.total_pages}
           </span>
           <button
-            disabled={page >= data.data.pagination.total_pages}
+            disabled={page >= data.pagination.total_pages}
             onClick={() => setPage(page + 1)}
           >
             Next
