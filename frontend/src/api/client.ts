@@ -16,6 +16,9 @@ apiClient.interceptors.request.use(
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('[API Client] Token added to request:', config.url, token.substring(0, 20) + '...');
+    } else {
+      console.warn('[API Client] No access token found in localStorage for request:', config.url);
     }
     return config;
   },
@@ -27,7 +30,10 @@ apiClient.interceptors.request.use(
 // Response interceptor để handle errors và refresh token
 apiClient.interceptors.response.use(
   (response) => {
-    return response.data; // Trả về data từ envelope {ok, data, message}
+    // Backend trả về {ok: true, data: {...}, message: ''}
+    // Axios response.data = {ok: true, data: {...}, message: ''}
+    // Trả về response.data để unwrap
+    return response.data;
   },
   async (error) => {
     const originalRequest = error.config;
@@ -38,11 +44,14 @@ apiClient.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refresh_token');
         if (refreshToken) {
+          // Dùng axios trực tiếp để tránh interceptor loop, response sẽ là full axios response
           const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
             refresh_token: refreshToken,
           });
 
-          const { access_token, refresh_token: newRefreshToken } = response.data.data;
+          // Backend trả về {ok: true, data: {access_token, refresh_token}, message: ''}
+          const responseData = response.data.data || response.data;
+          const { access_token, refresh_token: newRefreshToken } = responseData;
           localStorage.setItem('access_token', access_token);
           if (newRefreshToken) {
             localStorage.setItem('refresh_token', newRefreshToken);
