@@ -1,64 +1,38 @@
-# AI Ready Project
+# Diecast360
 
-## 1. Purpose
-Dự án được thiết kế để phát triển phần mềm với sự hỗ trợ của AI (Cursor, Copilot, ChatGPT) theo hướng:
-- Code nhanh
-- Ít lỗi
-- Dễ bảo trì
-- Kiểm soát được chất lượng
+Ứng dụng full-stack quản lý kho xe diecast 1:64 với viewer 360°, catalog công khai và công cụ hỗ trợ bán trên Facebook (copy caption + copy link). Repo này dùng **DIECAST360_AI_MASTER_GUIDE** làm nguồn chân lý để triển khai code.
 
-AI chỉ hỗ trợ viết code, không tự quyết định kiến trúc hay nghiệp vụ.
+## Tính năng cốt lõi
+- Quản lý Item: tạo/sửa/xóa mềm, trạng thái `con_hang | giu_cho | da_ban`, bật/tắt `is_public` để xuất bản catalog.
+- Ảnh thường: upload nhiều ảnh, tạo thumbnail, chọn cover, reorder, xóa.
+- Spinner 360°: nhiều spin set/item, duy nhất 1 default; upload frame (24 khuyến nghị, 36 tối đa), reorder, autoplay/preload trên UI, fallback gallery nếu chưa có spinner.
+- Catalog công khai: list/detail item công khai, hiển thị cover/status, dùng spinner default nếu có.
+- Social selling: từ admin có nút copy caption + link để đăng Facebook.
+- Auth: JWT access + refresh, lưu refresh token để revoke; chỉ admin truy cập route quản trị.
 
----
+## Tech stack (đã chốt)
+- Backend: Node.js (NestJS), Prisma ORM, PostgreSQL, JWT, Sharp, lưu file local (dev/demo) qua abstraction Storage.
+- Frontend: React + Vite, React Router, TanStack Query.
+- JSON: snake_case, base path `/api/v1`, envelope chuẩn `{ok,data,message}` / `{ok,error,message}`.
 
-## 2. Tech Stack
-Điền cụ thể để AI không phải đoán:
-- Backend: (ví dụ Node.js + Express + TypeScript)
-- Frontend: (ví dụ React + Vite)
-- Database: (ví dụ PostgreSQL)
-- Auth: (ví dụ JWT, OAuth2)
-- Cache: (ví dụ Redis)
-- Message Queue (nếu có):
-- CI/CD: (ví dụ GitHub Actions)
+## Bắt đầu (dev)
+1. Sao chép cấu hình: `cp .env.example .env` và chỉnh các biến trong `docs/ENV.md`.
+2. Chuẩn bị PostgreSQL (theo `DATABASE_URL`) và thư mục `UPLOAD_DIR` có quyền ghi.
+3. Khi hiện thực backend: cài dependency Node, áp dụng schema Prisma theo `docs/DB_SCHEMA.md`, chạy migrate, khởi động server NestJS.
+4. Khi hiện thực frontend: cấu hình API base `/api/v1`, dùng TanStack Query cho data fetching và Spinner360/Gallery theo specs.
 
----
+## Kiến trúc & tài liệu
+- Domain: `docs/DOMAIN.md`
+- Database: `docs/DB_SCHEMA.md`
+- API contract: `docs/API_CONTRACT.md`
+- Error handling: `docs/ERROR_HANDLING.md`
+- Kiến trúc: `docs/ARCHITECTURE.md`
+- Biến môi trường: `docs/ENV.md`
+- Quy tắc cho AI: `docs/AI_RULES.md`
+- Lộ trình: `docs/TODO.md`
+- Prompt mẫu: `docs/PROMPT_TEMPLATE.md`
 
-## 3. Architecture Overview
-Mô hình phân lớp:
-
-Controller → Service → Domain → Repository → Infrastructure
-
-Nguyên tắc:
-- Controller mỏng
-- Business logic nằm ở Service/Domain
-- Repository chỉ xử lý dữ liệu
-- Không bypass layer
-
----
-
-## 4. Development Rules
-- Tuân thủ tài liệu trong thư mục `/docs`
-- AI phải tuân theo `docs/AI_RULES.md`
-- Mỗi thay đổi phải nhỏ, có kiểm soát
-- Không commit code chưa review
-- Nếu thiếu thông tin, AI phải hỏi lại, không được giả định
-
----
-
-## 5. Run Local (example)
-```bash
-# backend
-npm install
-npm run dev
-```
-
-## 6. Project Structure (tóm tắt)
-- `/docs`: yêu cầu, kiến trúc, luật cho AI, env
-- `/src`: mã nguồn chính (theo layers Controller → Service → Domain → Repository → Infrastructure)
-- `/tests`: kiểm thử (bổ sung theo nghiệp vụ thực tế)
-
-## 7. Cách yêu cầu AI làm việc
-- Luôn chỉ rõ file cần sửa và scope thay đổi
-- Nhắc lại ràng buộc nghiệp vụ/ngữ cảnh liên quan (API, domain, error code)
-- Đưa expected output (response, log, error) nếu có
-- Yêu cầu kiểm tra/test cụ thể sau khi chỉnh sửa
+## Quy tắc làm việc
+- File `DIECAST360_AI_MASTER_GUIDE.md` là nguồn gốc; mọi thay đổi phải đồng bộ toàn bộ docs.
+- Không đổi API/DB/response format khi chưa cập nhật docs tương ứng.
+- Nếu thông tin thiếu, đặt câu hỏi thay vì tự suy đoán; giữ mọi output ở trạng thái có thể dùng ngay.
