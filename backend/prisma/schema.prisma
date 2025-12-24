@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ItemStatus {
+  con_hang
+  giu_cho
+  da_ban
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password_hash String
+  full_name     String?
+  role          String    @default("admin")
+  is_active     Boolean   @default(true)
+  created_at    DateTime  @default(now()) @db.Timestamptz
+  updated_at    DateTime  @updatedAt @db.Timestamptz
+  
+  refresh_tokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  user_id    String
+  token_hash String    @unique
+  expires_at DateTime  @db.Timestamptz
+  revoked_at DateTime? @db.Timestamptz
+  created_at DateTime  @default(now()) @db.Timestamptz
+  
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+  @@index([user_id])
+}
+
+model Item {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  scale       String      @default("1:64")
+  brand       String?
+  status      ItemStatus  @default(con_hang)
+  is_public   Boolean     @default(false)
+  created_at  DateTime    @default(now()) @db.Timestamptz
+  updated_at  DateTime    @updatedAt @db.Timestamptz
+  deleted_at  DateTime?   @db.Timestamptz
+  
+  item_images ItemImage[]
+  spin_sets   SpinSet[]
+
+  @@map("items")
+  @@index([status])
+  @@index([created_at])
+  @@index([deleted_at])
+}
+
+model ItemImage {
+  id             String   @id @default(uuid())
+  item_id        String
+  file_path      String
+  thumbnail_path String?
+  is_cover       Boolean  @default(false)
+  display_order  Int      @default(0)
+  created_at     DateTime @default(now()) @db.Timestamptz
+  updated_at     DateTime @updatedAt @db.Timestamptz
+  
+  item Item @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@map("item_images")
+  @@index([item_id, display_order])
+}
+
+model SpinSet {
+  id         String       @id @default(uuid())
+  item_id    String
+  label      String?
+  is_default Boolean      @default(false)
+  created_at DateTime     @default(now()) @db.Timestamptz
+  updated_at DateTime     @updatedAt @db.Timestamptz
+  
+  item    Item         @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  frames  SpinFrame[]
+
+  @@map("spin_sets")
+  @@index([item_id])
+  @@index([item_id, is_default])
+}
+
+model SpinFrame {
+  id             String   @id @default(uuid())
+  spin_set_id    String
+  frame_index    Int
+  file_path      String
+  thumbnail_path String?
+  created_at     DateTime @default(now()) @db.Timestamptz
+  updated_at     DateTime @updatedAt @db.Timestamptz
+  
+  spin_set SpinSet @relation(fields: [spin_set_id], references: [id], onDelete: Cascade)
+
+  @@map("spin_frames")
+  @@unique([spin_set_id, frame_index])
+  @@index([spin_set_id, frame_index])
+}

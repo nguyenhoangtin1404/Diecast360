@@ -16,10 +16,67 @@
 - JSON: snake_case, base path `/api/v1`, envelope chuẩn `{ok,data,message}` / `{ok,error,message}`.
 
 ## Bắt đầu (dev)
-1. Sao chép cấu hình: `cp .env.example .env` và chỉnh các biến trong `docs/ENV.md`.
-2. Chuẩn bị PostgreSQL (theo `DATABASE_URL`) và thư mục `UPLOAD_DIR` có quyền ghi.
-3. Khi hiện thực backend: cài dependency Node, áp dụng schema Prisma theo `docs/DB_SCHEMA.md`, chạy migrate, khởi động server NestJS.
-4. Khi hiện thực frontend: cấu hình API base `/api/v1`, dùng TanStack Query cho data fetching và Spinner360/Gallery theo specs.
+
+### Yêu cầu
+- Node.js >= 20.17.0
+- PostgreSQL
+- npm hoặc yarn
+
+### Backend Setup
+1. Vào thư mục backend:
+   ```bash
+   cd backend
+   ```
+
+2. Cài đặt dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Tạo file `.env` từ `.env.example` và cấu hình:
+   ```bash
+   cp .env.example .env
+   ```
+   Chỉnh sửa `.env` với thông tin database của bạn.
+
+4. Generate Prisma client và chạy migration:
+   ```bash
+   npm run prisma:generate
+   npm run prisma:migrate
+   ```
+
+5. Tạo thư mục uploads:
+   ```bash
+   mkdir uploads
+   ```
+
+6. Khởi động server:
+   ```bash
+   npm run start:dev
+   ```
+   Server chạy tại `http://localhost:3000`
+
+### Frontend Setup
+1. Vào thư mục frontend:
+   ```bash
+   cd frontend
+   ```
+
+2. Cài đặt dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Tạo file `.env` (nếu cần):
+   ```env
+   VITE_API_BASE_URL=http://localhost:3000/api/v1
+   ```
+
+4. Khởi động dev server:
+   ```bash
+   npm run dev
+   ```
+   Frontend chạy tại `http://localhost:5173`
 
 ## Kiến trúc & tài liệu
 - Domain: `docs/DOMAIN.md`
