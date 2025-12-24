@@ -32,12 +32,36 @@ export class PublicService {
       };
     }
 
+    if (queryDto.car_brand) {
+      where.car_brand = {
+        contains: queryDto.car_brand,
+        mode: 'insensitive',
+      };
+    }
+
+    if (queryDto.model_brand) {
+      where.model_brand = {
+        contains: queryDto.model_brand,
+        mode: 'insensitive',
+      };
+    }
+
+    if (queryDto.condition) {
+      where.condition = queryDto.condition;
+    }
+
+    // Build orderBy
+    const sortBy = queryDto.sort_by || 'created_at';
+    const sortOrder = queryDto.sort_order || 'desc';
+    const orderBy: any = {};
+    orderBy[sortBy] = sortOrder;
+
     const [items, total] = await Promise.all([
       this.prisma.item.findMany({
         where,
         skip,
         take: pageSize,
-        orderBy: { created_at: 'desc' },
+        orderBy,
         include: {
           item_images: {
             where: { is_cover: true },
@@ -58,6 +82,10 @@ export class PublicService {
       description: item.description,
       scale: item.scale,
       brand: item.brand,
+      car_brand: item.car_brand,
+      model_brand: item.model_brand,
+      condition: item.condition,
+      price: item.price ? item.price.toNumber() : null,
       status: item.status,
       is_public: item.is_public,
       cover_image_url: item.item_images[0]
