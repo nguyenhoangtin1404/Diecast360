@@ -19,35 +19,56 @@ export const ItemDetailPage = () => {
   const [condition, setCondition] = useState('');
   const [price, setPrice] = useState<string>('');
   const [originalPrice, setOriginalPrice] = useState<string>('');
+  const [scale, setScale] = useState<string>('1:64');
+  const [brand, setBrand] = useState<string>('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['item', id],
     queryFn: async () => {
       const response = await apiClient.get(`/items/${id}`);
-      return response.data;
+      // Response structure: {ok: true, data: {item: {...}, images: [...], spin_sets: [...]}, message: ''}
+      // apiClient interceptor returns response.data, so response = {ok: true, data: {...}, message: ''}
+      // We need to return response.data which is {item: {...}, images: [...], spin_sets: [...]}
+      return response.data || response;
     },
     enabled: !!id && id !== 'new',
   });
 
   // Load data into form when data changes
   useEffect(() => {
-    if (data?.data) {
-      const item = data.data.item;
-      if (item) {
-        setName(item.name || '');
-        setDescription(item.description || '');
-        setStatus(item.status || 'con_hang');
-        setIsPublic(item.is_public || false);
-        setCarBrand(item.car_brand || '');
-        setModelBrand(item.model_brand || '');
-        setCondition(item.condition || '');
-        setPrice(item.price ? item.price.toString() : '');
-        setOriginalPrice(item.original_price ? item.original_price.toString() : '');
-      }
+    // data structure: {item: {...}, images: [...], spin_sets: [...]}
+    if (data?.item) {
+      const item = data.item;
+      setName(item.name || '');
+      setDescription(item.description || '');
+      setStatus(item.status || 'con_hang');
+      setIsPublic(item.is_public || false);
+      setCarBrand(item.car_brand || '');
+      setModelBrand(item.model_brand || '');
+      setCondition(item.condition || '');
+      setPrice(item.price ? item.price.toString() : '');
+      setOriginalPrice(item.original_price ? item.original_price.toString() : '');
+      setScale(item.scale || '1:64');
+      setBrand(item.brand || '');
     }
   }, [data]);
+
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      imagePreviewUrls.forEach(url => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          // Ignore errors when revoking URLs
+        }
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -62,7 +83,7 @@ export const ItemDetailPage = () => {
       queryClient.invalidateQueries({ queryKey: ['item', id] });
       
       // Upload images if there are any
-      const itemId = id === 'new' ? response.data?.item?.id : id;
+      const itemId = id === 'new' ? (response.data?.item?.id || response?.item?.id) : id;
       if (itemId && selectedFiles.length > 0) {
         setUploadingImages(true);
         try {
@@ -82,8 +103,18 @@ export const ItemDetailPage = () => {
           }
           queryClient.invalidateQueries({ queryKey: ['item', itemId] });
           setSelectedFiles([]);
+          // Clean up preview URLs
+          imagePreviewUrls.forEach(url => {
+            try {
+              URL.revokeObjectURL(url);
+            } catch (e) {
+              // Ignore errors
+            }
+          });
+          setImagePreviewUrls([]);
         } catch (error) {
           console.error('Error uploading images:', error);
+          alert('Có lỗi khi upload ảnh. Vui lòng thử lại.');
         } finally {
           setUploadingImages(false);
         }
@@ -108,6 +139,8 @@ export const ItemDetailPage = () => {
     if (carBrand) itemData.car_brand = carBrand;
     if (modelBrand) itemData.model_brand = modelBrand;
     if (condition) itemData.condition = condition;
+    if (scale) itemData.scale = scale;
+    if (brand) itemData.brand = brand;
     if (price) {
       const priceNum = parseFloat(price);
       if (!isNaN(priceNum) && priceNum >= 0) {
@@ -126,7 +159,22 @@ export const ItemDetailPage = () => {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setSelectedFiles(Array.from(e.target.files));
+      const files = Array.from(e.target.files);
+      
+      // Clean up old preview URLs
+      imagePreviewUrls.forEach(url => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          // Ignore errors
+        }
+      });
+      
+      setSelectedFiles(files);
+      
+      // Create new preview URLs
+      const previews = files.map(file => URL.createObjectURL(file));
+      setImagePreviewUrls(previews);
     }
   };
 
@@ -154,8 +202,8 @@ export const ItemDetailPage = () => {
 
   if (isLoading && id !== 'new') return <div>Loading...</div>;
 
-  const item = data?.data?.item;
-  const images = data?.data?.images || [];
+  const item = data?.item;
+  const images = data?.images || [];
 
   return (
     <div style={{ padding: '20px' }}>
@@ -195,6 +243,25 @@ export const ItemDetailPage = () => {
             type="text"
             value={modelBrand}
             onChange={(e) => setModelBrand(e.target.value)}
+            style={{ width: '100%', padding: '8px' }}
+          />
+        </div>
+        <div style={{ marginBottom: '10px' }}>
+          <label>Tỷ lệ (Scale):</label>
+          <input
+            type="text"
+            value={scale}
+            onChange={(e) => setScale(e.target.value)}
+            placeholder="1:64"
+            style={{ width: '100%', padding: '8px' }}
+          />
+        </div>
+        <div style={{ marginBottom: '10px' }}>
+          <label>Thương hiệu (Brand):</label>
+          <input
+            type="text"
+            value={brand}
+            onChange={(e) => setBrand(e.target.value)}
             style={{ width: '100%', padding: '8px' }}
           />
         </div>
@@ -265,8 +332,24 @@ export const ItemDetailPage = () => {
               style={{ width: '100%', padding: '8px' }}
             />
             {selectedFiles.length > 0 && (
-              <div style={{ marginTop: '8px', color: '#666' }}>
-                Đã chọn {selectedFiles.length} ảnh
+              <div style={{ marginTop: '8px' }}>
+                <div style={{ color: '#666', marginBottom: '8px' }}>
+                  Đã chọn {selectedFiles.length} ảnh
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px', marginTop: '10px' }}>
+                  {imagePreviewUrls.map((url, index) => (
+                    <div key={index} style={{ border: '1px solid #ddd', padding: '5px', borderRadius: '4px' }}>
+                      <img
+                        src={url}
+                        alt={`Preview ${index + 1}`}
+                        style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '4px' }}
+                      />
+                      <div style={{ marginTop: '5px', fontSize: '12px', textAlign: 'center' }}>
+                        {selectedFiles[index]?.name}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -308,20 +391,42 @@ export const ItemDetailPage = () => {
             {uploadingImages && <div>Đang upload ảnh...</div>}
           </div>
           {images.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
               {images.map((img: any) => (
-                <div key={img.id} style={{ border: '1px solid #ddd', padding: '10px' }}>
-                  <img
-                    src={img.url}
-                    alt="Item"
-                    style={{ width: '100%', height: '200px', objectFit: 'cover' }}
-                  />
-                  {img.is_cover && (
-                    <div style={{ marginTop: '8px', color: '#007bff', fontWeight: 'bold' }}>
-                      Cover Image
-                    </div>
-                  )}
-                  <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                <div key={img.id} style={{ border: img.is_cover ? '2px solid #007bff' : '1px solid #ddd', padding: '10px', borderRadius: '8px', backgroundColor: '#fff' }}>
+                  <div style={{ position: 'relative' }}>
+                    <img
+                      src={img.thumbnail_url || img.url}
+                      alt="Item"
+                      style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '4px' }}
+                      onError={(e) => {
+                        // Fallback to full image if thumbnail fails
+                        const target = e.target as HTMLImageElement;
+                        if (target.src !== img.url) {
+                          target.src = img.url;
+                        }
+                      }}
+                    />
+                    {img.is_cover && (
+                      <div style={{ 
+                        position: 'absolute', 
+                        top: '8px', 
+                        right: '8px', 
+                        backgroundColor: '#007bff', 
+                        color: 'white', 
+                        padding: '4px 8px', 
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}>
+                        Ảnh đại diện
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+                    Thứ tự: {img.display_order + 1}
+                  </div>
+                  <div style={{ marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <button
                       onClick={async () => {
                         try {
@@ -333,9 +438,18 @@ export const ItemDetailPage = () => {
                         }
                       }}
                       disabled={img.is_cover}
-                      style={{ padding: '4px 8px', cursor: img.is_cover ? 'not-allowed' : 'pointer' }}
+                      style={{ 
+                        padding: '6px 12px', 
+                        cursor: img.is_cover ? 'not-allowed' : 'pointer',
+                        backgroundColor: img.is_cover ? '#ccc' : '#007bff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        flex: 1
+                      }}
                     >
-                      Set as Cover
+                      {img.is_cover ? 'Đã là ảnh đại diện' : 'Đặt làm ảnh đại diện'}
                     </button>
                     <button
                       onClick={async () => {
@@ -349,7 +463,16 @@ export const ItemDetailPage = () => {
                           }
                         }
                       }}
-                      style={{ padding: '4px 8px', backgroundColor: '#dc3545', color: 'white', border: 'none', cursor: 'pointer' }}
+                      style={{ 
+                        padding: '6px 12px', 
+                        backgroundColor: '#dc3545', 
+                        color: 'white', 
+                        border: 'none', 
+                        cursor: 'pointer',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        flex: 1
+                      }}
                     >
                       Xóa
                     </button>
@@ -358,7 +481,10 @@ export const ItemDetailPage = () => {
               ))}
             </div>
           ) : (
-            <p>No images uploaded yet.</p>
+            <div style={{ padding: '20px', textAlign: 'center', color: '#666', border: '1px dashed #ddd', borderRadius: '8px' }}>
+              <p>Chưa có ảnh nào được upload.</p>
+              <p style={{ fontSize: '14px', marginTop: '8px' }}>Sử dụng nút bên trên để upload ảnh cho sản phẩm.</p>
+            </div>
           )}
           <h2 style={{ marginTop: '30px' }}>Spinner</h2>
           <p>Spinner management coming soon...</p>
