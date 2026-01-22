@@ -3,8 +3,26 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import axios from 'axios';
+import { ArrowLeft, Box, Edit, Plus, Check } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
+
+// Helper functions for number formatting
+const formatNumber = (value: string): string => {
+  if (!value || value === '') return '';
+  // Remove all commas and spaces
+  const cleaned = value.replace(/,/g, '').replace(/\s/g, '');
+  if (!cleaned) return '';
+  const num = parseFloat(cleaned);
+  if (isNaN(num)) return '';
+  // Format with comma as thousand separator
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+};
+
+const parseNumber = (value: string): string => {
+  // Remove all commas and spaces, keep decimal point
+  return value.replace(/,/g, '').replace(/\s/g, '');
+};
 
 export const ItemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -120,8 +138,50 @@ export const ItemDetailPage = () => {
         }
       }
       
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.textContent = id === 'new' ? 'Đã tạo sản phẩm thành công!' : 'Đã cập nhật sản phẩm thành công!';
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 16px 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 10000;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        animation: slideIn 0.3s ease-out;
+      `;
+      
+      const checkIcon = document.createElement('span');
+      checkIcon.textContent = '✓';
+      checkIcon.style.cssText = `
+        font-size: 18px;
+        font-weight: bold;
+      `;
+      notification.appendChild(checkIcon);
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => {
+          if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+          }
+        }, 300);
+      }, 3000);
+      
       if (id === 'new') {
-        navigate(`/admin/items/${itemId}`);
+        setTimeout(() => {
+          navigate(`/admin/items/${itemId}`);
+        }, 500);
       }
     },
   });
@@ -200,136 +260,740 @@ export const ItemDetailPage = () => {
     }
   };
 
-  if (isLoading && id !== 'new') return <div>Loading...</div>;
+  if (isLoading && id !== 'new') return <div style={{ padding: '20px' }}>Đang tải...</div>;
 
   const item = data?.item;
   const images = data?.images || [];
 
   return (
+    <>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        @keyframes slideOut {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+        }
+      `}</style>
     <div style={{ padding: '20px' }}>
-      <button onClick={() => navigate('/admin/items')}>Back to Items</button>
-      <h1>{id === 'new' ? 'New Item' : 'Edit Item'}</h1>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Name:</label>
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+          <button
+            onClick={() => navigate('/admin/items')}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #ddd',
+              borderRadius: '8px',
+              background: 'white',
+              color: '#333',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#f5f5f5';
+              e.currentTarget.style.borderColor = '#007bff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'white';
+              e.currentTarget.style.borderColor = '#ddd';
+            }}
+          >
+            <ArrowLeft size={18} />
+            <span>Quay lại danh sách</span>
+          </button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+          <div
+            style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+            }}
+          >
+            {id === 'new' ? <Plus size={24} color="white" /> : <Edit size={24} color="white" />}
+          </div>
+          <div>
+            <h1 style={{ 
+              margin: 0, 
+              fontSize: '28px', 
+              fontWeight: '700', 
+              color: '#1a1a1a',
+              letterSpacing: '-0.5px',
+              lineHeight: '1.2',
+            }}>
+              {id === 'new' ? 'Tạo sản phẩm mới' : 'Chỉnh sửa sản phẩm'}
+            </h1>
+            <p style={{ 
+              margin: '4px 0 0 0', 
+              fontSize: '14px', 
+              color: '#666',
+              fontWeight: '400',
+            }}>
+              {id === 'new' ? 'Thêm sản phẩm mới vào kho' : `Chỉnh sửa thông tin sản phẩm: ${item?.name || ''}`}
+            </p>
+          </div>
+        </div>
+      </div>
+      <form onSubmit={handleSubmit} style={{ maxWidth: '800px' }}>
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
+            Tên sản phẩm <span style={{ color: '#dc3545' }}>*</span>
+          </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            style={{ width: '100%', padding: '8px' }}
+            style={{ 
+              width: '100%', 
+              padding: '10px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '8px',
+              fontSize: '14px',
+              outline: 'none',
+              transition: 'all 0.2s',
+              color: '#1a1a1a',
+              backgroundColor: '#fff',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = '#007bff';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = '#ddd';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
           />
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Description:</label>
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
+            Mô tả
+          </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            style={{ width: '100%', padding: '8px', minHeight: '100px' }}
+            style={{ 
+              width: '100%', 
+              padding: '10px 12px', 
+              minHeight: '100px',
+              border: '1px solid #ddd',
+              borderRadius: '8px',
+              fontSize: '14px',
+              outline: 'none',
+              transition: 'all 0.2s',
+              resize: 'vertical',
+              fontFamily: 'inherit',
+              color: '#1a1a1a',
+              backgroundColor: '#fff',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = '#007bff';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = '#ddd';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
           />
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Hãng xe (Car Brand):</label>
-          <input
-            type="text"
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
+              Hãng xe
+            </label>
+            <select
             value={carBrand}
             onChange={(e) => setCarBrand(e.target.value)}
-            style={{ width: '100%', padding: '8px' }}
-          />
+              style={{ 
+                width: '100%', 
+                padding: '10px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'all 0.2s',
+                color: '#1a1a1a',
+                backgroundColor: '#fff',
+                cursor: 'pointer',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = '#007bff';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = '#ddd';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <option value="">-- Chọn hãng xe --</option>
+              <option value="Abarth">Abarth</option>
+              <option value="Acura">Acura</option>
+              <option value="Alfa Romeo">Alfa Romeo</option>
+              <option value="Aston Martin">Aston Martin</option>
+              <option value="Audi">Audi</option>
+              <option value="Bentley">Bentley</option>
+              <option value="BMW">BMW</option>
+              <option value="Bugatti">Bugatti</option>
+              <option value="Cadillac">Cadillac</option>
+              <option value="Chevrolet">Chevrolet</option>
+              <option value="Ducati">Ducati</option>
+              <option value="Ford">Ford</option>
+              <option value="HKS">HKS</option>
+              <option value="Honda">Honda</option>
+              <option value="Hyundai">Hyundai</option>
+              <option value="Isuzu">Isuzu</option>
+              <option value="Jaguar">Jaguar</option>
+              <option value="Lamborghini">Lamborghini</option>
+              <option value="Lancia">Lancia</option>
+              <option value="Land Rover">Land Rover</option>
+              <option value="LB Works">LB Works</option>
+              <option value="Lincoln">Lincoln</option>
+              <option value="Lotus">Lotus</option>
+              <option value="Mazda">Mazda</option>
+              <option value="McLaren">McLaren</option>
+              <option value="Mercedes-Benz">Mercedes-Benz</option>
+              <option value="Nissan">Nissan</option>
+              <option value="Pagani">Pagani</option>
+              <option value="Pandem">Pandem</option>
+              <option value="Porsche">Porsche</option>
+              <option value="Range Rover">Range Rover</option>
+              <option value="Red Bull Racing">Red Bull Racing</option>
+              <option value="RUF">RUF</option>
+              <option value="Shelby">Shelby</option>
+              <option value="SUBARU">SUBARU</option>
+              <option value="Tommykaira">Tommykaira</option>
+              <option value="Top Secret">Top Secret</option>
+              <option value="Toyota">Toyota</option>
+              <option value="VeilSide">VeilSide</option>
+              <option value="Volkswagen">Volkswagen</option>
+            </select>
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Hãng mô hình (Model Brand):</label>
-          <input
-            type="text"
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
+              Hãng mô hình
+            </label>
+            <select
             value={modelBrand}
             onChange={(e) => setModelBrand(e.target.value)}
-            style={{ width: '100%', padding: '8px' }}
-          />
+              style={{ 
+                width: '100%', 
+                padding: '10px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'all 0.2s',
+                color: '#1a1a1a',
+                backgroundColor: '#fff',
+                cursor: 'pointer',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = '#007bff';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = '#ddd';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <option value="">-- Chọn hãng mô hình --</option>
+              <option value="Mini GT">Mini GT</option>
+              <option value="Tarmac Works">Tarmac Works</option>
+              <option value="Hot Wheels">Hot Wheels</option>
+              <option value="Inno64">Inno64</option>
+              <option value="Pop Race">Pop Race</option>
+              <option value="Tomica">Tomica</option>
+              <option value="Majorette">Majorette</option>
+              <option value="OTHER BRAND">Hãng khác</option>
+            </select>
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Tỷ lệ (Scale):</label>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
+              Tỷ lệ
+            </label>
           <input
             type="text"
             value={scale}
             onChange={(e) => setScale(e.target.value)}
             placeholder="1:64"
-            style={{ width: '100%', padding: '8px' }}
+              style={{ 
+                width: '100%', 
+                padding: '10px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'all 0.2s',
+                color: '#1a1a1a',
+                backgroundColor: '#fff',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = '#007bff';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = '#ddd';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
           />
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Thương hiệu (Brand):</label>
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
+              Thương hiệu
+            </label>
           <input
             type="text"
             value={brand}
             onChange={(e) => setBrand(e.target.value)}
-            style={{ width: '100%', padding: '8px' }}
+              style={{ 
+                width: '100%', 
+                padding: '10px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'all 0.2s',
+                color: '#1a1a1a',
+                backgroundColor: '#fff',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = '#007bff';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = '#ddd';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
           />
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Tình trạng (Condition):</label>
-          <select
-            value={condition}
-            onChange={(e) => setCondition(e.target.value)}
-            style={{ width: '100%', padding: '8px' }}
-          >
-            <option value="">-- Chọn tình trạng --</option>
-            <option value="new">Mới</option>
-            <option value="old">Cũ</option>
-          </select>
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Giá gốc (Original Price):</label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
+              Giá gốc
+            </label>
           <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={originalPrice}
-            onChange={(e) => setOriginalPrice(e.target.value)}
-            style={{ width: '100%', padding: '8px' }}
+              type="text"
+              value={originalPrice ? formatNumber(originalPrice) : ''}
+              onChange={(e) => {
+                const inputValue = e.target.value;
+                const parsed = parseNumber(inputValue);
+                // Allow empty, numbers, and decimal point
+                if (parsed === '' || /^\d*\.?\d*$/.test(parsed)) {
+                  setOriginalPrice(parsed);
+                }
+              }}
+              style={{ 
+                width: '100%', 
+                padding: '10px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'all 0.2s',
+                color: '#1a1a1a',
+                backgroundColor: '#fff',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = '#007bff';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = '#ddd';
+                e.currentTarget.style.boxShadow = 'none';
+                const parsed = parseNumber(e.target.value);
+                if (parsed === '' || (!isNaN(parseFloat(parsed)) && parseFloat(parsed) >= 0)) {
+                  setOriginalPrice(parsed);
+                }
+              }}
           />
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Giá (Price):</label>
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
+              Giá bán
+            </label>
           <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            style={{ width: '100%', padding: '8px' }}
+              type="text"
+              value={price ? formatNumber(price) : ''}
+              onChange={(e) => {
+                const inputValue = e.target.value;
+                const parsed = parseNumber(inputValue);
+                // Allow empty, numbers, and decimal point
+                if (parsed === '' || /^\d*\.?\d*$/.test(parsed)) {
+                  setPrice(parsed);
+                }
+              }}
+              style={{ 
+                width: '100%', 
+                padding: '10px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'all 0.2s',
+                color: '#1a1a1a',
+                backgroundColor: '#fff',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = '#007bff';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = '#ddd';
+                e.currentTarget.style.boxShadow = 'none';
+                const parsed = parseNumber(e.target.value);
+                if (parsed === '' || (!isNaN(parseFloat(parsed)) && parseFloat(parsed) >= 0)) {
+                  setPrice(parsed);
+                }
+              }}
           />
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>Status:</label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            style={{ padding: '8px' }}
-          >
-            <option value="con_hang">Còn hàng</option>
-            <option value="giu_cho">Giữ chỗ</option>
-            <option value="da_ban">Đã bán</option>
-          </select>
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
+              Tình trạng
+            </label>
+            <div style={{ 
+              display: 'inline-flex', 
+              backgroundColor: '#f5f5f5',
+              borderRadius: '10px',
+              padding: '4px',
+              gap: '4px',
+              border: '1px solid #e0e0e0',
+            }}>
+              <label 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: condition === 'new' ? '#fff' : '#666',
+                  padding: '10px 24px',
+                  borderRadius: '8px',
+                  backgroundColor: condition === 'new' ? '#007bff' : 'transparent',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  minWidth: '80px',
+                  userSelect: 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (condition !== 'new') {
+                    e.currentTarget.style.backgroundColor = '#e8f0fe';
+                    e.currentTarget.style.color = '#007bff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (condition !== 'new') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = '#666';
+                  }
+                }}
+              >
             <input
-              type="checkbox"
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
-            />
-            {' '}Public
+                  type="radio"
+                  name="condition"
+                  value="new"
+                  checked={condition === 'new'}
+                  onChange={(e) => setCondition(e.target.value)}
+                  style={{
+                    position: 'absolute',
+                    opacity: 0,
+                    width: 0,
+                    height: 0,
+                  }}
+                />
+                <span>Mới</span>
+              </label>
+              <label 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: condition === 'old' ? '#fff' : '#666',
+                  padding: '10px 24px',
+                  borderRadius: '8px',
+                  backgroundColor: condition === 'old' ? '#007bff' : 'transparent',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  minWidth: '80px',
+                  userSelect: 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (condition !== 'old') {
+                    e.currentTarget.style.backgroundColor = '#e8f0fe';
+                    e.currentTarget.style.color = '#007bff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (condition !== 'old') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = '#666';
+                  }
+                }}
+              >
+                <input
+                  type="radio"
+                  name="condition"
+                  value="old"
+                  checked={condition === 'old'}
+                  onChange={(e) => setCondition(e.target.value)}
+                  style={{
+                    position: 'absolute',
+                    opacity: 0,
+                    width: 0,
+                    height: 0,
+                  }}
+                />
+                <span>Cũ</span>
           </label>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
+              Công khai
+            </label>
+            <div style={{ 
+              display: 'inline-flex', 
+              backgroundColor: '#f5f5f5',
+              borderRadius: '10px',
+              padding: '4px',
+              gap: '4px',
+              border: '1px solid #e0e0e0',
+            }}>
+              <label 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: isPublic ? '#fff' : '#666',
+                  padding: '10px 24px',
+                  borderRadius: '8px',
+                  backgroundColor: isPublic ? '#007bff' : 'transparent',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  minWidth: '80px',
+                  userSelect: 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isPublic) {
+                    e.currentTarget.style.backgroundColor = '#e8f0fe';
+                    e.currentTarget.style.color = '#007bff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isPublic) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = '#666';
+                  }
+                }}
+                onClick={() => setIsPublic(true)}
+              >
+                <span>Công khai</span>
+              </label>
+              <label 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: !isPublic ? '#fff' : '#666',
+                  padding: '10px 24px',
+                  borderRadius: '8px',
+                  backgroundColor: !isPublic ? '#007bff' : 'transparent',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  minWidth: '80px',
+                  userSelect: 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (isPublic) {
+                    e.currentTarget.style.backgroundColor = '#e8f0fe';
+                    e.currentTarget.style.color = '#007bff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (isPublic) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = '#666';
+                  }
+                }}
+                onClick={() => setIsPublic(false)}
+              >
+                <span>Riêng tư</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
+            Trạng thái
+          </label>
+          <div style={{ 
+            display: 'inline-flex', 
+            backgroundColor: '#f5f5f5',
+            borderRadius: '10px',
+            padding: '4px',
+            gap: '4px',
+            border: '1px solid #e0e0e0',
+          }}>
+            <label 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: status === 'con_hang' ? '#fff' : '#666',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                backgroundColor: status === 'con_hang' ? '#007bff' : 'transparent',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                minWidth: '70px',
+                userSelect: 'none',
+              }}
+              onMouseEnter={(e) => {
+                if (status !== 'con_hang') {
+                  e.currentTarget.style.backgroundColor = '#e8f0fe';
+                  e.currentTarget.style.color = '#007bff';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (status !== 'con_hang') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#666';
+                }
+              }}
+              onClick={() => setStatus('con_hang')}
+            >
+              <span>Còn hàng</span>
+            </label>
+            <label 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: status === 'giu_cho' ? '#fff' : '#666',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                backgroundColor: status === 'giu_cho' ? '#007bff' : 'transparent',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                minWidth: '70px',
+                userSelect: 'none',
+              }}
+              onMouseEnter={(e) => {
+                if (status !== 'giu_cho') {
+                  e.currentTarget.style.backgroundColor = '#e8f0fe';
+                  e.currentTarget.style.color = '#007bff';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (status !== 'giu_cho') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#666';
+                }
+              }}
+              onClick={() => setStatus('giu_cho')}
+            >
+              <span>Giữ chỗ</span>
+            </label>
+            <label 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: status === 'da_ban' ? '#fff' : '#666',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                backgroundColor: status === 'da_ban' ? '#007bff' : 'transparent',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                minWidth: '70px',
+                userSelect: 'none',
+              }}
+              onMouseEnter={(e) => {
+                if (status !== 'da_ban') {
+                  e.currentTarget.style.backgroundColor = '#e8f0fe';
+                  e.currentTarget.style.color = '#007bff';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (status !== 'da_ban') {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#666';
+                }
+              }}
+              onClick={() => setStatus('da_ban')}
+            >
+              <span>Đã bán</span>
+            </label>
+          </div>
         </div>
         {id === 'new' && (
           <div style={{ marginBottom: '10px' }}>
-            <label>Upload Images (sẽ upload sau khi tạo item):</label>
+            <label>Tải lên hình ảnh:</label>
             <input
               type="file"
               multiple
               accept="image/*"
               onChange={handleFileSelect}
-              style={{ width: '100%', padding: '8px' }}
+              style={{ 
+                width: '100%', 
+                padding: '10px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'all 0.2s',
+                color: '#1a1a1a',
+                backgroundColor: '#fff',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = '#007bff';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = '#ddd';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             />
             {selectedFiles.length > 0 && (
               <div style={{ marginTop: '8px' }}>
@@ -354,18 +1018,74 @@ export const ItemDetailPage = () => {
             )}
           </div>
         )}
-        <button type="submit" disabled={saveMutation.isPending || uploadingImages}>
-          {saveMutation.isPending ? 'Saving...' : uploadingImages ? 'Uploading images...' : 'Save'}
+        <button 
+          type="submit" 
+          disabled={saveMutation.isPending || uploadingImages}
+          style={{
+            padding: '12px 24px',
+            background: saveMutation.isPending || uploadingImages ? '#ccc' : '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '600',
+            cursor: saveMutation.isPending || uploadingImages ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s',
+            boxShadow: '0 2px 4px rgba(0, 123, 255, 0.2)',
+            minWidth: '120px',
+          }}
+          onMouseEnter={(e) => {
+            if (!saveMutation.isPending && !uploadingImages) {
+              e.currentTarget.style.background = '#0056b3';
+              e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 123, 255, 0.3)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!saveMutation.isPending && !uploadingImages) {
+              e.currentTarget.style.background = '#007bff';
+              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 123, 255, 0.2)';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }
+          }}
+        >
+          {saveMutation.isPending ? 'Đang lưu...' : uploadingImages ? 'Đang upload ảnh...' : 'Lưu'}
         </button>
       </form>
       {id !== 'new' && item && (
-        <div style={{ marginTop: '30px' }}>
-          <h2>Images</h2>
+        <div style={{ marginTop: '40px', maxWidth: '800px' }}>
+          <h2 style={{ 
+            fontSize: '24px', 
+            fontWeight: '600', 
+            color: '#1a1a1a',
+            marginBottom: '20px',
+            paddingBottom: '12px',
+            borderBottom: '2px solid #f0f0f0',
+          }}>Hình ảnh</h2>
           <div style={{ marginBottom: '20px' }}>
             <input
               type="file"
               multiple
               accept="image/*"
+              style={{ 
+                width: '100%', 
+                padding: '10px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'all 0.2s',
+                color: '#1a1a1a',
+                backgroundColor: '#fff',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = '#007bff';
+                e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = '#ddd';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
               onChange={async (e) => {
                 if (e.target.files && e.target.files.length > 0) {
                   const files = Array.from(e.target.files);
@@ -386,9 +1106,20 @@ export const ItemDetailPage = () => {
                 }
               }}
               disabled={uploadingImages}
-              style={{ marginBottom: '10px' }}
+              style={{ display: 'none' }}
             />
-            {uploadingImages && <div>Đang upload ảnh...</div>}
+            {uploadingImages && (
+              <div style={{ 
+                marginTop: '12px', 
+                padding: '12px',
+                background: '#f0f7ff',
+                borderRadius: '8px',
+                color: '#007bff',
+                fontSize: '14px',
+              }}>
+                Đang upload ảnh, vui lòng đợi...
+              </div>
+            )}
           </div>
           {images.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
@@ -486,29 +1217,142 @@ export const ItemDetailPage = () => {
               <p style={{ fontSize: '14px', marginTop: '8px' }}>Sử dụng nút bên trên để upload ảnh cho sản phẩm.</p>
             </div>
           )}
-          <h2 style={{ marginTop: '30px' }}>Spinner</h2>
-          <p>Spinner management coming soon...</p>
-          <h2 style={{ marginTop: '30px' }}>Social Selling</h2>
+          <h2 style={{ 
+            marginTop: '40px', 
+            fontSize: '24px', 
+            fontWeight: '600', 
+            color: '#1a1a1a',
+            marginBottom: '20px',
+            paddingBottom: '12px',
+            borderBottom: '2px solid #f0f0f0',
+          }}>Spinner 360°</h2>
+          <p style={{ color: '#666', fontSize: '14px' }}>Quản lý spinner 360° sẽ được thêm vào sau...</p>
+          <h2 style={{ 
+            marginTop: '40px', 
+            fontSize: '24px', 
+            fontWeight: '600', 
+            color: '#1a1a1a',
+            marginBottom: '20px',
+            paddingBottom: '12px',
+            borderBottom: '2px solid #f0f0f0',
+          }}>Social Selling</h2>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <button
-            onClick={() => {
+              onClick={async () => {
+                try {
               const caption = `${item.name} - ${item.status === 'con_hang' ? 'Còn hàng' : item.status === 'giu_cho' ? 'Giữ chỗ' : 'Đã bán'}`;
-              navigator.clipboard.writeText(caption);
-              alert('Caption copied!');
+                  await navigator.clipboard.writeText(caption);
+                  
+                  const notification = document.createElement('div');
+                  notification.textContent = 'Đã copy caption!';
+                  notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #28a745;
+                    color: white;
+                    padding: 12px 20px;
+                    borderRadius: 8px;
+                    boxShadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                    zIndex: 10000;
+                    fontSize: 14px;
+                    fontWeight: 500;
+                    animation: slideIn 0.3s ease-out;
+                  `;
+                  document.body.appendChild(notification);
+                  setTimeout(() => {
+                    notification.style.animation = 'slideOut 0.3s ease-out';
+                    setTimeout(() => document.body.removeChild(notification), 300);
+                  }, 2000);
+                } catch (error) {
+                  alert('Không thể copy. Vui lòng thử lại.');
+                }
+              }}
+              style={{
+                padding: '10px 20px',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: '0 2px 4px rgba(0, 123, 255, 0.2)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#0056b3';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 123, 255, 0.3)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#007bff';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 123, 255, 0.2)';
+                e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
             Copy Caption
           </button>
           <button
-            onClick={() => {
+              onClick={async () => {
+                try {
               const link = `${window.location.origin}/items/${id}`;
-              navigator.clipboard.writeText(link);
-              alert('Link copied!');
+                  await navigator.clipboard.writeText(link);
+                  
+                  const notification = document.createElement('div');
+                  notification.textContent = 'Đã copy link!';
+                  notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #28a745;
+                    color: white;
+                    padding: 12px 20px;
+                    borderRadius: 8px;
+                    boxShadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                    zIndex: 10000;
+                    fontSize: 14px;
+                    fontWeight: 500;
+                    animation: slideIn 0.3s ease-out;
+                  `;
+                  document.body.appendChild(notification);
+                  setTimeout(() => {
+                    notification.style.animation = 'slideOut 0.3s ease-out';
+                    setTimeout(() => document.body.removeChild(notification), 300);
+                  }, 2000);
+                } catch (error) {
+                  alert('Không thể copy. Vui lòng thử lại.');
+                }
+              }}
+              style={{
+                padding: '10px 20px',
+                background: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: '0 2px 4px rgba(40, 167, 69, 0.2)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#218838';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(40, 167, 69, 0.3)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#28a745';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(40, 167, 69, 0.2)';
+                e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
             Copy Link
           </button>
+          </div>
         </div>
       )}
     </div>
+    </>
   );
 };
