@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { IStorageService } from '../storage/storage.interface';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
@@ -7,7 +8,10 @@ import { QueryItemsDto } from './dto/query-items.dto';
 
 @Injectable()
 export class ItemsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject('IStorageService') private storage: IStorageService,
+  ) {}
 
   async findAll(queryDto: QueryItemsDto) {
     const page = queryDto.page || 1;
@@ -212,10 +216,8 @@ export class ItemsService {
   }
 
   private getImageUrl(filePath: string): string {
-    const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:5173';
-    // Remove leading ./ or ./ from filePath if exists
-    const cleanPath = filePath.replace(/^\.\//, '').replace(/^\//, '');
-    return `${baseUrl}/${cleanPath}`;
+    // Use storage service to get consistent URL format
+    return this.storage.getFileUrl(filePath);
   }
 }
 

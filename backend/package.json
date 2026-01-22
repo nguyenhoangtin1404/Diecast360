@@ -14,7 +14,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "create:admin": "ts-node scripts/create-admin.ts"
+    "create:admin": "ts-node scripts/create-admin.ts",
+    "create:admin:quick": "ts-node scripts/create-admin-quick.ts",
+    "list:users": "ts-node scripts/list-users.ts"
   },
   "keywords": [
     "diecast",
