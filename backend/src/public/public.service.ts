@@ -85,8 +85,8 @@ export class PublicService {
       car_brand: item.car_brand,
       model_brand: item.model_brand,
       condition: item.condition,
-      price: item.price ? item.price.toNumber() : null,
-      original_price: item.original_price ? item.original_price.toNumber() : null,
+      price: item.price != null ? item.price.toNumber() : null,
+      original_price: item.original_price != null ? item.original_price.toNumber() : null,
       status: item.status,
       is_public: item.is_public,
       cover_image_url: item.item_images[0]
@@ -142,8 +142,8 @@ export class PublicService {
     return {
       item: {
         ...itemData,
-        price: itemData.price ? itemData.price.toNumber() : null,
-        original_price: itemData.original_price ? itemData.original_price.toNumber() : null,
+        price: itemData.price != null ? itemData.price.toNumber() : null,
+        original_price: itemData.original_price != null ? itemData.original_price.toNumber() : null,
       },
       images: item_images.map((img) => ({
         id: img.id,
