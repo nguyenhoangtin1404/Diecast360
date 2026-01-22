@@ -59,6 +59,8 @@ export class ItemsService {
 
     const itemsWithCover = items.map((item) => ({
       ...item,
+      price: item.price ? (item.price as any).toNumber() : null,
+      original_price: item.original_price ? (item.original_price as any).toNumber() : null,
       cover_image_url: item.item_images[0]
         ? this.getImageUrl(item.item_images[0].file_path)
         : null,
