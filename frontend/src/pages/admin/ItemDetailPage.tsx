@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import axios from 'axios';
-import { ArrowLeft, Box, Edit, Plus, Check } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, X, Star } from 'lucide-react';
+import { Spinner360 } from '../../components/Spinner360/Spinner360';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
 
@@ -24,6 +25,62 @@ const parseNumber = (value: string): string => {
   return value.replace(/,/g, '').replace(/\s/g, '');
 };
 
+interface SpinFrame {
+  id: string;
+  spin_set_id: string;
+  frame_index: number;
+  image_url: string;
+  thumbnail_url?: string | null;
+  created_at: string;
+}
+
+interface ItemImage {
+  id: string;
+  item_id: string;
+  url: string;
+  thumbnail_url: string | null;
+  is_cover: boolean;
+  display_order: number;
+  created_at: string;
+}
+
+interface SpinSet {
+  id: string;
+  item_id: string;
+  label: string | null;
+  is_default: boolean;
+  frames: SpinFrame[];
+  created_at: string;
+  updated_at: string;
+}
+
+interface ItemData {
+  name: string;
+  description?: string;
+  status?: 'con_hang' | 'giu_cho' | 'da_ban';
+  is_public?: boolean;
+  car_brand?: string;
+  model_brand?: string;
+  condition?: 'new' | 'old';
+  scale?: string;
+  brand?: string;
+  price?: number;
+  original_price?: number;
+}
+
+interface ApiResponse<T> {
+  ok: boolean;
+  data: T;
+  message: string;
+}
+
+interface ItemResponse {
+  item: {
+    id: string;
+    [key: string]: unknown;
+  };
+}
+
 export const ItemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -42,6 +99,11 @@ export const ItemDetailPage = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  const [selectedSpinSetId, setSelectedSpinSetId] = useState<string | null>(null);
+  const [newSpinSetLabel, setNewSpinSetLabel] = useState('');
+  const [newSpinSetIsDefault, setNewSpinSetIsDefault] = useState(false);
+  const [showCreateSpinSet, setShowCreateSpinSet] = useState(false);
+  const [uploadingFrames, setUploadingFrames] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['item', id],
@@ -72,6 +134,17 @@ export const ItemDetailPage = () => {
       setScale(item.scale || '1:64');
       setBrand(item.brand || '');
     }
+    
+    // Set selected spin set to default if available
+    if (data?.spin_sets && data.spin_sets.length > 0) {
+      const defaultSpinSet = (data.spin_sets as SpinSet[]).find((set) => set.is_default);
+      if (defaultSpinSet) {
+        setSelectedSpinSetId(defaultSpinSet.id);
+      } else if (!selectedSpinSetId) {
+        setSelectedSpinSetId((data.spin_sets[0] as SpinSet).id);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   // Cleanup preview URLs on unmount
@@ -80,7 +153,7 @@ export const ItemDetailPage = () => {
       imagePreviewUrls.forEach(url => {
         try {
           URL.revokeObjectURL(url);
-        } catch (e) {
+        } catch {
           // Ignore errors when revoking URLs
         }
       });
@@ -89,7 +162,7 @@ export const ItemDetailPage = () => {
   }, []);
 
   const saveMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: ItemData) => {
       if (id === 'new') {
         return apiClient.post('/items', data);
       } else {
@@ -101,7 +174,13 @@ export const ItemDetailPage = () => {
       queryClient.invalidateQueries({ queryKey: ['item', id] });
       
       // Upload images if there are any
-      const itemId = id === 'new' ? (response.data?.item?.id || response?.item?.id) : id;
+      // apiClient interceptor returns response.data, so response = {ok: true, data: {...}, message: ''}
+      // For create, response.data = {item: {...}}
+      const isApiResponse = (r: unknown): r is ApiResponse<ItemResponse> => {
+        return typeof r === 'object' && r !== null && 'data' in r && 'ok' in r;
+      };
+      const responseData = isApiResponse(response) ? response.data : (response as unknown as ItemResponse);
+      const itemId = id === 'new' ? (responseData?.item?.id || (responseData as { id?: string })?.id) : id;
       if (itemId && selectedFiles.length > 0) {
         setUploadingImages(true);
         try {
@@ -125,7 +204,7 @@ export const ItemDetailPage = () => {
           imagePreviewUrls.forEach(url => {
             try {
               URL.revokeObjectURL(url);
-            } catch (e) {
+            } catch {
               // Ignore errors
             }
           });
@@ -189,16 +268,16 @@ export const ItemDetailPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const itemData: any = {
+    const itemData: ItemData = {
       name,
       description,
-      status,
+      status: status as 'con_hang' | 'giu_cho' | 'da_ban',
       is_public: isPublic,
     };
     
     if (carBrand) itemData.car_brand = carBrand;
     if (modelBrand) itemData.model_brand = modelBrand;
-    if (condition) itemData.condition = condition;
+    if (condition) itemData.condition = condition as 'new' | 'old';
     if (scale) itemData.scale = scale;
     if (brand) itemData.brand = brand;
     if (price) {
@@ -225,7 +304,7 @@ export const ItemDetailPage = () => {
       imagePreviewUrls.forEach(url => {
         try {
           URL.revokeObjectURL(url);
-        } catch (e) {
+        } catch {
           // Ignore errors
         }
       });
@@ -260,10 +339,126 @@ export const ItemDetailPage = () => {
     }
   };
 
+  // Create spin set mutation
+  const createSpinSetMutation = useMutation({
+    mutationFn: async (data: { label?: string; is_default?: boolean }) => {
+      if (!id || id === 'new') throw new Error('Item ID is required');
+      return apiClient.post(`/items/${id}/spin-sets`, data);
+    },
+    onSuccess: () => {
+      if (id && id !== 'new') {
+        queryClient.invalidateQueries({ queryKey: ['item', id] });
+      }
+      setShowCreateSpinSet(false);
+      setNewSpinSetLabel('');
+      setNewSpinSetIsDefault(false);
+    },
+  });
+
+  // Update spin set mutation
+  const updateSpinSetMutation = useMutation({
+    mutationFn: async ({ spinSetId, data }: { spinSetId: string; data: { label?: string; is_default?: boolean } }) => {
+      return apiClient.patch(`/spin-sets/${spinSetId}`, data);
+    },
+    onSuccess: () => {
+      if (id && id !== 'new') {
+        queryClient.invalidateQueries({ queryKey: ['item', id] });
+      }
+    },
+  });
+
+  // Upload frame mutation
+  const uploadFrameMutation = useMutation({
+    mutationFn: async ({ spinSetId, file, frameIndex }: { spinSetId: string; file: File; frameIndex?: number }) => {
+      const token = localStorage.getItem('access_token');
+      const formData = new FormData();
+      formData.append('frame', file);
+      if (frameIndex !== undefined) {
+        formData.append('frame_index', frameIndex.toString());
+      }
+      return axios.post(`${API_BASE_URL}/spin-sets/${spinSetId}/frames`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
+    onSuccess: () => {
+      if (id && id !== 'new') {
+        queryClient.invalidateQueries({ queryKey: ['item', id] });
+      }
+    },
+  });
+
+  // Delete frame mutation
+  const deleteFrameMutation = useMutation({
+    mutationFn: async ({ spinSetId, frameId }: { spinSetId: string; frameId: string }) => {
+      return apiClient.delete(`/spin-sets/${spinSetId}/frames/${frameId}`);
+    },
+    onSuccess: () => {
+      if (id && id !== 'new') {
+        queryClient.invalidateQueries({ queryKey: ['item', id] });
+      }
+    },
+  });
+
+  // Reorder frames mutation
+  const reorderFramesMutation = useMutation({
+    mutationFn: async ({ spinSetId, frameIds }: { spinSetId: string; frameIds: string[] }) => {
+      return apiClient.patch(`/spin-sets/${spinSetId}/frames/order`, { frame_ids: frameIds });
+    },
+    onSuccess: () => {
+      if (id && id !== 'new') {
+        queryClient.invalidateQueries({ queryKey: ['item', id] });
+      }
+    },
+  });
+
+  const handleUploadFrames = async (e: React.ChangeEvent<HTMLInputElement>, spinSetId: string) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    const files = Array.from(e.target.files);
+    setUploadingFrames(true);
+    
+    try {
+      for (const file of files) {
+        await uploadFrameMutation.mutateAsync({ spinSetId, file });
+      }
+    } catch (error) {
+      console.error('Error uploading frames:', error);
+      alert('Có lỗi khi upload frames');
+    } finally {
+      setUploadingFrames(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleMoveFrame = (spinSetId: string, frameId: string, direction: 'up' | 'down', spinSets: SpinSet[]) => {
+    const spinSet = spinSets.find((set) => set.id === spinSetId);
+    if (!spinSet || !spinSet.frames || spinSet.frames.length === 0) return;
+
+    const frames = [...spinSet.frames].sort((a, b) => a.frame_index - b.frame_index);
+    const currentIndex = frames.findIndex((f) => f.id === frameId);
+    
+    if (currentIndex === -1) return;
+    
+    if (direction === 'up' && currentIndex === 0) return;
+    if (direction === 'down' && currentIndex === frames.length - 1) return;
+
+    const newOrder = [...frames];
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    [newOrder[currentIndex], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[currentIndex]];
+
+    const frameIds = newOrder.map((f) => f.id);
+    reorderFramesMutation.mutate({ spinSetId, frameIds });
+  };
+
   if (isLoading && id !== 'new') return <div style={{ padding: '20px' }}>Đang tải...</div>;
 
   const item = data?.item;
-  const images = data?.images || [];
+  const images = (data?.images || []) as ItemImage[];
+  const spinSets = (data?.spin_sets || []) as SpinSet[];
+  const selectedSpinSet = spinSets.find((set) => set.id === selectedSpinSetId);
 
   return (
     <>
@@ -1077,6 +1272,7 @@ export const ItemDetailPage = () => {
                 transition: 'all 0.2s',
                 color: '#1a1a1a',
                 backgroundColor: '#fff',
+                display: 'none',
               }}
               onFocus={(e) => {
                 e.currentTarget.style.borderColor = '#007bff';
@@ -1106,7 +1302,6 @@ export const ItemDetailPage = () => {
                 }
               }}
               disabled={uploadingImages}
-              style={{ display: 'none' }}
             />
             {uploadingImages && (
               <div style={{ 
@@ -1123,7 +1318,7 @@ export const ItemDetailPage = () => {
           </div>
           {images.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
-              {images.map((img: any) => (
+              {images.map((img) => (
                 <div key={img.id} style={{ border: img.is_cover ? '2px solid #007bff' : '1px solid #ddd', padding: '10px', borderRadius: '8px', backgroundColor: '#fff' }}>
                   <div style={{ position: 'relative' }}>
                     <img
@@ -1226,7 +1421,391 @@ export const ItemDetailPage = () => {
             paddingBottom: '12px',
             borderBottom: '2px solid #f0f0f0',
           }}>Spinner 360°</h2>
-          <p style={{ color: '#666', fontSize: '14px' }}>Quản lý spinner 360° sẽ được thêm vào sau...</p>
+          
+          {/* Create Spin Set */}
+          {!showCreateSpinSet ? (
+            <button
+              onClick={() => setShowCreateSpinSet(true)}
+              style={{
+                padding: '10px 20px',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <Plus size={16} />
+              Tạo bộ spinner mới
+            </button>
+          ) : (
+            <div style={{ 
+              marginBottom: '20px', 
+              padding: '16px', 
+              border: '1px solid #ddd', 
+              borderRadius: '8px',
+              backgroundColor: '#f9f9f9',
+            }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
+                <input
+                  type="text"
+                  placeholder="Tên bộ spinner (tùy chọn)"
+                  value={newSpinSetLabel}
+                  onChange={(e) => setNewSpinSetLabel(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                  }}
+                />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={newSpinSetIsDefault}
+                    onChange={(e) => setNewSpinSetIsDefault(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '14px' }}>Đặt làm mặc định</span>
+                </label>
+                <button
+                  onClick={() => {
+                    createSpinSetMutation.mutate({ 
+                      label: newSpinSetLabel || undefined,
+                      is_default: newSpinSetIsDefault,
+                    });
+                  }}
+                  disabled={createSpinSetMutation.isPending}
+                  style={{
+                    padding: '8px 16px',
+                    background: createSpinSetMutation.isPending ? '#ccc' : '#28a745',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: createSpinSetMutation.isPending ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {createSpinSetMutation.isPending ? 'Đang tạo...' : 'Tạo'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCreateSpinSet(false);
+                    setNewSpinSetLabel('');
+                    setNewSpinSetIsDefault(false);
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Spin Sets List */}
+          {spinSets.length > 0 ? (
+            <div style={{ marginBottom: '30px' }}>
+              {/* Spin Set Selector */}
+              <div style={{ marginBottom: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                {spinSets.map((set) => (
+                  <button
+                    key={set.id}
+                    onClick={() => setSelectedSpinSetId(set.id)}
+                    style={{
+                      padding: '10px 16px',
+                      background: selectedSpinSetId === set.id ? '#007bff' : '#f5f5f5',
+                      color: selectedSpinSetId === set.id ? 'white' : '#333',
+                      border: selectedSpinSetId === set.id ? 'none' : '1px solid #ddd',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    {set.is_default && <Star size={16} fill="currentColor" />}
+                    {set.label || `Bộ spinner ${set.frames?.length || 0} frames`}
+                  </button>
+                ))}
+              </div>
+
+              {/* Selected Spin Set Management */}
+              {selectedSpinSet && (
+                <div style={{ 
+                  border: '1px solid #ddd', 
+                  borderRadius: '12px', 
+                  padding: '20px',
+                  backgroundColor: '#fff',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#1a1a1a' }}>
+                        {selectedSpinSet.label || 'Bộ spinner không tên'}
+                        {selectedSpinSet.is_default && (
+                          <span style={{ 
+                            marginLeft: '8px', 
+                            padding: '4px 8px', 
+                            background: '#ffc107', 
+                            color: '#000',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                          }}>
+                            Mặc định
+                          </span>
+                        )}
+                      </h3>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#666' }}>
+                        {selectedSpinSet.frames?.length || 0} frames
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {!selectedSpinSet.is_default && (
+                        <button
+                          onClick={() => {
+                            updateSpinSetMutation.mutate({
+                              spinSetId: selectedSpinSet.id,
+                              data: { is_default: true },
+                            });
+                          }}
+                          style={{
+                            padding: '8px 16px',
+                            background: '#ffc107',
+                            color: '#000',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <Star size={16} />
+                          Đặt làm mặc định
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Spinner360 Preview */}
+                  {selectedSpinSet.frames && selectedSpinSet.frames.length > 0 && (
+                    <div style={{ 
+                      marginBottom: '30px', 
+                      padding: '20px', 
+                      background: '#f9f9f9', 
+                      borderRadius: '8px',
+                      display: 'flex',
+                      justifyContent: 'center',
+                    }}>
+                      <Spinner360
+                        frames={selectedSpinSet.frames.map((frame) => ({
+                          id: frame.id,
+                          image_url: frame.image_url,
+                          thumbnail_url: frame.thumbnail_url ?? undefined,
+                          frame_index: frame.frame_index,
+                        }))}
+                        autoplay={false}
+                        width={400}
+                        height={400}
+                      />
+                    </div>
+                  )}
+
+                  {/* Upload Frames */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ 
+                      display: 'block', 
+                      marginBottom: '8px', 
+                      fontSize: '14px', 
+                      fontWeight: '500',
+                      color: '#333',
+                    }}>
+                      Upload frames:
+                    </label>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      disabled={uploadingFrames}
+                      onChange={(e) => handleUploadFrames(e, selectedSpinSet.id)}
+                      style={{ 
+                        width: '100%', 
+                        padding: '10px 12px',
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        cursor: uploadingFrames ? 'not-allowed' : 'pointer',
+                      }}
+                    />
+                    {uploadingFrames && (
+                      <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#007bff' }}>
+                        Đang upload frames...
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Frames List */}
+                  {selectedSpinSet.frames && selectedSpinSet.frames.length > 0 ? (
+                    <div>
+                      <h4 style={{ 
+                        margin: '0 0 16px 0', 
+                        fontSize: '16px', 
+                        fontWeight: '600',
+                        color: '#333',
+                      }}>
+                        Frames ({selectedSpinSet.frames.length})
+                      </h4>
+                      <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', 
+                        gap: '12px',
+                      }}>
+                        {[...selectedSpinSet.frames]
+                          .sort((a, b) => a.frame_index - b.frame_index)
+                          .map((frame, index) => (
+                            <div 
+                              key={frame.id} 
+                              style={{ 
+                                border: '1px solid #ddd', 
+                                borderRadius: '8px', 
+                                padding: '10px',
+                                backgroundColor: '#fff',
+                                position: 'relative',
+                              }}
+                            >
+                              <img
+                                src={frame.thumbnail_url || frame.image_url}
+                                alt={`Frame ${frame.frame_index + 1}`}
+                                style={{ 
+                                  width: '100%', 
+                                  height: '150px', 
+                                  objectFit: 'cover', 
+                                  borderRadius: '4px',
+                                  marginBottom: '8px',
+                                }}
+                              />
+                              <div style={{ 
+                                fontSize: '12px', 
+                                color: '#666', 
+                                marginBottom: '8px',
+                                textAlign: 'center',
+                              }}>
+                                Frame {frame.frame_index + 1}
+                              </div>
+                              <div style={{ display: 'flex', gap: '4px', flexDirection: 'column' }}>
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                  <button
+                                    onClick={() => handleMoveFrame(selectedSpinSet.id, frame.id, 'up', spinSets)}
+                                    disabled={index === 0 || reorderFramesMutation.isPending}
+                                    style={{
+                                      flex: 1,
+                                      padding: '6px',
+                                      background: index === 0 ? '#ccc' : '#f0f0f0',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: index === 0 ? 'not-allowed' : 'pointer',
+                                      fontSize: '12px',
+                                    }}
+                                    title="Di chuyển lên"
+                                  >
+                                    ↑
+                                  </button>
+                                  <button
+                                    onClick={() => handleMoveFrame(selectedSpinSet.id, frame.id, 'down', spinSets)}
+                                    disabled={index === selectedSpinSet.frames.length - 1 || reorderFramesMutation.isPending}
+                                    style={{
+                                      flex: 1,
+                                      padding: '6px',
+                                      background: index === selectedSpinSet.frames.length - 1 ? '#ccc' : '#f0f0f0',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: index === selectedSpinSet.frames.length - 1 ? 'not-allowed' : 'pointer',
+                                      fontSize: '12px',
+                                    }}
+                                    title="Di chuyển xuống"
+                                  >
+                                    ↓
+                                  </button>
+                                </div>
+                                <button
+                                  onClick={async () => {
+                                    if (confirm('Bạn có chắc muốn xóa frame này?')) {
+                                      try {
+                                        await deleteFrameMutation.mutateAsync({
+                                          spinSetId: selectedSpinSet.id,
+                                          frameId: frame.id,
+                                        });
+                                      } catch (error) {
+                                        console.error('Error deleting frame:', error);
+                                        alert('Có lỗi khi xóa frame');
+                                      }
+                                    }
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '6px',
+                                    background: '#dc3545',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontSize: '12px',
+                                  }}
+                                >
+                                  Xóa
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      padding: '40px', 
+                      textAlign: 'center', 
+                      color: '#666',
+                      border: '1px dashed #ddd',
+                      borderRadius: '8px',
+                    }}>
+                      <p style={{ margin: 0, fontSize: '14px' }}>
+                        Chưa có frames nào. Upload frames để bắt đầu.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ 
+              padding: '40px', 
+              textAlign: 'center', 
+              color: '#666',
+              border: '1px dashed #ddd',
+              borderRadius: '8px',
+            }}>
+              <p style={{ margin: 0, fontSize: '14px' }}>
+                Chưa có bộ spinner nào. Tạo bộ spinner mới để bắt đầu.
+              </p>
+            </div>
+          )}
           <h2 style={{ 
             marginTop: '40px', 
             fontSize: '24px', 
@@ -1264,7 +1843,7 @@ export const ItemDetailPage = () => {
                     notification.style.animation = 'slideOut 0.3s ease-out';
                     setTimeout(() => document.body.removeChild(notification), 300);
                   }, 2000);
-                } catch (error) {
+                } catch {
                   alert('Không thể copy. Vui lòng thử lại.');
                 }
               }}
@@ -1320,7 +1899,7 @@ export const ItemDetailPage = () => {
                     notification.style.animation = 'slideOut 0.3s ease-out';
                     setTimeout(() => document.body.removeChild(notification), 300);
                   }, 2000);
-                } catch (error) {
+                } catch {
                   alert('Không thể copy. Vui lòng thử lại.');
                 }
               }}

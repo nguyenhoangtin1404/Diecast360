@@ -76,17 +76,17 @@ export class PublicService {
       this.prisma.item.count({ where }),
     ]);
 
-    const itemsWithMeta = items.map((item) => ({
+    const itemsWithMeta = items.map((item: any) => ({
       id: item.id,
       name: item.name,
       description: item.description,
       scale: item.scale,
       brand: item.brand,
-      car_brand: item.car_brand,
-      model_brand: item.model_brand,
-      condition: item.condition,
-      price: item.price != null ? item.price.toNumber() : null,
-      original_price: item.original_price != null ? item.original_price.toNumber() : null,
+      car_brand: item.car_brand || null,
+      model_brand: item.model_brand || null,
+      condition: item.condition || null,
+      price: item.price != null ? (typeof item.price.toNumber === 'function' ? item.price.toNumber() : Number(item.price)) : null,
+      original_price: item.original_price != null ? (typeof item.original_price.toNumber === 'function' ? item.original_price.toNumber() : Number(item.original_price)) : null,
       status: item.status,
       is_public: item.is_public,
       cover_image_url: item.item_images[0]
@@ -139,11 +139,13 @@ export class PublicService {
 
     const defaultSpinSet = spin_sets[0] || null;
 
+    const itemDataAny = itemData as any;
+
     return {
       item: {
         ...itemData,
-        price: itemData.price != null ? itemData.price.toNumber() : null,
-        original_price: itemData.original_price != null ? itemData.original_price.toNumber() : null,
+        price: itemDataAny.price != null ? (typeof itemDataAny.price.toNumber === 'function' ? itemDataAny.price.toNumber() : Number(itemDataAny.price)) : null,
+        original_price: itemDataAny.original_price != null ? (typeof itemDataAny.original_price.toNumber === 'function' ? itemDataAny.original_price.toNumber() : Number(itemDataAny.original_price)) : null,
       },
       images: item_images.map((img) => ({
         id: img.id,

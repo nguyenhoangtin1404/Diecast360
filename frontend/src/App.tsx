@@ -2,11 +2,13 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext.tsx';
 import { ProtectedRoute } from './components/admin/ProtectedRoute';
+import { Layout } from './components/Layout';
 import { LoginPage } from './pages/admin/LoginPage';
 import { ItemsPage } from './pages/admin/ItemsPage';
 import { ItemDetailPage } from './pages/admin/ItemDetailPage';
 import { PublicCatalogPage } from './pages/PublicCatalogPage';
 import { PublicItemDetailPage } from './pages/PublicItemDetailPage';
+import { ContactPage } from './pages/ContactPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,14 +25,17 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<PublicCatalogPage />} />
-            <Route path="/items/:id" element={<PublicItemDetailPage />} />
+            <Route path="/" element={<Layout><PublicCatalogPage /></Layout>} />
+            <Route path="/items/:id" element={<Layout><PublicItemDetailPage /></Layout>} />
+            <Route path="/contact" element={<Layout><ContactPage /></Layout>} />
             <Route path="/admin/login" element={<LoginPage />} />
             <Route
               path="/admin/items"
               element={
                 <ProtectedRoute>
-                  <ItemsPage />
+                  <Layout>
+                    <ItemsPage />
+                  </Layout>
                 </ProtectedRoute>
               }
             />
@@ -38,7 +43,9 @@ function App() {
               path="/admin/items/:id"
               element={
                 <ProtectedRoute>
-                  <ItemDetailPage />
+                  <Layout>
+                    <ItemDetailPage />
+                  </Layout>
                 </ProtectedRoute>
               }
             />
