@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { apiClient } from '../api/client';
 import { Spinner360 } from '../components/Spinner360/Spinner360';
 import { ArrowLeft, X, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -43,7 +43,7 @@ export const PublicItemDetailPage = () => {
 
   // Response structure: {item, images, spinner} (already unwrapped by apiClient)
   const { item, images: imagesData, spinner } = data || {};
-  const images = (imagesData || []) as ItemImage[];
+  const images = useMemo(() => (imagesData || []) as ItemImage[], [imagesData]);
 
   // Keyboard navigation for lightbox - must be called before any early returns
   useEffect(() => {
