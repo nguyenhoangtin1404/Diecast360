@@ -5,6 +5,19 @@ import { apiClient } from '../api/client';
 import { Spinner360 } from '../components/Spinner360/Spinner360';
 import { ArrowLeft, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
+interface SpinFrame {
+  id: string;
+  frame_index: number;
+  image_url: string;
+  thumbnail_url?: string | null;
+}
+
+interface ItemImage {
+  id: string;
+  url: string;
+  thumbnail_url?: string | null;
+}
+
 export const PublicItemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -19,7 +32,6 @@ export const PublicItemDetailPage = () => {
         // apiClient interceptor returns response.data, so response = {ok: true, data: {item, images, spinner}, message: ''}
         // We need to return response.data which is {item, images, spinner}
         const result = response.data || response;
-        console.log('[PublicItemDetailPage] Response:', result);
         return result;
       } catch (err) {
         console.error('[PublicItemDetailPage] Error fetching item:', err);
@@ -29,38 +41,13 @@ export const PublicItemDetailPage = () => {
     enabled: !!id,
   });
 
-  if (isLoading) return <div style={{ padding: '40px', textAlign: 'center' }}>Đang tải...</div>;
-  if (error) {
-    console.error('Error loading item:', error);
-    return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <h2>Không tìm thấy sản phẩm</h2>
-        <p style={{ color: '#666', marginTop: '8px' }}>
-          Sản phẩm không tồn tại hoặc không được công khai.
-        </p>
-      </div>
-    );
-  }
-
   // Response structure: {item, images, spinner} (already unwrapped by apiClient)
-  const { item, images, spinner } = data || {};
+  const { item, images: imagesData, spinner } = data || {};
+  const images = (imagesData || []) as ItemImage[];
 
-  if (!item) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <h2>Không tìm thấy sản phẩm</h2>
-        <p style={{ color: '#666', marginTop: '8px' }}>
-          Sản phẩm không tồn tại hoặc không được công khai.
-        </p>
-      </div>
-    );
-  }
-
-  const hasSpinner = spinner && spinner.frames && spinner.frames.length > 0;
-
-  // Keyboard navigation for lightbox
+  // Keyboard navigation for lightbox - must be called before any early returns
   useEffect(() => {
-    if (!lightboxOpen || !images || images.length === 0) return;
+    if (!lightboxOpen || images.length === 0) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -75,6 +62,32 @@ export const PublicItemDetailPage = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [lightboxOpen, images]);
+
+  if (isLoading) return <div style={{ padding: '40px', textAlign: 'center' }}>Đang tải...</div>;
+  if (error) {
+    console.error('Error loading item:', error);
+    return (
+      <div style={{ padding: '40px', textAlign: 'center' }}>
+        <h2>Không tìm thấy sản phẩm</h2>
+        <p style={{ color: '#666', marginTop: '8px' }}>
+          Sản phẩm không tồn tại hoặc không được công khai.
+        </p>
+      </div>
+    );
+  }
+
+  if (!item) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center' }}>
+        <h2>Không tìm thấy sản phẩm</h2>
+        <p style={{ color: '#666', marginTop: '8px' }}>
+          Sản phẩm không tồn tại hoặc không được công khai.
+        </p>
+      </div>
+    );
+  }
+
+  const hasSpinner = spinner && spinner.frames && spinner.frames.length > 0;
 
   return (
     <div style={{ padding: '40px 20px', maxWidth: '1200px', margin: '0 auto' }}>
@@ -323,7 +336,7 @@ export const PublicItemDetailPage = () => {
                 borderRadius: '12px',
               }}>
                 <Spinner360
-                  frames={spinner.frames.map((f: any) => ({
+                  frames={spinner.frames.map((f: SpinFrame) => ({
                     id: f.id,
                     image_url: f.image_url,
                     thumbnail_url: f.thumbnail_url ?? undefined,
@@ -357,7 +370,7 @@ export const PublicItemDetailPage = () => {
                 gridTemplateColumns: 'repeat(2, 1fr)', 
                 gap: '12px' 
               }}>
-                {images.slice(0, 4).map((img: any) => (
+                {images.slice(0, 4).map((img) => (
                   <div key={img.id} style={{
                     borderRadius: '12px',
                     overflow: 'hidden',
@@ -410,7 +423,7 @@ export const PublicItemDetailPage = () => {
             gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', 
             gap: '16px' 
           }}>
-            {images.map((img: any, index: number) => (
+            {images.map((img, index) => (
               <div 
                 key={img.id} 
                 style={{
@@ -610,4 +623,3 @@ export const PublicItemDetailPage = () => {
     </div>
   );
 };
-
