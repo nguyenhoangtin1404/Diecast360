@@ -48,7 +48,7 @@ export const ContactPage = () => {
             e.currentTarget.style.transform = 'translateY(0)';
             e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
           }}
-          onClick={() => window.location.href = 'tel:+84123456789'}>
+          onClick={() => window.location.href = 'tel:+84856694766'}>
             <div style={{
               width: '64px',
               height: '64px',
@@ -71,7 +71,7 @@ export const ContactPage = () => {
               Điện thoại
             </h3>
             <a
-              href="tel:+84123456789"
+              href="tel:+84856694766"
               style={{
                 fontSize: '18px',
                 color: '#007bff',
@@ -86,7 +86,7 @@ export const ContactPage = () => {
                 e.currentTarget.style.textDecoration = 'none';
               }}
             >
-              0123 456 789
+              0856694766
             </a>
             <p style={{
               fontSize: '14px',
@@ -115,7 +115,7 @@ export const ContactPage = () => {
             e.currentTarget.style.transform = 'translateY(0)';
             e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
           }}
-          onClick={() => window.open('https://www.facebook.com/diecast360', '_blank')}>
+          onClick={() => window.open('https://www.facebook.com/tinnh.pyn/', '_blank')}>
             <div style={{
               width: '64px',
               height: '64px',
@@ -138,7 +138,7 @@ export const ContactPage = () => {
               Facebook
             </h3>
             <a
-              href="https://www.facebook.com/diecast360"
+              href="https://www.facebook.com/tinnh.pyn/"
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -155,7 +155,7 @@ export const ContactPage = () => {
                 e.currentTarget.style.textDecoration = 'none';
               }}
             >
-              facebook.com/diecast360
+              facebook.com/tinnh.pyn/
             </a>
             <p style={{
               fontSize: '14px',
@@ -184,7 +184,7 @@ export const ContactPage = () => {
             e.currentTarget.style.transform = 'translateY(0)';
             e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
           }}
-          onClick={() => window.open('https://zalo.me/0123456789', '_blank')}>
+          onClick={() => window.open('https://zalo.me/0856694766', '_blank')}>
             <div style={{
               width: '64px',
               height: '64px',
@@ -207,7 +207,7 @@ export const ContactPage = () => {
               Zalo
             </h3>
             <a
-              href="https://zalo.me/0123456789"
+              href="https://zalo.me/0856694766"
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -224,7 +224,7 @@ export const ContactPage = () => {
                 e.currentTarget.style.textDecoration = 'none';
               }}
             >
-              0123 456 789
+              0856694766
             </a>
             <p style={{
               fontSize: '14px',
