@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-interface CatalogItemProps {
+interface ItemCardProps {
   item: {
     id: string;
     name: string;
@@ -14,7 +14,7 @@ interface CatalogItemProps {
   index: number;
 }
 
-export const CatalogItem = ({ item, index }: CatalogItemProps) => {
+export const ItemCard = ({ item, index }: ItemCardProps) => {
   const statusText =
     item.status === 'con_hang' ? 'Còn hàng' : item.status === 'giu_cho' ? 'Giữ chỗ' : 'Đã bán';
 
@@ -33,7 +33,7 @@ export const CatalogItem = ({ item, index }: CatalogItemProps) => {
   };
 
   const hasDiscount = item.original_price && item.price && item.original_price > item.price;
-  const discountPercent = hasDiscount ? calculateDiscount(item.original_price, item.price) : 0;
+  const discountPercent = hasDiscount ? calculateDiscount(item.original_price!, item.price!) : 0;
 
   return (
     <Link
@@ -91,3 +91,5 @@ export const CatalogItem = ({ item, index }: CatalogItemProps) => {
   );
 };
 
+// Backward compatibility alias
+export const CatalogItem = ItemCard;

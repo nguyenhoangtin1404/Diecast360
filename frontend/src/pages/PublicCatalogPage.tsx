@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
-import { CatalogItem } from '../components/catalog/CatalogItem';
+import { ItemCard } from '../components/catalog/ItemCard';
 import { CatalogFilters } from '../components/catalog/CatalogFilters';
 import { CatalogSort } from '../components/catalog/CatalogSort';
 import { InfiniteScrollTrigger } from '../components/catalog/InfiniteScrollTrigger';
@@ -118,7 +118,7 @@ export const PublicCatalogPage = () => {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
               {items.map((item: any, index: number) => (
-                <CatalogItem key={item.id} item={item} index={index} />
+                <ItemCard key={item.id} item={item} index={index} />
               ))}
             </div>
 
