@@ -11,7 +11,7 @@
 - Auth: JWT access + refresh, lưu refresh token để revoke; chỉ admin truy cập route quản trị.
 
 ## Tech stack (đã chốt)
-- Backend: Node.js (NestJS), Prisma ORM, PostgreSQL, JWT, Sharp, lưu file local (dev/demo) qua abstraction Storage.
+- Backend: Node.js (NestJS), Prisma ORM, **SQLite (mặc định) / PostgreSQL**, JWT, Sharp, lưu file local (dev/demo) qua abstraction Storage.
 - Frontend: React + Vite, React Router, TanStack Query.
 - JSON: snake_case, base path `/api/v1`, envelope chuẩn `{ok,data,message}` / `{ok,error,message}`.
 
@@ -19,10 +19,11 @@
 
 ### Yêu cầu
 - Node.js >= 20.17.0
-- PostgreSQL
 - npm hoặc yarn
+- (Tùy chọn) PostgreSQL - chỉ cần nếu không dùng SQLite
 
 ### Backend Setup
+
 1. Vào thư mục backend:
    ```bash
    cd backend
@@ -37,7 +38,16 @@
    ```bash
    cp .env.example .env
    ```
-   Chỉnh sửa `.env` với thông tin database của bạn.
+   
+   **SQLite (Mặc định - Khuyến nghị cho Raspberry Pi, demo):**
+   ```env
+   DATABASE_URL=file:./dev.db
+   ```
+   
+   **PostgreSQL (Production):**
+   ```env
+   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/diecast360
+   ```
 
 4. Generate Prisma client và chạy migration:
    ```bash
@@ -50,7 +60,12 @@
    mkdir uploads
    ```
 
-6. Khởi động server:
+6. Tạo tài khoản admin:
+   ```bash
+   npm run create:admin:quick
+   ```
+
+7. Khởi động server:
    ```bash
    npm run start:dev
    ```
@@ -77,6 +92,19 @@
    npm run dev
    ```
    Frontend chạy tại `http://localhost:5173`
+
+## Lựa chọn Database
+
+| Tính năng | SQLite (Mặc định) | PostgreSQL |
+|-----------|-------------------|------------|
+| RAM sử dụng | ~0MB (embedded) | ~200-400MB |
+| Cài đặt | Không cần | Cần cài PostgreSQL |
+| Concurrent writes | Hạn chế | Tốt |
+| Phù hợp | Raspberry Pi, demo, 1-10 users | Production, nhiều users |
+
+**Khuyến nghị:**
+- Dùng SQLite cho môi trường RAM thấp (Raspberry Pi 4 với 2GB RAM)
+- Dùng PostgreSQL cho production với nhiều người dùng
 
 ## Kiến trúc & tài liệu
 - Domain: `docs/DOMAIN.md`

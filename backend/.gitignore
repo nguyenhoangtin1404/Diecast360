@@ -41,5 +41,9 @@ lerna-debug.log*
 # Prisma
 /src/generated
 
+# SQLite Database
+*.db
+*.db-journal
+
 # Uploads
 /uploads

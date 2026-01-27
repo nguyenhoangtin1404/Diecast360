@@ -1,8 +1,17 @@
 # Architecture – Diecast360
 
 ## Tổng quan
-- Full-stack: Backend (Node.js/NestJS theo docs không phụ thuộc framework), DB PostgreSQL + Prisma ORM, Frontend React + Vite + TanStack Query.
+- Full-stack: Backend (Node.js/NestJS theo docs không phụ thuộc framework), DB SQLite (mặc định) hoặc PostgreSQL + Prisma ORM, Frontend React + Vite + TanStack Query.
 - Mục tiêu: quản lý kho diecast, public catalog, viewer spinner 360° và công cụ hỗ trợ bán Facebook.
+
+## Lựa chọn Database
+
+| Database | RAM | Phù hợp cho |
+|----------|-----|-------------|
+| **SQLite** (mặc định) | ~0MB | Raspberry Pi, demo, 1-10 users |
+| **PostgreSQL** | ~200-400MB | Production, nhiều users |
+
+Prisma ORM hỗ trợ cả hai; chỉ cần thay `DATABASE_URL` và chạy lại migration.
 
 ## Backend
 - Layering: **Controller/Route → Service → Repository (Prisma) → DB**. Không bỏ qua layer.
@@ -38,5 +47,11 @@
 
 ## Triển khai & môi trường
 - Env đọc từ `.env`/`docs/ENV.md`; không hardcode secret.
+- Database mặc định SQLite (file:./dev.db), phù hợp cho Raspberry Pi và môi trường RAM thấp.
 - Mặc định lưu file local tại `UPLOAD_DIR` (cần mount volume nếu docker). Khi chuyển S3, chỉ thay Storage implementation.
 - Logging: request id + error log (không trả về client). CORS bật cho frontend origin.
+
+## Tối ưu cho Low-Memory (Raspberry Pi)
+- Sử dụng SQLite thay PostgreSQL (tiết kiệm ~200-400MB RAM)
+- Config Sharp: `cache(false)`, `concurrency(1)` để tránh OOM khi xử lý ảnh
+- Giới hạn Node.js memory: `NODE_OPTIONS="--max-old-space-size=512"`
