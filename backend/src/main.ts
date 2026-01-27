@@ -5,6 +5,13 @@ import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/exceptions/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { join } from 'path';
+import * as sharp from 'sharp';
+
+// Sharp memory optimization - prevents OOM on low RAM environments
+// Must be called BEFORE any Sharp operations
+sharp.cache(false); // Disable Sharp's internal cache to reduce memory usage
+sharp.concurrency(1); // Process images sequentially to limit concurrent memory usage
+sharp.simd(false); // Disable SIMD to reduce memory footprint (slight performance trade-off)
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
