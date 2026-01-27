@@ -16,6 +16,7 @@
     "prisma:studio": "prisma studio",
     "create:admin": "ts-node scripts/create-admin.ts",
     "create:admin:quick": "ts-node scripts/create-admin-quick.ts",
+    "reset:admin:password": "ts-node scripts/reset-admin-password.ts",
     "list:users": "ts-node scripts/list-users.ts"
   },
   "keywords": [
