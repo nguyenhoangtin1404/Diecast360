@@ -10,6 +10,7 @@ import { ImageProcessorModule } from './image-processor/image-processor.module';
 import { StorageModule } from './storage/storage.module';
 import { SpinnerModule } from './spinner/spinner.module';
 import { PublicModule } from './public/public.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { PublicModule } from './public/public.module';
     StorageModule,
     SpinnerModule,
     PublicModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import axios from 'axios';
-import { ArrowLeft, Edit, Plus, X, Star } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, X, Star, Sparkles } from 'lucide-react';
 import { Spinner360 } from '../../components/Spinner360/Spinner360';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
@@ -81,6 +81,14 @@ interface ItemResponse {
   };
 }
 
+interface AiDescriptionResponse {
+  short_description: string;
+  long_description: string;
+  bullet_specs: string[];
+  meta_title: string;
+  meta_description: string;
+}
+
 export const ItemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -104,6 +112,12 @@ export const ItemDetailPage = () => {
   const [newSpinSetIsDefault, setNewSpinSetIsDefault] = useState(false);
   const [showCreateSpinSet, setShowCreateSpinSet] = useState(false);
   const [uploadingFrames, setUploadingFrames] = useState(false);
+  
+  // AI Description states
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [aiDescription, setAiDescription] = useState<AiDescriptionResponse | null>(null);
+  const [showAiPreview, setShowAiPreview] = useState(false);
+  const [aiPreviewTab, setAiPreviewTab] = useState<'short' | 'long' | 'bullets' | 'seo'>('short');
 
   const { data, isLoading } = useQuery({
     queryKey: ['item', id],
@@ -450,6 +464,37 @@ export const ItemDetailPage = () => {
     reorderFramesMutation.mutate({ spinSetId, frameIds });
   };
 
+  // AI Description generation handler
+  const handleGenerateAiDescription = async () => {
+    if (!id || id === 'new') {
+      alert('Vui lòng lưu sản phẩm trước khi tạo mô tả AI.');
+      return;
+    }
+    
+    setIsGeneratingAi(true);
+    try {
+      const response = await apiClient.post(`/items/${id}/ai-description`, {});
+      const result = response.data || response;
+      setAiDescription(result);
+      setShowAiPreview(true);
+      setAiPreviewTab('short');
+    } catch (error) {
+      console.error('Error generating AI description:', error);
+      alert('Có lỗi khi tạo mô tả AI. Vui lòng thử lại.');
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
+
+  // Accept AI generated description
+  const handleAcceptAiDescription = () => {
+    if (aiDescription) {
+      setDescription(aiDescription.long_description);
+      setShowAiPreview(false);
+      setAiDescription(null);
+    }
+  };
+
   if (isLoading && id !== 'new') return <div style={{ padding: '20px' }}>Đang tải...</div>;
 
   const item = data?.item;
@@ -582,9 +627,35 @@ export const ItemDetailPage = () => {
           />
         </div>
         <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
-            Mô tả
-          </label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+              Mô tả
+            </label>
+            {id && id !== 'new' && (
+              <button
+                type="button"
+                onClick={handleGenerateAiDescription}
+                disabled={isGeneratingAi}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  background: isGeneratingAi ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  cursor: isGeneratingAi ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <Sparkles size={14} />
+                {isGeneratingAi ? 'Đang tạo...' : 'Tạo mô tả AI'}
+              </button>
+            )}
+          </div>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -1929,6 +2000,205 @@ export const ItemDetailPage = () => {
         </div>
       )}
     </div>
+
+      {/* AI Description Preview Modal */}
+      {showAiPreview && aiDescription && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            width: '90%',
+            maxWidth: '700px',
+            maxHeight: '80vh',
+            overflow: 'hidden',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid #eee',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Sparkles size={24} color="#667eea" />
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>AI Generated Content</h3>
+              </div>
+              <button
+                onClick={() => { setShowAiPreview(false); setAiDescription(null); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                }}
+              >
+                <X size={24} color="#666" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div style={{
+              display: 'flex',
+              borderBottom: '1px solid #eee',
+              background: '#f8f9fa',
+            }}>
+              {(['short', 'long', 'bullets', 'seo'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setAiPreviewTab(tab)}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    border: 'none',
+                    background: aiPreviewTab === tab ? 'white' : 'transparent',
+                    borderBottom: aiPreviewTab === tab ? '2px solid #667eea' : '2px solid transparent',
+                    color: aiPreviewTab === tab ? '#667eea' : '#666',
+                    fontWeight: aiPreviewTab === tab ? '600' : '400',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                  }}
+                >
+                  {tab === 'short' && 'Mô tả ngắn'}
+                  {tab === 'long' && 'Mô tả chi tiết'}
+                  {tab === 'bullets' && 'Bullet specs'}
+                  {tab === 'seo' && 'SEO Meta'}
+                </button>
+              ))}
+            </div>
+
+            {/* Content */}
+            <div style={{
+              padding: '24px',
+              maxHeight: '400px',
+              overflow: 'auto',
+            }}>
+              {aiPreviewTab === 'short' && (
+                <div>
+                  <p style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>Mô tả ngắn cho Facebook post (50-80 từ):</p>
+                  <div style={{
+                    padding: '16px',
+                    background: '#f8f9fa',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                  }}>
+                    {aiDescription.short_description}
+                  </div>
+                </div>
+              )}
+              {aiPreviewTab === 'long' && (
+                <div>
+                  <p style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>Mô tả chi tiết cho website (150-200 từ):</p>
+                  <div style={{
+                    padding: '16px',
+                    background: '#f8f9fa',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                  }}>
+                    {aiDescription.long_description}
+                  </div>
+                </div>
+              )}
+              {aiPreviewTab === 'bullets' && (
+                <div>
+                  <p style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>Bullet specs (5-7 điểm):</p>
+                  <ul style={{
+                    padding: '16px 16px 16px 32px',
+                    background: '#f8f9fa',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    lineHeight: '1.8',
+                    margin: 0,
+                  }}>
+                    {aiDescription.bullet_specs.map((spec, idx) => (
+                      <li key={idx}>{spec}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {aiPreviewTab === 'seo' && (
+                <div>
+                  <div style={{ marginBottom: '16px' }}>
+                    <p style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>Meta Title (max 60 ký tự):</p>
+                    <div style={{
+                      padding: '12px 16px',
+                      background: '#f8f9fa',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                    }}>
+                      {aiDescription.meta_title}
+                    </div>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>Meta Description (max 155 ký tự):</p>
+                    <div style={{
+                      padding: '12px 16px',
+                      background: '#f8f9fa',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                    }}>
+                      {aiDescription.meta_description}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid #eee',
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end',
+            }}>
+              <button
+                onClick={() => { setShowAiPreview(false); setAiDescription(null); }}
+                style={{
+                  padding: '10px 20px',
+                  background: '#f8f9fa',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleAcceptAiDescription}
+                style={{
+                  padding: '10px 20px',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                }}
+              >
+                Áp dụng mô tả chi tiết
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
