@@ -12,12 +12,12 @@ import { PrismaModule } from '../common/prisma/prisma.module';
   imports: [
     PrismaModule,
     PassportModule,
+    ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {
         const secret = configService.get<string>('JWT_SECRET') || 'super-secret';
         const expiresIn = (configService.get<string>('JWT_EXPIRES_IN') || '15m') as StringValue;
-        console.log('[AuthModule] JWT Config:', { secret: secret.substring(0, 10) + '...', expiresIn });
         return {
           secret,
           signOptions: { expiresIn },

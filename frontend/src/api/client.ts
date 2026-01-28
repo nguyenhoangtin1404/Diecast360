@@ -7,19 +7,12 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,
+  withCredentials: true, // CRITICAL: This enables sending/receiving cookies
 });
 
-// Request interceptor để thêm token
+// Request interceptor - Cookies are automatically sent with withCredentials: true
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-      console.log('[API Client] Token added to request:', config.url, token.substring(0, 20) + '...');
-    } else {
-      console.warn('[API Client] No access token found in localStorage for request:', config.url);
-    }
     return config;
   },
   (error) => {
@@ -27,43 +20,46 @@ apiClient.interceptors.request.use(
   },
 );
 
-// Response interceptor để handle errors và refresh token
+// Response interceptor to handle errors and automatic token refresh
 apiClient.interceptors.response.use(
   (response) => {
-    // Backend trả về {ok: true, data: {...}, message: ''}
-    // Axios response.data = {ok: true, data: {...}, message: ''}
-    // Trả về response.data để unwrap
+    // Backend returns {ok: true, data: {...}, message: ''}
+    // Unwrap response.data for convenience
     return response.data;
   },
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Skip refresh attempt for auth endpoints to avoid loops
+    const isAuthEndpoint = originalRequest.url?.includes('/auth/');
+    
+    // Handle 401 Unauthorized - attempt token refresh
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (refreshToken) {
-          // Dùng axios trực tiếp để tránh interceptor loop, response sẽ là full axios response
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-            refresh_token: refreshToken,
-          });
+        // Attempt to refresh the token using cookie-based refresh
+        // The refresh_token cookie will be sent automatically
+        const refreshResponse = await axios.post(`${API_BASE_URL}/auth/refresh`, {}, {
+          withCredentials: true,
+        });
 
-          // Backend trả về {ok: true, data: {access_token, refresh_token}, message: ''}
-          const responseData = response.data.data || response.data;
-          const { access_token, refresh_token: newRefreshToken } = responseData;
-          localStorage.setItem('access_token', access_token);
-          if (newRefreshToken) {
-            localStorage.setItem('refresh_token', newRefreshToken);
-          }
-
-          originalRequest.headers.Authorization = `Bearer ${access_token}`;
+        // Check if refresh was successful
+        if (refreshResponse.status === 200) {
+          // Retry the original request - new access_token cookie will be sent automatically
           return apiClient(originalRequest);
         }
       } catch (refreshError) {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        window.location.href = '/admin/login';
+        // Refresh failed - only redirect if user is trying to access protected page
+        // Don't redirect if:
+        // 1. Already on login page
+        // 2. On public pages (catalog, etc.)
+        const isProtectedPage = window.location.pathname.startsWith('/admin') && 
+                                !window.location.pathname.includes('/login');
+        
+        if (isProtectedPage) {
+          window.location.href = '/admin/login';
+        }
         return Promise.reject(refreshError);
       }
     }
@@ -71,4 +67,3 @@ apiClient.interceptors.response.use(
     return Promise.reject(error.response?.data || error);
   },
 );
-

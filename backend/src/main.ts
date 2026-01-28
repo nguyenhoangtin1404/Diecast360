@@ -6,6 +6,7 @@ import { AllExceptionsFilter } from './common/exceptions/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { join } from 'path';
 import * as sharp from 'sharp';
+import * as cookieParser from 'cookie-parser';
 
 // Sharp memory optimization - prevents OOM on low RAM environments
 // Must be called BEFORE any Sharp operations
@@ -15,6 +16,10 @@ sharp.simd(false); // Disable SIMD to reduce memory footprint (slight performanc
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  
+  // Cookie parser middleware - enables reading cookies from requests
+  const cookieSecret = process.env.COOKIE_SECRET || 'diecast360-cookie-secret';
+  app.use(cookieParser(cookieSecret));
   
   // Serve static files from uploads directory
   const uploadDir = process.env.UPLOAD_DIR || './uploads';
