@@ -1,5 +1,6 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Home, ShoppingBag, Phone, LogIn } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Home, ShoppingBag, Phone, LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -7,7 +8,14 @@ interface LayoutProps {
 
 export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const isAdmin = location.pathname.startsWith('/admin');
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/admin/login');
+  };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -194,6 +202,48 @@ export const Layout = ({ children }: LayoutProps) => {
                   <Home size={18} />
                   <span>Về trang chủ</span>
                 </Link>
+              </>
+            )}
+
+            {user && (
+              <>
+                <div style={{ width: '1px', height: '24px', backgroundColor: 'rgba(255,255,255,0.2)', margin: '0 4px' }} />
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  padding: '0 8px',
+                }}>
+                  <UserIcon size={18} />
+                  <span>{user.full_name || user.email}</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    padding: '8px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: '#ff8a8a',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 138, 138, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                  title="Đăng xuất"
+                >
+                  <LogOut size={18} />
+                </button>
               </>
             )}
           </nav>
