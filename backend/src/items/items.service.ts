@@ -190,6 +190,7 @@ export class ItemsService {
     }
     if (updateDto.status !== undefined) updateData.status = updateDto.status as any;
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
+    if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
 
     const item = await this.prisma.item.update({
       where: { id },

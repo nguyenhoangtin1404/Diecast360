@@ -49,5 +49,9 @@ export class UpdateItemDto {
   @IsOptional()
   @IsBoolean()
   is_public?: boolean;
+
+  @IsOptional()
+  @IsString()
+  fb_post_content?: string;
 }
 

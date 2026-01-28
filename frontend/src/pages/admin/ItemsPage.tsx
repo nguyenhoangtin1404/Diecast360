@@ -11,6 +11,7 @@ interface Item {
   is_public: boolean;
   cover_image_url?: string | null;
   price?: number | null;
+  fb_post_content?: string | null;
 }
 
 interface Pagination {
@@ -322,12 +323,12 @@ export const ItemsPage = () => {
               <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'center' }}>
                 <button
                   onClick={async () => {
+                    if (!item.fb_post_content) {
+                        alert('Sản phẩm chưa có nội dung sale!');
+                        return;
+                    }
                     try {
-                      // TODO: AI Generate sale content và copy to clipboard
-                      // Tạm thời tạo nội dung mẫu để copy
-                      const saleContent = `${item.name}\n\nGiá: ${item.price ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price) : 'Liên hệ'}\n\nTrạng thái: ${item.status === 'con_hang' ? 'Còn hàng' : item.status === 'giu_cho' ? 'Giữ chỗ' : 'Đã bán'}\n\n#diecast #modelcar`;
-                      
-                      await navigator.clipboard.writeText(saleContent);
+                      await navigator.clipboard.writeText(item.fb_post_content);
                       
                       // Hiển thị thông báo
                       const notification = document.createElement('div');
@@ -360,7 +361,9 @@ export const ItemsPage = () => {
                       setTimeout(() => {
                         notification.style.animation = 'slideOut 0.3s ease-out';
                         setTimeout(() => {
-                          document.body.removeChild(notification);
+                          if (document.body.contains(notification)) {
+                            document.body.removeChild(notification);
+                          }
                         }, 300);
                       }, 2000);
                     } catch (error) {
@@ -368,11 +371,12 @@ export const ItemsPage = () => {
                       alert('Không thể copy. Vui lòng thử lại.');
                     }
                   }}
-                  title="Copy nội dung sale để đăng Facebook"
+                  disabled={!item.fb_post_content}
+                  title={item.fb_post_content ? "Copy nội dung sale để đăng Facebook" : "Chưa có nội dung sale"}
                   style={{
                     background: 'none',
-                    border: '1px solid #007bff',
-                    cursor: 'pointer',
+                    border: item.fb_post_content ? '1px solid #007bff' : '1px solid #ccc',
+                    cursor: item.fb_post_content ? 'pointer' : 'not-allowed',
                     padding: '6px 12px',
                     borderRadius: '6px',
                     display: 'flex',
@@ -380,17 +384,21 @@ export const ItemsPage = () => {
                     justifyContent: 'center',
                     gap: '6px',
                     transition: 'all 0.2s',
-                    color: '#007bff',
+                    color: item.fb_post_content ? '#007bff' : '#ccc',
                     fontSize: '13px',
                     fontWeight: '500',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#007bff';
-                    e.currentTarget.style.color = 'white';
+                    if (item.fb_post_content) {
+                      e.currentTarget.style.background = '#007bff';
+                      e.currentTarget.style.color = 'white';
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'none';
-                    e.currentTarget.style.color = '#007bff';
+                    if (item.fb_post_content) {
+                      e.currentTarget.style.background = 'none';
+                      e.currentTarget.style.color = '#007bff';
+                    }
                   }}
                 >
                   <Copy size={16} />

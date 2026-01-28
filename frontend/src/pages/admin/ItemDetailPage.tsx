@@ -119,6 +119,11 @@ export const ItemDetailPage = () => {
   const [showAiPreview, setShowAiPreview] = useState(false);
   const [aiPreviewTab, setAiPreviewTab] = useState<'short' | 'long' | 'bullets' | 'seo'>('short');
 
+  // FB Post AI states
+  const [fbPostContent, setFbPostContent] = useState('');
+  const [fbPostInstructions, setFbPostInstructions] = useState('');
+  const [isGeneratingFbPost, setIsGeneratingFbPost] = useState(false);
+
   const { data, isLoading } = useQuery({
     queryKey: ['item', id],
     queryFn: async () => {
@@ -147,6 +152,7 @@ export const ItemDetailPage = () => {
       setOriginalPrice(item.original_price ? item.original_price.toString() : '');
       setScale(item.scale || '1:64');
       setBrand(item.brand || '');
+      setFbPostContent(item.fb_post_content || '');
     }
     
     // Set selected spin set to default if available
@@ -474,7 +480,12 @@ export const ItemDetailPage = () => {
     setIsGeneratingAi(true);
     try {
       const response = await apiClient.post(`/items/${id}/ai-description`, {});
-      const result = response.data || response;
+      // API returns { ok: true, data: { ... } }
+      // Axios returns { data: { ok: true, data: { ... } } }
+      const result = response.data?.data; 
+      
+      if (!result) throw new Error('No data received');
+      
       setAiDescription(result);
       setShowAiPreview(true);
       setAiPreviewTab('short');
@@ -489,9 +500,38 @@ export const ItemDetailPage = () => {
   // Accept AI generated description
   const handleAcceptAiDescription = () => {
     if (aiDescription) {
-      setDescription(aiDescription.long_description);
+      const newDescription = aiDescription.long_description;
+      setDescription(newDescription);
       setShowAiPreview(false);
       setAiDescription(null);
+
+      // Auto save
+      const itemData: ItemData = {
+        name,
+        description: newDescription,
+        status: status as 'con_hang' | 'giu_cho' | 'da_ban',
+        is_public: isPublic,
+      };
+      
+      if (carBrand) itemData.car_brand = carBrand;
+      if (modelBrand) itemData.model_brand = modelBrand;
+      if (condition) itemData.condition = condition as 'new' | 'old';
+      if (scale) itemData.scale = scale;
+      if (brand) itemData.brand = brand;
+      if (price) {
+        const priceNum = parseFloat(price);
+        if (!isNaN(priceNum) && priceNum >= 0) {
+          itemData.price = priceNum;
+        }
+      }
+      if (originalPrice) {
+        const originalPriceNum = parseFloat(originalPrice);
+        if (!isNaN(originalPriceNum) && originalPriceNum >= 0) {
+          itemData.original_price = originalPriceNum;
+        }
+      }
+      
+      saveMutation.mutate(itemData);
     }
   };
 
@@ -1883,15 +1923,110 @@ export const ItemDetailPage = () => {
             paddingBottom: '12px',
             borderBottom: '2px solid #f0f0f0',
           }}>Social Selling</h2>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          
+          {/* Custom Instructions Input */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '8px', 
+              fontSize: '14px', 
+              fontWeight: '500',
+              color: '#333',
+            }}>
+              Yêu cầu bổ sung (tùy chọn):
+            </label>
+            <input
+              type="text"
+              value={fbPostInstructions}
+              onChange={(e) => setFbPostInstructions(e.target.value)}
+              placeholder="VD: Thêm hashtag trending, nhấn mạnh giá sale..."
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                fontSize: '14px',
+              }}
+            />
+          </div>
+
+          {/* Generate Button */}
           <button
+            onClick={async () => {
+              setIsGeneratingFbPost(true);
+              try {
+                const response = await apiClient.post(`/items/${id}/fb-post`, {
+                  custom_instructions: fbPostInstructions || undefined
+                });
+                setFbPostContent(response.data?.data?.content || '');
+              } catch (error) {
+                console.error('Error generating FB post:', error);
+                alert('Có lỗi khi tạo bài FB. Vui lòng thử lại.');
+              } finally {
+                setIsGeneratingFbPost(false);
+              }
+            }}
+            disabled={isGeneratingFbPost}
+            style={{
+              padding: '12px 24px',
+              background: isGeneratingFbPost ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: isGeneratingFbPost ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '16px',
+            }}
+          >
+            <Sparkles size={18} />
+            {isGeneratingFbPost ? 'Đang tạo...' : 'Tạo bài FB bằng AI'}
+          </button>
+
+          {/* FB Post Content Textarea */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '8px', 
+              fontSize: '14px', 
+              fontWeight: '500',
+              color: '#333',
+            }}>
+              Nội dung bài đăng:
+            </label>
+            <textarea
+              value={fbPostContent}
+              onChange={(e) => setFbPostContent(e.target.value)}
+              placeholder="Nội dung bài FB sẽ hiển thị ở đây sau khi AI tạo. Bạn có thể chỉnh sửa trực tiếp..."
+              style={{
+                width: '100%',
+                minHeight: '200px',
+                padding: '14px',
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                fontSize: '14px',
+                lineHeight: '1.6',
+                resize: 'vertical',
+                fontFamily: 'inherit',
+              }}
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <button
               onClick={async () => {
+                if (!fbPostContent) {
+                  alert('Chưa có nội dung để copy!');
+                  return;
+                }
                 try {
-              const caption = `${item.name} - ${item.status === 'con_hang' ? 'Còn hàng' : item.status === 'giu_cho' ? 'Giữ chỗ' : 'Đã bán'}`;
-                  await navigator.clipboard.writeText(caption);
-                  
+                  await navigator.clipboard.writeText(fbPostContent);
                   const notification = document.createElement('div');
-                  notification.textContent = 'Đã copy caption!';
+                  notification.textContent = 'Đã copy nội dung!';
                   notification.style.cssText = `
                     position: fixed;
                     top: 20px;
@@ -1899,18 +2034,14 @@ export const ItemDetailPage = () => {
                     background: #28a745;
                     color: white;
                     padding: 12px 20px;
-                    borderRadius: 8px;
-                    boxShadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                    zIndex: 10000;
-                    fontSize: 14px;
-                    fontWeight: 500;
-                    animation: slideIn 0.3s ease-out;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                    z-index: 10000;
+                    font-size: 14px;
+                    font-weight: 500;
                   `;
                   document.body.appendChild(notification);
-                  setTimeout(() => {
-                    notification.style.animation = 'slideOut 0.3s ease-out';
-                    setTimeout(() => document.body.removeChild(notification), 300);
-                  }, 2000);
+                  setTimeout(() => document.body.removeChild(notification), 2000);
                 } catch {
                   alert('Không thể copy. Vui lòng thử lại.');
                 }
@@ -1924,28 +2055,15 @@ export const ItemDetailPage = () => {
                 fontSize: '14px',
                 fontWeight: '500',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
-                boxShadow: '0 2px 4px rgba(0, 123, 255, 0.2)',
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#0056b3';
-                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 123, 255, 0.3)';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#007bff';
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 123, 255, 0.2)';
-                e.currentTarget.style.transform = 'translateY(0)';
-            }}
-          >
-            Copy Caption
-          </button>
-          <button
+            >
+              📋 Copy nội dung
+            </button>
+            <button
               onClick={async () => {
                 try {
-              const link = `${window.location.origin}/items/${id}`;
+                  const link = `${window.location.origin}/items/${id}`;
                   await navigator.clipboard.writeText(link);
-                  
                   const notification = document.createElement('div');
                   notification.textContent = 'Đã copy link!';
                   notification.style.cssText = `
@@ -1955,18 +2073,14 @@ export const ItemDetailPage = () => {
                     background: #28a745;
                     color: white;
                     padding: 12px 20px;
-                    borderRadius: 8px;
-                    boxShadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                    zIndex: 10000;
-                    fontSize: 14px;
-                    fontWeight: 500;
-                    animation: slideIn 0.3s ease-out;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                    z-index: 10000;
+                    font-size: 14px;
+                    font-weight: 500;
                   `;
                   document.body.appendChild(notification);
-                  setTimeout(() => {
-                    notification.style.animation = 'slideOut 0.3s ease-out';
-                    setTimeout(() => document.body.removeChild(notification), 300);
-                  }, 2000);
+                  setTimeout(() => document.body.removeChild(notification), 2000);
                 } catch {
                   alert('Không thể copy. Vui lòng thử lại.');
                 }
@@ -1980,22 +2094,54 @@ export const ItemDetailPage = () => {
                 fontSize: '14px',
                 fontWeight: '500',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
-                boxShadow: '0 2px 4px rgba(40, 167, 69, 0.2)',
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#218838';
-                e.currentTarget.style.boxShadow = '0 4px 8px rgba(40, 167, 69, 0.3)';
-                e.currentTarget.style.transform = 'translateY(-1px)';
+            >
+              🔗 Copy Link
+            </button>
+            <button
+              onClick={async () => {
+                if (!fbPostContent) {
+                  alert('Chưa có nội dung để lưu!');
+                  return;
+                }
+                try {
+                  await apiClient.patch(`/items/${id}`, { fb_post_content: fbPostContent });
+                  queryClient.invalidateQueries({ queryKey: ['item', id] });
+                  const notification = document.createElement('div');
+                  notification.textContent = 'Đã lưu nội dung!';
+                  notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #28a745;
+                    color: white;
+                    padding: 12px 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                    z-index: 10000;
+                    font-size: 14px;
+                    font-weight: 500;
+                  `;
+                  document.body.appendChild(notification);
+                  setTimeout(() => document.body.removeChild(notification), 2000);
+                } catch (error) {
+                  console.error('Error saving FB post:', error);
+                  alert('Không thể lưu. Vui lòng thử lại.');
+                }
               }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#28a745';
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(40, 167, 69, 0.2)';
-                e.currentTarget.style.transform = 'translateY(0)';
-            }}
-          >
-            Copy Link
-          </button>
+              style={{
+                padding: '10px 20px',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+              }}
+            >
+              💾 Lưu nội dung
+            </button>
           </div>
         </div>
       )}
