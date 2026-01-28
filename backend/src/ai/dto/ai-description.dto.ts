@@ -13,3 +13,13 @@ export class AiDescriptionResponseDto {
   meta_title: string;
   meta_description: string;
 }
+
+export class GenerateFbPostDto {
+  @IsOptional()
+  @IsString()
+  custom_instructions?: string;
+}
+
+export class FbPostResponseDto {
+  content: string;
+}

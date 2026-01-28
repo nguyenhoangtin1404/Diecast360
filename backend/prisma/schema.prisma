@@ -65,6 +65,7 @@ model Item {
   created_at     DateTime    @default(now())
   updated_at     DateTime    @updatedAt
   deleted_at     DateTime?
+  fb_post_content String?
   
   item_images ItemImage[]
   spin_sets   SpinSet[]
