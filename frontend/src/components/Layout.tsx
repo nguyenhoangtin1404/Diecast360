@@ -113,7 +113,7 @@ export const Layout = ({ children }: LayoutProps) => {
                   <span>Liên hệ</span>
                 </Link>
                 <Link
-                  to="/admin/login"
+                  to="/admin/items"
                   style={{
                     padding: '10px 16px',
                     borderRadius: '8px',
