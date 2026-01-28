@@ -184,7 +184,6 @@ export const ItemDetailPage = () => {
       if (itemId && selectedFiles.length > 0) {
         setUploadingImages(true);
         try {
-          const token = localStorage.getItem('access_token');
           for (let i = 0; i < selectedFiles.length; i++) {
             const file = selectedFiles[i];
             const formData = new FormData();
@@ -194,8 +193,8 @@ export const ItemDetailPage = () => {
             await axios.post(`${API_BASE_URL}/items/${itemId}/images`, formData, {
               headers: {
                 'Content-Type': 'multipart/form-data',
-                Authorization: `Bearer ${token}`,
               },
+              withCredentials: true, // Cookie-based auth
             });
           }
           queryClient.invalidateQueries({ queryKey: ['item', itemId] });
@@ -320,7 +319,6 @@ export const ItemDetailPage = () => {
   const handleUploadImage = async (file: File, isCover: boolean = false): Promise<void> => {
     if (!id || id === 'new') return;
     
-    const token = localStorage.getItem('access_token');
     const formData = new FormData();
     formData.append('file', file);
     formData.append('is_cover', isCover ? 'true' : 'false');
@@ -329,8 +327,8 @@ export const ItemDetailPage = () => {
       await axios.post(`${API_BASE_URL}/items/${id}/images`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}`,
         },
+        withCredentials: true, // Cookie-based auth
       });
       queryClient.invalidateQueries({ queryKey: ['item', id] });
     } catch (error) {
@@ -370,7 +368,6 @@ export const ItemDetailPage = () => {
   // Upload frame mutation
   const uploadFrameMutation = useMutation({
     mutationFn: async ({ spinSetId, file, frameIndex }: { spinSetId: string; file: File; frameIndex?: number }) => {
-      const token = localStorage.getItem('access_token');
       const formData = new FormData();
       formData.append('frame', file);
       if (frameIndex !== undefined) {
@@ -379,8 +376,8 @@ export const ItemDetailPage = () => {
       return axios.post(`${API_BASE_URL}/spin-sets/${spinSetId}/frames`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}`,
         },
+        withCredentials: true, // Cookie-based auth
       });
     },
     onSuccess: () => {

@@ -1,33 +1,140 @@
-import { Controller, Post, Get, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Request, Res, HttpCode, HttpStatus } from '@nestjs/common';
+import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { RefreshDto } from './dto/refresh.dto';
-import { LogoutDto } from './dto/logout.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ConfigService } from '@nestjs/config';
+
+// Cookie configuration interface
+interface CookieOptions {
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: 'lax' | 'strict' | 'none';
+  path: string;
+  maxAge: number;
+}
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
+  /**
+   * Get cookie options based on environment configuration
+   * Production: secure=true, sameSite=strict for maximum security
+   * Development: secure=false, sameSite=lax for easier testing
+   */
+  private getCookieOptions(maxAgeMs: number): CookieOptions {
+    const isSecure = this.configService.get('COOKIE_SECURE') === 'true';
+    const sameSite = (this.configService.get('COOKIE_SAME_SITE') || 'lax') as 'lax' | 'strict' | 'none';
+    
+    return {
+      httpOnly: true,           // Prevent XSS - JavaScript cannot access this cookie
+      secure: isSecure,         // HTTPS only in production
+      sameSite: sameSite,       // CSRF protection
+      path: '/',                // Cookie valid for entire domain
+      maxAge: maxAgeMs,
+    };
+  }
+
+  /**
+   * Login endpoint - Sets access_token and refresh_token as HttpOnly cookies
+   */
   @Post('login')
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  @HttpCode(HttpStatus.OK)
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(loginDto);
+    
+    // Set access_token cookie (15 minutes)
+    const accessTokenMaxAge = 15 * 60 * 1000; // 15 minutes
+    res.cookie('access_token', result.access_token, this.getCookieOptions(accessTokenMaxAge));
+    
+    // Set refresh_token cookie (7 days)
+    const refreshTokenMaxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+    res.cookie('refresh_token', result.refresh_token, {
+      ...this.getCookieOptions(refreshTokenMaxAge),
+      path: '/api/v1/auth', // Restrict refresh token to auth endpoints only
+    });
+    
+    // Return user info (tokens are in cookies, not in response body for security)
+    return {
+      user: result.user,
+      message: 'Login successful',
+    };
   }
 
+  /**
+   * Refresh endpoint - Reads refresh_token from cookie, issues new tokens
+   */
   @Post('refresh')
-  async refresh(@Body() refreshDto: RefreshDto) {
-    return this.authService.refresh(refreshDto);
+  @HttpCode(HttpStatus.OK)
+  async refresh(
+    @Request() req,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = req.cookies?.refresh_token;
+    
+    if (!refreshToken) {
+      // Clear any stale cookies - user needs to login again
+      res.clearCookie('access_token', { path: '/' });
+      res.clearCookie('refresh_token', { path: '/api/v1/auth' });
+      // Return 401 to trigger login redirect
+      return res.status(401).json({
+        ok: false,
+        error: { code: 'AUTH_TOKEN_EXPIRED', details: [] },
+        message: 'No refresh token found. Please login again.',
+      });
+    }
+    
+    const result = await this.authService.refreshFromCookie(refreshToken);
+    
+    // Set new access_token cookie
+    const accessTokenMaxAge = 15 * 60 * 1000;
+    res.cookie('access_token', result.access_token, this.getCookieOptions(accessTokenMaxAge));
+    
+    // Set new refresh_token cookie
+    const refreshTokenMaxAge = 7 * 24 * 60 * 60 * 1000;
+    res.cookie('refresh_token', result.refresh_token, {
+      ...this.getCookieOptions(refreshTokenMaxAge),
+      path: '/api/v1/auth',
+    });
+    
+    return { message: 'Token refreshed successfully' };
   }
 
+  /**
+   * Logout endpoint - Clears all auth cookies and revokes refresh token
+   */
   @Post('logout')
-  async logout(@Body() logoutDto: LogoutDto) {
-    return this.authService.logout(logoutDto);
+  @HttpCode(HttpStatus.OK)
+  async logout(
+    @Request() req,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = req.cookies?.refresh_token;
+    
+    if (refreshToken) {
+      await this.authService.logoutFromCookie(refreshToken);
+    }
+    
+    // Clear cookies
+    res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('refresh_token', { path: '/api/v1/auth' });
+    
+    return { message: 'Logout successful' };
   }
 
+  /**
+   * Get current user info - Requires valid access_token cookie
+   */
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMe(@Request() req) {
     return { user: req.user };
   }
 }
-

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { StringValue } from 'ms';
 import * as bcrypt from 'bcrypt';
@@ -46,7 +46,19 @@ export class AuthService {
   }
 
   async refresh(refreshDto: RefreshDto) {
-    const tokenHash = this.hashToken(refreshDto.refresh_token);
+    return this.refreshFromCookie(refreshDto.refresh_token);
+  }
+
+  async logout(logoutDto: LogoutDto) {
+    return this.logoutFromCookie(logoutDto.refresh_token);
+  }
+
+  /**
+   * Refresh tokens using refresh_token from cookie
+   * Used by cookie-based authentication flow
+   */
+  async refreshFromCookie(refreshToken: string) {
+    const tokenHash = this.hashToken(refreshToken);
     
     const refreshTokenRecord = await this.prisma.refreshToken.findUnique({
       where: { token_hash: tokenHash },
@@ -65,23 +77,27 @@ export class AuthService {
       throw new AppException(ErrorCode.AUTH_FORBIDDEN, 'User is inactive');
     }
 
-    // Revoke old token
+    // Revoke old token (token rotation for security)
     await this.prisma.refreshToken.update({
       where: { id: refreshTokenRecord.id },
       data: { revoked_at: new Date() },
     });
 
     const accessToken = this.generateAccessToken(refreshTokenRecord.user.id);
-    const refreshToken = await this.generateRefreshToken(refreshTokenRecord.user.id);
+    const newRefreshToken = await this.generateRefreshToken(refreshTokenRecord.user.id);
 
     return {
       access_token: accessToken,
-      refresh_token: refreshToken,
+      refresh_token: newRefreshToken,
     };
   }
 
-  async logout(logoutDto: LogoutDto) {
-    const tokenHash = this.hashToken(logoutDto.refresh_token);
+  /**
+   * Logout using refresh_token from cookie
+   * Used by cookie-based authentication flow
+   */
+  async logoutFromCookie(refreshToken: string) {
+    const tokenHash = this.hashToken(refreshToken);
     
     await this.prisma.refreshToken.updateMany({
       where: { 
