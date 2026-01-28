@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE and editors
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Uploads
+uploads/
+**/uploads/
+
+# Database
+*.sqlite
+*.sqlite3
+
+# Prisma
+backend/src/generated/
+
+# Cache
+.cache/
+.turbo/
+.parcel-cache/
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+*.pid
+*.seed
+*.pid.lock
+.eslintcache

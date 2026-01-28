@@ -9,8 +9,8 @@ const prisma = new PrismaClient();
 
 async function createAdminQuick() {
   try {
-    const email = process.argv[2] || 'admin@diecast360.com';
-    const password = process.argv[3] || 'admin';
+    const email = process.argv[2] || 'nguyenhoangtin1404@gmail.com';
+    const password = process.argv[3] || '123456';
 
     console.log('=== Tạo tài khoản Admin ===\n');
     console.log(`Email: ${email}`);
