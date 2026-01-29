@@ -36,6 +36,7 @@ export const ItemsPage = () => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -330,7 +331,11 @@ export const ItemsPage = () => {
                     try {
                       await navigator.clipboard.writeText(item.fb_post_content);
                       
-                      // Hiển thị thông báo
+                      // Set copied state
+                      setCopiedId(item.id);
+                      setTimeout(() => setCopiedId(null), 2000);
+                      
+                      // Hiển thị thông báo (optional backup)
                       const notification = document.createElement('div');
                       notification.textContent = 'Đã copy nội dung sale!';
                       notification.style.cssText = `
@@ -374,8 +379,8 @@ export const ItemsPage = () => {
                   disabled={!item.fb_post_content}
                   title={item.fb_post_content ? "Copy nội dung sale để đăng Facebook" : "Chưa có nội dung sale"}
                   style={{
-                    background: 'none',
-                    border: item.fb_post_content ? '1px solid #007bff' : '1px solid #ccc',
+                    background: copiedId === item.id ? '#e6fffa' : 'none',
+                    border: copiedId === item.id ? '1px solid #28a745' : item.fb_post_content ? '1px solid #007bff' : '1px solid #ccc',
                     cursor: item.fb_post_content ? 'pointer' : 'not-allowed',
                     padding: '6px 12px',
                     borderRadius: '6px',
@@ -384,25 +389,35 @@ export const ItemsPage = () => {
                     justifyContent: 'center',
                     gap: '6px',
                     transition: 'all 0.2s',
-                    color: item.fb_post_content ? '#007bff' : '#ccc',
+                    color: copiedId === item.id ? '#28a745' : item.fb_post_content ? '#007bff' : '#ccc',
                     fontSize: '13px',
                     fontWeight: '500',
+                    minWidth: '80px',
                   }}
                   onMouseEnter={(e) => {
-                    if (item.fb_post_content) {
+                    if (item.fb_post_content && copiedId !== item.id) {
                       e.currentTarget.style.background = '#007bff';
                       e.currentTarget.style.color = 'white';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (item.fb_post_content) {
+                    if (item.fb_post_content && copiedId !== item.id) {
                       e.currentTarget.style.background = 'none';
                       e.currentTarget.style.color = '#007bff';
                     }
                   }}
                 >
-                  <Copy size={16} />
-                  <span>Copy</span>
+                  {copiedId === item.id ? (
+                    <>
+                      <Check size={16} />
+                      <span>Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={16} />
+                      <span>Copy</span>
+                    </>
+                  )}
                 </button>
               </td>
               <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>

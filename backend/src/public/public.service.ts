@@ -33,17 +33,11 @@ export class PublicService {
     }
 
     if (queryDto.car_brand) {
-      where.car_brand = {
-        contains: queryDto.car_brand,
-        mode: 'insensitive',
-      };
+      where.car_brand = queryDto.car_brand;
     }
 
     if (queryDto.model_brand) {
-      where.model_brand = {
-        contains: queryDto.model_brand,
-        mode: 'insensitive',
-      };
+      where.model_brand = queryDto.model_brand;
     }
 
     if (queryDto.condition) {

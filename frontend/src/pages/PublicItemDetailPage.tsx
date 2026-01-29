@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { apiClient } from '../api/client';
 import { Spinner360 } from '../components/Spinner360/Spinner360';
 import { Gallery } from '../components/Gallery';
+import { ItemCard } from '../components/catalog/ItemCard';
 import { ArrowLeft } from 'lucide-react';
 
 interface SpinFrame {
@@ -388,6 +389,127 @@ export const PublicItemDetailPage = () => {
 
       {/* Full Gallery Section */}
       <Gallery images={images} itemName={item.name} />
+
+      {/* Related Items Section */}
+      <RelatedItemsSection 
+        currentItemId={item.id} 
+        carBrand={item.car_brand} 
+        modelBrand={item.model_brand} 
+      />
     </div>
   );
 };
+
+const RelatedItemsSection = ({ 
+  currentItemId, 
+  carBrand, 
+  modelBrand 
+}: { 
+  currentItemId: string; 
+  carBrand?: string | null; 
+  modelBrand?: string | null; 
+}) => {
+  // Query 1: Items with same Car Brand
+  const { data: carData, isLoading: carLoading } = useQuery({
+    queryKey: ['related-items-car', currentItemId, carBrand],
+    queryFn: async () => {
+      if (!carBrand) return { items: [], pagination: { total: 0 } };
+      
+      const params = new URLSearchParams({
+        page_size: '6',
+        car_brand: carBrand
+      });
+      const response = await apiClient.get(`/public/items?${params.toString()}`);
+      return response.data || response;
+    },
+    enabled: !!currentItemId && !!carBrand,
+  });
+
+  // Query 2: Items with same Model Brand
+  const { data: modelData, isLoading: modelLoading } = useQuery({
+    queryKey: ['related-items-model', currentItemId, modelBrand],
+    queryFn: async () => {
+      if (!modelBrand) return { items: [], pagination: { total: 0 } };
+      
+      const params = new URLSearchParams({
+        page_size: '6',
+        model_brand: modelBrand
+      });
+      const response = await apiClient.get(`/public/items?${params.toString()}`);
+      return response.data || response;
+    },
+    enabled: !!currentItemId && !!modelBrand,
+  });
+
+  // Query 3: Fallback to recent items
+  const { data: recentData, isLoading: recentLoading } = useQuery({
+    queryKey: ['related-items-recent', currentItemId],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page_size: '6',
+        sort_by: 'created_at',
+        sort_order: 'desc',
+      });
+      const response = await apiClient.get(`/public/items?${params.toString()}`);
+      return response.data || response;
+    },
+    enabled: !!currentItemId,
+  });
+
+  const finalItems = useMemo(() => {
+    // Collect all candidate items
+    const carItems = carData?.items || [];
+    const modelItems = modelData?.items || [];
+    const recentItems = recentData?.items || [];
+
+    // Merge strategy: Car > Model > Recent
+    // Use a Map to deduplicate by ID
+    const uniqueItems = new Map();
+
+    const addItems = (items: any[]) => {
+      items.forEach(item => {
+        if (item.id !== currentItemId && !uniqueItems.has(item.id)) {
+          uniqueItems.set(item.id, item);
+        }
+      });
+    };
+
+    addItems(carItems);
+    addItems(modelItems);
+    
+    // Only add recent if we still need more items
+    if (uniqueItems.size < 5) {
+      addItems(recentItems);
+    }
+
+    return Array.from(uniqueItems.values()).slice(0, 5);
+  }, [carData, modelData, recentData, currentItemId]);
+
+  const isLoading = (carLoading && !carData) || (modelLoading && !modelData) || (recentLoading && !recentData);
+  
+  if (isLoading) return null;
+  if (finalItems.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: '60px', borderTop: '1px solid #eee', paddingTop: '40px' }}>
+      <h2 style={{ 
+        fontSize: '24px', 
+        fontWeight: '700', 
+        color: '#1a1a1a', 
+        marginBottom: '24px',
+      }}>
+        Sản phẩm liên quan
+      </h2>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+        gap: '20px' 
+      }}>
+        {finalItems.map((item: any, index: number) => (
+          <ItemCard key={item.id} item={item} index={index} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
