@@ -284,15 +284,41 @@ export class SpinnerService {
       );
     }
 
-    // Update frame_index starting from 0
-    const updates = reorderDto.frame_ids.map((id, index) =>
-      this.prisma.spinFrame.update({
-        where: { id },
-        data: { frame_index: index },
-      }),
-    );
+    // Use a transaction to update frames safely
+    // Because of the unique constraint on [spin_set_id, frame_index], we can't simply direct update
+    // e.g. swapping 0 and 1 -> updating 0 to 1 fails because 1 exists
+    // Strategy:
+    // 1. Update all to temporary negative indices: -1, -2, -3...
+    // 2. Update to new correct positive indices: 0, 1, 2...
+    
+    await this.prisma.$transaction(async (tx) => {
+      // Step 1: Set to temporary negative indices to free up the positive range
+      // Map id -> final_index
+      const idToIndexMap = new Map<string, number>();
+      reorderDto.frame_ids.forEach((id, index) => {
+        idToIndexMap.set(id, index);
+      });
 
-    await Promise.all(updates);
+      // Update each frame to a temporary negative index based on its current position to ensure uniqueness
+      // We use -(index + 1) to ensure they are all negative and unique: -1, -2, -3...
+      for (const frame of allFrames) {
+        await tx.spinFrame.update({
+          where: { id: frame.id },
+          data: { frame_index: -1 * (frame.frame_index + 1) }, 
+        });
+      }
+
+      // Step 2: Update to final desired indices
+      for (const frameId of reorderDto.frame_ids) {
+        const newIndex = idToIndexMap.get(frameId);
+        if (newIndex === undefined) continue;
+
+        await tx.spinFrame.update({
+          where: { id: frameId },
+          data: { frame_index: newIndex },
+        });
+      }
+    });
 
     // Get updated frames
     const updatedFrames = await this.prisma.spinFrame.findMany({
