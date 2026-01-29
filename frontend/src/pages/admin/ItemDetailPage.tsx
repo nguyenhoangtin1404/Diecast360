@@ -429,6 +429,14 @@ export const ItemDetailPage = () => {
         queryClient.invalidateQueries({ queryKey: ['item', id] });
       }
     },
+    onError: (error) => {
+      console.error('Error reordering frames:', error);
+      alert('Có lỗi khi sắp xếp frames: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      // Invalidate to restore original order
+      if (id && id !== 'new') {
+        queryClient.invalidateQueries({ queryKey: ['item', id] });
+      }
+    },
   });
 
   const handleUploadFrames = async (e: React.ChangeEvent<HTMLInputElement>, spinSetId: string) => {
@@ -1854,31 +1862,39 @@ export const ItemDetailPage = () => {
                                   </button>
                                 </div>
                                 <button
-                                  onClick={async () => {
+                                    onClick={async () => {
                                     if (confirm('Bạn có chắc muốn xóa frame này?')) {
                                       try {
                                         await deleteFrameMutation.mutateAsync({
                                           spinSetId: selectedSpinSet.id,
                                           frameId: frame.id,
                                         });
-                                      } catch (error) {
+                                      } catch (error: any) {
+                                        // Ignore 404 errors (frame already deleted)
+                                        if (error?.response?.status === 404 || error?.status === 404 || error?.message?.includes('not found')) {
+                                          console.log('Frame already deleted, refreshing...');
+                                          queryClient.invalidateQueries({ queryKey: ['item', id] });
+                                          return;
+                                        }
+                                        
                                         console.error('Error deleting frame:', error);
-                                        alert('Có lỗi khi xóa frame');
+                                        alert(`Có lỗi khi xóa frame: ${error?.message || JSON.stringify(error)}`);
                                       }
                                     }
                                   }}
+                                  disabled={deleteFrameMutation.isPending}
                                   style={{
                                     width: '100%',
                                     padding: '6px',
-                                    background: '#dc3545',
+                                    background: deleteFrameMutation.isPending ? '#ccc' : '#dc3545',
                                     color: 'white',
                                     border: 'none',
                                     borderRadius: '4px',
-                                    cursor: 'pointer',
+                                    cursor: deleteFrameMutation.isPending ? 'not-allowed' : 'pointer',
                                     fontSize: '12px',
                                   }}
                                 >
-                                  Xóa
+                                  {deleteFrameMutation.isPending ? 'Xóa...' : 'Xóa'}
                                 </button>
                               </div>
                             </div>
