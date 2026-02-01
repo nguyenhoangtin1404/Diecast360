@@ -16,9 +16,23 @@ async function bootstrap() {
 
   console.log(`Found ${items.length} items to index.`);
 
-  for (const item of items) {
-    console.log(`Indexing item: ${item.name} (${item.id})`);
-    await itemsService.syncVectorStore(item);
+  const BATCH_SIZE = 20;
+  
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const chunk = items.slice(i, i + BATCH_SIZE);
+    console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(items.length / BATCH_SIZE)} (${chunk.length} items)...`);
+    
+    await Promise.all(
+      chunk.map(async (item) => {
+        try {
+          await itemsService.syncVectorStore(item);
+          // Optional: less verbose logging
+          // console.log(`Indexed: ${item.name}`);
+        } catch (error) {
+          console.error(`Failed to index item ${item.id}:`, error);
+        }
+      })
+    );
   }
 
   console.log('Indexing complete.');
