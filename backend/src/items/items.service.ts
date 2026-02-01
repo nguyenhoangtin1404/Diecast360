@@ -4,6 +4,8 @@ import { IStorageService } from '../storage/storage.interface';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
+import { VectorStoreService } from '../ai/vector-store.service';
+import { EmbeddingService } from '../ai/embedding.service';
 import { QueryItemsDto } from './dto/query-items.dto';
 
 @Injectable()
@@ -11,7 +13,92 @@ export class ItemsService {
   constructor(
     private prisma: PrismaService,
     @Inject('IStorageService') private storage: IStorageService,
+    private vectorStore: VectorStoreService,
+    private embeddingService: EmbeddingService,
   ) {}
+
+  async syncVectorStore(item: any) {
+    try {
+      if (!item.is_public || item.deleted_at) {
+        await this.vectorStore.deleteItem(item.id);
+        return;
+      }
+
+      const textToEmbed = `Name: ${item.name}
+Description: ${item.description || ''}
+Brand: ${item.brand || ''}
+Car Brand: ${item.car_brand || ''}
+Scale: ${item.scale}
+Condition: ${item.condition || ''}`;
+
+      const embedding = await this.embeddingService.getEmbedding(textToEmbed);
+      if (embedding.length > 0) {
+        await this.vectorStore.upsertItem(item.id, embedding, {
+          name: item.name,
+          category: 'item',
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to sync item ${item.id} with vector store:`, error);
+    }
+  }
+
+  async search(query: string, limit: number = 20) {
+    // 1. Get embedding for the query
+    const embedding = await this.embeddingService.getEmbedding(query);
+    if (!embedding.length) {
+      return this.findAll({ q: query, page: 1, page_size: limit });
+    }
+
+    // 2. Search in vector store
+    const ids = await this.vectorStore.search(embedding, limit);
+
+    if (ids.length === 0) {
+       return { items: [], pagination: { page: 1, page_size: limit, total: 0, total_pages: 0 } };
+    }
+
+    // 3. Fetch items from DB preserving order (if possible, but Prisma IN doesn't preserve order easily)
+    // We fetch all found items and then re-sort them based on the ID order from vector search
+    const items = await this.prisma.item.findMany({
+      where: {
+        id: { in: ids },
+        deleted_at: null,
+        is_public: true, // Only public items
+      },
+      include: {
+        item_images: {
+          where: { is_cover: true },
+          take: 1,
+        },
+      },
+    });
+
+    // Sort items by the order returned from vector store
+    const idMap = new Map(items.map(item => [item.id, item]));
+    const sortedItems = ids
+      .map(id => idMap.get(id))
+      .filter(item => item !== undefined); // specific filter for type safety
+
+    const itemsWithCover = sortedItems.map((item: any) => ({
+      ...item,
+       price: item.price != null ? (typeof item.price.toNumber === 'function' ? item.price.toNumber() : Number(item.price)) : null,
+      original_price: item.original_price != null ? (typeof item.original_price.toNumber === 'function' ? item.original_price.toNumber() : Number(item.original_price)) : null,
+      cover_image_url: item.item_images[0]
+        ? this.getImageUrl(item.item_images[0].file_path)
+        : null,
+      item_images: undefined,
+    }));
+
+     return {
+      items: itemsWithCover,
+      pagination: {
+        page: 1,
+        page_size: limit,
+        total: itemsWithCover.length, // Approximate since we don't count all matches in vector DB
+        total_pages: 1,
+      },
+    };
+  }
 
   async findAll(queryDto: QueryItemsDto) {
     const page = queryDto.page || 1;
@@ -159,6 +246,9 @@ export class ItemsService {
       },
     });
 
+    // Sync with vector store
+    this.syncVectorStore(item);
+
     return { item };
   }
 
@@ -197,6 +287,9 @@ export class ItemsService {
       data: updateData,
     });
 
+    // Sync with vector store
+    this.syncVectorStore(item);
+
     return { item };
   }
 
@@ -216,6 +309,9 @@ export class ItemsService {
       where: { id },
       data: { deleted_at: new Date() },
     });
+
+    // Remove from vector store
+    await this.vectorStore.deleteItem(id);
 
     return {};
   }
