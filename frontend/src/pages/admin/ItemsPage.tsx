@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { apiClient } from '../../api/client';
 import { Link, useNavigate } from 'react-router-dom';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Pencil, Eye, EyeOff, Trash2, Check, X, Package, Clock, CheckCircle2, ChevronLeft, ChevronRight, Plus, Search, AlertTriangle, Box, Copy } from 'lucide-react';
 
 interface Item {
@@ -39,18 +41,28 @@ export const ItemsPage = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const debouncedSearch = useDebounce(search, 500);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['items', page, search],
+    queryKey: ['items', page, debouncedSearch],
     queryFn: async () => {
+      // Use Semantic Search if query is present
+      if (debouncedSearch) {
+        const params = new URLSearchParams({
+          q: debouncedSearch,
+        });
+        const response = await apiClient.get(`/items/search?${params.toString()}`) as ApiResponse<ItemsResponse>;
+        return response.data;
+      }
+
+      // Default listing
       const params = new URLSearchParams({
         page: page.toString(),
         page_size: '20',
       });
-      if (search) params.append('q', search);
-      // Response interceptor đã unwrap, response = {ok: true, data: {items: [...], pagination: {...}}, message: ''}
+      
       const response = await apiClient.get(`/items?${params.toString()}`) as ApiResponse<ItemsResponse>;
-      return response.data; // response.data = {items: [...], pagination: {...}}
+      return response.data;
     },
   });
 
@@ -181,7 +193,7 @@ export const ItemsPage = () => {
           />
           <input
             type="text"
-            placeholder="Tìm kiếm sản phẩm..."
+            placeholder="Tìm kiếm AI (VD: xe đỏ thể thao...)"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);

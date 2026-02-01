@@ -17,7 +17,8 @@
     "create:admin": "ts-node scripts/create-admin.ts",
     "create:admin:quick": "ts-node scripts/create-admin-quick.ts",
     "reset:admin:password": "ts-node scripts/reset-admin-password.ts",
-    "list:users": "ts-node scripts/list-users.ts"
+    "list:users": "ts-node scripts/list-users.ts",
+    "index:items": "ts-node scripts/index-items.ts"
   },
   "keywords": [
     "diecast",
@@ -33,6 +34,7 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.10",
+    "@pinecone-database/pinecone": "^7.0.0",
     "@prisma/client": "^6.19.1",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",

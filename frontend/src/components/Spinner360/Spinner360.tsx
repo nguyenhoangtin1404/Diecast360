@@ -28,7 +28,7 @@ export const Spinner360: React.FC<Spinner360Props> = ({
   const [isAutoplaying, setIsAutoplaying] = useState(autoplay);
   const [loadedFrames, setLoadedFrames] = useState<Set<number>>(new Set([0]));
   const containerRef = useRef<HTMLDivElement>(null);
-  const autoplayRef = useRef<NodeJS.Timeout | null>(null);
+  const autoplayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const totalFrames = frames.length;
 

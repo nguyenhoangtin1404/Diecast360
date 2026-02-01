@@ -32,6 +32,15 @@ export class ItemsController {
     return this.itemsService.findAll(queryDto);
   }
 
+  @Get('search')
+  search(@Query('q') q: string) {
+    if (!q) {
+      return this.itemsService.findAll({});
+    }
+    return this.itemsService.search(q);
+  }
+
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.itemsService.findOne(id);
