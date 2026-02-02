@@ -1,4 +1,4 @@
-import { Controller, Post, UseInterceptors, UploadedFiles, Inject, Body, BadRequestException } from '@nestjs/common';
+import { Controller, Post, UseInterceptors, UploadedFiles, Inject, Body, BadRequestException, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../common/prisma/prisma.service';
@@ -14,7 +14,16 @@ export class AiDraftController {
 
   @Post()
   @UseInterceptors(FilesInterceptor('images'))
-  async createDraft(@UploadedFiles() files: Array<Express.Multer.File>) {
+  async createDraft(
+    @UploadedFiles(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 10 }), // 10MB
+          new FileTypeValidator({ fileType: '.(png|jpeg|jpg|webp)' }),
+        ],
+      }),
+    ) files: Array<Express.Multer.File>,
+  ) {
     if (!files || files.length === 0) {
       throw new BadRequestException('At least one image is required');
     }

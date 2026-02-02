@@ -27,8 +27,21 @@ export const AiImportPage = () => {
   const [draft, setDraft] = useState<AiDraftResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Form state
-  const [formData, setFormData] = useState<any>({});
+
+interface ItemFormData {
+  name: string;
+  brand: string;
+  car_brand: string;
+  model_brand: string;
+  scale: string;
+  condition: string;
+  price: number;
+  status: string;
+  is_public: boolean;
+  description: string;
+}
+
+  const [formData, setFormData] = useState<Partial<ItemFormData>>({});
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -46,8 +59,8 @@ export const AiImportPage = () => {
       setAnalyzing(true);
 
       try {
-        const response: any = await apiClient.post('/items/ai-draft', formData);
-        const data = response.data as AiDraftResponse;
+        const response = await apiClient.post<AiDraftResponse>('/items/ai-draft', formData);
+        const data = response.data;
         
         setDraft(data);
         setFormData({
