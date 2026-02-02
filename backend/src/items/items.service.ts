@@ -285,7 +285,8 @@ Condition: ${item.condition || ''}`;
                 });
                 displayOrder++;
               } catch (e) {
-                console.warn(`Failed to process draft image ${filename}:`, e);
+                console.error(`[CRITICAL] Failed to move draft image ${filename} to permanent storage for Item ${item.id}. Original Draft: ${createDto.draft_id}. Error:`, e);
+                // TODO: Consider implementing a cleanup or retry mechanism
               }
             }
           }
