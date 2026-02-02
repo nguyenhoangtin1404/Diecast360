@@ -126,3 +126,16 @@ model SpinFrame {
   @@unique([spin_set_id, frame_index])
   @@index([spin_set_id, frame_index])
 }
+
+model AiItemDraft {
+  id              String   @id @default(uuid())
+  images_json     String   // JSON string of image paths
+  extracted_text  String?
+  ai_json         String   // JSON string of structured item data
+  confidence_json String?  // JSON string of confidence scores
+  status          String   @default("PENDING") // PENDING, CONFIRMED, REJECTED
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@map("ai_item_drafts")
+}

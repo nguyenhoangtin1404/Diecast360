@@ -40,6 +40,27 @@ export class LocalStorageService implements IStorageService {
     } catch (error) {
       // File may not exist, ignore
     }
+    }
+
+
+  async moveFile(currentPath: string, newFilename: string, destinationSubfolder: string): Promise<string> {
+    const fullCurrentPath = path.join(this.uploadDir, currentPath);
+    
+    const destDir = path.join(this.uploadDir, destinationSubfolder);
+    await fs.mkdir(destDir, { recursive: true });
+    
+    const destPath = path.join(destDir, newFilename);
+    const relativeDestPath = path.join(destinationSubfolder, newFilename).replace(/\\/g, '/');
+
+    try {
+      await fs.rename(fullCurrentPath, destPath);
+      return relativeDestPath;
+    } catch (error) {
+      // If rename fails (e.g. cross-device), try copy + unlink
+      await fs.copyFile(fullCurrentPath, destPath);
+      await fs.unlink(fullCurrentPath);
+      return relativeDestPath;
+    }
   }
 
   getFileUrl(filePath: string): string {

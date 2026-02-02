@@ -48,5 +48,9 @@ export class CreateItemDto {
   @IsOptional()
   @IsBoolean()
   is_public?: boolean;
+
+  @IsOptional()
+  @IsString()
+  draft_id?: string;
 }
 
