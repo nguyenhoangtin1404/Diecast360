@@ -6,6 +6,7 @@ import { Layout } from './components/Layout';
 import { LoginPage } from './pages/admin/LoginPage';
 import { ItemsPage } from './pages/admin/ItemsPage';
 import { ItemDetailPage } from './pages/admin/ItemDetailPage';
+import { AiImportPage } from './pages/admin/AiImportPage';
 import { PublicCatalogPage } from './pages/PublicCatalogPage';
 import { PublicItemDetailPage } from './pages/PublicItemDetailPage';
 import { ContactPage } from './pages/ContactPage';
@@ -29,6 +30,16 @@ function App() {
             <Route path="/items/:id" element={<Layout><PublicItemDetailPage /></Layout>} />
             <Route path="/contact" element={<Layout><ContactPage /></Layout>} />
             <Route path="/admin/login" element={<LoginPage />} />
+            <Route
+              path="/admin/items/import"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AiImportPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/admin/items"
               element={

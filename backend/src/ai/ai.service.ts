@@ -236,4 +236,80 @@ Cấu trúc bài viết:
 
     return prompt;
   }
+
+
+  async analyzeImages(imageBuffers: Buffer[]): Promise<import('../items/dto/ai-draft.dto').AiAnalysisResult> {
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    if (!apiKey) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'OpenAI API key not configured');
+    }
+
+    const model = this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
+
+    const imageMessages = imageBuffers.map(buffer => ({
+      type: 'image_url' as const,
+      image_url: {
+        url: `data:image/jpeg;base64,${buffer.toString('base64')}`,
+      },
+    }));
+
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: `Bạn là chuyên gia về mô hình xe (diecast). Nhiệm vụ của bạn là phân tích hình ảnh và trích xuất thông tin chi tiết về sản phẩm.
+            
+            Hãy trích xuất các thông tin sau:
+            - Brand (Hãng sản xuất mô hình, ví dụ: Hot Wheels, MiniGT, Tarmac Works, Tomica, ...)
+            - Car Brand (Hãng xe thật, ví dụ: Nissan, Lamborghini, Ferrari, ...)
+            - Model Brand (Dòng xe, ví dụ: GT-R R35, Aventador, ...)
+            - Scale (Tỷ lệ, ví dụ: 1:64, 1:43, 1:18, ...). Nếu không chắc chắn, hãy đoán dựa trên kích thước phổ biến (thường là 1:64 nếu là Hot Wheels/MiniGT).
+            - Color (Màu sắc chủ đạo)
+            - Product Code (Mã sản phẩm nếu thấy trên bao bì)
+            
+            Trả về JSON format chuẩn:
+            {
+              "aiJson": {
+                "brand": "...",
+                "car_brand": "...",
+                "model_brand": "...",
+                "scale": "...",
+                "color": "...",
+                "product_code": "..."
+              },
+              "confidence": {
+                "brand": 0.9,
+                "model_name": 0.8,
+                "scale": 0.6
+              },
+              "extracted_text": "Toàn bộ text đọc được từ bao bì (OCR)"
+            }`
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Phân tích các hình ảnh này và trích xuất thông tin sản phẩm diecast:' },
+              ...imageMessages,
+            ],
+          },
+        ],
+        max_tokens: 1000,
+        response_format: { type: 'json_object' },
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI did not return content');
+      }
+
+      const result = JSON.parse(content);
+      return result;
+
+    } catch (error) {
+      console.error('OpenAI Vision Error:', error);
+      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'Failed to analyze images');
+    }
+  }
 }

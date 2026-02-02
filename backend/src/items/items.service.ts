@@ -246,6 +246,62 @@ Condition: ${item.condition || ''}`;
       },
     });
 
+    // Handle Draft if provided
+    if (createDto.draft_id) {
+      try {
+        const draft = await this.prisma.aiItemDraft.findUnique({ where: { id: createDto.draft_id } });
+        if (draft && draft.images_json) {
+          const imageUrls = JSON.parse(draft.images_json) as string[];
+          
+          let displayOrder = 0;
+          for (const url of imageUrls) {
+            // Extract filename from URL (assuming /uploads/drafts/filename)
+            // Or if storage returns path, we can extract it.
+            // URL: http://host/uploads/drafts/draft_123.jpg
+            // Filename: draft_123.jpg
+            const msg = url.split('/').pop();
+            if (msg) {
+              const filename = msg; // This is the filename on disk in drafts folder?
+              // Wait, StorageService.saveFile returns path (e.g. "drafts/file.jpg").
+              // getFileUrl prepends host/uploads/.
+              // We need the relative path "drafts/filename" to move it.
+              // We can reconstruct it or trust the filename in URL if it matches.
+              
+              // More robust: If we have the filename, we can try to move it.
+              // Assuming "drafts/" prefix based on controller logic.
+              try {
+                // Move file from "drafts/filename" to "images/filename"
+                const newFilename = `item_${item.id}_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
+                const newPath = await this.storage.moveFile(`drafts/${filename}`, newFilename, 'images');
+                
+                // Create ItemImage
+                await this.prisma.itemImage.create({
+                  data: {
+                    item_id: item.id,
+                    file_path: newPath,
+                    is_cover: displayOrder === 0,
+                    display_order: displayOrder,
+                  },
+                });
+                displayOrder++;
+              } catch (e) {
+                console.warn(`Failed to process draft image ${filename}:`, e);
+              }
+            }
+          }
+          
+          // Update draft status
+          await this.prisma.aiItemDraft.update({
+            where: { id: draft.id },
+            data: { status: 'CONFIRMED' },
+          });
+        }
+      } catch (error) {
+        console.error('Error processing draft images:', error);
+        // Don't fail the item creation, just log
+      }
+    }
+
     // Sync with vector store
     this.syncVectorStore(item);
 

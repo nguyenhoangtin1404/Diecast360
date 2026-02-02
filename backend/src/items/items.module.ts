@@ -5,9 +5,11 @@ import { AiModule } from '../ai/ai.module';
 import { PrismaModule } from '../common/prisma/prisma.module';
 import { StorageModule } from '../storage/storage.module';
 
+import { AiDraftController } from './ai-draft.controller';
+
 @Module({
   imports: [PrismaModule, StorageModule, AiModule],
-  controllers: [ItemsController],
+  controllers: [ItemsController, AiDraftController],
   providers: [ItemsService],
   exports: [ItemsService],
 })
