@@ -373,6 +373,58 @@ Condition: ${item.condition || ''}`;
     return {};
   }
 
+  async exportCsv(): Promise<string> {
+    const items = await this.prisma.item.findMany({
+      where: { deleted_at: null },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const headers = [
+      'id',
+      'name',
+      'description',
+      'status',
+      'is_public',
+      'condition',
+      'scale',
+      'brand',
+      'car_brand',
+      'model_brand',
+      'price',
+      'original_price',
+      'created_at',
+      'updated_at',
+    ];
+
+    const escapeCsvField = (value: any): string => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      // Escape quotes and wrap in quotes if contains comma, quote, or newline
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = items.map((item: any) => {
+      return headers.map((header) => {
+        let value = item[header];
+        // Handle Decimal type from Prisma
+        if (value !== null && typeof value?.toNumber === 'function') {
+          value = value.toNumber();
+        }
+        // Format dates
+        if (value instanceof Date) {
+          value = value.toISOString();
+        }
+        return escapeCsvField(value);
+      }).join(',');
+    });
+
+    // Add UTF-8 BOM for Excel Vietnamese compatibility
+    return '\uFEFF' + [headers.join(','), ...rows].join('\n');
+  }
+
   private getImageUrl(filePath: string): string {
     // Use storage service to get consistent URL format
     return this.storage.getFileUrl(filePath);

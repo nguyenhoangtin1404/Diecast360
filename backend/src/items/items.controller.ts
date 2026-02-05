@@ -10,7 +10,10 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Res,
+  Header,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { ItemsService } from './items.service';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
@@ -38,6 +41,19 @@ export class ItemsController {
       return this.itemsService.findAll({});
     }
     return this.itemsService.search(q);
+  }
+
+  @Get('export')
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="items.csv"')
+  async exportCsv(@Res() res: Response) {
+    try {
+      const csv = await this.itemsService.exportCsv();
+      res.send(csv);
+    } catch (error) {
+      console.error('CSV Export failed:', error);
+      res.status(500).json({ ok: false, message: 'Export failed' });
+    }
   }
 
 

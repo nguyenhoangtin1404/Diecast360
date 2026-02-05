@@ -110,6 +110,37 @@
   transform: translateY(-1px);
 }
 
+.exportButton {
+  margin-left: 10px;
+  padding: 10px 20px;
+  background: #28a745;
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+  border: none;
+  cursor: pointer;
+}
+
+.exportButton:hover {
+  background: #218838;
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+  transform: translateY(-1px);
+}
+
+.exportButton:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 /* Table */
 .table {
   width: 100%;
