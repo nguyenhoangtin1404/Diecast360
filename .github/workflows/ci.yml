@@ -6,62 +6,137 @@ on:
   pull_request:
     branches: [main, develop]
 
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
 jobs:
+  # ============================================
+  # Backend Job
+  # ============================================
   backend:
-    name: Backend (Lint & Build)
+    name: Backend
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./backend
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: 📦 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
 
-      - name: Install dependencies
+      - name: 📚 Install dependencies
         run: npm ci
 
-      - name: Generate Prisma Client
+      - name: 🔧 Generate Prisma Client
         run: npx prisma generate
         env:
           DATABASE_URL: 'file:./dev.db'
 
-      - name: Lint
+      - name: 🔍 Lint
         run: npm run lint
 
-      - name: Build
+      - name: 🏗️ Build
         run: npm run build
 
+      - name: 📊 Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: backend-build
+          path: backend/dist
+          retention-days: 7
+
+  # ============================================
+  # Frontend Job
+  # ============================================
   frontend:
-    name: Frontend (Lint & Build)
+    name: Frontend
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./frontend
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: 📦 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
+      - name: 📚 Install dependencies
         run: npm ci
 
-      - name: Lint
+      - name: 🔍 Lint
         run: npm run lint
 
-      - name: Build
+      - name: 🔬 Type Check
+        run: npx tsc --noEmit
+
+      - name: 🏗️ Build
         run: npm run build
+
+      - name: 📊 Upload build artifacts
+        uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: frontend-build
+          path: frontend/dist
+          retention-days: 7
+
+  # ============================================
+  # Security Audit
+  # ============================================
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 🔒 Audit Backend Dependencies
+        working-directory: ./backend
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: 🔒 Audit Frontend Dependencies
+        working-directory: ./frontend
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+  # ============================================
+  # Final Status Check (for branch protection)
+  # ============================================
+  ci-success:
+    name: CI Success
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: ✅ Check all jobs passed
+        run: |
+          if [[ "${{ needs.backend.result }}" != "success" ]] || [[ "${{ needs.frontend.result }}" != "success" ]]; then
+            echo "❌ One or more jobs failed"
+            exit 1
+          fi
+          echo "✅ All CI checks passed!"
