@@ -5,6 +5,7 @@ import { ItemCard } from '../components/catalog/ItemCard';
 import { CatalogFilters } from '../components/catalog/CatalogFilters';
 import { CatalogSort } from '../components/catalog/CatalogSort';
 import { InfiniteScrollTrigger } from '../components/catalog/InfiniteScrollTrigger';
+import type { PublicItem } from '../types/item.types';
 
 export const PublicCatalogPage = () => {
   const [search, setSearch] = useState('');
@@ -117,7 +118,7 @@ export const PublicCatalogPage = () => {
         {items.length > 0 && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {items.map((item: any, index: number) => (
+              {items.map((item: PublicItem, index: number) => (
                 <ItemCard key={item.id} item={item} index={index} />
               ))}
             </div>

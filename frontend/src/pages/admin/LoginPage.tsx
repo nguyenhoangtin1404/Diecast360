@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { isAxiosError } from 'axios';
 import { useAuth } from '../../hooks/useAuth';
 import { Mail, Lock, LogIn, AlertCircle, Box, Loader2 } from 'lucide-react';
+import type { ApiErrorResponse } from '../../types/item.types';
 
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -19,8 +21,12 @@ export const LoginPage = () => {
     try {
       await login(email, password);
       navigate('/admin/items');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+    } catch (err) {
+      if (isAxiosError<ApiErrorResponse>(err)) {
+        setError(err.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+      } else {
+        setError('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+      }
     } finally {
       setLoading(false);
     }

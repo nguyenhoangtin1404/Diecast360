@@ -1869,16 +1869,17 @@ export const ItemDetailPage = () => {
                                           spinSetId: selectedSpinSet.id,
                                           frameId: frame.id,
                                         });
-                                      } catch (error: any) {
+                                      } catch (error: unknown) {
+                                        const err = error as { response?: { status?: number }; status?: number; message?: string };
                                         // Ignore 404 errors (frame already deleted)
-                                        if (error?.response?.status === 404 || error?.status === 404 || error?.message?.includes('not found')) {
+                                        if (err?.response?.status === 404 || err?.status === 404 || err?.message?.includes('not found')) {
                                           console.log('Frame already deleted, refreshing...');
                                           queryClient.invalidateQueries({ queryKey: ['item', id] });
                                           return;
                                         }
                                         
-                                        console.error('Error deleting frame:', error);
-                                        alert(`Có lỗi khi xóa frame: ${error?.message || JSON.stringify(error)}`);
+                                        console.error('Error deleting frame:', err);
+                                        alert(`Có lỗi khi xóa frame: ${err?.message || JSON.stringify(err)}`);
                                       }
                                     }
                                   }}

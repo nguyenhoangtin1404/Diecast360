@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
+import type { FilterItem } from '../../types/item.types';
 
 interface CatalogFiltersProps {
   carBrand: string | null;
@@ -36,14 +37,14 @@ export const CatalogFilters = ({
   // Extract unique values
   const carBrands = useMemo(
     () =>
-      Array.from(new Set(items.map((item: any) => item.car_brand).filter(Boolean))).sort() as
+      Array.from(new Set(items.map((item: FilterItem) => item.car_brand).filter(Boolean))).sort() as
         string[],
     [items]
   );
 
   const modelBrands = useMemo(
     () =>
-      Array.from(new Set(items.map((item: any) => item.model_brand).filter(Boolean))).sort() as
+      Array.from(new Set(items.map((item: FilterItem) => item.model_brand).filter(Boolean))).sort() as
         string[],
     [items]
   );

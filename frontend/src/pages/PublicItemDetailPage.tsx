@@ -6,6 +6,7 @@ import { Spinner360 } from '../components/Spinner360/Spinner360';
 import { Gallery } from '../components/Gallery';
 import { ItemCard } from '../components/catalog/ItemCard';
 import { ArrowLeft } from 'lucide-react';
+import type { RelatedItem } from '../types/item.types';
 
 interface SpinFrame {
   id: string;
@@ -466,7 +467,7 @@ const RelatedItemsSection = ({
     // Use a Map to deduplicate by ID
     const uniqueItems = new Map();
 
-    const addItems = (items: any[]) => {
+    const addItems = (items: RelatedItem[]) => {
       items.forEach(item => {
         if (item.id !== currentItemId && !uniqueItems.has(item.id)) {
           uniqueItems.set(item.id, item);
@@ -505,7 +506,7 @@ const RelatedItemsSection = ({
         gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
         gap: '20px' 
       }}>
-        {finalItems.map((item: any, index: number) => (
+        {finalItems.map((item: RelatedItem, index: number) => (
           <ItemCard key={item.id} item={item} index={index} />
         ))}
       </div>

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, Loader2, Check, AlertCircle } from 'lucide-react';
-import { apiClient } from '../../api/client'; 
-// Assuming project uses CSS modules or Tailwind. package.json has tailwindcss.
-// I will use Tailwind classes for simplicity and "premium" look as requested.
+import { isAxiosError } from 'axios';
+import { apiClient } from '../../api/client';
+import type { ItemFormData, ApiErrorResponse } from '../../types/item.types';
 
 interface AiDraftResponse {
   draftId: string;
@@ -26,20 +26,6 @@ export const AiImportPage = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [draft, setDraft] = useState<AiDraftResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-
-interface ItemFormData {
-  name: string;
-  brand: string;
-  car_brand: string;
-  model_brand: string;
-  scale: string;
-  condition: string;
-  price: number;
-  status: string;
-  is_public: boolean;
-  description: string;
-}
 
   const [formData, setFormData] = useState<Partial<ItemFormData>>({});
 
@@ -75,9 +61,13 @@ interface ItemFormData {
             is_public: false,
             description: `Color: ${data.aiJson.color || ''}. Code: ${data.aiJson.product_code || ''}`,
         });
-      } catch (err: any) {
+      } catch (err) {
         console.error('Upload failed', err);
-        setError(err.response?.data?.message || 'Failed to analyze images');
+        if (isAxiosError<ApiErrorResponse>(err)) {
+          setError(err.response?.data?.message || 'Failed to analyze images');
+        } else {
+          setError('Failed to analyze images');
+        }
       } finally {
         setUploading(false);
         setAnalyzing(false);
@@ -102,9 +92,13 @@ interface ItemFormData {
             draft_id: draft.draftId
         });
         navigate('/admin/items');
-    } catch (err: any) {
+    } catch (err) {
         console.error('Save failed', err);
-        setError(err.response?.data?.message || 'Failed to save item');
+        if (isAxiosError<ApiErrorResponse>(err)) {
+          setError(err.response?.data?.message || 'Failed to save item');
+        } else {
+          setError('Failed to save item');
+        }
         setUploading(false);
     }
   };
