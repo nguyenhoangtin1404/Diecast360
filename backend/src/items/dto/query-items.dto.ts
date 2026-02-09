@@ -1,5 +1,6 @@
 import { IsOptional, IsInt, Min, IsString, IsBoolean, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ItemStatus } from '../../generated/prisma/client';
 
 export class QueryItemsDto {
   @IsOptional()
@@ -16,7 +17,7 @@ export class QueryItemsDto {
 
   @IsOptional()
   @IsIn(['con_hang', 'giu_cho', 'da_ban'])
-  status?: string;
+  status?: ItemStatus;
 
   @IsOptional()
   @Type(() => Boolean)

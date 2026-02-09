@@ -1,4 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
+import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { IStorageService } from '../storage/storage.interface';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
@@ -7,6 +8,7 @@ import { UpdateItemDto } from './dto/update-item.dto';
 import { VectorStoreService } from '../ai/vector-store.service';
 import { EmbeddingService } from '../ai/embedding.service';
 import { QueryItemsDto } from './dto/query-items.dto';
+import type { VectorSyncItem, ItemWithCoverImage, CsvFieldValue } from '../common/types/item.types';
 
 @Injectable()
 export class ItemsService {
@@ -17,7 +19,7 @@ export class ItemsService {
     private embeddingService: EmbeddingService,
   ) {}
 
-  async syncVectorStore(item: any) {
+  async syncVectorStore(item: VectorSyncItem) {
     try {
       if (!item.is_public || item.deleted_at) {
         await this.vectorStore.deleteItem(item.id);
@@ -79,15 +81,20 @@ Condition: ${item.condition || ''}`;
       .map(id => idMap.get(id))
       .filter(item => item !== undefined); // specific filter for type safety
 
-    const itemsWithCover = sortedItems.map((item: any) => ({
-      ...item,
-       price: item.price != null ? (typeof item.price.toNumber === 'function' ? item.price.toNumber() : Number(item.price)) : null,
-      original_price: item.original_price != null ? (typeof item.original_price.toNumber === 'function' ? item.original_price.toNumber() : Number(item.original_price)) : null,
-      cover_image_url: item.item_images[0]
-        ? this.getImageUrl(item.item_images[0].file_path)
-        : null,
-      item_images: undefined,
-    }));
+    const itemsWithCover = sortedItems.map((item) => {
+      const itemWithImages = item as ItemWithCoverImage;
+      const priceValue = itemWithImages.price as unknown as { toNumber?: () => number } | number | null;
+      const originalPriceValue = itemWithImages.original_price as unknown as { toNumber?: () => number } | number | null;
+      return {
+        ...itemWithImages,
+        price: priceValue != null ? (typeof (priceValue as { toNumber?: () => number }).toNumber === 'function' ? (priceValue as { toNumber: () => number }).toNumber() : Number(priceValue)) : null,
+        original_price: originalPriceValue != null ? (typeof (originalPriceValue as { toNumber?: () => number }).toNumber === 'function' ? (originalPriceValue as { toNumber: () => number }).toNumber() : Number(originalPriceValue)) : null,
+        cover_image_url: itemWithImages.item_images[0]
+          ? this.getImageUrl(itemWithImages.item_images[0].file_path)
+          : null,
+        item_images: undefined,
+      };
+    });
 
      return {
       items: itemsWithCover,
@@ -105,7 +112,7 @@ Condition: ${item.condition || ''}`;
     const pageSize = queryDto.page_size || 20;
     const skip = (page - 1) * pageSize;
 
-    const where: any = {
+    const where: Prisma.ItemWhereInput = {
       deleted_at: null,
     };
 
@@ -120,7 +127,6 @@ Condition: ${item.condition || ''}`;
     if (queryDto.q) {
       where.name = {
         contains: queryDto.q,
-        mode: 'insensitive',
       };
     }
 
@@ -144,17 +150,21 @@ Condition: ${item.condition || ''}`;
       this.prisma.item.count({ where }),
     ]);
 
-    const itemsWithCover = items.map((item: any) => ({
-      ...item,
-      price: item.price != null ? (typeof item.price.toNumber === 'function' ? item.price.toNumber() : Number(item.price)) : null,
-      original_price: item.original_price != null ? (typeof item.original_price.toNumber === 'function' ? item.original_price.toNumber() : Number(item.original_price)) : null,
-      cover_image_url: item.item_images[0]
-        ? this.getImageUrl(item.item_images[0].file_path)
-        : null,
-      has_default_spin_set: item.spin_sets.length > 0,
-      item_images: undefined,
-      spin_sets: undefined,
-    }));
+    const itemsWithCover = items.map((item) => {
+      const priceValue = item.price as unknown as { toNumber?: () => number } | number | null;
+      const originalPriceValue = item.original_price as unknown as { toNumber?: () => number } | number | null;
+      return {
+        ...item,
+        price: priceValue != null ? (typeof (priceValue as { toNumber?: () => number }).toNumber === 'function' ? (priceValue as { toNumber: () => number }).toNumber() : Number(priceValue)) : null,
+        original_price: originalPriceValue != null ? (typeof (originalPriceValue as { toNumber?: () => number }).toNumber === 'function' ? (originalPriceValue as { toNumber: () => number }).toNumber() : Number(originalPriceValue)) : null,
+        cover_image_url: item.item_images[0]
+          ? this.getImageUrl(item.item_images[0].file_path)
+          : null,
+        has_default_spin_set: item.spin_sets.length > 0,
+        item_images: undefined,
+        spin_sets: undefined,
+      };
+    });
 
     return {
       items: itemsWithCover,
@@ -193,13 +203,14 @@ Condition: ${item.condition || ''}`;
 
     const { item_images, spin_sets, ...itemData } = item;
 
-    const itemDataAny = itemData as any;
+    const priceValue = itemData.price as unknown as { toNumber?: () => number } | number | null;
+    const originalPriceValue = itemData.original_price as unknown as { toNumber?: () => number } | number | null;
 
     return {
       item: {
         ...itemData,
-        price: itemDataAny.price != null ? (typeof itemDataAny.price.toNumber === 'function' ? itemDataAny.price.toNumber() : Number(itemDataAny.price)) : null,
-        original_price: itemDataAny.original_price != null ? (typeof itemDataAny.original_price.toNumber === 'function' ? itemDataAny.original_price.toNumber() : Number(itemDataAny.original_price)) : null,
+        price: priceValue != null ? (typeof (priceValue as { toNumber?: () => number }).toNumber === 'function' ? (priceValue as { toNumber: () => number }).toNumber() : Number(priceValue)) : null,
+        original_price: originalPriceValue != null ? (typeof (originalPriceValue as { toNumber?: () => number }).toNumber === 'function' ? (originalPriceValue as { toNumber: () => number }).toNumber() : Number(originalPriceValue)) : null,
       },
       images: item_images.map((img) => ({
         id: img.id,
@@ -321,7 +332,7 @@ Condition: ${item.condition || ''}`;
       throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
     }
 
-    const updateData: any = {};
+    const updateData: Prisma.ItemUpdateInput = {};
     if (updateDto.name !== undefined) updateData.name = updateDto.name;
     if (updateDto.description !== undefined) updateData.description = updateDto.description;
     if (updateDto.scale !== undefined) updateData.scale = updateDto.scale;
@@ -335,7 +346,7 @@ Condition: ${item.condition || ''}`;
     if (updateDto.original_price !== undefined) {
       updateData.original_price = updateDto.original_price !== null ? updateDto.original_price : null;
     }
-    if (updateDto.status !== undefined) updateData.status = updateDto.status as any;
+    if (updateDto.status !== undefined) updateData.status = updateDto.status as 'con_hang' | 'giu_cho' | 'da_ban';
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
     if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
 
@@ -396,7 +407,7 @@ Condition: ${item.condition || ''}`;
       'updated_at',
     ];
 
-    const escapeCsvField = (value: any): string => {
+    const escapeCsvField = (value: CsvFieldValue): string => {
       if (value === null || value === undefined) return '';
       const str = String(value);
       // Escape quotes and wrap in quotes if contains comma, quote, or newline
@@ -406,12 +417,13 @@ Condition: ${item.condition || ''}`;
       return str;
     };
 
-    const rows = items.map((item: any) => {
+    const rows = items.map((item) => {
+      const itemRecord = item as Record<string, CsvFieldValue>;
       return headers.map((header) => {
-        let value = item[header];
+        let value = itemRecord[header];
         // Handle Decimal type from Prisma
-        if (value !== null && typeof value?.toNumber === 'function') {
-          value = value.toNumber();
+        if (value !== null && typeof (value as { toNumber?: () => number })?.toNumber === 'function') {
+          value = (value as { toNumber: () => number }).toNumber();
         }
         // Format dates
         if (value instanceof Date) {
