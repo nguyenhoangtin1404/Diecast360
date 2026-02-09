@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { Plus, Search, Sparkles, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import styles from '../ItemsPage.module.css';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
+import { downloadFile } from '../../../api/client';
 
 interface SearchHeaderProps {
   search: string;
@@ -16,16 +15,8 @@ export const SearchHeader = ({ search, onSearchChange }: SearchHeaderProps) => {
   const handleExportCsv = async () => {
     setIsExporting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/items/export`, {
-        method: 'GET',
-        credentials: 'include',
-      });
+      const blob = await downloadFile('/items/export');
       
-      if (!response.ok) {
-        throw new Error('Export failed');
-      }
-      
-      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

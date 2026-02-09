@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsBoolean, IsIn, IsNumber, Min } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsIn, IsNumber, Min, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ItemStatus } from '../../generated/prisma/client';
 
 export class UpdateItemDto {
   @IsOptional()
@@ -28,7 +29,7 @@ export class UpdateItemDto {
 
   @IsOptional()
   @IsIn(['new', 'old'])
-  condition?: string;
+  condition?: 'new' | 'old';
 
   @IsOptional()
   @Type(() => Number)
@@ -43,8 +44,8 @@ export class UpdateItemDto {
   original_price?: number;
 
   @IsOptional()
-  @IsIn(['con_hang', 'giu_cho', 'da_ban'])
-  status?: string;
+  @IsEnum(ItemStatus)
+  status?: ItemStatus;
 
   @IsOptional()
   @IsBoolean()
