@@ -62,7 +62,7 @@ export class ImagesService {
     const displayOrder = maxOrder ? maxOrder.display_order + 1 : 0;
 
     // If this is cover or first image, set as cover and unset others
-    let shouldSetCover = isCover || displayOrder === 0;
+    const shouldSetCover = isCover || displayOrder === 0;
     if (shouldSetCover) {
       await this.prisma.itemImage.updateMany({
         where: { item_id: itemId, is_cover: true },
