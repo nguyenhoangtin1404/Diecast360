@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../../api/client';
-import axios from 'axios';
+import { apiClient, uploadFile } from '../../api/client';
 import { ArrowLeft, Edit, Plus, X, Star, Sparkles } from 'lucide-react';
 import { Spinner360 } from '../../components/Spinner360/Spinner360';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
 
 // Helper functions for number formatting
 const formatNumber = (value: string): string => {
@@ -210,12 +207,7 @@ export const ItemDetailPage = () => {
             formData.append('file', file);
             formData.append('is_cover', i === 0 ? 'true' : 'false');
             
-            await axios.post(`${API_BASE_URL}/items/${itemId}/images`, formData, {
-              headers: {
-                'Content-Type': 'multipart/form-data',
-              },
-              withCredentials: true, // Cookie-based auth
-            });
+            await uploadFile(`/items/${itemId}/images`, formData);
           }
           queryClient.invalidateQueries({ queryKey: ['item', itemId] });
           setSelectedFiles([]);
@@ -344,12 +336,7 @@ export const ItemDetailPage = () => {
     formData.append('is_cover', isCover ? 'true' : 'false');
     
     try {
-      await axios.post(`${API_BASE_URL}/items/${id}/images`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        withCredentials: true, // Cookie-based auth
-      });
+      await uploadFile(`/items/${id}/images`, formData);
       queryClient.invalidateQueries({ queryKey: ['item', id] });
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -393,12 +380,7 @@ export const ItemDetailPage = () => {
       if (frameIndex !== undefined) {
         formData.append('frame_index', frameIndex.toString());
       }
-      return axios.post(`${API_BASE_URL}/spin-sets/${spinSetId}/frames`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        withCredentials: true, // Cookie-based auth
-      });
+      return uploadFile(`/spin-sets/${spinSetId}/frames`, formData);
     },
     onSuccess: () => {
       if (id && id !== 'new') {

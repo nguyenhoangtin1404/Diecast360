@@ -1,9 +1,8 @@
 import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1';
+import { API_CONFIG } from '../config/api';
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_CONFIG.BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -40,7 +39,7 @@ apiClient.interceptors.response.use(
       try {
         // Attempt to refresh the token using cookie-based refresh
         // The refresh_token cookie will be sent automatically
-        const refreshResponse = await axios.post(`${API_BASE_URL}/auth/refresh`, {}, {
+        const refreshResponse = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh`, {}, {
           withCredentials: true,
         });
 
@@ -67,3 +66,30 @@ apiClient.interceptors.response.use(
     return Promise.reject(error.response?.data || error);
   },
 );
+
+/**
+ * Download a file as a Blob
+ * Useful for CSV exports and other file downloads
+ */
+export const downloadFile = async (url: string): Promise<Blob> => {
+  const response = await axios.get(`${API_CONFIG.BASE_URL}${url}`, {
+    responseType: 'blob',
+    withCredentials: true,
+  });
+  return response.data;
+};
+
+/**
+ * Upload a file with FormData
+ * Useful for image uploads and other file uploads
+ */
+export const uploadFile = async <T = unknown>(
+  url: string, 
+  formData: FormData
+): Promise<T> => {
+  const response = await axios.post(`${API_CONFIG.BASE_URL}${url}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    withCredentials: true,
+  });
+  return response.data;
+};

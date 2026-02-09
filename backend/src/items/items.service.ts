@@ -9,6 +9,7 @@ import { VectorStoreService } from '../ai/vector-store.service';
 import { EmbeddingService } from '../ai/embedding.service';
 import { QueryItemsDto } from './dto/query-items.dto';
 import type { VectorSyncItem, ItemWithCoverImage, CsvFieldValue } from '../common/types/item.types';
+import { toNumber } from '../common/utils/decimal.utils';
 
 @Injectable()
 export class ItemsService {
@@ -83,12 +84,10 @@ Condition: ${item.condition || ''}`;
 
     const itemsWithCover = sortedItems.map((item) => {
       const itemWithImages = item as ItemWithCoverImage;
-      const priceValue = itemWithImages.price as unknown as { toNumber?: () => number } | number | null;
-      const originalPriceValue = itemWithImages.original_price as unknown as { toNumber?: () => number } | number | null;
       return {
         ...itemWithImages,
-        price: priceValue != null ? (typeof (priceValue as { toNumber?: () => number }).toNumber === 'function' ? (priceValue as { toNumber: () => number }).toNumber() : Number(priceValue)) : null,
-        original_price: originalPriceValue != null ? (typeof (originalPriceValue as { toNumber?: () => number }).toNumber === 'function' ? (originalPriceValue as { toNumber: () => number }).toNumber() : Number(originalPriceValue)) : null,
+        price: toNumber(itemWithImages.price),
+        original_price: toNumber(itemWithImages.original_price),
         cover_image_url: itemWithImages.item_images[0]
           ? this.getImageUrl(itemWithImages.item_images[0].file_path)
           : null,
@@ -150,21 +149,17 @@ Condition: ${item.condition || ''}`;
       this.prisma.item.count({ where }),
     ]);
 
-    const itemsWithCover = items.map((item) => {
-      const priceValue = item.price as unknown as { toNumber?: () => number } | number | null;
-      const originalPriceValue = item.original_price as unknown as { toNumber?: () => number } | number | null;
-      return {
-        ...item,
-        price: priceValue != null ? (typeof (priceValue as { toNumber?: () => number }).toNumber === 'function' ? (priceValue as { toNumber: () => number }).toNumber() : Number(priceValue)) : null,
-        original_price: originalPriceValue != null ? (typeof (originalPriceValue as { toNumber?: () => number }).toNumber === 'function' ? (originalPriceValue as { toNumber: () => number }).toNumber() : Number(originalPriceValue)) : null,
-        cover_image_url: item.item_images[0]
-          ? this.getImageUrl(item.item_images[0].file_path)
-          : null,
-        has_default_spin_set: item.spin_sets.length > 0,
-        item_images: undefined,
-        spin_sets: undefined,
-      };
-    });
+    const itemsWithCover = items.map((item) => ({
+      ...item,
+      price: toNumber(item.price),
+      original_price: toNumber(item.original_price),
+      cover_image_url: item.item_images[0]
+        ? this.getImageUrl(item.item_images[0].file_path)
+        : null,
+      has_default_spin_set: item.spin_sets.length > 0,
+      item_images: undefined,
+      spin_sets: undefined,
+    }));
 
     return {
       items: itemsWithCover,
@@ -339,14 +334,10 @@ Condition: ${item.condition || ''}`;
     if (updateDto.brand !== undefined) updateData.brand = updateDto.brand;
     if (updateDto.car_brand !== undefined) updateData.car_brand = updateDto.car_brand;
     if (updateDto.model_brand !== undefined) updateData.model_brand = updateDto.model_brand;
-    if (updateDto.condition !== undefined) updateData.condition = updateDto.condition as 'new' | 'old' | null;
-    if (updateDto.price !== undefined) {
-      updateData.price = updateDto.price !== null ? updateDto.price : null;
-    }
-    if (updateDto.original_price !== undefined) {
-      updateData.original_price = updateDto.original_price !== null ? updateDto.original_price : null;
-    }
-    if (updateDto.status !== undefined) updateData.status = updateDto.status as 'con_hang' | 'giu_cho' | 'da_ban';
+    if (updateDto.condition !== undefined) updateData.condition = updateDto.condition;
+    if (updateDto.price !== undefined) updateData.price = updateDto.price ?? null;
+    if (updateDto.original_price !== undefined) updateData.original_price = updateDto.original_price ?? null;
+    if (updateDto.status !== undefined) updateData.status = updateDto.status;
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
     if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
 
