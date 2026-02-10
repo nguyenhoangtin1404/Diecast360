@@ -21,6 +21,7 @@ Prisma ORM hỗ trợ cả hai; chỉ cần thay `DATABASE_URL` và chạy lại
   - **Images**: Upload ảnh thường, đặt cover, reorder, xóa; lưu metadata file/thumbnail.
   - **Spinner**: Quản lý spin set (default duy nhất), upload frame, reorder frame, đảm bảo `(spin_set_id, frame_index)` unique và liên tục.
   - **Public**: Route chỉ đọc cho catalog; chỉ lấy item `is_public=true` & chưa xóa mềm.
+  - **AI**: Sinh mô tả sản phẩm, Facebook post bằng AI; phân tích ảnh tạo draft item tự động. Gồm `AiService` (orchestrate), `EmbeddingService` (vector embedding), `VectorStoreService` (tìm kiếm tương tự).
 - Hạ tầng:
   - **Storage abstraction**: interface lưu/xóa file; triển khai mặc định `LocalStorage` (dev/demo) dùng `UPLOAD_DIR`; chuẩn bị interface để thay bằng S3 sau này.
   - **ImageProcessor**: dùng Sharp để resize/tạo thumbnail cả ảnh thường và frame spinner.

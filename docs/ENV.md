@@ -23,6 +23,10 @@ Diecast360 hỗ trợ 2 loại database:
 | MAX_UPLOAD_MB | Giới hạn kích thước upload | `10` | Áp dụng cho ảnh thường và frame spinner |
 | ALLOWED_MIME | MIME type cho upload | `image/jpeg,image/png` | Server validate trước khi lưu |
 | PUBLIC_BASE_URL | Base public URL | `http://localhost:5173` | Dùng để ghép URL ảnh/thumbnail |
+| FRONTEND_URL | Frontend origin cho CORS | `http://localhost:5173` | Phải khớp với origin frontend |
+| COOKIE_SECRET | Secret ký cookies | random 32+ chars | Bắt buộc, đổi trong production |
+| COOKIE_SECURE | Chỉ gửi cookies qua HTTPS | `false` (dev) / `true` (prod) | Bật khi deploy HTTPS |
+| COOKIE_SAME_SITE | SameSite attribute cho cookies | `lax` (dev) / `strict` (prod) | Chống CSRF |
 
 ## DATABASE_URL Format
 

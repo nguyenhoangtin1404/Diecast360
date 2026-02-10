@@ -100,13 +100,18 @@ A full-stack web application for managing diecast inventory with a 360° image s
 - Timestamps: ISO8601
 
 ### 5.2. Response envelope
+
+**Success:**
 ```json
 {
   "ok": true,
   "data": {},
   "message": ""
 }
-Error:
+```
+
+**Error:**
+```json
 {
   "ok": false,
   "error": {
@@ -115,172 +120,137 @@ Error:
   },
   "message": ""
 }
+```
 
 ### 5.3. Endpoints tối thiểu
-Auth
 
-POST /auth/login
+**Auth**
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `POST /auth/logout`
+- `GET /auth/me`
 
-POST /auth/refresh
+**Items**
+- `GET /items`
+- `POST /items`
+- `GET /items/:id`
+- `PATCH /items/:id`
+- `DELETE /items/:id`
 
-POST /auth/logout
+**Images**
+- `POST /items/:id/images`
+- `PATCH /items/:id/images/:image_id` (set is_cover, đổi metadata nếu có)
+- `PATCH /items/:id/images/order`
+- `DELETE /items/:id/images/:image_id`
 
-GET /auth/me
+**Spinner**
+- `GET /items/:id/spin-sets`
+- `POST /items/:id/spin-sets`
+- `PATCH /spin-sets/:id`
+- `POST /spin-sets/:id/frames`
+- `PATCH /spin-sets/:id/frames/order`
+- `DELETE /spin-sets/:id/frames/:frame_id`
 
-Items
+**Public**
+- `GET /public/items`
+- `GET /public/items/:id`
 
-GET /items
+**AI**
+- `POST /items/:id/ai-description`
+- `POST /items/:id/fb-post`
+- `POST /items/ai-draft`
 
-POST /items
+**CSV Export**
+- `GET /items/export`
 
-GET /items/:id
+---
 
-PATCH /items/:id
+## 6. DATABASE SCHEMA (LOGIC BẮT BUỘC)
 
-DELETE /items/:id
+### Tables tối thiểu
+- `users`
+- `refresh_tokens`
+- `items`
+- `item_images`
+- `spin_sets`
+- `spin_frames`
+- `ai_item_drafts`
 
-Images:
+### Quy tắc DB
+- UUID primary key
+- Soft delete: `deleted_at`
+- Index cho:
+  - `item.status`
+  - `item.created_at`
+  - `spin_frames.spin_set_id` + `frame_index`
 
-POST /items/:id/images
+---
 
-PATCH /items/:id/images/:image_id (set is_cover, đổi metadata nếu có)
+## 7. ERROR HANDLING (CHUẨN HÓA)
 
-PATCH /items/:id/images/order
+### Error codes chuẩn
+- `AUTH_INVALID_CREDENTIALS`
+- `AUTH_TOKEN_EXPIRED`
+- `AUTH_FORBIDDEN`
+- `VALIDATION_ERROR`
+- `NOT_FOUND`
+- `UPLOAD_INVALID_TYPE`
+- `UPLOAD_TOO_LARGE`
+- `SPIN_FRAME_INDEX_CONFLICT`
+- `INTERNAL_SERVER_ERROR`
 
-DELETE /items/:id/images/:image_id
+### HTTP status mapping
+`400` / `401` / `403` / `404` / `409` / `413` / `422` / `500`
 
-Spinner:
+---
 
-GET /items/:id/spin-sets
-
-POST /items/:id/spin-sets
-
-PATCH /spin-sets/:id
-
-POST /spin-sets/:id/frames
-
-PATCH /spin-sets/:id/frames/order
-
-DELETE /spin-sets/:id/frames/:frame_id
-
-Public:
-
-GET /public/items
-
-GET /public/items/:id
-
-
-6. DATABASE SCHEMA (LOGIC BẮT BUỘC)
-Tables tối thiểu
-
-users
-
-refresh_tokens
-
-items
-
-item_images
-
-spin_sets
-
-spin_frames
-
-Quy tắc DB
-
-UUID primary key
-
-Soft delete: deleted_at
-
-Index cho:
-
-item.status
-
-item.created_at
-
-spin_frames.spin_set_id + frame_index
-
-7. ERROR HANDLING (CHUẨN HÓA)
-Error codes chuẩn
-
-AUTH_INVALID_CREDENTIALS
-
-AUTH_TOKEN_EXPIRED
-
-AUTH_FORBIDDEN
-
-VALIDATION_ERROR
-
-NOT_FOUND
-
-UPLOAD_INVALID_TYPE
-
-UPLOAD_TOO_LARGE
-
-SPIN_FRAME_INDEX_CONFLICT
-
-INTERNAL_SERVER_ERROR
-
-HTTP status mapping
-
-400 / 401 / 403 / 404 / 409 / 413 / 422 / 500
-
-8. ENVIRONMENT VARIABLES
+## 8. ENVIRONMENT VARIABLES
 
 BẮT BUỘC sinh:
-
-.env.example
-
-docs/ENV.md
+- `.env.example`
+- `docs/ENV.md`
 
 Biến tối thiểu:
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `JWT_EXPIRES_IN`
+- `REFRESH_TOKEN_EXPIRES_IN`
+- `UPLOAD_DIR`
+- `MAX_UPLOAD_MB`
+- `ALLOWED_MIME`
+- `PUBLIC_BASE_URL`
+- `FRONTEND_URL`
+- `COOKIE_SECRET`
+- `COOKIE_SECURE`
+- `COOKIE_SAME_SITE`
 
-DATABASE_URL
+---
 
-JWT_SECRET
+## 9. KIẾN TRÚC (MÔ TẢ TRONG DOC)
 
-JWT_EXPIRES_IN
+### Backend
+- Controller / Route
+- Service
+- Repository (Prisma)
+- ImageProcessor
+- Storage abstraction (Local → S3)
+- AI module (AiService, EmbeddingService, VectorStoreService)
 
-REFRESH_TOKEN_EXPIRES_IN
+### Frontend
+- Pages: public / admin
+- Components:
+  - Spinner360
+  - Gallery
+  - ItemCard
+- Data: TanStack Query
 
-UPLOAD_DIR
+---
 
-MAX_UPLOAD_MB
-
-ALLOWED_MIME
-
-PUBLIC_BASE_URL
-
-9. KIẾN TRÚC (MÔ TẢ TRONG DOC)
-Backend
-
-Controller / Route
-
-Service
-
-Repository (Prisma)
-
-ImageProcessor
-
-Storage abstraction (Local → S3)
-
-Frontend
-
-Pages: public / admin
-
-Components:
-
-Spinner360
-
-Gallery
-
-ItemCard
-
-Data: TanStack Query
-
-10. DANH SÁCH FILE PHẢI SINH RA
+## 10. DANH SÁCH FILE PHẢI SINH RA
 
 AI PHẢI GEN ĐẦY ĐỦ CÁC FILE SAU:
 
+```
 docs/
  ├─ AI_RULES.md
  ├─ API_CONTRACT.md
@@ -293,59 +263,50 @@ docs/
  └─ TODO.md
 .env.example
 README.md
+```
 
-11. PROMPT TEMPLATE (KHI AI TỰ DÙNG)
+---
 
-Khi viết PROMPT_TEMPLATE.md, phải có:
+## 11. PROMPT TEMPLATE (KHI AI TỰ DÙNG)
 
-Ràng buộc không đổi API/DB khi chưa cập nhật docs
+Khi viết `PROMPT_TEMPLATE.md`, phải có:
+- Ràng buộc không đổi API/DB khi chưa cập nhật docs
+- Yêu cầu trả về file hoàn chỉnh
+- Không trả lời lan man
 
-Yêu cầu trả về file hoàn chỉnh
+---
 
-Không trả lời lan man
+## 12. TODO / ROADMAP
 
-12. TODO / ROADMAP
-MVP
+### MVP
+- [x] CRUD item
+- [x] Upload ảnh thường
+- [x] Public catalog
+- [x] Copy caption FB
+- [x] Spinner
+  - [x] Spin set
+  - [x] Upload frame
+  - [x] Spinner360 component
 
-CRUD item
+### Production-like
+- [ ] Watermark
+- [x] CSV export
+- [ ] Docker compose
+- [x] CI cơ bản
+- [x] README polish
 
-Upload ảnh thường
+---
 
-Public catalog
+## 13. CÁCH THỰC HIỆN (BẮT BUỘC)
 
-Copy caption FB
+1. Dựa 100% vào file này
+2. Sinh DOMAIN → DB → API → ERROR → ARCH → ENV → AI_RULES → TODO → README → PROMPT_TEMPLATE
+3. Kiểm tra chéo, đảm bảo không mâu thuẫn
+4. Trả về nội dung đầy đủ của từng file
 
-Spinner
+---
 
-Spin set
-
-Upload frame
-
-Spinner360 component
-
-Production-like
-
-Watermark
-
-CSV export
-
-Docker compose
-
-CI cơ bản
-
-README polish
-
-13. CÁCH THỰC HIỆN (BẮT BUỘC)
-
-Dựa 100% vào file này
-
-Sinh DOMAIN → DB → API → ERROR → ARCH → ENV → AI_RULES → TODO → README → PROMPT_TEMPLATE
-
-Kiểm tra chéo, đảm bảo không mâu thuẫn
-
-Trả về nội dung đầy đủ của từng file
-
-KẾT LUẬN
+## KẾT LUẬN
 
 File này là luật gốc.
 Không có quyền sáng tác ngoài phạm vi.

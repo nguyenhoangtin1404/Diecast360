@@ -7,7 +7,7 @@
 
 ## Thực thể & trách nhiệm
 ### Item
-- Mẫu xe diecast; thuộc tính chính: `id (uuid)`, `name`, `description`, `scale` (mặc định "1:64"), `brand` (tùy chọn), `status`, `is_public`, `created_at`, `updated_at`, `deleted_at` (soft delete).
+- Mẫu xe diecast; thuộc tính chính: `id (uuid)`, `name`, `description`, `scale` (mặc định "1:64"), `brand` (tùy chọn), `car_brand`, `model_brand`, `condition`, `price`, `original_price`, `status`, `is_public`, `fb_post_content` (nội dung bài FB), `created_at`, `updated_at`, `deleted_at` (soft delete).
 - Quan hệ: nhiều `ItemImage`, nhiều `SpinSet`; duy nhất 1 `SpinSet` được gắn cờ `is_default`.
 - Giá trị trạng thái: `con_hang`, `giu_cho`, `da_ban` (lưu ý khi hiển thị catalog/sao chép caption).
 - Ảnh cover lấy từ `ItemImage.is_cover = true`, fallback ảnh đầu tiên theo `display_order`.
@@ -34,6 +34,11 @@
 ### RefreshToken
 - Lưu refresh token đã phát hành để hỗ trợ revoke.
 - Thuộc tính: `id`, `user_id`, `token_hash`, `expires_at`, `revoked_at` (nullable), `created_at`.
+
+### AiItemDraft
+- Bản nháp item do AI phân tích từ ảnh chụp sản phẩm.
+- Thuộc tính: `id (uuid)`, `images_json` (JSON paths ảnh), `extracted_text` (text trích xuất), `ai_json` (dữ liệu item do AI phân tích), `confidence_json` (confidence scores), `status` (`PENDING|CONFIRMED|REJECTED`), `created_at`, `updated_at`.
+- Quy trình: Upload ảnh → AI phân tích → tạo draft PENDING → user xác nhận hoặc hủy.
 
 ## Quy tắc nghiệp vụ
 - Soft delete: item dùng `deleted_at`; dữ liệu đã xóa mềm không xuất hiện ở danh sách admin/public.

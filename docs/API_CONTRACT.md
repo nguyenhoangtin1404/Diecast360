@@ -12,12 +12,12 @@
     ```json
     {"ok": false, "error": {"code": "ERROR_CODE", "details": []}, "message": ""}
     ```
-- Auth: Bearer Access Token cho endpoint admin; refresh token dùng cho refresh/logout. Public endpoints không cần auth.
+- Auth: HttpOnly Cookie (chính) hoặc Bearer Access Token (fallback) cho endpoint admin; chi tiết xem `COOKIE_AUTH.md`. Public endpoints không cần auth.
 - ID: UUID.
 - Upload: `multipart/form-data`, field file là `file` (ảnh thường) hoặc `frame` (ảnh spinner). Server dùng Sharp tạo thumbnail.
 
 ## Data shape
-- `Item`: `{ id, name, description, scale, brand, status, is_public, cover_image_url, created_at, updated_at, deleted_at? }`.
+- `Item`: `{ id, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, status, is_public, fb_post_content, cover_image_url, created_at, updated_at, deleted_at? }`.
 - `ItemImage`: `{ id, item_id, url, thumbnail_url, is_cover, display_order, created_at }`.
 - `SpinFrame`: `{ id, spin_set_id, frame_index, image_url, thumbnail_url, created_at }`.
 - `SpinSet`: `{ id, item_id, label, is_default, frames: SpinFrame[], created_at, updated_at }`.
@@ -123,6 +123,24 @@
 ### DELETE /api/v1/spin-sets/:id/frames/:frame_id
 - Xóa frame, server thu gọn `frame_index` còn lại.
 - Response 200: `data: {}`.
+
+## CSV Export (admin)
+### GET /api/v1/items/export
+- Response 200: `Content-Type: text/csv`, file CSV chứa danh sách item + trạng thái.
+
+## AI (admin)
+### POST /api/v1/items/:id/ai-description
+- Body JSON: `{ "custom_instructions": "string (optional)" }`.
+- Response 200: `data: { description }` (AI-generated description cho item).
+
+### POST /api/v1/items/:id/fb-post
+- Body JSON: `{ "custom_instructions": "string (optional)" }`.
+- Response 200: `data: { content }` (AI-generated Facebook post cho item).
+
+### POST /api/v1/items/ai-draft
+- Content-Type: multipart/form-data, field `images` (1+ file ảnh, max 10MB, jpeg/png/webp).
+- Response 200: `data: { draftId, aiJson, confidence, images }`.
+- AI phân tích ảnh sản phẩm, tạo draft item với confidence scores.
 
 ## Public
 ### GET /api/v1/public/items

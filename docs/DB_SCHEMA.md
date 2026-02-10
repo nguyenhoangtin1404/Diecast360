@@ -59,6 +59,7 @@
 | created_at | datetime | NOT NULL, default now() |
 | updated_at | datetime | NOT NULL, auto update |
 | deleted_at | datetime | NULL (soft delete) |
+| fb_post_content | text | NULL (nội dung bài FB do AI hoặc user tạo) |
 
 ### item_images
 | Column | Type | Constraints/Notes |
@@ -90,6 +91,18 @@
 | frame_index | integer | NOT NULL, 0-based, liên tục |
 | file_path | text | NOT NULL |
 | thumbnail_path | text | NULL |
+| created_at | datetime | NOT NULL, default now() |
+| updated_at | datetime | NOT NULL, auto update |
+
+### ai_item_drafts
+| Column | Type | Constraints/Notes |
+|--------|------|-------------------|
+| id | uuid | PK |
+| images_json | text | NOT NULL (JSON string danh sách image paths) |
+| extracted_text | text | NULL (text trích xuất từ ảnh) |
+| ai_json | text | NOT NULL (JSON string dữ liệu item do AI phân tích) |
+| confidence_json | text | NULL (JSON string confidence scores) |
+| status | varchar | NOT NULL, default `PENDING`, values: `PENDING` \| `CONFIRMED` \| `REJECTED` |
 | created_at | datetime | NOT NULL, default now() |
 | updated_at | datetime | NOT NULL, auto update |
 
