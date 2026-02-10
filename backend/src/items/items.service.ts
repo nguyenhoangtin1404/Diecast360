@@ -47,63 +47,66 @@ Condition: ${item.condition || ''}`;
   }
 
   async search(query: string, limit: number = 20) {
-    // 1. Get embedding for the query
-    const embedding = await this.embeddingService.getEmbedding(query);
-    if (!embedding.length) {
+    // Try vector/semantic search first, fallback to text search
+    try {
+      const embedding = await this.embeddingService.getEmbedding(query);
+      if (!embedding.length) {
+        return this.findAll({ q: query, page: 1, page_size: limit });
+      }
+
+      const ids = await this.vectorStore.search(embedding, limit);
+
+      if (ids.length === 0) {
+        // No vector results — fallback to text search
+        return this.findAll({ q: query, page: 1, page_size: limit });
+      }
+
+      const items = await this.prisma.item.findMany({
+        where: {
+          id: { in: ids },
+          deleted_at: null,
+        },
+        include: {
+          item_images: {
+            where: { is_cover: true },
+            take: 1,
+          },
+        },
+      });
+
+      // Sort items by the order returned from vector store
+      const idMap = new Map(items.map(item => [item.id, item]));
+      const sortedItems = ids
+        .map(id => idMap.get(id))
+        .filter(item => item !== undefined);
+
+      const itemsWithCover = sortedItems.map((item) => {
+        const itemWithImages = item as ItemWithCoverImage;
+        return {
+          ...itemWithImages,
+          price: toNumber(itemWithImages.price),
+          original_price: toNumber(itemWithImages.original_price),
+          cover_image_url: itemWithImages.item_images[0]
+            ? this.getImageUrl(itemWithImages.item_images[0].file_path)
+            : null,
+          item_images: undefined,
+        };
+      });
+
+      return {
+        items: itemsWithCover,
+        pagination: {
+          page: 1,
+          page_size: limit,
+          total: itemsWithCover.length,
+          total_pages: 1,
+        },
+      };
+    } catch (error) {
+      // Vector search unavailable (no API key, Pinecone down, etc.) — fallback to text search
+      console.warn('[Search] Vector search failed, falling back to text search:', (error as Error).message);
       return this.findAll({ q: query, page: 1, page_size: limit });
     }
-
-    // 2. Search in vector store
-    const ids = await this.vectorStore.search(embedding, limit);
-
-    if (ids.length === 0) {
-       return { items: [], pagination: { page: 1, page_size: limit, total: 0, total_pages: 0 } };
-    }
-
-    // 3. Fetch items from DB preserving order (if possible, but Prisma IN doesn't preserve order easily)
-    // We fetch all found items and then re-sort them based on the ID order from vector search
-    const items = await this.prisma.item.findMany({
-      where: {
-        id: { in: ids },
-        deleted_at: null,
-        is_public: true, // Only public items
-      },
-      include: {
-        item_images: {
-          where: { is_cover: true },
-          take: 1,
-        },
-      },
-    });
-
-    // Sort items by the order returned from vector store
-    const idMap = new Map(items.map(item => [item.id, item]));
-    const sortedItems = ids
-      .map(id => idMap.get(id))
-      .filter(item => item !== undefined); // specific filter for type safety
-
-    const itemsWithCover = sortedItems.map((item) => {
-      const itemWithImages = item as ItemWithCoverImage;
-      return {
-        ...itemWithImages,
-        price: toNumber(itemWithImages.price),
-        original_price: toNumber(itemWithImages.original_price),
-        cover_image_url: itemWithImages.item_images[0]
-          ? this.getImageUrl(itemWithImages.item_images[0].file_path)
-          : null,
-        item_images: undefined,
-      };
-    });
-
-     return {
-      items: itemsWithCover,
-      pagination: {
-        page: 1,
-        page_size: limit,
-        total: itemsWithCover.length, // Approximate since we don't count all matches in vector DB
-        total_pages: 1,
-      },
-    };
   }
 
   async findAll(queryDto: QueryItemsDto) {

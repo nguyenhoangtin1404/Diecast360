@@ -28,7 +28,6 @@ export class PublicService {
     if (queryDto.q) {
       where.name = {
         contains: queryDto.q,
-        mode: 'insensitive',
       };
     }
 
