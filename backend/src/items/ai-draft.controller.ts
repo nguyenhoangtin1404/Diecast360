@@ -1,10 +1,12 @@
-import { Controller, Post, UseInterceptors, UploadedFiles, Inject, Body, BadRequestException, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator } from '@nestjs/common';
+import { Controller, Post, UseInterceptors, UploadedFiles, Inject, BadRequestException, UseGuards } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { IStorageService } from '../storage/storage.interface';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('items/ai-draft')
+@UseGuards(JwtAuthGuard)
 export class AiDraftController {
   constructor(
     private readonly aiService: AiService,
@@ -13,19 +15,26 @@ export class AiDraftController {
   ) {}
 
   @Post()
-  @UseInterceptors(FilesInterceptor('images'))
+  @UseInterceptors(FilesInterceptor('images', 10)) // max 10 files
   async createDraft(
-    @UploadedFiles(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 10 }), // 10MB
-          new FileTypeValidator({ fileType: '.(png|jpeg|jpg|webp)' }),
-        ],
-      }),
-    ) files: Array<Express.Multer.File>,
+    @UploadedFiles() files: Array<Express.Multer.File>,
   ) {
     if (!files || files.length === 0) {
       throw new BadRequestException('At least one image is required');
+    }
+
+    // Validate each file manually
+    const allowedTypes = /\.(png|jpeg|jpg|webp)$/i;
+    const allowedMimes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
+    for (const file of files) {
+      if (!allowedMimes.includes(file.mimetype)) {
+        throw new BadRequestException(`Invalid file type: ${file.mimetype}. Allowed: png, jpeg, jpg, webp`);
+      }
+      if (file.size > maxSize) {
+        throw new BadRequestException(`File ${file.originalname} exceeds 10MB limit`);
+      }
     }
 
     // 1. Analyze

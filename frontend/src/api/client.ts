@@ -88,8 +88,9 @@ export const uploadFile = async <T = unknown>(
   formData: FormData
 ): Promise<T> => {
   const response = await axios.post(`${API_CONFIG.BASE_URL}${url}`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
     withCredentials: true,
+    // DO NOT set Content-Type manually — Axios auto-detects
+    // multipart/form-data with correct boundary from FormData
   });
   return response.data;
 };

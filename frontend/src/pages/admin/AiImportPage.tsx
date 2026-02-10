@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, Loader2, Check, AlertCircle } from 'lucide-react';
 import { isAxiosError } from 'axios';
-import { apiClient } from '../../api/client';
+import { apiClient, uploadFile } from '../../api/client';
 import type { ItemFormData, ApiErrorResponse } from '../../types/item.types';
 
 interface AiDraftResponse {
@@ -45,7 +45,7 @@ export const AiImportPage = () => {
       setAnalyzing(true);
 
       try {
-        const response = await apiClient.post<AiDraftResponse>('/items/ai-draft', formData);
+        const response = await uploadFile<{ ok: boolean; data: AiDraftResponse }>('/items/ai-draft', formData);
         const data = response.data;
         
         setDraft(data);
