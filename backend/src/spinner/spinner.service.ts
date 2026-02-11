@@ -168,7 +168,9 @@ export class SpinnerService {
     this.validateFile(file);
 
     // Process image and generate thumbnail
-    const processedImage = await this.imageProcessor.processImage(file.buffer);
+    const processedImage = await this.imageProcessor.processImage(file.buffer, {
+      watermark: true,
+    });
     const thumbnail = await this.imageProcessor.generateThumbnail(file.buffer);
 
     // Generate filenames

@@ -11,7 +11,7 @@
   - [x] Component Spinner360 (drag/touch, autoplay, preload dần, fallback gallery nếu thiếu spinner).
 
 ## Production-like / nâng cao
-- [ ] Watermark ảnh (dùng Sharp trước khi lưu/publish).
+- [x] Watermark ảnh (dùng Sharp trước khi lưu/publish).
 - [x] CSV export (danh sách item + trạng thái) cho admin.
 - [ ] Docker Compose (PostgreSQL + backend + frontend) với volume cho `UPLOAD_DIR`.
 - [x] CI cơ bản (lint/test/build) và publish artifact.
