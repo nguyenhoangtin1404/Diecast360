@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { IStorageService } from '../storage/storage.interface';
@@ -13,6 +13,8 @@ import { toNumber } from '../common/utils/decimal.utils';
 
 @Injectable()
 export class ItemsService {
+  private readonly logger = new Logger(ItemsService.name);
+
   constructor(
     private prisma: PrismaService,
     @Inject('IStorageService') private storage: IStorageService,
@@ -42,7 +44,7 @@ Condition: ${item.condition || ''}`;
         });
       }
     } catch (error) {
-      console.error(`Failed to sync item ${item.id} with vector store:`, error);
+      this.logger.error(`Failed to sync item ${item.id} with vector store`, (error as Error).stack);
     }
   }
 
@@ -104,7 +106,7 @@ Condition: ${item.condition || ''}`;
       };
     } catch (error) {
       // Vector search unavailable (no API key, Pinecone down, etc.) — fallback to text search
-      console.warn('[Search] Vector search failed, falling back to text search:', (error as Error).message);
+      this.logger.warn(`Vector search failed, falling back to text search: ${(error as Error).message}`);
       return this.findAll({ q: query, page: 1, page_size: limit });
     }
   }
@@ -239,52 +241,40 @@ Condition: ${item.condition || ''}`;
   }
 
   async create(createDto: CreateItemDto) {
-    const item = await this.prisma.item.create({
-      data: {
-        name: createDto.name,
-        description: createDto.description,
-        scale: createDto.scale || '1:64',
-        brand: createDto.brand,
-        car_brand: createDto.car_brand || null,
-        model_brand: createDto.model_brand || null,
-        condition: (createDto.condition as 'new' | 'old' | undefined) || null,
-        price: createDto.price !== undefined && createDto.price !== null ? createDto.price : null,
-        original_price: createDto.original_price !== undefined && createDto.original_price !== null ? createDto.original_price : null,
-        status: (createDto.status as any) || 'con_hang',
-        is_public: createDto.is_public || false,
-      },
-    });
+    const failedImages: { filename: string; error: string }[] = [];
 
-    // Handle Draft if provided
-    if (createDto.draft_id) {
-      try {
-        const draft = await this.prisma.aiItemDraft.findUnique({ where: { id: createDto.draft_id } });
+    const item = await this.prisma.$transaction(async (tx) => {
+      const item = await tx.item.create({
+        data: {
+          name: createDto.name,
+          description: createDto.description,
+          scale: createDto.scale || '1:64',
+          brand: createDto.brand,
+          car_brand: createDto.car_brand || null,
+          model_brand: createDto.model_brand || null,
+          condition: (createDto.condition as 'new' | 'old' | undefined) || null,
+          price: createDto.price !== undefined && createDto.price !== null ? createDto.price : null,
+          original_price: createDto.original_price !== undefined && createDto.original_price !== null ? createDto.original_price : null,
+          status: (createDto.status as any) || 'con_hang',
+          is_public: createDto.is_public || false,
+        },
+      });
+
+      // Handle Draft if provided
+      if (createDto.draft_id) {
+        const draft = await tx.aiItemDraft.findUnique({ where: { id: createDto.draft_id } });
         if (draft && draft.images_json) {
           const imageUrls = JSON.parse(draft.images_json) as string[];
-          
+
           let displayOrder = 0;
           for (const url of imageUrls) {
-            // Extract filename from URL (assuming /uploads/drafts/filename)
-            // Or if storage returns path, we can extract it.
-            // URL: http://host/uploads/drafts/draft_123.jpg
-            // Filename: draft_123.jpg
-            const msg = url.split('/').pop();
-            if (msg) {
-              const filename = msg; // This is the filename on disk in drafts folder?
-              // Wait, StorageService.saveFile returns path (e.g. "drafts/file.jpg").
-              // getFileUrl prepends host/uploads/.
-              // We need the relative path "drafts/filename" to move it.
-              // We can reconstruct it or trust the filename in URL if it matches.
-              
-              // More robust: If we have the filename, we can try to move it.
-              // Assuming "drafts/" prefix based on controller logic.
+            const filename = url.split('/').pop();
+            if (filename) {
               try {
-                // Move file from "drafts/filename" to "images/filename"
                 const newFilename = `item_${item.id}_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
                 const newPath = await this.storage.moveFile(`drafts/${filename}`, newFilename, 'images');
-                
-                // Create ItemImage
-                await this.prisma.itemImage.create({
+
+                await tx.itemImage.create({
                   data: {
                     item_id: item.id,
                     file_path: newPath,
@@ -294,22 +284,45 @@ Condition: ${item.condition || ''}`;
                 });
                 displayOrder++;
               } catch (e) {
-                console.error(`[CRITICAL] Failed to move draft image ${filename} to permanent storage for Item ${item.id}. Original Draft: ${createDto.draft_id}. Error:`, e);
-                // TODO: Consider implementing a cleanup or retry mechanism
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                failedImages.push({ filename, error: errorMessage });
+                this.logger.error(
+                  `Failed to process draft image "${filename}" for item ${item.id}`,
+                  e instanceof Error ? e.stack : undefined,
+                  `ItemsService.create | draftId=${createDto.draft_id}`,
+                );
               }
             }
           }
-          
+
           // Update draft status
-          await this.prisma.aiItemDraft.update({
+          await tx.aiItemDraft.update({
             where: { id: draft.id },
             data: { status: 'CONFIRMED' },
           });
         }
-      } catch (error) {
-        console.error('Error processing draft images:', error);
-        // Don't fail the item creation, just log
       }
+
+      return item;
+    });
+
+    // If some images failed, mark item with notes for admin review
+    if (failedImages.length > 0) {
+      const failureDetails = failedImages
+        .map((f) => `${f.filename}: ${f.error}`)
+        .join('; ');
+
+      await this.prisma.item.update({
+        where: { id: item.id },
+        data: {
+          notes: `[INCOMPLETE] Failed to process ${failedImages.length} draft image(s): ${failureDetails}`,
+        },
+      });
+
+      this.logger.error(
+        `Item ${item.id} created with ${failedImages.length} failed image(s) out of draft ${createDto.draft_id}. ` +
+        `Failed: ${failedImages.map((f) => f.filename).join(', ')}`,
+      );
     }
 
     // Sync with vector store

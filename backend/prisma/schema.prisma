@@ -65,6 +65,7 @@ model Item {
   created_at     DateTime    @default(now())
   updated_at     DateTime    @updatedAt
   deleted_at     DateTime?
+  notes          String?
   fb_post_content String?
   
   item_images ItemImage[]
