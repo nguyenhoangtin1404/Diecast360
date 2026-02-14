@@ -1,5 +1,6 @@
 import { Controller, Post, UseInterceptors, UploadedFiles, Inject, BadRequestException, UseGuards } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { IStorageService } from '../storage/storage.interface';
@@ -15,6 +16,7 @@ export class AiDraftController {
   ) {}
 
   @Post()
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @UseInterceptors(FilesInterceptor('images', 10)) // max 10 files
   async createDraft(
     @UploadedFiles() files: Array<Express.Multer.File>,

@@ -10,10 +10,12 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Logger,
   Res,
   Header,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { ItemsService } from './items.service';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
@@ -23,9 +25,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @Controller('items')
 @UseGuards(JwtAuthGuard)
 export class ItemsController {
+  private readonly logger = new Logger(ItemsController.name);
+
   constructor(private readonly itemsService: ItemsService) {}
 
   @Post()
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   create(@Body() createItemDto: CreateItemDto) {
     return this.itemsService.create(createItemDto);
   }
@@ -44,6 +49,7 @@ export class ItemsController {
   }
 
   @Get('export')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Header('Content-Type', 'text/csv')
   @Header('Content-Disposition', 'attachment; filename="items.csv"')
   async exportCsv(@Res() res: Response) {
@@ -51,7 +57,7 @@ export class ItemsController {
       const csv = await this.itemsService.exportCsv();
       res.send(csv);
     } catch (error) {
-      console.error('CSV Export failed:', error);
+      this.logger.error('CSV Export failed', (error as Error).stack);
       res.status(500).json({ ok: false, message: 'Export failed' });
     }
   }
