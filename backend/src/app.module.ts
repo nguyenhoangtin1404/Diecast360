@@ -13,6 +13,7 @@ import { StorageModule } from './storage/storage.module';
 import { SpinnerModule } from './spinner/spinner.module';
 import { PublicModule } from './public/public.module';
 import { AiModule } from './ai/ai.module';
+import { CategoriesModule } from './categories/categories.module';
 import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
 
 @Module({
@@ -37,6 +38,7 @@ import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.f
     SpinnerModule,
     PublicModule,
     AiModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [
