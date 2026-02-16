@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, uploadFile } from '../../api/client';
 import { ArrowLeft, Edit, Plus, X, Star, Sparkles } from 'lucide-react';
 import { Spinner360 } from '../../components/Spinner360/Spinner360';
+import { CategoryQuickManage } from '../../components/admin/CategoryQuickManage';
+import type { CategoryItem, ApiResponse } from '../../types/category';
 
 // Helper functions for number formatting
 const formatNumber = (value: string): string => {
@@ -65,12 +67,6 @@ interface ItemData {
   original_price?: number;
 }
 
-interface ApiResponse<T> {
-  ok: boolean;
-  data: T;
-  message: string;
-}
-
 interface ItemResponse {
   item: {
     id: string;
@@ -85,6 +81,7 @@ interface AiDescriptionResponse {
   meta_title: string;
   meta_description: string;
 }
+
 
 export const ItemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -132,6 +129,33 @@ export const ItemDetailPage = () => {
     },
     enabled: !!id && id !== 'new',
   });
+
+  // Fetch ALL categories per type (popup needs all, dropdown filters active in-memory)
+  const { data: carBrandsData } = useQuery({
+    queryKey: ['categories', 'car_brand'],
+    queryFn: async () => {
+      const response = await apiClient.get('/categories?type=car_brand') as ApiResponse<{ categories: CategoryItem[] }>;
+      return response.data;
+    },
+  });
+
+  const { data: modelBrandsData } = useQuery({
+    queryKey: ['categories', 'model_brand'],
+    queryFn: async () => {
+      const response = await apiClient.get('/categories?type=model_brand') as ApiResponse<{ categories: CategoryItem[] }>;
+      return response.data;
+    },
+  });
+
+  // Derive active-only lists for dropdowns (in-memory filter, no extra API call)
+  const activeCarBrands = useMemo(
+    () => (carBrandsData?.categories || []).filter(c => c.is_active),
+    [carBrandsData]
+  );
+  const activeModelBrands = useMemo(
+    () => (modelBrandsData?.categories || []).filter(c => c.is_active),
+    [modelBrandsData]
+  );
 
   // Load data into form when data changes
   useEffect(() => {
@@ -715,9 +739,15 @@ export const ItemDetailPage = () => {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
-              Hãng xe
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+                Hãng xe
+              </label>
+              <CategoryQuickManage
+                type="car_brand"
+                categories={carBrandsData?.categories || []}
+              />
+            </div>
             <select
             value={carBrand}
             onChange={(e) => setCarBrand(e.target.value)}
@@ -743,52 +773,21 @@ export const ItemDetailPage = () => {
               }}
             >
               <option value="">-- Chọn hãng xe --</option>
-              <option value="Abarth">Abarth</option>
-              <option value="Acura">Acura</option>
-              <option value="Alfa Romeo">Alfa Romeo</option>
-              <option value="Aston Martin">Aston Martin</option>
-              <option value="Audi">Audi</option>
-              <option value="Bentley">Bentley</option>
-              <option value="BMW">BMW</option>
-              <option value="Bugatti">Bugatti</option>
-              <option value="Cadillac">Cadillac</option>
-              <option value="Chevrolet">Chevrolet</option>
-              <option value="Ducati">Ducati</option>
-              <option value="Ford">Ford</option>
-              <option value="HKS">HKS</option>
-              <option value="Honda">Honda</option>
-              <option value="Hyundai">Hyundai</option>
-              <option value="Isuzu">Isuzu</option>
-              <option value="Jaguar">Jaguar</option>
-              <option value="Lamborghini">Lamborghini</option>
-              <option value="Lancia">Lancia</option>
-              <option value="Land Rover">Land Rover</option>
-              <option value="LB Works">LB Works</option>
-              <option value="Lincoln">Lincoln</option>
-              <option value="Lotus">Lotus</option>
-              <option value="Mazda">Mazda</option>
-              <option value="McLaren">McLaren</option>
-              <option value="Mercedes-Benz">Mercedes-Benz</option>
-              <option value="Nissan">Nissan</option>
-              <option value="Pagani">Pagani</option>
-              <option value="Pandem">Pandem</option>
-              <option value="Porsche">Porsche</option>
-              <option value="Range Rover">Range Rover</option>
-              <option value="Red Bull Racing">Red Bull Racing</option>
-              <option value="RUF">RUF</option>
-              <option value="Shelby">Shelby</option>
-              <option value="SUBARU">SUBARU</option>
-              <option value="Tommykaira">Tommykaira</option>
-              <option value="Top Secret">Top Secret</option>
-              <option value="Toyota">Toyota</option>
-              <option value="VeilSide">VeilSide</option>
-              <option value="Volkswagen">Volkswagen</option>
+              {activeCarBrands.map((cat) => (
+                <option key={cat.id} value={cat.name}>{cat.name}</option>
+              ))}
             </select>
         </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
-              Hãng mô hình
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
+                Hãng mô hình
+              </label>
+              <CategoryQuickManage
+                type="model_brand"
+                categories={modelBrandsData?.categories || []}
+              />
+            </div>
             <select
             value={modelBrand}
             onChange={(e) => setModelBrand(e.target.value)}
@@ -814,13 +813,9 @@ export const ItemDetailPage = () => {
               }}
             >
               <option value="">-- Chọn hãng mô hình --</option>
-              <option value="Mini GT">Mini GT</option>
-              <option value="Tarmac Works">Tarmac Works</option>
-              <option value="Hot Wheels">Hot Wheels</option>
-              <option value="Inno64">Inno64</option>
-              <option value="Pop Race">Pop Race</option>
-              <option value="Tomica">Tomica</option>
-              <option value="Majorette">Majorette</option>
+              {activeModelBrands.map((cat) => (
+                <option key={cat.id} value={cat.name}>{cat.name}</option>
+              ))}
               <option value="OTHER BRAND">Hãng khác</option>
             </select>
         </div>

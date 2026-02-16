@@ -7,6 +7,7 @@ import { LoginPage } from './pages/admin/LoginPage';
 import { ItemsPage } from './pages/admin/ItemsPage';
 import { ItemDetailPage } from './pages/admin/ItemDetailPage';
 import { AiImportPage } from './pages/admin/AiImportPage';
+import { CategoriesPage } from './pages/admin/CategoriesPage';
 import { PublicCatalogPage } from './pages/PublicCatalogPage';
 import { PublicItemDetailPage } from './pages/PublicItemDetailPage';
 import { ContactPage } from './pages/ContactPage';
@@ -36,6 +37,16 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <AiImportPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/categories"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <CategoriesPage />
                   </Layout>
                 </ProtectedRoute>
               }

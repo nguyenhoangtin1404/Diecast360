@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, ShoppingBag, Phone, LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { Home, ShoppingBag, Phone, LogIn, LogOut, User as UserIcon, Tags } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 interface LayoutProps {
@@ -176,6 +176,35 @@ export const Layout = ({ children }: LayoutProps) => {
                 >
                   <ShoppingBag size={18} />
                   <span>Quản lý sản phẩm</span>
+                </Link>
+                <Link
+                  to="/admin/categories"
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    textDecoration: 'none',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s',
+                    backgroundColor: location.pathname.startsWith('/admin/categories') ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!location.pathname.startsWith('/admin/categories')) {
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!location.pathname.startsWith('/admin/categories')) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                >
+                  <Tags size={18} />
+                  <span>Danh mục</span>
                 </Link>
                 <Link
                   to="/"
