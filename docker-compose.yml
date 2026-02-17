@@ -1,0 +1,43 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      target: development
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - REFRESH_TOKEN_EXPIRES_IN=${REFRESH_TOKEN_EXPIRES_IN}
+      - UPLOAD_DIR=${UPLOAD_DIR}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - PORT=${PORT:-3000}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_INDEX=${PINECONE_INDEX}
+    volumes:
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
+      - ./uploads:/usr/src/app/uploads
+      - ./data:/usr/src/app/data
+    command: npm run start:dev
+
+  frontend:
+    build:
+      context: ./frontend
+      target: build
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:3000/api/v1}
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    # For production usage with Nginx, use 'target: production' and remove 'command'
+    # For development:
+    command: npm run dev -- --host
+
+volumes:
+  uploads:
+  data:
