@@ -26,7 +26,6 @@ export class AiDraftController {
     }
 
     // Validate each file manually
-    const allowedTypes = /\.(png|jpeg|jpg|webp)$/i;
     const allowedMimes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
     const maxSize = 10 * 1024 * 1024; // 10MB
 

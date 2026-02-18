@@ -7,8 +7,18 @@ import { ErrorCode } from '../common/constants/error-codes';
 
 describe('ItemsService', () => {
   let service: ItemsService;
-  let prisma: any;
-  let storage: any;
+  let prisma: {
+    item: Record<string, jest.Mock>;
+    aiItemDraft: Record<string, jest.Mock>;
+    itemImage: Record<string, jest.Mock>;
+    $transaction: jest.Mock;
+  };
+  let storage: {
+    moveFile: jest.Mock;
+    getFileUrl: jest.Mock;
+    saveFile: jest.Mock;
+    deleteFile: jest.Mock;
+  };
   let loggerErrorSpy: jest.SpyInstance;
 
   const mockItem = {
@@ -54,7 +64,7 @@ describe('ItemsService', () => {
       itemImage: {
         create: jest.fn(),
       },
-      $transaction: jest.fn(async (fn: any) => fn(prisma)),
+      $transaction: jest.fn(async (fn: (prisma: unknown) => Promise<unknown>) => fn(prisma)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -70,7 +80,8 @@ describe('ItemsService', () => {
     service = module.get<ItemsService>(ItemsService);
 
     // Spy on logger.error to verify structured logging
-    loggerErrorSpy = jest.spyOn((service as any).logger, 'error').mockImplementation();
+    jest.spyOn((service as unknown as { logger: { error: jest.Mock } }).logger, 'error').mockImplementation();
+    loggerErrorSpy = jest.spyOn((service as unknown as { logger: { error: jest.Mock } }).logger, 'error');
   });
 
   afterEach(() => {
@@ -148,9 +159,9 @@ describe('ItemsService', () => {
 
       // Should return warning in response
       expect(result).toHaveProperty('warning');
-      expect((result as any).warning.code).toBe(ErrorCode.DRAFT_IMAGE_PROCESSING_FAILED);
-      expect((result as any).warning.failedImages).toEqual(['bad.jpg']);
-      expect((result as any).warning.message).toContain('1/2');
+      expect(result.warning!.code).toBe(ErrorCode.DRAFT_IMAGE_PROCESSING_FAILED);
+      expect(result.warning!.failedImages).toEqual(['bad.jpg']);
+      expect(result.warning!.message).toContain('1/2');
 
       // One image succeeded, one failed
       expect(prisma.itemImage.create).toHaveBeenCalledTimes(1);
@@ -170,7 +181,7 @@ describe('ItemsService', () => {
       // Logger should have been called with structured error
       expect(loggerErrorSpy).toHaveBeenCalled();
       expect(loggerErrorSpy.mock.calls.some(
-        (call: any[]) => call[0].includes('1/2 failed image(s)'),
+        (call: unknown[]) => (call[0] as string).includes('1/2 failed image(s)'),
       )).toBe(true);
     });
 
@@ -211,8 +222,8 @@ describe('ItemsService', () => {
       expect(result.item).toBeDefined();
 
       // Should return warning
-      expect((result as any).warning.code).toBe(ErrorCode.DRAFT_IMAGE_PROCESSING_FAILED);
-      expect((result as any).warning.failedImages).toEqual(['fail1.jpg', 'fail2.jpg']);
+      expect(result.warning!.code).toBe(ErrorCode.DRAFT_IMAGE_PROCESSING_FAILED);
+      expect(result.warning!.failedImages).toEqual(['fail1.jpg', 'fail2.jpg']);
 
       // No images should be created
       expect(prisma.itemImage.create).not.toHaveBeenCalled();

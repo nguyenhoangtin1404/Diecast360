@@ -1,10 +1,9 @@
 import {
   Injectable,
-  BadRequestException,
-  PayloadTooLargeException,
   Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { Prisma } from '../generated/prisma/client';
 import { ImageProcessorService } from '../image-processor/image-processor.service';
 import { IStorageService } from '../storage/storage.interface';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
@@ -110,7 +109,7 @@ export class ImagesService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Image not found');
     }
 
-    const updateData: any = {};
+    const updateData: Prisma.ItemImageUpdateInput = {};
 
     if (updateDto.is_cover !== undefined) {
       if (updateDto.is_cover) {

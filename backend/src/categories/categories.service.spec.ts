@@ -55,7 +55,7 @@ describe('CategoriesService', () => {
     service = module.get<CategoriesService>(CategoriesService);
 
     // Suppress logger output in tests
-    jest.spyOn((service as unknown as { logger: any }).logger, 'log').mockImplementation();
+    jest.spyOn((service as unknown as { logger: { log: jest.Mock } }).logger, 'log').mockImplementation();
   });
 
   afterEach(() => {

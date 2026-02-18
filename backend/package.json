@@ -63,14 +63,22 @@
     "@types/node": "^25.0.3",
     "@types/passport-jwt": "^4.0.1",
     "@types/uuid": "^10.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.54.0",
-    "@typescript-eslint/parser": "^8.54.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
+    "ajv": "^6.12.6",
     "eslint": "^9.39.2",
     "globals": "^17.3.0",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.54.0"
+    "typescript-eslint": "^8.56.0"
+  },
+  "overrides": {
+
+    "qs": "^6.14.3",
+    "whatwg-url": "^14.0.0",
+    "@isaacs/brace-expansion": "5.0.1",
+    "webpack": "^5.94.0"
   }
 }

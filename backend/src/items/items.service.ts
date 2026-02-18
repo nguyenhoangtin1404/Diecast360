@@ -1,5 +1,5 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { Prisma } from '../generated/prisma/client';
+import { Prisma, ItemStatus } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { IStorageService } from '../storage/storage.interface';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
@@ -261,7 +261,7 @@ Condition: ${item.condition || ''}`;
           condition: (createDto.condition as 'new' | 'old' | undefined) || null,
           price: createDto.price !== undefined && createDto.price !== null ? createDto.price : null,
           original_price: createDto.original_price !== undefined && createDto.original_price !== null ? createDto.original_price : null,
-          status: (createDto.status as any) || 'con_hang',
+          status: (createDto.status as ItemStatus) || 'con_hang',
           is_public: createDto.is_public || false,
         },
       });
