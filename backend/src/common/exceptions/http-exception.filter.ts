@@ -16,7 +16,7 @@ export class AppException extends HttpException {
   constructor(
     public readonly errorCode: ErrorCode,
     message: string,
-    public readonly details?: any[],
+    public readonly details?: unknown[],
     statusCode?: number,
   ) {
     super(
@@ -33,6 +33,15 @@ export class AppException extends HttpException {
   }
 }
 
+interface ErrorResponse {
+  ok: boolean;
+  error: {
+    code: string;
+    details: unknown[] | string;
+  };
+  message: string;
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
@@ -43,7 +52,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let errorResponse: any = {
+    let errorResponse: ErrorResponse = {
       ok: false,
       error: {
         code: ErrorCode.INTERNAL_SERVER_ERROR,
@@ -54,7 +63,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     if (exception instanceof AppException) {
       status = exception.getStatus();
-      errorResponse = exception.getResponse();
+      errorResponse = exception.getResponse() as ErrorResponse;
     } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
@@ -69,7 +78,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           message: exceptionResponse,
         };
       } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
-        const resp = exceptionResponse as any;
+        const resp = exceptionResponse as Record<string, unknown>;
         if (resp.message && Array.isArray(resp.message)) {
           errorResponse = {
             ok: false,
@@ -86,7 +95,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
               code: ErrorCode.VALIDATION_ERROR,
               details: [],
             },
-            message: resp.message || 'Validation failed',
+            message: (resp.message as string) || 'Validation failed',
           };
         }
       }

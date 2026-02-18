@@ -1,7 +1,10 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
+import { Item } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { toNumber } from '../common/utils/decimal.utils';
+
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { AiDescriptionResponseDto } from './dto/ai-description.dto';
 
@@ -171,7 +174,7 @@ Cấu trúc bài viết:
     }
   }
 
-  private buildPrompt(item: any, customInstructions?: string): string {
+  private buildPrompt(item: Item, customInstructions?: string): string {
     const itemData: string[] = [];
     
     if (item.name) itemData.push(`Tên sản phẩm: ${item.name}`);
@@ -184,12 +187,16 @@ Cấu trúc bài viết:
       itemData.push(`Tình trạng: ${conditionText}`);
     }
     if (item.price != null) {
-      const priceNum = typeof item.price.toNumber === 'function' ? item.price.toNumber() : Number(item.price);
-      itemData.push(`Giá: ${priceNum.toLocaleString('vi-VN')} VND`);
+      const priceVal = toNumber(item.price);
+      if (priceVal !== null) {
+        itemData.push(`Giá: ${priceVal.toLocaleString('vi-VN')} VND`);
+      }
     }
     if (item.original_price != null) {
-      const originalPriceNum = typeof item.original_price.toNumber === 'function' ? item.original_price.toNumber() : Number(item.original_price);
-      itemData.push(`Giá gốc: ${originalPriceNum.toLocaleString('vi-VN')} VND`);
+      const origPriceVal = toNumber(item.original_price);
+      if (origPriceVal !== null) {
+        itemData.push(`Giá gốc: ${origPriceVal.toLocaleString('vi-VN')} VND`);
+      }
     }
     if (item.description) itemData.push(`Mô tả hiện tại: ${item.description}`);
 
@@ -202,7 +209,7 @@ Cấu trúc bài viết:
     return prompt;
   }
 
-  private buildFbPostPrompt(item: any, customInstructions?: string): string {
+  private buildFbPostPrompt(item: Item, customInstructions?: string): string {
     const itemData: string[] = [];
     
     if (item.name) itemData.push(`Tên sản phẩm: ${item.name}`);
@@ -219,12 +226,16 @@ Cấu trúc bài viết:
       itemData.push(`Trạng thái: ${statusText}`);
     }
     if (item.price != null) {
-      const priceNum = typeof item.price.toNumber === 'function' ? item.price.toNumber() : Number(item.price);
-      itemData.push(`Giá: ${priceNum.toLocaleString('vi-VN')} VND`);
+      const priceVal = toNumber(item.price);
+      if (priceVal !== null) {
+        itemData.push(`Giá: ${priceVal.toLocaleString('vi-VN')} VND`);
+      }
     }
     if (item.original_price != null) {
-      const originalPriceNum = typeof item.original_price.toNumber === 'function' ? item.original_price.toNumber() : Number(item.original_price);
-      itemData.push(`Giá gốc: ${originalPriceNum.toLocaleString('vi-VN')} VND`);
+      const origPriceVal = toNumber(item.original_price);
+      if (origPriceVal !== null) {
+        itemData.push(`Giá gốc: ${origPriceVal.toLocaleString('vi-VN')} VND`);
+      }
     }
     if (item.description) itemData.push(`Mô tả hiện tại: ${item.description}`);
 

@@ -5,7 +5,11 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
-  let prisma: any;
+  let prisma: {
+    category: Record<string, jest.Mock>;
+    item: Record<string, jest.Mock>;
+    $transaction: jest.Mock;
+  };
 
   const mockCategory = {
     id: 'cat-1',
@@ -32,7 +36,7 @@ describe('CategoriesService', () => {
         count: jest.fn(),
         updateMany: jest.fn(),
       },
-      $transaction: jest.fn(async (operations: any[]) => {
+      $transaction: jest.fn(async (operations: Promise<unknown>[]) => {
         const results = [];
         for (const op of operations) {
           results.push(await op);
@@ -51,7 +55,7 @@ describe('CategoriesService', () => {
     service = module.get<CategoriesService>(CategoriesService);
 
     // Suppress logger output in tests
-    jest.spyOn((service as any).logger, 'log').mockImplementation();
+    jest.spyOn((service as unknown as { logger: any }).logger, 'log').mockImplementation();
   });
 
   afterEach(() => {

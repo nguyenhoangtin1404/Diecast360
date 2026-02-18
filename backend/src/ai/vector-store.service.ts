@@ -32,7 +32,7 @@ export class VectorStoreService implements OnModuleInit {
     }
   }
 
-  async upsertItem(itemId: string, embedding: number[], metadata: Record<string, any>) {
+  async upsertItem(itemId: string, embedding: number[], metadata: Record<string, string | number | boolean | string[] | null>) {
     if (!this.isReady) {
         this.logger.warn('Vector Store not ready. Skipping upsert.');
         return;
