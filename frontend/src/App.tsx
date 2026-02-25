@@ -8,6 +8,7 @@ import { ItemsPage } from './pages/admin/ItemsPage';
 import { ItemDetailPage } from './pages/admin/ItemDetailPage';
 import { AiImportPage } from './pages/admin/AiImportPage';
 import { CategoriesPage } from './pages/admin/CategoriesPage';
+import { FacebookPostsPage } from './pages/admin/FacebookPostsPage';
 import { PublicCatalogPage } from './pages/PublicCatalogPage';
 import { PublicItemDetailPage } from './pages/PublicItemDetailPage';
 import { ContactPage } from './pages/ContactPage';
@@ -67,6 +68,16 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <ItemDetailPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/facebook-posts"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <FacebookPostsPage />
                   </Layout>
                 </ProtectedRoute>
               }

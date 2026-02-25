@@ -23,3 +23,7 @@
 - [x] CI cơ bản (lint/test/build) và publish artifact.
 - [x] AI Code Review tự động trên PR (OpenAI GPT-4o-mini).
 - [x] README polish (hướng dẫn chạy, deploy, tài liệu chi tiết).
+
+## Social Selling / Facebook
+- [x] Quản lý bài đăng Facebook (nút Share, lưu link FB, trang quản lý tổng quan).
+- [ ] Tích hợp Facebook Graph API (tự động post + đọc comments).

@@ -134,6 +134,12 @@ Condition: ${item.condition || ''}`;
       };
     }
 
+    if (queryDto.fb_status === 'posted') {
+      where.facebook_posts = { some: {} };
+    } else if (queryDto.fb_status === 'not_posted') {
+      where.facebook_posts = { none: {} };
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.item.findMany({
         where,
@@ -149,6 +155,13 @@ Condition: ${item.condition || ''}`;
             where: { is_default: true },
             take: 1,
           },
+          facebook_posts: {
+            orderBy: { posted_at: 'desc' },
+            take: 1,
+          },
+          _count: {
+            select: { facebook_posts: true },
+          },
         },
       }),
       this.prisma.item.count({ where }),
@@ -162,8 +175,13 @@ Condition: ${item.condition || ''}`;
         ? this.getImageUrl(item.item_images[0].file_path)
         : null,
       has_default_spin_set: item.spin_sets.length > 0,
+      fb_post_url: item.facebook_posts[0]?.post_url || null,
+      fb_posted_at: item.facebook_posts[0]?.posted_at || null,
+      fb_posts_count: item._count.facebook_posts,
       item_images: undefined,
       spin_sets: undefined,
+      facebook_posts: undefined,
+      _count: undefined,
     }));
 
     return {
@@ -194,6 +212,9 @@ Condition: ${item.condition || ''}`;
             },
           },
         },
+        facebook_posts: {
+          orderBy: { posted_at: 'desc' },
+        },
       },
     });
 
@@ -201,7 +222,7 @@ Condition: ${item.condition || ''}`;
       throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
     }
 
-    const { item_images, spin_sets, ...itemData } = item;
+    const { item_images, spin_sets, facebook_posts, ...itemData } = item;
 
     const priceValue = itemData.price as unknown as { toNumber?: () => number } | number | null;
     const originalPriceValue = itemData.original_price as unknown as { toNumber?: () => number } | number | null;
@@ -237,6 +258,7 @@ Condition: ${item.condition || ''}`;
         created_at: set.created_at,
         updated_at: set.updated_at,
       })),
+      facebook_posts,
     };
   }
 
@@ -471,6 +493,45 @@ Condition: ${item.condition || ''}`;
   private getImageUrl(filePath: string): string {
     // Use storage service to get consistent URL format
     return this.storage.getFileUrl(filePath);
+  }
+
+  async addFacebookPost(itemId: string, dto: { post_url: string; content?: string }) {
+    const item = await this.prisma.item.findFirst({
+      where: { id: itemId, deleted_at: null },
+      include: { _count: { select: { facebook_posts: true } } },
+    });
+    if (!item) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
+    }
+
+    if (item._count.facebook_posts >= 50) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Đã đạt giới hạn 50 bài FB cho sản phẩm này');
+    }
+
+    const post = await this.prisma.facebookPost.create({
+      data: {
+        item_id: itemId,
+        post_url: dto.post_url,
+        content: dto.content || null,
+      },
+    });
+
+    return { post };
+  }
+
+  async removeFacebookPost(itemId: string, postId: string) {
+    const post = await this.prisma.facebookPost.findFirst({
+      where: { id: postId, item_id: itemId },
+    });
+    if (!post) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Facebook post not found');
+    }
+
+    await this.prisma.facebookPost.delete({
+      where: { id: postId },
+    });
+
+    return {};
   }
 }
 

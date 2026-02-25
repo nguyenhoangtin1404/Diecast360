@@ -27,5 +27,9 @@ export class QueryItemsDto {
   @IsOptional()
   @IsString()
   q?: string;
+
+  @IsOptional()
+  @IsIn(['posted', 'not_posted'])
+  fb_status?: 'posted' | 'not_posted';
 }
 

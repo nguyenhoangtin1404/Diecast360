@@ -68,8 +68,9 @@ model Item {
   notes          String?
   fb_post_content String?
   
-  item_images ItemImage[]
-  spin_sets   SpinSet[]
+  item_images    ItemImage[]
+  spin_sets      SpinSet[]
+  facebook_posts FacebookPost[]
 
   @@map("items")
   @@index([status])
@@ -78,6 +79,20 @@ model Item {
   @@index([car_brand])
   @@index([model_brand])
   @@index([condition])
+}
+
+model FacebookPost {
+  id         String   @id @default(uuid())
+  item_id    String
+  post_url   String
+  content    String?
+  posted_at  DateTime @default(now())
+  created_at DateTime @default(now())
+
+  item Item @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@map("facebook_posts")
+  @@index([item_id])
 }
 
 model ItemImage {
