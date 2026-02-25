@@ -207,6 +207,35 @@ export const Layout = ({ children }: LayoutProps) => {
                   <span>Danh mục</span>
                 </Link>
                 <Link
+                  to="/admin/facebook-posts"
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    textDecoration: 'none',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s',
+                    backgroundColor: location.pathname.startsWith('/admin/facebook-posts') ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!location.pathname.startsWith('/admin/facebook-posts')) {
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!location.pathname.startsWith('/admin/facebook-posts')) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                >
+                  <span style={{ fontSize: '16px' }}>📘</span>
+                  <span>Bài đăng FB</span>
+                </Link>
+                <Link
                   to="/"
                   style={{
                     padding: '10px 16px',

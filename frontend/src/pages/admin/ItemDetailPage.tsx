@@ -1,11 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, uploadFile } from '../../api/client';
 import { ArrowLeft, Edit, Plus, X, Star, Sparkles } from 'lucide-react';
 import { Spinner360 } from '../../components/Spinner360/Spinner360';
 import { CategoryQuickManage } from '../../components/admin/CategoryQuickManage';
 import type { CategoryItem, ApiResponse } from '../../types/category';
+import { showToast } from '../../utils/toast';
+import type { FacebookPost } from '../../types/item.types';
 
 // Helper functions for number formatting
 const formatNumber = (value: string): string => {
@@ -117,6 +119,11 @@ export const ItemDetailPage = () => {
   const [fbPostContent, setFbPostContent] = useState('');
   const [fbPostInstructions, setFbPostInstructions] = useState('');
   const [isGeneratingFbPost, setIsGeneratingFbPost] = useState(false);
+  const [facebookPosts, setFacebookPosts] = useState<FacebookPost[]>([]);
+  const [newFbLinkInput, setNewFbLinkInput] = useState('');
+  const [isSavingFbLink, setIsSavingFbLink] = useState(false);
+  const socialSellingRef = useRef<HTMLDivElement>(null);
+  const [searchParams] = useSearchParams();
 
   const { data, isLoading } = useQuery({
     queryKey: ['item', id],
@@ -175,6 +182,9 @@ export const ItemDetailPage = () => {
       setBrand(item.brand || '');
       setFbPostContent(item.fb_post_content || '');
     }
+    if (data?.facebook_posts) {
+      setFacebookPosts(data.facebook_posts || []);
+    }
     
     // Set selected spin set to default if available
     if (data?.spin_sets && data.spin_sets.length > 0) {
@@ -201,6 +211,15 @@ export const ItemDetailPage = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-scroll to Social Selling section when navigating from items list
+  useEffect(() => {
+    if (searchParams.get('section') === 'social-selling' && socialSellingRef.current && data) {
+      setTimeout(() => {
+        socialSellingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
+    }
+  }, [searchParams, data]);
 
   const saveMutation = useMutation({
     mutationFn: async (data: ItemData) => {
@@ -1908,6 +1927,7 @@ export const ItemDetailPage = () => {
               </p>
             </div>
           )}
+          <div ref={socialSellingRef}>
           <h2 style={{ 
             marginTop: '40px', 
             fontSize: '24px', 
@@ -1917,6 +1937,94 @@ export const ItemDetailPage = () => {
             paddingBottom: '12px',
             borderBottom: '2px solid #f0f0f0',
           }}>Social Selling</h2>
+
+          {/* FB Posts History */}
+          {facebookPosts.length > 0 && (
+            <div style={{
+              marginBottom: '20px',
+              padding: '14px 18px',
+              background: 'linear-gradient(135deg, #e3f2fd 0%, #e8f5e9 100%)',
+              borderRadius: '10px',
+              border: '1px solid #bbdefb',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '18px' }}>✅</span>
+                <span style={{ fontSize: '14px', fontWeight: '600', color: '#1b5e20' }}>
+                  Đã đăng Facebook ({facebookPosts.length} bài)
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+                {facebookPosts.map((post) => (
+                  <div key={post.id} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    background: 'white',
+                    borderRadius: '8px',
+                    border: '1px solid #e0e0e0',
+                    gap: '8px',
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', color: '#666' }}>
+                        {new Date(post.posted_at).toLocaleDateString('vi-VN', {
+                          day: '2-digit', month: '2-digit', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit',
+                        })}
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#1877F2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {post.post_url}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                      <a
+                        href={post.post_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          padding: '4px 10px',
+                          background: '#1877F2',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '5px',
+                          fontSize: '12px',
+                          textDecoration: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        🔗 Mở
+                      </a>
+                      <button
+                        onClick={async () => {
+                          if (!confirm('Bạn muốn xóa bài FB này?')) return;
+                          try {
+                            await apiClient.delete(`/items/${id}/facebook-posts/${post.id}`);
+                            setFacebookPosts(prev => prev.filter(p => p.id !== post.id));
+                            showToast('Đã xóa bài FB!');
+                            queryClient.invalidateQueries({ queryKey: ['items'] });
+                            queryClient.invalidateQueries({ queryKey: ['item', id] });
+                          } catch {
+                            alert('Không thể xóa. Vui lòng thử lại.');
+                          }
+                        }}
+                        style={{
+                          padding: '4px 10px',
+                          background: '#f5f5f5',
+                          color: '#dc3545',
+                          border: '1px solid #ddd',
+                          borderRadius: '5px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           {/* Custom Instructions Input */}
           <div style={{ marginBottom: '16px' }}>
@@ -2010,7 +2118,7 @@ export const ItemDetailPage = () => {
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '24px' }}>
             <button
               onClick={async () => {
                 if (!fbPostContent) {
@@ -2019,23 +2127,7 @@ export const ItemDetailPage = () => {
                 }
                 try {
                   await navigator.clipboard.writeText(fbPostContent);
-                  const notification = document.createElement('div');
-                  notification.textContent = 'Đã copy nội dung!';
-                  notification.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: #28a745;
-                    color: white;
-                    padding: 12px 20px;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                    z-index: 10000;
-                    font-size: 14px;
-                    font-weight: 500;
-                  `;
-                  document.body.appendChild(notification);
-                  setTimeout(() => document.body.removeChild(notification), 2000);
+                  showToast('Đã copy nội dung!');
                 } catch {
                   alert('Không thể copy. Vui lòng thử lại.');
                 }
@@ -2058,23 +2150,7 @@ export const ItemDetailPage = () => {
                 try {
                   const link = `${window.location.origin}/items/${id}`;
                   await navigator.clipboard.writeText(link);
-                  const notification = document.createElement('div');
-                  notification.textContent = 'Đã copy link!';
-                  notification.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: #28a745;
-                    color: white;
-                    padding: 12px 20px;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                    z-index: 10000;
-                    font-size: 14px;
-                    font-weight: 500;
-                  `;
-                  document.body.appendChild(notification);
-                  setTimeout(() => document.body.removeChild(notification), 2000);
+                  showToast('Đã copy link!');
                 } catch {
                   alert('Không thể copy. Vui lòng thử lại.');
                 }
@@ -2101,23 +2177,7 @@ export const ItemDetailPage = () => {
                 try {
                   await apiClient.patch(`/items/${id}`, { fb_post_content: fbPostContent });
                   queryClient.invalidateQueries({ queryKey: ['item', id] });
-                  const notification = document.createElement('div');
-                  notification.textContent = 'Đã lưu nội dung!';
-                  notification.style.cssText = `
-                    position: fixed;
-                    top: 20px;
-                    right: 20px;
-                    background: #28a745;
-                    color: white;
-                    padding: 12px 20px;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-                    z-index: 10000;
-                    font-size: 14px;
-                    font-weight: 500;
-                  `;
-                  document.body.appendChild(notification);
-                  setTimeout(() => document.body.removeChild(notification), 2000);
+                  showToast('Đã lưu nội dung!');
                 } catch (error) {
                   console.error('Error saving FB post:', error);
                   alert('Không thể lưu. Vui lòng thử lại.');
@@ -2136,6 +2196,123 @@ export const ItemDetailPage = () => {
             >
               💾 Lưu nội dung
             </button>
+            {/* "Đăng lên Facebook" button: copy content + open FB */}
+            <button
+              onClick={async () => {
+                if (!fbPostContent) {
+                  alert('Chưa có nội dung! Tạo bài FB trước khi đăng.');
+                  return;
+                }
+                try {
+                  await navigator.clipboard.writeText(fbPostContent);
+                  // Save content to DB
+                  await apiClient.patch(`/items/${id}`, { fb_post_content: fbPostContent });
+                  // Open Facebook in new tab
+                  window.open('https://www.facebook.com/', '_blank');
+                  showToast('✅ Đã copy nội dung! Hãy paste và đăng trên Facebook.', '#1877F2', 4000);
+                } catch {
+                  alert('Không thể copy. Vui lòng thử lại.');
+                }
+              }}
+              style={{
+                padding: '10px 20px',
+                background: '#1877F2',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              📤 Đăng lên Facebook
+            </button>
+          </div>
+
+          {/* Save FB Post Link Section */}
+          <div style={{
+            padding: '18px',
+            background: '#f8f9fa',
+            borderRadius: '10px',
+            border: '1px dashed #dee2e6',
+          }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '10px',
+              fontSize: '14px',
+              fontWeight: '600',
+              color: '#333',
+            }}>
+              📌 Thêm link bài đăng Facebook
+            </label>
+            <p style={{ fontSize: '13px', color: '#666', margin: '0 0 12px 0' }}>
+              Sau khi đăng xong trên Facebook, dán link bài viết vào đây để lưu lại.
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <input
+                type="url"
+                value={newFbLinkInput}
+                onChange={(e) => setNewFbLinkInput(e.target.value)}
+                placeholder="https://www.facebook.com/..."
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                }}
+              />
+              <button
+                onClick={async () => {
+                  if (!newFbLinkInput) {
+                    alert('Vui lòng nhập link bài Facebook!');
+                    return;
+                  }
+                  if (!newFbLinkInput.includes('facebook.com') && !newFbLinkInput.includes('fb.com')) {
+                    alert('Link không hợp lệ! Vui lòng nhập link Facebook.');
+                    return;
+                  }
+                  setIsSavingFbLink(true);
+                  try {
+                    const response = await apiClient.post(`/items/${id}/facebook-posts`, {
+                      post_url: newFbLinkInput,
+                    });
+                    const responseData = (response.data ?? response) as { post?: FacebookPost };
+                    const newPost = responseData.post;
+                    if (newPost) {
+                      setFacebookPosts(prev => [newPost, ...prev]);
+                    }
+                    setNewFbLinkInput('');
+                    queryClient.invalidateQueries({ queryKey: ['items'] });
+                    queryClient.invalidateQueries({ queryKey: ['item', id] });
+                    showToast('✅ Đã lưu link bài Facebook!');
+                  } catch (error) {
+                    console.error('Error saving FB link:', error);
+                    alert('Không thể lưu. Vui lòng thử lại.');
+                  } finally {
+                    setIsSavingFbLink(false);
+                  }
+                }}
+                disabled={isSavingFbLink}
+                style={{
+                  padding: '10px 20px',
+                  background: isSavingFbLink ? '#ccc' : '#1877F2',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: isSavingFbLink ? 'not-allowed' : 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {isSavingFbLink ? 'Đang lưu...' : '➕ Thêm link FB'}
+              </button>
+            </div>
+          </div>
           </div>
         </div>
       )}

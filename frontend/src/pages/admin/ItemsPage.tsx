@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Box } from 'lucide-react';
 import { apiClient } from '../../api/client';
 import { useDebounce } from '../../hooks/useDebounce';
+import type { ItemsResponse } from '../../types/item.types';
+import type { ApiResponse } from '../../types/category';
 import styles from './ItemsPage.module.css';
 
 // Sub-components
@@ -11,33 +13,6 @@ import { ItemsTable } from './components/ItemsTable';
 import { PaginationControl } from './components/PaginationControl';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 
-interface Item {
-  id: string;
-  name: string;
-  status: string;
-  is_public: boolean;
-  cover_image_url?: string | null;
-  price?: number | null;
-  fb_post_content?: string | null;
-}
-
-interface Pagination {
-  page: number;
-  page_size: number;
-  total: number;
-  total_pages: number;
-}
-
-interface ItemsResponse {
-  items: Item[];
-  pagination: Pagination;
-}
-
-interface ApiResponse<T> {
-  ok: boolean;
-  data: T;
-  message: string;
-}
 
 export const ItemsPage = () => {
   const [page, setPage] = useState(1);

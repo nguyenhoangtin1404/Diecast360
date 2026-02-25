@@ -61,3 +61,47 @@ export interface ItemFormData {
   is_public: boolean;
   description: string;
 }
+
+/**
+ * Admin item with all management fields
+ */
+export interface AdminItem extends BaseItem {
+  is_public: boolean;
+  fb_post_content?: string | null;
+  /** Computed from latest facebook_posts[0] in list API */
+  fb_post_url?: string | null;
+  fb_posted_at?: string | null;
+  fb_posts_count?: number;
+  /** Full list from detail API */
+  facebook_posts?: FacebookPost[];
+}
+
+/**
+ * A Facebook post record linked to an item
+ */
+export interface FacebookPost {
+  id: string;
+  item_id: string;
+  post_url: string;
+  content?: string | null;
+  posted_at: string;
+  created_at: string;
+}
+
+/**
+ * Pagination metadata from API responses
+ */
+export interface Pagination {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
+/**
+ * Paginated items API response
+ */
+export interface ItemsResponse {
+  items: AdminItem[];
+  pagination: Pagination;
+}

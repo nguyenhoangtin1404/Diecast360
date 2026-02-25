@@ -55,4 +55,3 @@ export class UpdateItemDto {
   @IsString()
   fb_post_content?: string;
 }
-

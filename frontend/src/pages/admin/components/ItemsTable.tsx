@@ -1,20 +1,12 @@
-import { Pencil, Eye, EyeOff, Trash2, Check, X, Package, Clock, CheckCircle2, Copy } from 'lucide-react';
+import { Pencil, Eye, EyeOff, Trash2, Check, X, Package, Clock, CheckCircle2, Copy, Share2, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import type { AdminItem } from '../../../types/item.types';
 import styles from '../ItemsPage.module.css';
 
-interface Item {
-  id: string;
-  name: string;
-  status: string;
-  is_public: boolean;
-  cover_image_url?: string | null;
-  price?: number | null;
-  fb_post_content?: string | null;
-}
 
 interface ItemsTableProps {
-  items: Item[];
+  items: AdminItem[];
   onDelete: (id: string, name: string) => void;
   onTogglePublic: (id: string, isPublic: boolean) => void;
   isDeletePending: boolean;
@@ -31,7 +23,7 @@ export const ItemsTable = ({
   const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const handleCopy = async (item: Item) => {
+  const handleCopy = async (item: AdminItem) => {
     if (!item.fb_post_content) {
       alert('Sản phẩm chưa có nội dung sale!');
       return;
@@ -42,13 +34,15 @@ export const ItemsTable = ({
       
       setCopiedId(item.id);
       setTimeout(() => setCopiedId(null), 2000);
-      
-      // Removed complex toast notification logic for simplicity and cleanliness
-      // Assuming a global toaster would be better, but keeping it simple for now as requested
     } catch (error) {
       console.error('Error copying to clipboard:', error);
       alert('Không thể copy. Vui lòng thử lại.');
     }
+  };
+
+  const handleShare = (item: AdminItem) => {
+    // Navigate to item detail page, Social Selling section
+    navigate(`/admin/items/${item.id}?section=social-selling`);
   };
 
   return (
@@ -59,7 +53,7 @@ export const ItemsTable = ({
           <th className={styles.th}>Tên</th>
           <th className={styles.th}>Trạng thái</th>
           <th className={styles.th}>Công khai</th>
-          <th className={styles.th}>Sale Content</th>
+          <th className={styles.th}>Facebook</th>
           <th className={styles.th}>Giá</th>
           <th className={styles.th}>Thao tác</th>
         </tr>
@@ -111,30 +105,81 @@ export const ItemsTable = ({
               )}
             </td>
             <td className={`${styles.td} ${styles.tdCenter}`}>
-              <button
-                onClick={() => handleCopy(item)}
-                disabled={!item.fb_post_content}
-                title={item.fb_post_content ? "Copy nội dung sale để đăng Facebook" : "Chưa có nội dung sale"}
-                className={`${styles.copyButton} ${copiedId === item.id ? styles.copyButtonCopied : ''}`}
-                style={{
-                  background: copiedId === item.id ? undefined : item.fb_post_content ? undefined : 'none',
-                  border: copiedId === item.id ? undefined : item.fb_post_content ? '1px solid #007bff' : '1px solid #ccc',
-                  color: copiedId === item.id ? undefined : item.fb_post_content ? '#007bff' : '#ccc',
-                  cursor: item.fb_post_content ? 'pointer' : 'not-allowed',
-                }}
-              >
-                {copiedId === item.id ? (
-                  <>
-                    <Check size={16} />
-                    <span>Copied</span>
-                  </>
+              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
+                {/* Copy button */}
+                <button
+                  onClick={() => handleCopy(item)}
+                  disabled={!item.fb_post_content}
+                  title={item.fb_post_content ? "Copy nội dung sale" : "Chưa có nội dung sale"}
+                  className={`${styles.copyButton} ${copiedId === item.id ? styles.copyButtonCopied : ''}`}
+                  style={{
+                    background: copiedId === item.id ? undefined : item.fb_post_content ? undefined : 'none',
+                    border: copiedId === item.id ? undefined : item.fb_post_content ? '1px solid #007bff' : '1px solid #ccc',
+                    color: copiedId === item.id ? undefined : item.fb_post_content ? '#007bff' : '#ccc',
+                    cursor: item.fb_post_content ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  {copiedId === item.id ? (
+                    <>
+                      <Check size={14} />
+                      <span>Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Share / Open FB button */}
+                {item.fb_post_url ? (
+                  <a
+                    href={item.fb_post_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Mở bài FB"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 10px',
+                      background: '#1877F2',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      textDecoration: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <ExternalLink size={14} />
+                    <span>FB</span>
+                  </a>
                 ) : (
-                  <>
-                    <Copy size={16} />
-                    <span>Copy</span>
-                  </>
+                  <button
+                    onClick={() => handleShare(item)}
+                    title="Chia sẻ lên Facebook"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 10px',
+                      background: 'none',
+                      border: '1px solid #1877F2',
+                      color: '#1877F2',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Share2 size={14} />
+                    <span>Share</span>
+                  </button>
                 )}
-              </button>
+              </div>
             </td>
             <td className={`${styles.td} ${styles.tdRight}`}>
               {item.price ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price) : '-'}
