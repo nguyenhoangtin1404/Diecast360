@@ -1,4 +1,20 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: diecast360
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -6,7 +22,7 @@ services:
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     environment:
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/diecast360
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
       - REFRESH_TOKEN_EXPIRES_IN=${REFRESH_TOKEN_EXPIRES_IN}
@@ -21,7 +37,9 @@ services:
       - ./backend:/usr/src/app
       - /usr/src/app/node_modules
       - ./uploads:/usr/src/app/uploads
-      - ./data:/usr/src/app/data
+    depends_on:
+      db:
+        condition: service_healthy
     command: npm run start:dev
 
   frontend:
@@ -34,10 +52,8 @@ services:
       - "5173:80"
     depends_on:
       - backend
-    # For production usage with Nginx, use 'target: production' and remove 'command'
-    # For development:
     command: npm run dev -- --host
 
 volumes:
+  pgdata:
   uploads:
-  data:
