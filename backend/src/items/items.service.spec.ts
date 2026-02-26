@@ -4,6 +4,9 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { VectorStoreService } from '../ai/vector-store.service';
 import { EmbeddingService } from '../ai/embedding.service';
 import { ErrorCode } from '../common/constants/error-codes';
+import { AppException } from '../common/exceptions/http-exception.filter';
+import { ItemStatus } from '../generated/prisma/client';
+
 
 describe('ItemsService', () => {
   let service: ItemsService;
@@ -11,6 +14,7 @@ describe('ItemsService', () => {
     item: Record<string, jest.Mock>;
     aiItemDraft: Record<string, jest.Mock>;
     itemImage: Record<string, jest.Mock>;
+    facebookPost: Record<string, jest.Mock>;
     $transaction: jest.Mock;
   };
   let storage: {
@@ -63,6 +67,11 @@ describe('ItemsService', () => {
       },
       itemImage: {
         create: jest.fn(),
+      },
+      facebookPost: {
+        create: jest.fn(),
+        findFirst: jest.fn(),
+        delete: jest.fn(),
       },
       $transaction: jest.fn(async (fn: (prisma: unknown) => Promise<unknown>) => fn(prisma)),
     };
@@ -242,6 +251,294 @@ describe('ItemsService', () => {
 
       // Logger called for each failed image + summary
       expect(loggerErrorSpy).toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================
+  // findAll
+  // ============================================================
+  describe('findAll', () => {
+    const mockItemWithRelations = {
+      ...mockItem,
+      price: { toNumber: () => 100 },
+      original_price: null,
+      item_images: [{ file_path: 'images/cover.jpg' }],
+      spin_sets: [],
+      facebook_posts: [{ post_url: 'https://fb.com/post1', posted_at: new Date() }],
+      _count: { facebook_posts: 1 },
+    };
+
+    it('should return paginated items with defaults', async () => {
+      prisma.item.findMany.mockResolvedValue([mockItemWithRelations]);
+      prisma.item.count.mockResolvedValue(1);
+
+      const result = await service.findAll({});
+
+      expect(result.items).toHaveLength(1);
+      expect(result.pagination).toEqual({
+        page: 1,
+        page_size: 20,
+        total: 1,
+        total_pages: 1,
+      });
+      expect(result.items[0].cover_image_url).toContain('cover.jpg');
+      expect(result.items[0].fb_post_url).toBe('https://fb.com/post1');
+    });
+
+    it('should filter by status', async () => {
+      prisma.item.findMany.mockResolvedValue([]);
+      prisma.item.count.mockResolvedValue(0);
+
+      await service.findAll({ status: 'con_hang' as ItemStatus });
+
+      const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.status).toBe('con_hang');
+    });
+
+    it('should filter by search query', async () => {
+      prisma.item.findMany.mockResolvedValue([]);
+      prisma.item.count.mockResolvedValue(0);
+
+      await service.findAll({ q: 'honda' });
+
+      const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.name).toEqual({ contains: 'honda' });
+    });
+
+    it('should filter by fb_status=posted', async () => {
+      prisma.item.findMany.mockResolvedValue([]);
+      prisma.item.count.mockResolvedValue(0);
+
+      await service.findAll({ fb_status: 'posted' });
+
+      const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.facebook_posts).toEqual({ some: {} });
+    });
+
+    it('should filter by fb_status=not_posted', async () => {
+      prisma.item.findMany.mockResolvedValue([]);
+      prisma.item.count.mockResolvedValue(0);
+
+      await service.findAll({ fb_status: 'not_posted' });
+
+      const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.facebook_posts).toEqual({ none: {} });
+    });
+
+    it('should handle custom pagination', async () => {
+      prisma.item.findMany.mockResolvedValue([]);
+      prisma.item.count.mockResolvedValue(50);
+
+      const result = await service.findAll({ page: 3, page_size: 10 });
+
+      expect(result.pagination.page).toBe(3);
+      expect(result.pagination.page_size).toBe(10);
+      expect(result.pagination.total_pages).toBe(5);
+      const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.skip).toBe(20);
+      expect(findManyCall.take).toBe(10);
+    });
+  });
+
+  // ============================================================
+  // findOne
+  // ============================================================
+  describe('findOne', () => {
+    it('should return item with images and spin sets', async () => {
+      const mockFullItem = {
+        ...mockItem,
+        price: { toNumber: () => 100 },
+        original_price: null,
+        item_images: [
+          { id: 'img-1', item_id: 'item-123', file_path: 'images/1.jpg', thumbnail_path: 'thumbs/1.jpg', is_cover: true, display_order: 0, created_at: new Date() },
+        ],
+        spin_sets: [],
+        facebook_posts: [],
+      };
+
+      prisma.item.findFirst.mockResolvedValue(mockFullItem);
+
+      const result = await service.findOne('item-123');
+
+      expect(result.item.id).toBe('item-123');
+      expect(result.images).toHaveLength(1);
+      expect(result.images[0].url).toContain('1.jpg');
+    });
+
+    it('should throw NOT_FOUND when item does not exist', async () => {
+      prisma.item.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne('nonexistent')).rejects.toThrow(AppException);
+    });
+  });
+
+  // ============================================================
+  // update
+  // ============================================================
+  describe('update', () => {
+    it('should update item fields', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      prisma.item.update.mockResolvedValue({ ...mockItem, name: 'Updated Name' });
+
+      const result = await service.update('item-123', { name: 'Updated Name' });
+
+      expect(result.item.name).toBe('Updated Name');
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: expect.objectContaining({ name: 'Updated Name' }),
+      });
+    });
+
+    it('should throw NOT_FOUND when item does not exist', async () => {
+      prisma.item.findFirst.mockResolvedValue(null);
+
+      await expect(service.update('nonexistent', { name: 'x' })).rejects.toThrow(AppException);
+    });
+
+    it('should handle partial updates', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      prisma.item.update.mockResolvedValue({ ...mockItem, is_public: true });
+
+      await service.update('item-123', { is_public: true });
+
+      const updateCall = prisma.item.update.mock.calls[0][0];
+      expect(updateCall.data.is_public).toBe(true);
+      expect(updateCall.data.name).toBeUndefined();
+    });
+  });
+
+  // ============================================================
+  // remove
+  // ============================================================
+  describe('remove', () => {
+    it('should soft-delete item', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      prisma.item.update.mockResolvedValue({ ...mockItem, deleted_at: new Date() });
+
+      const result = await service.remove('item-123');
+
+      expect(result).toEqual({});
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: { deleted_at: expect.any(Date) },
+      });
+    });
+
+    it('should throw NOT_FOUND when item does not exist', async () => {
+      prisma.item.findFirst.mockResolvedValue(null);
+
+      await expect(service.remove('nonexistent')).rejects.toThrow(AppException);
+    });
+  });
+
+  // ============================================================
+  // addFacebookPost
+  // ============================================================
+  describe('addFacebookPost', () => {
+    it('should create a facebook post for item', async () => {
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        _count: { facebook_posts: 0 },
+      });
+      const mockPost = { id: 'post-1', item_id: 'item-123', post_url: 'https://fb.com/post1', content: null };
+      prisma.facebookPost.create.mockResolvedValue(mockPost);
+
+      const result = await service.addFacebookPost('item-123', {
+        post_url: 'https://fb.com/post1',
+      });
+
+      expect(result.post.id).toBe('post-1');
+    });
+
+    it('should throw NOT_FOUND when item does not exist', async () => {
+      prisma.item.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.addFacebookPost('nonexistent', { post_url: 'https://fb.com/post1' }),
+      ).rejects.toThrow(AppException);
+    });
+
+    it('should throw when limit of 50 posts is reached', async () => {
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        _count: { facebook_posts: 50 },
+      });
+
+      await expect(
+        service.addFacebookPost('item-123', { post_url: 'https://fb.com/post1' }),
+      ).rejects.toThrow(AppException);
+    });
+  });
+
+  // ============================================================
+  // removeFacebookPost
+  // ============================================================
+  describe('removeFacebookPost', () => {
+    it('should delete a facebook post', async () => {
+      const mockPost = { id: 'post-1', item_id: 'item-123', post_url: 'https://fb.com/post1' };
+      prisma.facebookPost.findFirst.mockResolvedValue(mockPost);
+      prisma.facebookPost.delete.mockResolvedValue(mockPost);
+
+      const result = await service.removeFacebookPost('item-123', 'post-1');
+
+      expect(result).toEqual({});
+    });
+
+    it('should throw NOT_FOUND when post does not exist', async () => {
+      prisma.facebookPost.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.removeFacebookPost('item-123', 'nonexistent'),
+      ).rejects.toThrow(AppException);
+    });
+  });
+
+  // ============================================================
+  // exportCsv
+  // ============================================================
+  describe('exportCsv', () => {
+    it('should return CSV with headers and BOM', async () => {
+      prisma.item.findMany.mockResolvedValue([]);
+
+      const result = await service.exportCsv();
+
+      expect(result).toContain('\uFEFF'); // BOM
+      expect(result).toContain('id,name,description,status');
+    });
+
+    it('should escape fields with commas and quotes', async () => {
+      prisma.item.findMany.mockResolvedValue([
+        {
+          ...mockItem,
+          name: 'Item "with quotes"',
+          description: 'Has, commas',
+          price: null,
+          original_price: null,
+          created_at: new Date('2025-01-01T00:00:00Z'),
+          updated_at: new Date('2025-01-01T00:00:00Z'),
+        },
+      ]);
+
+      const result = await service.exportCsv();
+
+      expect(result).toContain('"Item ""with quotes"""');
+      expect(result).toContain('"Has, commas"');
+    });
+
+    it('should handle Decimal values', async () => {
+      prisma.item.findMany.mockResolvedValue([
+        {
+          ...mockItem,
+          price: { toNumber: () => 99.99 },
+          original_price: null,
+          created_at: new Date('2025-01-01T00:00:00Z'),
+          updated_at: new Date('2025-01-01T00:00:00Z'),
+        },
+      ]);
+
+      const result = await service.exportCsv();
+
+      expect(result).toContain('99.99');
     });
   });
 });
