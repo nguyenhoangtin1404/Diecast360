@@ -80,4 +80,54 @@ describe('ImageProcessorService', () => {
       expect(result).toBe(false);
     });
   });
+
+  describe('generateThumbnail', () => {
+    it('should generate thumbnail with default size', async () => {
+      const buffer = Buffer.from('test');
+      const mockSharp = {
+        resize: jest.fn().mockReturnThis(),
+        jpeg: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(Buffer.from('thumbnail')),
+      };
+      (sharp as unknown as jest.Mock).mockReturnValue(mockSharp);
+
+      const result = await service.generateThumbnail(buffer);
+
+      expect(mockSharp.resize).toHaveBeenCalledWith(300, 300, expect.any(Object));
+      expect(result).toEqual(Buffer.from('thumbnail'));
+    });
+
+    it('should generate thumbnail with custom size', async () => {
+      const buffer = Buffer.from('test');
+      const mockSharp = {
+        resize: jest.fn().mockReturnThis(),
+        jpeg: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(Buffer.from('thumbnail')),
+      };
+      (sharp as unknown as jest.Mock).mockReturnValue(mockSharp);
+
+      await service.generateThumbnail(buffer, 150);
+
+      expect(mockSharp.resize).toHaveBeenCalledWith(150, 150, expect.any(Object));
+    });
+  });
+
+  describe('generateFilename', () => {
+    it('should generate unique filename with original extension', () => {
+      const filename = service.generateFilename('photo.png');
+      expect(filename).toMatch(/^[0-9a-f-]+\.png$/);
+    });
+
+    it('should generate unique filename with .jpg default', () => {
+      const filename = service.generateFilename();
+      expect(filename).toMatch(/^[0-9a-f-]+\.jpg$/);
+    });
+
+    it('should generate different filenames on each call', () => {
+      const f1 = service.generateFilename('test.jpg');
+      const f2 = service.generateFilename('test.jpg');
+      expect(f1).not.toEqual(f2);
+    });
+  });
 });
+
