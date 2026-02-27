@@ -36,7 +36,7 @@ A full-stack web application for managing diecast inventory with a 360° image s
 
 ### Backend
 - Node.js (NestJS)  docs **không phụ thuộc framework**
-- Sqlite (Default), PostgreSQL (Optional)
+- PostgreSQL (Local cho dev, Neon cho production)
 - ORM: Prisma
 - Auth: JWT access + refresh token
 - Upload: local storage (dev/demo)
@@ -183,6 +183,7 @@ A full-stack web application for managing diecast inventory with a 360° image s
   - `item.status`
   - `item.created_at`
   - `spin_frames.spin_set_id` + `frame_index`
+- Không chỉnh sửa migration đã apply; thay đổi schema phải tạo migration mới
 
 ---
 
@@ -212,6 +213,7 @@ BẮT BUỘC sinh:
 
 Biến tối thiểu:
 - `DATABASE_URL`
+- `DIRECT_URL`
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`
 - `REFRESH_TOKEN_EXPIRES_IN`

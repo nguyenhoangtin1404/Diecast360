@@ -23,6 +23,7 @@ services:
       - "${PORT:-3000}:${PORT:-3000}"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/diecast360
+      - DIRECT_URL=postgresql://postgres:postgres@db:5432/diecast360
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
       - REFRESH_TOKEN_EXPIRES_IN=${REFRESH_TOKEN_EXPIRES_IN}
