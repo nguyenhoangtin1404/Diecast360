@@ -4,18 +4,19 @@ Các biến bắt buộc (tham chiếu `.env.example`). Không hardcode vào cod
 
 ## Chọn Database
 
-Diecast360 hỗ trợ 2 loại database:
+Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 
 | Database | Khuyến nghị cho | RAM sử dụng |
 |----------|-----------------|-------------|
-| **SQLite** (mặc định) | Raspberry Pi, demo, cá nhân, 1-10 users | ~0MB (embedded) |
-| **PostgreSQL** | Production, nhiều users đồng thời | ~200-400MB |
+| **PostgreSQL Local** | Dev, CI nội bộ, VPS self-host | ~200-400MB |
+| **PostgreSQL Neon** | Production managed PostgreSQL | Theo gói Neon |
 
 ## Biến môi trường
 
 | Variable | Mục đích | Ví dụ | Ghi chú |
 |----------|----------|-------|---------|
 | DATABASE_URL | Kết nối Database | Xem bên dưới | Bắt buộc |
+| DIRECT_URL | Kết nối trực tiếp DB cho Prisma CLI | Xem bên dưới | Bắt buộc với PostgreSQL + Prisma migrate/introspect |
 | JWT_SECRET | Secret ký access token | `super-secret` | Bắt buộc, đủ entropy |
 | JWT_EXPIRES_IN | TTL access token | `15m` | Chuỗi thời gian (ms, s, m, h...) |
 | REFRESH_TOKEN_EXPIRES_IN | TTL refresh token | `7d` | Dùng để tính `expires_at` |
@@ -28,38 +29,30 @@ Diecast360 hỗ trợ 2 loại database:
 | COOKIE_SECURE | Chỉ gửi cookies qua HTTPS | `false` (dev) / `true` (prod) | Bật khi deploy HTTPS |
 | COOKIE_SAME_SITE | SameSite attribute cho cookies | `lax` (dev) / `strict` (prod) | Chống CSRF |
 
-## DATABASE_URL Format
+## DATABASE_URL / DIRECT_URL Format
 
-### SQLite (Mặc định - Khuyến nghị cho low-memory)
-```bash
-DATABASE_URL=file:./dev.db
-```
-
-Ưu điểm:
-- Không cần cài đặt database server
-- Tiết kiệm ~200-400MB RAM
-- Phù hợp Raspberry Pi, demo, cá nhân
-
-Nhược điểm:
-- Không hỗ trợ concurrent writes tốt
-- Giới hạn 1-10 users đồng thời
-
-### PostgreSQL (Production)
+### PostgreSQL Local (dev/self-host)
 ```bash
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/diecast360
+DIRECT_URL=postgresql://postgres:postgres@localhost:5432/diecast360
 ```
 
-Ưu điểm:
-- Hỗ trợ nhiều users đồng thời
-- Concurrent writes tốt
-- Phù hợp production
+### PostgreSQL Neon (Production)
+```bash
+# Runtime (pooling)
+DATABASE_URL=postgresql://neondb_owner:your_password@ep-xxx-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+# Prisma migrate/introspect (direct, no pooler)
+DIRECT_URL=postgresql://neondb_owner:your_password@ep-xxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+```
 
-Nhược điểm:
-- Cần cài đặt PostgreSQL server
-- Tiêu tốn ~200-400MB RAM
+Lưu ý:
+- `DATABASE_URL` dùng cho app runtime.
+- `DIRECT_URL` dùng cho Prisma CLI để tránh lỗi với pooler (đặc biệt Neon/pgBouncer).
 
 ## Ghi nhớ
 
 - Dev/demo dùng local storage; cần đảm bảo `UPLOAD_DIR` được tạo và writable.
 - Thay đổi env phải được phản ánh vào config server và docs nếu có biến mới.
 - Khi chuyển đổi database, cần chạy lại migration và có thể cần migrate data.
+- Không chỉnh sửa migration đã apply. Nếu cần thay đổi schema, tạo migration mới.
+- Nếu phát hiện môi trường đã apply checksum migration cũ, cần revert migration về đúng blob đã apply trước khi deploy tiếp.

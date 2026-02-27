@@ -1,21 +1,18 @@
 # Database Schema – Diecast360
 
 ## Quy ước chung
-- DB: SQLite (mặc định) hoặc PostgreSQL (production)
+- DB: PostgreSQL
 - UUID cho mọi khóa chính
-- Timestamps: DateTime (TEXT trong SQLite, timestamptz trong PostgreSQL)
+- Timestamps: DateTime (TIMESTAMP trong PostgreSQL)
 - Soft delete cho `items` bằng `deleted_at` (nullable)
 - Prisma làm ORM; schema phải bám sát domain, không tự ý đổi tên/kiểu khi chưa cập nhật docs
 
 ## Lựa chọn Database
 
-| Tính năng | SQLite | PostgreSQL |
-|-----------|--------|------------|
-| RAM sử dụng | ~0MB (embedded) | ~200-400MB |
-| Concurrent writes | Hạn chế | Tốt |
-| Phù hợp | Raspberry Pi, demo, 1-10 users | Production, nhiều users |
-| ENUM | Simulated (CHECK constraint) | Native |
-| Timezone datetime | Không (TEXT) | Có (timestamptz) |
+| Mode | Kết nối | Ghi chú |
+|------|----------|---------|
+| PostgreSQL Local | `postgresql://postgres:postgres@localhost:5432/diecast360` | Dùng cho dev/self-host |
+| PostgreSQL Neon | Runtime dùng pooler + migrate dùng direct | Dùng cho production managed |
 
 ## Bảng & cột
 
@@ -122,8 +119,7 @@
 - `item_images(item_id, display_order)` – render gallery
 - `spin_frames(spin_set_id, frame_index)` – tải spinner tuần tự
 
-## Lưu ý SQLite
-- ENUM được Prisma simulate bằng CHECK constraint
-- Decimal được lưu dưới dạng REAL
-- DateTime được lưu dưới dạng TEXT (ISO8601)
-- Concurrent writes bị hạn chế, phù hợp cho 1-10 users
+## Nguyên tắc migration
+- Không chỉnh sửa migration đã apply ở bất kỳ môi trường nào.
+- Khi cần đổi schema: tạo migration mới thay vì sửa file migration cũ.
+- Nếu phát hiện checksum cũ đã được apply ở môi trường bất kỳ, revert migration file về đúng blob đã apply trước khi rollout migration mới.

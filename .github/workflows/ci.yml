@@ -42,7 +42,8 @@ jobs:
       - name: 🔧 Generate Prisma Client
         run: npx prisma generate
         env:
-          DATABASE_URL: 'file:./dev.db'
+          DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/diecast360'
+          DIRECT_URL: 'postgresql://postgres:postgres@localhost:5432/diecast360'
 
       - name: 🔍 Lint
         run: npm run lint

@@ -13,7 +13,7 @@
 - AI Image Import: Tạo item diecast nhanh chóng từ ảnh.
 
 ## Tech stack (đã chốt)
-- Backend: Node.js (NestJS), Prisma ORM, **SQLite (mặc định) / PostgreSQL**, JWT, Sharp, lưu file local (dev/demo) qua abstraction Storage.
+- Backend: Node.js (NestJS), Prisma ORM, **PostgreSQL**, JWT, Sharp, lưu file local (dev/demo) qua abstraction Storage.
 - Frontend: React + Vite, React Router, TanStack Query.
 - JSON: snake_case, base path `/api/v1`, envelope chuẩn `{ok,data,message}` / `{ok,error,message}`.
 
@@ -22,7 +22,7 @@
 ### Yêu cầu
 - Node.js >= 20.17.0
 - npm hoặc yarn
-- (Tùy chọn) PostgreSQL - chỉ cần nếu không dùng SQLite
+- PostgreSQL (local Docker/VPS hoặc Neon)
 
 ### Backend Setup
 
@@ -41,20 +41,28 @@
    cp .env.example .env
    ```
    
-   **SQLite (Mặc định - Khuyến nghị cho Raspberry Pi, demo):**
-   ```env
-   DATABASE_URL=file:./dev.db
-   ```
-   
-   **PostgreSQL (Production):**
+   **PostgreSQL Local (mặc định cho dev):**
    ```env
    DATABASE_URL=postgresql://postgres:postgres@localhost:5432/diecast360
+   DIRECT_URL=postgresql://postgres:postgres@localhost:5432/diecast360
+   ```
+   
+   **PostgreSQL (Production - Neon):**
+   ```env
+   # Pooled URL cho app runtime
+   DATABASE_URL=postgresql://neondb_owner:your_password@ep-xxx-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+   # Direct URL cho Prisma migrate
+   DIRECT_URL=postgresql://neondb_owner:your_password@ep-xxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
    ```
 
 4. Generate Prisma client và chạy migration:
    ```bash
    npm run prisma:generate
+   # Cả DATABASE_URL và DIRECT_URL đều phải được cấu hình
+   # Dev/local:
    npm run prisma:migrate
+   # Production/CI (khuyên dùng với Neon):
+   npx prisma migrate deploy
    ```
 
 5. Tạo thư mục uploads:
@@ -95,18 +103,16 @@
    ```
    Frontend chạy tại `http://localhost:5173`
 
-## Lựa chọn Database
+## Cấu hình Database (PostgreSQL)
 
-| Tính năng | SQLite (Mặc định) | PostgreSQL |
-|-----------|-------------------|------------|
-| RAM sử dụng | ~0MB (embedded) | ~200-400MB |
-| Cài đặt | Không cần | Cần cài PostgreSQL |
-| Concurrent writes | Hạn chế | Tốt |
-| Phù hợp | Raspberry Pi, demo, 1-10 users | Production, nhiều users |
+| Môi trường | DATABASE_URL | DIRECT_URL | Ghi chú |
+|-----------|--------------|------------|---------|
+| Dev/local | `postgresql://postgres:postgres@localhost:5432/diecast360` | `postgresql://postgres:postgres@localhost:5432/diecast360` | Dùng PostgreSQL local hoặc Docker |
+| Production (Neon) | URL pooler `...-pooler...` | URL direct `...` | Runtime dùng pooler, Prisma CLI dùng direct |
 
 **Khuyến nghị:**
-- Dùng SQLite cho môi trường RAM thấp (Raspberry Pi 4 với 2GB RAM)
-- Dùng PostgreSQL cho production với nhiều người dùng
+- Luôn cấu hình đủ cả `DATABASE_URL` và `DIRECT_URL` trong mọi môi trường PostgreSQL.
+- Không chỉnh sửa migration đã apply; thay đổi schema phải tạo migration mới.
 
 ## Kiến trúc & tài liệu
 - Domain: `docs/DOMAIN.md`
