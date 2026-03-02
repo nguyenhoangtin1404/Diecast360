@@ -4,7 +4,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
-import { ImageProcessorService } from '../image-processor/image-processor.service';
+import { ImageProcessorService, WatermarkProcessingError } from '../image-processor/image-processor.service';
 import { IStorageService } from '../storage/storage.interface';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { UpdateImageDto } from './dto/update-image.dto';
@@ -32,9 +32,20 @@ export class ImagesService {
     this.validateFile(file);
 
     // Process image and generate thumbnail
-    const processedImage = await this.imageProcessor.processImage(file.buffer, {
-      watermark: true,
-    });
+    let processedImage: Buffer;
+    try {
+      processedImage = await this.imageProcessor.processImage(file.buffer, {
+        watermark: true,
+      });
+    } catch (error) {
+      if (error instanceof WatermarkProcessingError) {
+        throw new AppException(
+          ErrorCode.IMAGE_WATERMARK_FAILED,
+          'Không thể đóng watermark cho ảnh. Vui lòng chọn ảnh khác hoặc giảm kích thước.',
+        );
+      }
+      throw error;
+    }
     const thumbnail = await this.imageProcessor.generateThumbnail(file.buffer);
 
     // Generate filenames

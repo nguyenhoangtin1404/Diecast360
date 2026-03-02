@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SpinnerService } from './spinner.service';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { ImageProcessorService } from '../image-processor/image-processor.service';
+import { ImageProcessorService, WatermarkProcessingError } from '../image-processor/image-processor.service';
 import { AppException } from '../common/exceptions/http-exception.filter';
 
 describe('SpinnerService', () => {
@@ -233,6 +233,14 @@ describe('SpinnerService', () => {
       await expect(
         service.uploadFrame('spin-1', mockFile, { frame_index: 0 }),
       ).rejects.toThrow(AppException);
+    });
+
+    it('should convert WatermarkProcessingError to AppException', async () => {
+      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      imageProcessor.processImage.mockRejectedValueOnce(new WatermarkProcessingError('fail watermark'));
+
+      await expect(service.uploadFrame('spin-1', mockFile, {})).rejects.toThrow(AppException);
+      expect(storage.saveFile).not.toHaveBeenCalled();
     });
   });
 

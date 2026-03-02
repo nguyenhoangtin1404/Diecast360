@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ItemsService } from './items.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { VectorStoreService } from '../ai/vector-store.service';
-import { EmbeddingService } from '../ai/embedding.service';
+import { EmbeddingService, EmbeddingUnavailableError } from '../ai/embedding.service';
 import { ErrorCode } from '../common/constants/error-codes';
 import { AppException } from '../common/exceptions/http-exception.filter';
 import { ItemStatus } from '../generated/prisma/client';
@@ -15,6 +15,7 @@ describe('ItemsService', () => {
     aiItemDraft: Record<string, jest.Mock>;
     itemImage: Record<string, jest.Mock>;
     facebookPost: Record<string, jest.Mock>;
+    vectorSyncTask: Record<string, jest.Mock>;
     $transaction: jest.Mock;
   };
   let storage: {
@@ -22,6 +23,14 @@ describe('ItemsService', () => {
     getFileUrl: jest.Mock;
     saveFile: jest.Mock;
     deleteFile: jest.Mock;
+  };
+  let vectorStore: {
+    upsertItem: jest.Mock;
+    deleteItem: jest.Mock;
+    search: jest.Mock;
+  };
+  let embeddingService: {
+    getEmbedding: jest.Mock;
   };
   let loggerErrorSpy: jest.SpyInstance;
 
@@ -53,6 +62,16 @@ describe('ItemsService', () => {
       deleteFile: jest.fn(),
     };
 
+    vectorStore = {
+      upsertItem: jest.fn(),
+      deleteItem: jest.fn(),
+      search: jest.fn(),
+    };
+
+    embeddingService = {
+      getEmbedding: jest.fn().mockResolvedValue([]),
+    };
+
     prisma = {
       item: {
         create: jest.fn().mockResolvedValue(mockItem),
@@ -73,6 +92,11 @@ describe('ItemsService', () => {
         findFirst: jest.fn(),
         delete: jest.fn(),
       },
+      vectorSyncTask: {
+        upsert: jest.fn(),
+        deleteMany: jest.fn(),
+        findMany: jest.fn(),
+      },
       $transaction: jest.fn(async (fn: (prisma: unknown) => Promise<unknown>) => fn(prisma)),
     };
 
@@ -81,8 +105,8 @@ describe('ItemsService', () => {
         ItemsService,
         { provide: PrismaService, useValue: prisma },
         { provide: 'IStorageService', useValue: storage },
-        { provide: VectorStoreService, useValue: { upsertItem: jest.fn(), deleteItem: jest.fn(), search: jest.fn() } },
-        { provide: EmbeddingService, useValue: { getEmbedding: jest.fn().mockResolvedValue([]) } },
+        { provide: VectorStoreService, useValue: vectorStore },
+        { provide: EmbeddingService, useValue: embeddingService },
       ],
     }).compile();
 
@@ -490,6 +514,85 @@ describe('ItemsService', () => {
       await expect(
         service.removeFacebookPost('item-123', 'nonexistent'),
       ).rejects.toThrow(AppException);
+    });
+  });
+
+  // ============================================================
+  // syncVectorStore & queue
+  // ============================================================
+  describe('syncVectorStore', () => {
+    const vectorItem = {
+      id: 'item-xyz',
+      name: 'Vector Item',
+      description: 'Sync me',
+      brand: null,
+      car_brand: null,
+      scale: '1:64',
+      condition: null,
+      is_public: true,
+      deleted_at: null,
+    };
+
+    it('should enqueue retry when embeddings are unavailable', async () => {
+      embeddingService.getEmbedding.mockRejectedValueOnce(new EmbeddingUnavailableError('missing key'));
+
+      await service.syncVectorStore(vectorItem);
+
+      expect(prisma.vectorSyncTask.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { item_id: vectorItem.id } }),
+      );
+    });
+
+    it('should clear retry task after successful sync', async () => {
+      embeddingService.getEmbedding.mockResolvedValueOnce([0.1, 0.2]);
+
+      await service.syncVectorStore(vectorItem);
+
+      expect(vectorStore.upsertItem).toHaveBeenCalled();
+      expect(prisma.vectorSyncTask.deleteMany).toHaveBeenCalledWith({
+        where: { item_id: vectorItem.id },
+      });
+    });
+
+    it('should process pending tasks from queue', async () => {
+      const syncSpy = jest.spyOn(service, 'syncVectorStore').mockResolvedValue(undefined);
+      prisma.vectorSyncTask.findMany.mockResolvedValue([
+        { item_id: vectorItem.id, item: vectorItem } as unknown as { item_id: string; item: typeof vectorItem },
+      ]);
+
+      const result = await service.processVectorSyncQueue();
+
+      expect(syncSpy).toHaveBeenCalledWith(vectorItem);
+      expect(result.processed).toBe(1);
+      syncSpy.mockRestore();
+    });
+
+    it('should clean up tasks without backing items', async () => {
+      prisma.vectorSyncTask.deleteMany.mockClear();
+      prisma.vectorSyncTask.findMany.mockResolvedValue([
+        { item_id: 'missing-item', item: null } as unknown as { item_id: string; item: typeof vectorItem | null },
+      ]);
+
+      await service.processVectorSyncQueue();
+
+      expect(prisma.vectorSyncTask.deleteMany).toHaveBeenCalledWith({
+        where: { item_id: 'missing-item' },
+      });
+    });
+
+    it('should re-enqueue when syncVectorStore throws unexpectedly', async () => {
+      const syncSpy = jest.spyOn(service, 'syncVectorStore').mockRejectedValue(new Error('vector failure'));
+      prisma.vectorSyncTask.upsert.mockClear();
+      prisma.vectorSyncTask.findMany.mockResolvedValue([
+        { item_id: vectorItem.id, item: vectorItem } as unknown as { item_id: string; item: typeof vectorItem },
+      ]);
+
+      await service.processVectorSyncQueue();
+
+      expect(prisma.vectorSyncTask.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { item_id: vectorItem.id } }),
+      );
+      syncSpy.mockRestore();
     });
   });
 
