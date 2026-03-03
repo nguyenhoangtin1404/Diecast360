@@ -45,22 +45,22 @@ export const SearchHeader = ({ search, onSearchChange }: SearchHeaderProps) => {
           className={styles.searchInput}
         />
       </div>
+      <Link to="/admin/items/new" className={styles.addButton}>
+        <Plus size={18} />
+        <span>Thêm sản phẩm</span>
+      </Link>
+       <Link to="/admin/items/import" className={styles.addButton} style={{ marginRight: '0.75rem', backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}>
+        <Sparkles size={18} />
+        <span>Thêm sản phẩm (AI)</span>
+      </Link>
       <button 
         onClick={handleExportCsv} 
         disabled={isExporting}
         className={styles.exportButton}
       >
         <Download size={18} />
-        <span>{isExporting ? 'Đang xuất...' : 'Xuất CSV'}</span>
+        <span>{isExporting ? 'Đang xuất...' : 'Xuất dữ liệu'}</span>
       </button>
-      <Link to="/admin/items/import" className={styles.addButton} style={{ marginRight: '0.75rem', backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}>
-        <Sparkles size={18} />
-        <span>AI Import</span>
-      </Link>
-      <Link to="/admin/items/new" className={styles.addButton}>
-        <Plus size={18} />
-        <span>Sản phẩm mới</span>
-      </Link>
     </div>
   );
 };

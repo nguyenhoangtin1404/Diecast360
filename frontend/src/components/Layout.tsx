@@ -143,11 +143,37 @@ export const Layout = ({ children }: LayoutProps) => {
                   }}
                 >
                   <LogIn size={18} />
-                  <span>Admin</span>
+                  <span>Quản trị</span>
                 </Link>
               </>
             ) : (
               <>
+
+              <Link
+                  to="/"
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    textDecoration: 'none',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s',
+                    backgroundColor: 'transparent',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  <Home size={18} />
+                  <span>Trang chủ</span>
+                </Link>
                 <Link
                   to="/admin/items"
                   style={{
@@ -175,7 +201,7 @@ export const Layout = ({ children }: LayoutProps) => {
                   }}
                 >
                   <ShoppingBag size={18} />
-                  <span>Quản lý sản phẩm</span>
+                  <span>Sản phẩm</span>
                 </Link>
                 <Link
                   to="/admin/categories"
@@ -235,31 +261,7 @@ export const Layout = ({ children }: LayoutProps) => {
                   <span style={{ fontSize: '16px' }}>📘</span>
                   <span>Bài đăng FB</span>
                 </Link>
-                <Link
-                  to="/"
-                  style={{
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    textDecoration: 'none',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    transition: 'all 0.2s',
-                    backgroundColor: 'transparent',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  <Home size={18} />
-                  <span>Về trang chủ</span>
-                </Link>
+                
               </>
             )}
 
