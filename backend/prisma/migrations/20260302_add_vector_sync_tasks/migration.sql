@@ -1,6 +1,6 @@
 -- CreateTable
 CREATE TABLE "vector_sync_tasks" (
-    "item_id" UUID NOT NULL,
+    "item_id" TEXT NOT NULL,
     "attempt_count" INTEGER NOT NULL DEFAULT 0,
     "last_error" TEXT,
     "scheduled_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
