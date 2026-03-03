@@ -6,7 +6,7 @@ import { AppException, ErrorCode } from '../common/exceptions/http-exception.fil
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { VectorStoreService } from '../ai/vector-store.service';
-import { EmbeddingService } from '../ai/embedding.service';
+import { EmbeddingService, EmbeddingUnavailableError } from '../ai/embedding.service';
 import { QueryItemsDto } from './dto/query-items.dto';
 import type { VectorSyncItem, ItemWithCoverImage, CsvFieldValue } from '../common/types/item.types';
 import { toNumber } from '../common/utils/decimal.utils';
@@ -14,6 +14,7 @@ import { toNumber } from '../common/utils/decimal.utils';
 @Injectable()
 export class ItemsService {
   private readonly logger = new Logger(ItemsService.name);
+  private readonly vectorRetryDelayMs = 5 * 60 * 1000;
 
   constructor(
     private prisma: PrismaService,
@@ -26,6 +27,7 @@ export class ItemsService {
     try {
       if (!item.is_public || item.deleted_at) {
         await this.vectorStore.deleteItem(item.id);
+        await this.clearVectorSyncPending(item.id);
         return;
       }
 
@@ -42,9 +44,21 @@ Condition: ${item.condition || ''}`;
           name: item.name,
           category: 'item',
         });
+        await this.clearVectorSyncPending(item.id);
       }
     } catch (error) {
-      this.logger.error(`Failed to sync item ${item.id} with vector store`, (error as Error).stack);
+      const err = error instanceof Error ? error : new Error(String(error));
+      await this.markVectorSyncPending(item.id, err.message);
+      if (err instanceof EmbeddingUnavailableError) {
+        this.logger.warn(
+          `Skipping vector sync for item ${item.id} because embeddings are unavailable: ${err.message}`,
+        );
+        return;
+      }
+      this.logger.error(
+        `Failed to sync item ${item.id} with vector store: ${err.message}`,
+        err.stack,
+      );
     }
   }
 
@@ -106,7 +120,15 @@ Condition: ${item.condition || ''}`;
       };
     } catch (error) {
       // Vector search unavailable (no API key, Pinecone down, etc.) — fallback to text search
-      this.logger.warn(`Vector search failed, falling back to text search: ${(error as Error).message}`);
+      const err = error instanceof Error ? error : new Error(String(error));
+      if (err instanceof EmbeddingUnavailableError) {
+        this.logger.warn(`Vector search unavailable, falling back to text search: ${err.message}`);
+      } else {
+        this.logger.error(
+          `Vector search failed, falling back to text search: ${err.message}`,
+          err.stack,
+        );
+      }
       return this.findAll({ q: query, page: 1, page_size: limit });
     }
   }
@@ -488,6 +510,82 @@ Condition: ${item.condition || ''}`;
 
     // Add UTF-8 BOM for Excel Vietnamese compatibility
     return '\uFEFF' + [headers.join(','), ...rows].join('\n');
+  }
+
+  async processVectorSyncQueue(limit: number = 20) {
+    const tasks = await this.prisma.vectorSyncTask.findMany({
+      where: { scheduled_at: { lte: new Date() } },
+      orderBy: { scheduled_at: 'asc' },
+      take: limit,
+      include: {
+        item: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            brand: true,
+            car_brand: true,
+            scale: true,
+            condition: true,
+            is_public: true,
+            deleted_at: true,
+          },
+        },
+      },
+    });
+
+    for (const task of tasks) {
+      try {
+        if (!task.item) {
+          this.logger.warn(
+            `Vector sync task ${task.item_id} has no backing item. Cleaning up.`,
+          );
+          await this.clearVectorSyncPending(task.item_id);
+          continue;
+        }
+
+        await this.syncVectorStore(task.item as VectorSyncItem);
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        this.logger.error(
+          `Vector queue failed for item ${task.item_id}: ${err.message}`,
+          err.stack,
+        );
+        await this.markVectorSyncPending(task.item_id, err.message);
+      }
+    }
+
+    return { processed: tasks.length };
+  }
+
+  private async markVectorSyncPending(itemId: string, reason: string) {
+    try {
+      const nextRun = new Date(Date.now() + this.vectorRetryDelayMs);
+      await this.prisma.vectorSyncTask.upsert({
+        where: { item_id: itemId },
+        create: {
+          item_id: itemId,
+          attempt_count: 1,
+          last_error: reason,
+          scheduled_at: nextRun,
+        },
+        update: {
+          attempt_count: { increment: 1 },
+          last_error: reason,
+          scheduled_at: nextRun,
+        },
+      });
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(
+        `Failed to enqueue vector sync retry for item ${itemId}: ${err.message}`,
+        err.stack,
+      );
+    }
+  }
+
+  private async clearVectorSyncPending(itemId: string) {
+    await this.prisma.vectorSyncTask.deleteMany({ where: { item_id: itemId } });
   }
 
   private getImageUrl(filePath: string): string {

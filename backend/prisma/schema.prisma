@@ -72,6 +72,7 @@ model Item {
   item_images    ItemImage[]
   spin_sets      SpinSet[]
   facebook_posts FacebookPost[]
+  vector_sync_task VectorSyncTask?
 
   @@map("items")
   @@index([status])
@@ -170,4 +171,18 @@ model AiItemDraft {
   updated_at      DateTime @updatedAt
 
   @@map("ai_item_drafts")
+}
+
+model VectorSyncTask {
+  item_id       String   @id
+  attempt_count Int      @default(0)
+  last_error    String?
+  scheduled_at  DateTime @default(now())
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  item Item @relation(fields: [item_id], references: [id], onDelete: Cascade)
+
+  @@map("vector_sync_tasks")
+  @@index([scheduled_at])
 }

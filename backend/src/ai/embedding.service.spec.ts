@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { EmbeddingService } from './embedding.service';
+import { EmbeddingService, EmbeddingUnavailableError } from './embedding.service';
+
+const createEmbeddingMock = jest.fn();
 
 // Mock OpenAI
 jest.mock('openai', () => {
@@ -8,13 +10,7 @@ jest.mock('openai', () => {
     __esModule: true,
     default: jest.fn().mockImplementation(() => ({
       embeddings: {
-        create: jest.fn().mockResolvedValue({
-          data: [
-            {
-              embedding: [0.1, 0.2, 0.3, 0.4, 0.5],
-            },
-          ],
-        }),
+        create: createEmbeddingMock,
       },
     })),
   };
@@ -25,6 +21,14 @@ describe('EmbeddingService', () => {
 
   describe('with valid API key', () => {
     beforeEach(async () => {
+      createEmbeddingMock.mockResolvedValue({
+        data: [
+          {
+            embedding: [0.1, 0.2, 0.3, 0.4, 0.5],
+          },
+        ],
+      });
+
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           EmbeddingService,
@@ -64,6 +68,16 @@ describe('EmbeddingService', () => {
         const result = await service.getEmbedding('line1\nline2\nline3');
         expect(result).toEqual([0.1, 0.2, 0.3, 0.4, 0.5]);
       });
+
+      it('should throw when OpenAI request fails', async () => {
+        createEmbeddingMock.mockRejectedValueOnce(new Error('openai failed'));
+        await expect(service.getEmbedding('test text')).rejects.toThrow(EmbeddingUnavailableError);
+      });
+
+      it('should throw for malformed OpenAI response', async () => {
+        createEmbeddingMock.mockResolvedValueOnce({ data: [{}] });
+        await expect(service.getEmbedding('test text')).rejects.toThrow(EmbeddingUnavailableError);
+      });
     });
   });
 
@@ -91,7 +105,7 @@ describe('EmbeddingService', () => {
     });
 
     it('should throw when getEmbedding is called without API key', async () => {
-      await expect(serviceNoKey.getEmbedding('test text')).rejects.toThrow();
+      await expect(serviceNoKey.getEmbedding('test text')).rejects.toThrow(EmbeddingUnavailableError);
     });
 
     it('should still return empty array for empty text even without API key', async () => {

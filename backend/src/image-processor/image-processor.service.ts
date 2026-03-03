@@ -1,7 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as path from 'path';
 import * as sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
+
+export class WatermarkProcessingError extends Error {
+  constructor(message: string, public readonly cause?: Error) {
+    super(message);
+    this.name = 'WatermarkProcessingError';
+  }
+}
 
 export interface ProcessImageOptions {
   maxWidth?: number;
@@ -13,6 +20,7 @@ export interface ProcessImageOptions {
 @Injectable()
 export class ImageProcessorService {
   private readonly WATERMARK_TEXT = 'DIECAST360';
+  private readonly logger = new Logger(ImageProcessorService.name);
 
   async processImage(
     buffer: Buffer,
@@ -26,27 +34,48 @@ export class ImageProcessorService {
         withoutEnlargement: true,
       });
 
-    if (watermark) {
-      const metadata = await sharp(buffer).metadata();
-      const width = metadata.width || 0;
-      const height = metadata.height || 0;
-      
-      if (width > 0 && height > 0) {
-        const svgImage = `
-        <svg width="${width}" height="${height}">
-          <style>
-          .title { fill: rgba(255, 255, 255, 0.5); font-size: ${Math.max(24, Math.min(width, height) * 0.05)}px; font-weight: bold; font-family: sans-serif; }
-          </style>
-          <text x="95%" y="95%" text-anchor="end" class="title">${this.WATERMARK_TEXT}</text>
-        </svg>
-        `;
-        pipeline = pipeline.composite([{ input: Buffer.from(svgImage), gravity: 'southeast' }]);
-      }
-    }
+    try {
+      if (watermark) {
+        const metadata = await sharp(buffer).metadata();
+        const originalWidth = metadata.width || 0;
+        const originalHeight = metadata.height || 0;
 
-    return pipeline
-      .jpeg({ quality })
-      .toBuffer();
+        if (originalWidth > 0 && originalHeight > 0) {
+          // Keep overlay size <= resized output size to avoid Sharp composite errors.
+          const ratio = Math.min(
+            maxWidth / originalWidth,
+            maxHeight / originalHeight,
+            1,
+          );
+          const outputWidth = Math.max(1, Math.floor(originalWidth * ratio));
+          const outputHeight = Math.max(1, Math.floor(originalHeight * ratio));
+          const fontSize = Math.max(24, Math.floor(Math.min(outputWidth, outputHeight) * 0.05));
+
+          const svgImage = `
+          <svg width="${outputWidth}" height="${outputHeight}">
+            <style>
+            .title { fill: rgba(255, 255, 255, 0.5); font-size: ${fontSize}px; font-weight: bold; font-family: sans-serif; }
+            </style>
+            <text x="95%" y="95%" text-anchor="end" class="title">${this.WATERMARK_TEXT}</text>
+          </svg>
+          `;
+          pipeline = pipeline.composite([{ input: Buffer.from(svgImage), gravity: 'southeast' }]);
+        } else {
+          throw new WatermarkProcessingError('Source image dimensions are missing');
+        }
+      }
+
+      return await pipeline
+        .jpeg({ quality })
+        .toBuffer();
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.logger.error(`Failed to process image: ${err.message}`, err.stack);
+      if (err instanceof WatermarkProcessingError) {
+        throw err;
+      }
+      throw new WatermarkProcessingError('Failed to process image', err);
+    }
   }
 
   async generateThumbnail(buffer: Buffer, size: number = 300): Promise<Buffer> {

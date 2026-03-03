@@ -18,7 +18,8 @@
     "create:admin:quick": "ts-node scripts/create-admin-quick.ts",
     "reset:admin:password": "ts-node scripts/reset-admin-password.ts",
     "list:users": "ts-node scripts/list-users.ts",
-    "index:items": "ts-node scripts/index-items.ts"
+    "index:items": "ts-node scripts/index-items.ts",
+    "vector:process-queue": "ts-node scripts/process-vector-queue.ts --limit=50"
   },
   "keywords": [
     "diecast",

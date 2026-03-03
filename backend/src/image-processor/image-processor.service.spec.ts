@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ImageProcessorService } from './image-processor.service';
+import { ImageProcessorService, WatermarkProcessingError } from './image-processor.service';
 import * as sharp from 'sharp';
 
 jest.mock('sharp');
@@ -62,6 +62,51 @@ describe('ImageProcessorService', () => {
         ]),
       );
       expect(result).toEqual(Buffer.from('watermarked'));
+    });
+
+    it('should throw when metadata is invalid for watermarking', async () => {
+      const buffer = Buffer.from('test');
+      const mockSharp = {
+        resize: jest.fn().mockReturnThis(),
+        metadata: jest.fn().mockResolvedValue({ width: 0, height: 0 }),
+        composite: jest.fn().mockReturnThis(),
+        jpeg: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(Buffer.from('watermarked')),
+      };
+      (sharp as unknown as jest.Mock).mockReturnValue(mockSharp);
+
+      await expect(service.processImage(buffer, { watermark: true })).rejects.toThrow(WatermarkProcessingError);
+      expect(mockSharp.composite).not.toHaveBeenCalled();
+    });
+
+    it('should wrap composite errors in WatermarkProcessingError', async () => {
+      const buffer = Buffer.from('test');
+      const mockSharp = {
+        resize: jest.fn().mockReturnThis(),
+        metadata: jest.fn().mockResolvedValue({ width: 1000, height: 1000 }),
+        composite: jest.fn().mockImplementation(() => {
+          throw new Error('composite failed');
+        }),
+        jpeg: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(Buffer.from('watermarked')),
+      };
+      (sharp as unknown as jest.Mock).mockReturnValue(mockSharp);
+
+      await expect(service.processImage(buffer, { watermark: true })).rejects.toThrow(WatermarkProcessingError);
+    });
+
+    it('should wrap toBuffer errors in WatermarkProcessingError', async () => {
+      const buffer = Buffer.from('test');
+      const mockSharp = {
+        resize: jest.fn().mockReturnThis(),
+        metadata: jest.fn().mockResolvedValue({ width: 1000, height: 1000 }),
+        composite: jest.fn().mockReturnThis(),
+        jpeg: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockRejectedValue(new Error('toBuffer failed')),
+      };
+      (sharp as unknown as jest.Mock).mockReturnValue(mockSharp);
+
+      await expect(service.processImage(buffer, { watermark: true })).rejects.toThrow(WatermarkProcessingError);
     });
   });
 

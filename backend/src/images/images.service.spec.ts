@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ImagesService } from './images.service';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { ImageProcessorService } from '../image-processor/image-processor.service';
+import { ImageProcessorService, WatermarkProcessingError } from '../image-processor/image-processor.service';
 import { AppException } from '../common/exceptions/http-exception.filter';
 
 describe('ImagesService', () => {
@@ -134,6 +134,14 @@ describe('ImagesService', () => {
         where: { item_id: 'item-1', is_cover: true },
         data: { is_cover: false },
       });
+    });
+
+    it('should translate WatermarkProcessingError into AppException', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      imageProcessor.processImage.mockRejectedValueOnce(new WatermarkProcessingError('no dims'));
+
+      await expect(service.uploadImage('item-1', mockFile)).rejects.toThrow(AppException);
+      expect(imageProcessor.generateThumbnail).not.toHaveBeenCalled();
     });
   });
 
