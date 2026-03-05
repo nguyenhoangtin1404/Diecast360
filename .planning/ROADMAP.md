@@ -157,11 +157,11 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Inventory Foundation | 0/1 | Not started | - |
-| 2. Media Pipeline | 0/1 | Not started | - |
+| 2. Media Pipeline | 0/1 | In progress (partial) | Admin 4-step flow + media validation on finish |
 | 3. Public Experience | 0/1 | Not started | - |
-| 4. AI and Social Selling | 0/1 | Not started | - |
+| 4. AI and Social Selling | 0/1 | In progress (partial) | Step 4 "Hoàn tất" flow and guardrails implemented |
 | 5. Production and Integrations | 0/1 | Not started | - |
-| 6. Issue #58 - Mobile Responsive UI | 0/2 | Not started | - |
+| 6. Issue #58 - Mobile Responsive UI | 0/2 | In progress (partial) | Mobile stepper UX and navigation controls improved |
 | 7. Issue #57 - Quantity and Custom Attributes | 0/3 | Not started | - |
 | 8. Issue #46 - Advanced Inventory Management | 0/3 | Not started | - |
 | 9. Issue #13 - Pre-Order Management | 0/3 | Not started | - |
@@ -169,3 +169,31 @@ Plans:
 | 11. Issue #48 - Membership and Points | 0/2 | Not started | - |
 | 12. Issue #44 - Playwright Phase 1 | 0/3 | Not started | - |
 | 13. Issue #33 - Playwright Phase 2 | 0/3 | Not started | - |
+
+## Execution Update (2026-03-04)
+
+Completed in codebase (partial roadmap delivery):
+- Admin product page refactored to 4-step workflow: `Thông tin cơ bản` -> `Hình ảnh` -> `Ảnh 360` -> `AI gen nội dung FB`.
+- Auto-save enforced for step navigation (`Bước tiếp`, `Bước trước`, direct step click).
+- Enter key submit on step 1 is blocked to preserve deterministic step workflow.
+- Final step `Hoàn tất` now performs media checks and confirm/fallback behavior.
+- Added unit + integration tests for step navigation, finish-decision rules, and ItemDetailPage primary flows.
+
+## Remaining Work Snapshot (By Phase)
+
+Phases not yet executed and pending tasks:
+- Phase 1: `01-01` Finalize inventory lifecycle and taxonomy contracts.
+- Phase 3: `03-01` Deliver public catalog and detail UX consistency.
+- Phase 5: `05-01` Ship production hardening and Facebook integration baseline.
+- Phase 7: `07-01`, `07-02`, `07-03` Quantity/custom-attributes schema, API, admin UI.
+- Phase 8: `08-01`, `08-02`, `08-03` Advanced inventory transactions and audit trail.
+- Phase 9: `09-01`, `09-02`, `09-03` Pre-order domain + API + admin flow.
+- Phase 10: `10-01`, `10-02` Analytics API and dashboard UI.
+- Phase 11: `11-01`, `11-02` Membership and points rules + admin tooling.
+- Phase 12: `12-01`, `12-02`, `12-03` Playwright baseline and CI integration.
+- Phase 13: `13-01`, `13-02`, `13-03` Extended E2E coverage and quality gates.
+
+Partially executed phases (still pending full completion):
+- Phase 2: `02-01` still pending full media pipeline hardening across all upload surfaces and resiliency checks.
+- Phase 4: `04-01` still pending complete AI-social publishing lifecycle validation.
+- Phase 6: `06-01`, `06-02` still pending full admin/public responsive hardening and smoke checks.
