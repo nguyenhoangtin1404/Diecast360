@@ -8,6 +8,8 @@ import { CategoryQuickManage } from '../../components/admin/CategoryQuickManage'
 import type { CategoryItem, ApiResponse } from '../../types/category';
 import { showToast } from '../../utils/toast';
 import type { FacebookPost } from '../../types/item.types';
+import { jumpToStepWithAutoSave, navigateStepWithAutoSave, type ProductStep } from './itemStepNavigation';
+import { buildStepUrlAfterCreate, evaluateFinishDecision, shouldBlockEnterSubmit } from './itemWorkflow';
 
 // Helper functions for number formatting
 const formatNumber = (value: string): string => {
@@ -84,6 +86,19 @@ interface AiDescriptionResponse {
   meta_description: string;
 }
 
+interface SavePayload {
+  itemData: ItemData;
+  silent?: boolean;
+  navigateAfterCreate?: boolean;
+}
+
+const PRODUCT_STEPS: Array<{ id: ProductStep; title: string; shortTitle: string }> = [
+  { id: 1, title: 'Thông tin cơ bản', shortTitle: 'Thông tin' },
+  { id: 2, title: 'Hình ảnh', shortTitle: 'Hình ảnh' },
+  { id: 3, title: 'Ảnh 360', shortTitle: 'Ảnh 360' },
+  { id: 4, title: 'AI gen nội dung FB', shortTitle: 'AI FB' },
+];
+
 
 export const ItemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -95,13 +110,14 @@ export const ItemDetailPage = () => {
   const [isPublic, setIsPublic] = useState(false);
   const [carBrand, setCarBrand] = useState('');
   const [modelBrand, setModelBrand] = useState('');
-  const [condition, setCondition] = useState('');
+  const [condition, setCondition] = useState<'new' | 'old'>('new');
   const [price, setPrice] = useState<string>('');
   const [originalPrice, setOriginalPrice] = useState<string>('');
   const [scale, setScale] = useState<string>('1:64');
   const [brand, setBrand] = useState<string>('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [lastImageUploadFailed, setLastImageUploadFailed] = useState(false);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [selectedSpinSetId, setSelectedSpinSetId] = useState<string | null>(null);
   const [newSpinSetLabel, setNewSpinSetLabel] = useState('');
@@ -123,7 +139,13 @@ export const ItemDetailPage = () => {
   const [newFbLinkInput, setNewFbLinkInput] = useState('');
   const [isSavingFbLink, setIsSavingFbLink] = useState(false);
   const socialSellingRef = useRef<HTMLDivElement>(null);
+  const stepNavInFlightRef = useRef(false);
   const [searchParams] = useSearchParams();
+  const [currentStep, setCurrentStep] = useState<ProductStep>(1);
+  const [isMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth <= 768;
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['item', id],
@@ -175,7 +197,7 @@ export const ItemDetailPage = () => {
       setIsPublic(item.is_public || false);
       setCarBrand(item.car_brand || '');
       setModelBrand(item.model_brand || '');
-      setCondition(item.condition || '');
+      setCondition(item.condition === 'old' ? 'old' : 'new');
       setPrice(item.price ? item.price.toString() : '');
       setOriginalPrice(item.original_price ? item.original_price.toString() : '');
       setScale(item.scale || '1:64');
@@ -215,32 +237,57 @@ export const ItemDetailPage = () => {
   // Auto-scroll to Social Selling section when navigating from items list
   useEffect(() => {
     if (searchParams.get('section') === 'social-selling' && socialSellingRef.current && data) {
+      setCurrentStep(4);
       setTimeout(() => {
         socialSellingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 300);
     }
   }, [searchParams, data]);
 
+  useEffect(() => {
+    const stepFromQuery = searchParams.get('step');
+    if (!stepFromQuery) return;
+    const parsed = Number(stepFromQuery);
+    if ([1, 2, 3, 4].includes(parsed)) {
+      setCurrentStep(parsed as ProductStep);
+    }
+  }, [searchParams]);
+
+  const extractItemIdFromResponse = (response: unknown): string | null => {
+    const isApiResponse = (r: unknown): r is ApiResponse<ItemResponse> => {
+      return typeof r === 'object' && r !== null && 'data' in r && 'ok' in r;
+    };
+
+    const responseData = isApiResponse(response) ? response.data : (response as ItemResponse);
+    const extractedId = responseData?.item?.id || (responseData as { id?: string })?.id;
+    return extractedId || null;
+  };
+
+  useEffect(() => {
+    if (id === 'new') {
+      setCondition('new');
+    }
+  }, [id]);
+
   const saveMutation = useMutation({
-    mutationFn: async (data: ItemData) => {
+    mutationFn: async ({ itemData }: SavePayload) => {
       if (id === 'new') {
-        return apiClient.post('/items', data);
+        return apiClient.post('/items', itemData);
       } else {
-        return apiClient.patch(`/items/${id}`, data);
+        return apiClient.patch(`/items/${id}`, itemData);
       }
     },
-    onSuccess: async (response) => {
+    onSuccess: async (response, variables) => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
-      queryClient.invalidateQueries({ queryKey: ['item', id] });
-      
-      // Upload images if there are any
-      // apiClient interceptor returns response.data, so response = {ok: true, data: {...}, message: ''}
-      // For create, response.data = {item: {...}}
-      const isApiResponse = (r: unknown): r is ApiResponse<ItemResponse> => {
-        return typeof r === 'object' && r !== null && 'data' in r && 'ok' in r;
-      };
-      const responseData = isApiResponse(response) ? response.data : (response as unknown as ItemResponse);
-      const itemId = id === 'new' ? (responseData?.item?.id || (responseData as { id?: string })?.id) : id;
+      const itemId = id === 'new' ? extractItemIdFromResponse(response) : id;
+      if (itemId) {
+        queryClient.invalidateQueries({ queryKey: ['item', itemId] });
+      }
+      if (id === 'new' && !itemId) {
+        showToast('Không thể tạo sản phẩm. Vui lòng thử lại.');
+        return;
+      }
+
       if (itemId && selectedFiles.length > 0) {
         setUploadingImages(true);
         try {
@@ -249,69 +296,69 @@ export const ItemDetailPage = () => {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('is_cover', i === 0 ? 'true' : 'false');
-            
             await uploadFile(`/items/${itemId}/images`, formData);
           }
           queryClient.invalidateQueries({ queryKey: ['item', itemId] });
           setSelectedFiles([]);
-          // Clean up preview URLs
           imagePreviewUrls.forEach(url => {
             try {
               URL.revokeObjectURL(url);
             } catch {
-              // Ignore errors
+              // ignore
             }
           });
           setImagePreviewUrls([]);
+          setLastImageUploadFailed(false);
         } catch (error) {
           console.error('Error uploading images:', error);
+          setLastImageUploadFailed(true);
           alert('Có lỗi khi upload ảnh. Vui lòng thử lại.');
         } finally {
           setUploadingImages(false);
         }
       }
-      
-      // Show success notification
-      const notification = document.createElement('div');
-      notification.textContent = id === 'new' ? 'Đã tạo sản phẩm thành công!' : 'Đã cập nhật sản phẩm thành công!';
-      notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #28a745;
-        color: white;
-        padding: 16px 24px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        z-index: 10000;
-        font-size: 14px;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        animation: slideIn 0.3s ease-out;
-      `;
-      
-      const checkIcon = document.createElement('span');
-      checkIcon.textContent = '✓';
-      checkIcon.style.cssText = `
-        font-size: 18px;
-        font-weight: bold;
-      `;
-      notification.appendChild(checkIcon);
-      
-      document.body.appendChild(notification);
-      
-      setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease-out';
+
+      if (!variables?.silent) {
+        const notification = document.createElement('div');
+        notification.textContent = id === 'new' ? 'Đã tạo sản phẩm thành công!' : 'Đã cập nhật sản phẩm thành công!';
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: #28a745;
+          color: white;
+          padding: 16px 24px;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          z-index: 10000;
+          font-size: 14px;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          animation: slideIn 0.3s ease-out;
+        `;
+
+        const checkIcon = document.createElement('span');
+        checkIcon.textContent = '✓';
+        checkIcon.style.cssText = `
+          font-size: 18px;
+          font-weight: bold;
+        `;
+        notification.appendChild(checkIcon);
+        document.body.appendChild(notification);
+
         setTimeout(() => {
-          if (document.body.contains(notification)) {
-            document.body.removeChild(notification);
-          }
-        }, 300);
-      }, 3000);
-      
-      if (id === 'new') {
+          notification.style.animation = 'slideOut 0.3s ease-out';
+          setTimeout(() => {
+            if (document.body.contains(notification)) {
+              document.body.removeChild(notification);
+            }
+          }, 300);
+        }, 3000);
+      }
+
+      if (id === 'new' && variables?.navigateAfterCreate) {
         setTimeout(() => {
           navigate(`/admin/items/${itemId}`);
         }, 500);
@@ -319,16 +366,14 @@ export const ItemDetailPage = () => {
     },
   });
 
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const buildItemData = (): ItemData => {
     const itemData: ItemData = {
       name,
       description,
       status: status as 'con_hang' | 'giu_cho' | 'da_ban',
       is_public: isPublic,
     };
-    
+
     if (carBrand) itemData.car_brand = carBrand;
     if (modelBrand) itemData.model_brand = modelBrand;
     if (condition) itemData.condition = condition as 'new' | 'old';
@@ -346,8 +391,41 @@ export const ItemDetailPage = () => {
         itemData.original_price = originalPriceNum;
       }
     }
-    
-    saveMutation.mutate(itemData);
+
+    return itemData;
+  };
+
+  const saveCurrentItem = async (silent = false): Promise<boolean> => {
+    if (!name.trim()) {
+      showToast('Vui lòng nhập tên sản phẩm trước khi chuyển bước.');
+      return false;
+    }
+    try {
+      const response = await saveMutation.mutateAsync({
+        itemData: buildItemData(),
+        silent,
+        navigateAfterCreate: !silent,
+      });
+      if (id === 'new') {
+        const createdItemId = extractItemIdFromResponse(response);
+        if (!createdItemId) {
+          showToast('Không thể tạo sản phẩm. Vui lòng thử lại.');
+          return false;
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+      showToast('Không thể lưu dữ liệu. Vui lòng thử lại.');
+      return false;
+    }
+  };
+
+  const preventEnterSubmit = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    const target = e.target as HTMLElement;
+    if (shouldBlockEnterSubmit(e.key, target.tagName)) {
+      e.preventDefault();
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -380,9 +458,11 @@ export const ItemDetailPage = () => {
     
     try {
       await uploadFile(`/items/${id}/images`, formData);
+      setLastImageUploadFailed(false);
       queryClient.invalidateQueries({ queryKey: ['item', id] });
     } catch (error) {
       console.error('Error uploading image:', error);
+      setLastImageUploadFailed(true);
       throw error;
     }
   };
@@ -564,7 +644,7 @@ export const ItemDetailPage = () => {
         }
       }
       
-      saveMutation.mutate(itemData);
+      saveMutation.mutate({ itemData });
     }
   };
 
@@ -574,6 +654,115 @@ export const ItemDetailPage = () => {
   const images = (data?.images || []) as ItemImage[];
   const spinSets = (data?.spin_sets || []) as SpinSet[];
   const selectedSpinSet = spinSets.find((set) => set.id === selectedSpinSetId);
+  const isNewItem = id === 'new';
+
+  const goToStep = (step: ProductStep) => {
+    void (async () => {
+      if (stepNavInFlightRef.current) return;
+      if (isNewItem && step > 1) {
+        showToast('Vui lòng lưu sản phẩm trước để mở các bước tiếp theo.');
+        return;
+      }
+      stepNavInFlightRef.current = true;
+      try {
+        await jumpToStepWithAutoSave({
+          currentStep,
+          targetStep: step,
+          isBusy: saveMutation.isPending || uploadingImages,
+          saveCurrentItem,
+          setCurrentStep,
+        });
+      } finally {
+        stepNavInFlightRef.current = false;
+      }
+    })();
+  };
+
+  const goToNextStep = async () => {
+    if (isNewItem && currentStep === 1) {
+      if (!name.trim()) {
+        showToast('Vui lòng nhập tên sản phẩm trước khi chuyển bước.');
+        return;
+      }
+
+      try {
+        const response = await saveMutation.mutateAsync({
+          itemData: buildItemData(),
+          silent: true,
+          navigateAfterCreate: false,
+        });
+        const createdItemId = extractItemIdFromResponse(response);
+        if (!createdItemId) {
+          showToast('Không thể tạo sản phẩm. Vui lòng thử lại.');
+          return;
+        }
+        navigate(buildStepUrlAfterCreate(createdItemId, 2));
+      } catch (error) {
+        console.error('Create item before next step failed:', error);
+        showToast('Không thể lưu dữ liệu. Vui lòng thử lại.');
+      }
+      return;
+    }
+
+    await navigateStepWithAutoSave({
+      currentStep,
+      direction: 'next',
+      isBusy: saveMutation.isPending || uploadingImages,
+      saveCurrentItem,
+      setCurrentStep,
+    });
+  };
+
+  const goToPrevStep = async () => {
+    await navigateStepWithAutoSave({
+      currentStep,
+      direction: 'prev',
+      isBusy: saveMutation.isPending || uploadingImages,
+      saveCurrentItem,
+      setCurrentStep,
+    });
+  };
+
+  const handleSaveAndBackToList = async () => {
+    const saved = await saveCurrentItem(true);
+    if (!saved) return;
+
+    let missingImages = images.length === 0;
+    let missingSpin360 = !spinSets.some((set) => (set.frames?.length || 0) > 0);
+    try {
+      const response = await apiClient.get(`/items/${id}`);
+      const latest = response.data || response;
+      const latestImages = (latest.images || []) as ItemImage[];
+      const latestSpinSets = (latest.spin_sets || []) as SpinSet[];
+      missingImages = latestImages.length === 0;
+      missingSpin360 = !latestSpinSets.some((set) => (set.frames?.length || 0) > 0);
+    } catch (error) {
+      console.error('Cannot verify media before finishing:', error);
+    }
+
+    const preDecision = evaluateFinishDecision(
+      { lastImageUploadFailed, missingImages, missingSpin360 },
+      false,
+    );
+    const confirmed = preDecision.warnings.length === 0 || window.confirm(
+      `Cảnh báo dữ liệu media:\n${preDecision.warnings.join('\n')}\n\nBạn vẫn muốn hoàn tất và về danh sách sản phẩm?`
+    );
+    const finishDecision = evaluateFinishDecision(
+      { lastImageUploadFailed, missingImages, missingSpin360 },
+      confirmed,
+    );
+
+    if (!finishDecision.proceed) {
+      if (finishDecision.fallbackStep) {
+        setCurrentStep(finishDecision.fallbackStep);
+      }
+      showToast('Vui lòng bổ sung ảnh/ảnh 360 trước khi hoàn tất.');
+      return;
+    }
+
+    showToast('Đã lưu sản phẩm thành công.');
+    navigate('/admin/items');
+  };
 
   return (
     <>
@@ -598,8 +787,59 @@ export const ItemDetailPage = () => {
             opacity: 0;
           }
         }
+        .product-stepper {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+          margin-bottom: 20px;
+          max-width: 800px;
+        }
+        .product-step-btn {
+          border: 1px solid #d8dee9;
+          background: #fff;
+          border-radius: 10px;
+          padding: 10px 12px;
+          text-align: left;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .product-step-btn.active {
+          border-color: #007bff;
+          background: #e9f2ff;
+          box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.08);
+        }
+        .product-step-btn.disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        .product-step-index {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          border-radius: 999px;
+          background: #f0f2f5;
+          color: #333;
+          font-size: 12px;
+          font-weight: 700;
+          margin-bottom: 6px;
+        }
+        .product-step-btn.active .product-step-index {
+          background: #007bff;
+          color: #fff;
+        }
+        @media (max-width: 768px) {
+          .product-stepper {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+          }
+          .product-step-btn {
+            padding: 8px 10px;
+          }
+        }
       `}</style>
-    <div style={{ padding: '20px' }}>
+    <div style={{ padding: isMobile ? '12px' : '20px' }}>
       <div style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
           <button
@@ -649,7 +889,7 @@ export const ItemDetailPage = () => {
           <div>
             <h1 style={{ 
               margin: 0, 
-              fontSize: '28px', 
+              fontSize: isMobile ? '22px' : '28px', 
               fontWeight: '700', 
               color: '#1a1a1a',
               letterSpacing: '-0.5px',
@@ -668,7 +908,30 @@ export const ItemDetailPage = () => {
           </div>
         </div>
       </div>
-      <form onSubmit={handleSubmit} style={{ maxWidth: '800px' }}>
+      <div className="product-stepper">
+        {PRODUCT_STEPS.map((step) => {
+          const disabled = isNewItem && step.id > 1;
+          return (
+            <button
+              key={step.id}
+              type="button"
+              className={`product-step-btn ${currentStep === step.id ? 'active' : ''} ${disabled ? 'disabled' : ''}`}
+              onClick={() => goToStep(step.id)}
+              disabled={disabled}
+            >
+              <span className="product-step-index">{step.id}</span>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>
+                {isMobile ? step.shortTitle : step.title}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <form
+        onSubmit={(e) => e.preventDefault()}
+        onKeyDown={preventEnterSubmit}
+        style={{ maxWidth: '800px', display: currentStep === 1 ? 'block' : 'none' }}
+      >
         <div style={{ marginBottom: '16px' }}>
           <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
             Tên sản phẩm <span style={{ color: '#dc3545' }}>*</span>
@@ -756,7 +1019,7 @@ export const ItemDetailPage = () => {
             }}
           />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
               <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
@@ -839,7 +1102,7 @@ export const ItemDetailPage = () => {
             </select>
         </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
               Tỷ lệ
@@ -900,7 +1163,7 @@ export const ItemDetailPage = () => {
           />
         </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
               Giá gốc
@@ -982,7 +1245,7 @@ export const ItemDetailPage = () => {
           />
         </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
               Tình trạng
@@ -1029,7 +1292,7 @@ export const ItemDetailPage = () => {
                   name="condition"
                   value="new"
                   checked={condition === 'new'}
-                  onChange={(e) => setCondition(e.target.value)}
+                  onChange={(e) => setCondition(e.target.value as 'new' | 'old')}
                   style={{
                     position: 'absolute',
                     opacity: 0,
@@ -1073,7 +1336,7 @@ export const ItemDetailPage = () => {
                   name="condition"
                   value="old"
                   checked={condition === 'old'}
-                  onChange={(e) => setCondition(e.target.value)}
+                  onChange={(e) => setCondition(e.target.value as 'new' | 'old')}
                   style={{
                     position: 'absolute',
                     opacity: 0,
@@ -1325,42 +1588,13 @@ export const ItemDetailPage = () => {
             )}
           </div>
         )}
-        <button 
-          type="submit" 
-          disabled={saveMutation.isPending || uploadingImages}
-          style={{
-            padding: '12px 24px',
-            background: saveMutation.isPending || uploadingImages ? '#ccc' : '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: '600',
-            cursor: saveMutation.isPending || uploadingImages ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s',
-            boxShadow: '0 2px 4px rgba(0, 123, 255, 0.2)',
-            minWidth: '120px',
-          }}
-          onMouseEnter={(e) => {
-            if (!saveMutation.isPending && !uploadingImages) {
-              e.currentTarget.style.background = '#0056b3';
-              e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 123, 255, 0.3)';
-              e.currentTarget.style.transform = 'translateY(-1px)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!saveMutation.isPending && !uploadingImages) {
-              e.currentTarget.style.background = '#007bff';
-              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 123, 255, 0.2)';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }
-          }}
-        >
-          {saveMutation.isPending ? 'Đang lưu...' : uploadingImages ? 'Đang upload ảnh...' : 'Lưu'}
-        </button>
+        <div style={{ fontSize: '13px', color: '#6b7280' }}>
+          Dữ liệu sẽ tự động lưu khi bạn nhấn nút Bước tiếp hoặc Bước trước.
+        </div>
       </form>
       {id !== 'new' && item && (
         <div style={{ marginTop: '40px', maxWidth: '800px' }}>
+          <div style={{ display: currentStep === 2 ? 'block' : 'none' }}>
           <h2 style={{ 
             fontSize: '24px', 
             fontWeight: '600', 
@@ -1524,6 +1758,8 @@ export const ItemDetailPage = () => {
               <p style={{ fontSize: '14px', marginTop: '8px' }}>Sử dụng nút bên trên để upload ảnh cho sản phẩm.</p>
             </div>
           )}
+          </div>
+          <div style={{ display: currentStep === 3 ? 'block' : 'none' }}>
           <h2 style={{ 
             marginTop: '40px', 
             fontSize: '24px', 
@@ -1927,6 +2163,8 @@ export const ItemDetailPage = () => {
               </p>
             </div>
           )}
+          </div>
+          <div style={{ display: currentStep === 4 ? 'block' : 'none' }}>
           <div ref={socialSellingRef}>
           <h2 style={{ 
             marginTop: '40px', 
@@ -2314,8 +2552,64 @@ export const ItemDetailPage = () => {
             </div>
           </div>
           </div>
+          </div>
         </div>
       )}
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '20px', maxWidth: '800px' }}>
+        <button
+          type="button"
+          onClick={goToPrevStep}
+          disabled={currentStep === 1 || saveMutation.isPending || uploadingImages}
+          style={{
+            padding: '10px 16px',
+            background: currentStep === 1 || saveMutation.isPending || uploadingImages ? '#d2d6dc' : '#4b5563',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: currentStep === 1 || saveMutation.isPending || uploadingImages ? 'not-allowed' : 'pointer',
+            fontSize: '14px',
+            fontWeight: '600',
+          }}
+        >
+          ← Bước trước
+        </button>
+        <button
+          type="button"
+          onClick={goToNextStep}
+          disabled={currentStep === 4 || saveMutation.isPending || uploadingImages}
+          style={{
+            padding: '10px 16px',
+            background: currentStep === 4 || saveMutation.isPending || uploadingImages ? '#d2d6dc' : '#1f8f4f',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: currentStep === 4 || saveMutation.isPending || uploadingImages ? 'not-allowed' : 'pointer',
+            fontSize: '14px',
+            fontWeight: '600',
+          }}
+        >
+          {saveMutation.isPending ? 'Đang lưu...' : 'Bước tiếp →'}
+        </button>
+        {currentStep === 4 && (
+          <button
+            type="button"
+            onClick={handleSaveAndBackToList}
+            disabled={saveMutation.isPending || uploadingImages}
+            style={{
+              padding: '10px 16px',
+              background: saveMutation.isPending || uploadingImages ? '#d2d6dc' : '#2563eb',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: saveMutation.isPending || uploadingImages ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '600',
+            }}
+          >
+            {saveMutation.isPending ? 'Đang lưu...' : 'Hoàn tất'}
+          </button>
+        )}
+      </div>
     </div>
 
       {/* AI Description Preview Modal */}
