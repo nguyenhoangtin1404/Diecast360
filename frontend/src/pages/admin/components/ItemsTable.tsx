@@ -1,9 +1,22 @@
-import { Pencil, Eye, EyeOff, Trash2, Check, X, Package, Clock, CheckCircle2, Copy, Share2, ExternalLink } from 'lucide-react';
+import {
+  Pencil,
+  Eye,
+  EyeOff,
+  Trash2,
+  Check,
+  X,
+  Package,
+  Clock,
+  CheckCircle2,
+  Copy,
+  Share2,
+  ExternalLink,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { ITEM_STATUS_LABELS, type ItemStatus } from '../../../constants/item';
 import type { AdminItem } from '../../../types/item.types';
 import styles from '../ItemsPage.module.css';
-
 
 interface ItemsTableProps {
   items: AdminItem[];
@@ -28,10 +41,10 @@ export const ItemsTable = ({
       alert('Sản phẩm chưa có nội dung sale!');
       return;
     }
-    
+
     try {
       await navigator.clipboard.writeText(item.fb_post_content);
-      
+
       setCopiedId(item.id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch (error) {
@@ -41,8 +54,13 @@ export const ItemsTable = ({
   };
 
   const handleShare = (item: AdminItem) => {
-    // Navigate to item detail page, Social Selling section
     navigate(`/admin/items/${item.id}?section=social-selling`);
+  };
+
+  const renderStatusIcon = (status: ItemStatus) => {
+    if (status === 'con_hang') return <Package size={18} color="#28a745" />;
+    if (status === 'giu_cho') return <Clock size={18} color="#ffc107" />;
+    return <CheckCircle2 size={18} color="#6c757d" />;
   };
 
   return (
@@ -78,24 +96,10 @@ export const ItemsTable = ({
             </td>
             <td className={styles.td}>{item.name}</td>
             <td className={`${styles.td} ${styles.tdCenter}`}>
-              {item.status === 'con_hang' ? (
-                <div className={styles.statusBadge}>
-                  <Package size={18} color="#28a745" />
-                  <span>Còn hàng</span>
-                </div>
-              ) : item.status === 'giu_cho' ? (
-                <div className={styles.statusBadge}>
-                  <Clock size={18} color="#ffc107" />
-                  <span>Giữ chỗ</span>
-                </div>
-              ) : item.status === 'da_ban' ? (
-                <div className={styles.statusBadge}>
-                  <CheckCircle2 size={18} color="#6c757d" />
-                  <span>Đã bán</span>
-                </div>
-              ) : (
-                <span>{item.status}</span>
-              )}
+              <div className={styles.statusBadge}>
+                {renderStatusIcon(item.status)}
+                <span>{ITEM_STATUS_LABELS[item.status].text}</span>
+              </div>
             </td>
             <td className={`${styles.td} ${styles.tdCenter}`}>
               {item.is_public ? (
@@ -106,11 +110,10 @@ export const ItemsTable = ({
             </td>
             <td className={`${styles.td} ${styles.tdCenter}`}>
               <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
-                {/* Copy button */}
                 <button
                   onClick={() => handleCopy(item)}
                   disabled={!item.fb_post_content}
-                  title={item.fb_post_content ? "Copy nội dung sale" : "Chưa có nội dung sale"}
+                  title={item.fb_post_content ? 'Copy nội dung sale' : 'Chưa có nội dung sale'}
                   className={`${styles.copyButton} ${copiedId === item.id ? styles.copyButtonCopied : ''}`}
                   style={{
                     background: copiedId === item.id ? undefined : item.fb_post_content ? undefined : 'none',
@@ -132,7 +135,6 @@ export const ItemsTable = ({
                   )}
                 </button>
 
-                {/* Share / Open FB button */}
                 {item.fb_post_url ? (
                   <a
                     href={item.fb_post_url}

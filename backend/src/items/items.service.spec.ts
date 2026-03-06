@@ -12,6 +12,7 @@ describe('ItemsService', () => {
   let service: ItemsService;
   let prisma: {
     item: Record<string, jest.Mock>;
+    category: Record<string, jest.Mock>;
     aiItemDraft: Record<string, jest.Mock>;
     itemImage: Record<string, jest.Mock>;
     facebookPost: Record<string, jest.Mock>;
@@ -80,6 +81,9 @@ describe('ItemsService', () => {
         findMany: jest.fn(),
         count: jest.fn(),
       },
+      category: {
+        findFirst: jest.fn(),
+      },
       aiItemDraft: {
         findUnique: jest.fn(),
         update: jest.fn(),
@@ -134,6 +138,24 @@ describe('ItemsService', () => {
       expect(result.item).toBeDefined();
       expect(result.item.id).toBe('item-123');
       expect(result).not.toHaveProperty('warning');
+    });
+
+    it('should reject create when category metadata is invalid', async () => {
+      prisma.category.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create({ name: 'Test Item', car_brand: 'Unknown Brand' }),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.ITEM_CATEGORY_INVALID,
+      });
+    });
+
+    it('should reject create when original_price is lower than price', async () => {
+      await expect(
+        service.create({ name: 'Test Item', price: 200000, original_price: 150000 }),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+      });
     });
 
     it('should create item with draft and process all images successfully', async () => {
@@ -326,7 +348,28 @@ describe('ItemsService', () => {
       await service.findAll({ q: 'honda' });
 
       const findManyCall = prisma.item.findMany.mock.calls[0][0];
-      expect(findManyCall.where.name).toEqual({ contains: 'honda' });
+      expect(findManyCall.where.name).toEqual({ contains: 'honda', mode: 'insensitive' });
+    });
+
+    it('should keep soft-deleted items excluded by default', async () => {
+      prisma.item.findMany.mockResolvedValue([]);
+      prisma.item.count.mockResolvedValue(0);
+
+      await service.findAll({});
+
+      const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.deleted_at).toBeNull();
+    });
+
+    it('should filter by category metadata', async () => {
+      prisma.item.findMany.mockResolvedValue([]);
+      prisma.item.count.mockResolvedValue(0);
+
+      await service.findAll({ car_brand: 'Toyota', model_brand: 'Tomica' });
+
+      const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.car_brand).toBe('Toyota');
+      expect(findManyCall.where.model_brand).toBe('Tomica');
     });
 
     it('should filter by fb_status=posted', async () => {
@@ -428,6 +471,33 @@ describe('ItemsService', () => {
       const updateCall = prisma.item.update.mock.calls[0][0];
       expect(updateCall.data.is_public).toBe(true);
       expect(updateCall.data.name).toBeUndefined();
+    });
+
+    it('should allow unrelated updates without re-validating unchanged category metadata', async () => {
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        car_brand: 'Legacy Brand',
+      });
+      prisma.category.findFirst.mockResolvedValue(null);
+      prisma.item.update.mockResolvedValue({ ...mockItem, is_public: true, car_brand: 'Legacy Brand' });
+
+      const result = await service.update('item-123', { is_public: true });
+
+      expect(result.item.is_public).toBe(true);
+      expect(prisma.category.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('should reject invalid status transition from da_ban to con_hang', async () => {
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        status: 'da_ban',
+      });
+
+      await expect(
+        service.update('item-123', { status: 'con_hang' }),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.ITEM_STATUS_TRANSITION_INVALID,
+      });
     });
   });
 
@@ -645,3 +715,4 @@ describe('ItemsService', () => {
     });
   });
 });
+

@@ -7,8 +7,8 @@
 
 ### Inventory
 
-- [ ] **INVT-01**: User can create, edit, archive, and list diecast items with status transitions.
-- [ ] **INVT-02**: User can manage brand/model/scale metadata for item classification.
+- [x] **INVT-01**: User can create, edit, archive, and list diecast items with status transitions.
+- [x] **INVT-02**: User can manage brand/model/scale metadata for item classification.
 
 ### Media
 
@@ -64,8 +64,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INVT-01 | Phase 1 | Pending |
-| INVT-02 | Phase 1 | Pending |
+| INVT-01 | Phase 1 | Complete (2026-03-05) |
+| INVT-02 | Phase 1 | Complete (2026-03-05) |
 | MEDI-01 | Phase 2 | Pending |
 | MEDI-02 | Phase 2 | Pending |
 | MEDI-03 | Phase 3 | Pending |
@@ -96,4 +96,5 @@
 
 ---
 *Requirements defined: 2026-03-04*
-*Last updated: 2026-03-04 after senior roadmap review*
+*Last updated: 2026-03-05 after Phase 1 execution*
+
