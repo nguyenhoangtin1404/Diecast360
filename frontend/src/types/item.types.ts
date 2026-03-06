@@ -9,7 +9,7 @@
 export interface BaseItem {
   id: string;
   name: string;
-  status: string;
+  status: 'con_hang' | 'giu_cho' | 'da_ban';
   car_brand?: string;
   model_brand?: string;
   condition?: string;
@@ -105,3 +105,4 @@ export interface ItemsResponse {
   items: AdminItem[];
   pagination: Pagination;
 }
+

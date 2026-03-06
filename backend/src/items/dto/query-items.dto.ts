@@ -1,5 +1,5 @@
-import { IsOptional, IsInt, Min, IsString, IsBoolean, IsIn } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsInt, Min, Max, IsString, IsBoolean, IsIn } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { ItemStatus } from '../../generated/prisma/client';
 
 export class QueryItemsDto {
@@ -13,6 +13,7 @@ export class QueryItemsDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   page_size?: number = 20;
 
   @IsOptional()
@@ -20,16 +21,41 @@ export class QueryItemsDto {
   status?: ItemStatus;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      if (value.toLowerCase() === 'true') return true;
+      if (value.toLowerCase() === 'false') return false;
+    }
+    return value;
+  })
   @IsBoolean()
   is_public?: boolean;
 
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
   q?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsString()
+  car_brand?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsString()
+  model_brand?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsString()
+  condition?: string;
 
   @IsOptional()
   @IsIn(['posted', 'not_posted'])
   fb_status?: 'posted' | 'not_posted';
 }
+
 

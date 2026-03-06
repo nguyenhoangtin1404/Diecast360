@@ -6,7 +6,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 
 ## Phases
 
-- [ ] **Phase 1: Inventory Foundation** - Data model and item lifecycle management.
+- [x] **Phase 1: Inventory Foundation** - Data model and item lifecycle management.
 - [ ] **Phase 2: Media Pipeline** - Image and spinner asset management.
 - [ ] **Phase 3: Public Experience** - Public catalog and product viewing workflow.
 - [ ] **Phase 4: AI and Social Selling** - Content generation and seller assist tools.
@@ -29,7 +29,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 **Plans**: 1 plan
 
 Plans:
-- [ ] 01-01: Finalize inventory lifecycle and taxonomy contracts
+- [x] 01-01: Finalize inventory lifecycle and taxonomy contracts
 
 ### Phase 2: Media Pipeline
 **Goal**: Deterministic media upload and spinner frame ordering.
@@ -156,7 +156,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Inventory Foundation | 0/1 | Not started | - |
+| 1. Inventory Foundation | 1/1 | Complete | 2026-03-05 |
 | 2. Media Pipeline | 0/1 | In progress (partial) | Admin 4-step flow + media validation on finish |
 | 3. Public Experience | 0/1 | Not started | - |
 | 4. AI and Social Selling | 0/1 | In progress (partial) | Step 4 "Hoàn tất" flow and guardrails implemented |
@@ -179,10 +179,18 @@ Completed in codebase (partial roadmap delivery):
 - Final step `Hoàn tất` now performs media checks and confirm/fallback behavior.
 - Added unit + integration tests for step navigation, finish-decision rules, and ItemDetailPage primary flows.
 
+## Execution Update (2026-03-05)
+
+Completed in codebase for Phase 1:
+- Hardened backend item lifecycle validation (status transitions, pricing checks, category integrity checks).
+- Expanded inventory list filter contract with deterministic pagination ordering and category-based filters.
+- Synced admin Items list request flow to contract-aligned `/items` query params for stable pagination + search.
+- Added regression coverage for status transition guard, soft-delete exclusion, category filters, and price validation.
+- Targeted test suite passed: `npx jest src/items/items.service.spec.ts` (37 tests).
+
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet executed and pending tasks:
-- Phase 1: `01-01` Finalize inventory lifecycle and taxonomy contracts.
 - Phase 3: `03-01` Deliver public catalog and detail UX consistency.
 - Phase 5: `05-01` Ship production hardening and Facebook integration baseline.
 - Phase 7: `07-01`, `07-02`, `07-03` Quantity/custom-attributes schema, API, admin UI.
@@ -197,3 +205,4 @@ Partially executed phases (still pending full completion):
 - Phase 2: `02-01` still pending full media pipeline hardening across all upload surfaces and resiliency checks.
 - Phase 4: `04-01` still pending complete AI-social publishing lifecycle validation.
 - Phase 6: `06-01`, `06-02` still pending full admin/public responsive hardening and smoke checks.
+

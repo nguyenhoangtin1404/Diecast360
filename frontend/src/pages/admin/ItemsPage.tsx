@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Box } from 'lucide-react';
 import { apiClient } from '../../api/client';
+import { API_CONFIG } from '../../config/api';
 import { useDebounce } from '../../hooks/useDebounce';
 import type { ItemsResponse } from '../../types/item.types';
 import type { ApiResponse } from '../../types/category';
@@ -13,7 +14,6 @@ import { ItemsTable } from './components/ItemsTable';
 import { PaginationControl } from './components/PaginationControl';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 
-
 export const ItemsPage = () => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -24,21 +24,21 @@ export const ItemsPage = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['items', page, debouncedSearch],
     queryFn: async () => {
-      // Use Semantic Search if query is present
-      if (debouncedSearch) {
-        const params = new URLSearchParams({
-          q: debouncedSearch,
-        });
+      if (debouncedSearch && API_CONFIG.ADMIN_SEMANTIC_SEARCH_ENABLED) {
+        const params = new URLSearchParams({ q: debouncedSearch });
         const response = await apiClient.get(`/items/search?${params.toString()}`) as ApiResponse<ItemsResponse>;
         return response.data;
       }
 
-      // Default listing
       const params = new URLSearchParams({
         page: page.toString(),
         page_size: '20',
       });
-      
+
+      if (debouncedSearch) {
+        params.set('q', debouncedSearch);
+      }
+
       const response = await apiClient.get(`/items?${params.toString()}`) as ApiResponse<ItemsResponse>;
       return response.data;
     },
@@ -107,16 +107,16 @@ export const ItemsPage = () => {
       </div>
 
       {/* Action Bar: Search + Add */}
-      <SearchHeader 
-        search={search} 
+      <SearchHeader
+        search={search}
         onSearchChange={(value) => {
           setSearch(value);
           setPage(1);
-        }} 
+        }}
       />
 
       {/* Table */}
-      <ItemsTable 
+      <ItemsTable
         items={data?.items || []}
         onDelete={handleDelete}
         onTogglePublic={handleTogglePublic}
@@ -126,7 +126,7 @@ export const ItemsPage = () => {
 
       {/* Pagination */}
       {data?.pagination && (
-        <PaginationControl 
+        <PaginationControl
           currentPage={page}
           totalPages={data.pagination.total_pages}
           onPageChange={setPage}
@@ -134,7 +134,7 @@ export const ItemsPage = () => {
       )}
 
       {/* Delete Confirmation Modal */}
-      <DeleteConfirmModal 
+      <DeleteConfirmModal
         isOpen={!!deleteConfirm}
         itemName={deleteConfirm?.name || ''}
         isPending={deleteMutation.isPending}

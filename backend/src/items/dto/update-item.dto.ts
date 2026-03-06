@@ -1,30 +1,40 @@
-import { IsString, IsOptional, IsBoolean, IsIn, IsNumber, Min, IsEnum } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, IsOptional, IsBoolean, IsIn, IsNumber, Min, IsEnum, IsNotEmpty } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { ItemStatus } from '../../generated/prisma/client';
 
 export class UpdateItemDto {
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
+  @IsNotEmpty()
   name?: string;
 
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
   description?: string;
 
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
+  @IsNotEmpty()
   scale?: string;
 
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
   brand?: string;
 
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
+  @IsNotEmpty()
   car_brand?: string;
 
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
+  @IsNotEmpty()
   model_brand?: string;
 
   @IsOptional()
@@ -52,6 +62,8 @@ export class UpdateItemDto {
   is_public?: boolean;
 
   @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
   fb_post_content?: string;
 }
+

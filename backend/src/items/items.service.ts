@@ -11,6 +11,12 @@ import { QueryItemsDto } from './dto/query-items.dto';
 import type { VectorSyncItem, ItemWithCoverImage, CsvFieldValue } from '../common/types/item.types';
 import { toNumber } from '../common/utils/decimal.utils';
 
+const ALLOWED_STATUS_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
+  con_hang: ['con_hang', 'giu_cho', 'da_ban'],
+  giu_cho: ['giu_cho', 'con_hang', 'da_ban'],
+  da_ban: ['da_ban'],
+};
+
 @Injectable()
 export class ItemsService {
   private readonly logger = new Logger(ItemsService.name);
@@ -73,7 +79,7 @@ Condition: ${item.condition || ''}`;
       const ids = await this.vectorStore.search(embedding, limit);
 
       if (ids.length === 0) {
-        // No vector results — fallback to text search
+        // No vector results - fallback to text search
         return this.findAll({ q: query, page: 1, page_size: limit });
       }
 
@@ -119,7 +125,7 @@ Condition: ${item.condition || ''}`;
         },
       };
     } catch (error) {
-      // Vector search unavailable (no API key, Pinecone down, etc.) — fallback to text search
+      // Vector search unavailable (no API key, Pinecone down, etc.) - fallback to text search
       const err = error instanceof Error ? error : new Error(String(error));
       if (err instanceof EmbeddingUnavailableError) {
         this.logger.warn(`Vector search unavailable, falling back to text search: ${err.message}`);
@@ -153,7 +159,20 @@ Condition: ${item.condition || ''}`;
     if (queryDto.q) {
       where.name = {
         contains: queryDto.q,
+        mode: 'insensitive',
       };
+    }
+
+    if (queryDto.car_brand) {
+      where.car_brand = queryDto.car_brand;
+    }
+
+    if (queryDto.model_brand) {
+      where.model_brand = queryDto.model_brand;
+    }
+
+    if (queryDto.condition) {
+      where.condition = queryDto.condition;
     }
 
     if (queryDto.fb_status === 'posted') {
@@ -167,7 +186,7 @@ Condition: ${item.condition || ''}`;
         where,
         skip,
         take: pageSize,
-        orderBy: { created_at: 'desc' },
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
         include: {
           item_images: {
             where: { is_cover: true },
@@ -285,6 +304,9 @@ Condition: ${item.condition || ''}`;
   }
 
   async create(createDto: CreateItemDto) {
+    this.validatePriceFields(createDto.price, createDto.original_price);
+    await this.validateCategoryMetadata(createDto.car_brand, createDto.model_brand);
+
     // Declared outside transaction; cleared inside to handle potential retries
     let failedImages: { filename: string; error: string }[] = [];
     let totalImages = 0;
@@ -409,6 +431,22 @@ Condition: ${item.condition || ''}`;
 
     if (!existingItem) {
       throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
+    }
+
+    if (updateDto.status !== undefined) {
+      this.validateStatusTransition(existingItem.status, updateDto.status);
+    }
+
+    const nextPrice = updateDto.price !== undefined
+      ? updateDto.price
+      : toNumber(existingItem.price);
+    const nextOriginalPrice = updateDto.original_price !== undefined
+      ? updateDto.original_price
+      : toNumber(existingItem.original_price);
+    this.validatePriceFields(nextPrice ?? undefined, nextOriginalPrice ?? undefined);
+
+    if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
+      await this.validateCategoryMetadata(updateDto.car_brand, updateDto.model_brand);
     }
 
     const updateData: Prisma.ItemUpdateInput = {};
@@ -631,5 +669,64 @@ Condition: ${item.condition || ''}`;
 
     return {};
   }
+
+  private validateStatusTransition(current: ItemStatus, next: ItemStatus) {
+    const allowedNext = ALLOWED_STATUS_TRANSITIONS[current] || [];
+    if (!allowedNext.includes(next)) {
+      throw new AppException(
+        ErrorCode.ITEM_STATUS_TRANSITION_INVALID,
+        `Invalid item status transition from "${current}" to "${next}"`,
+        [{ from: current, to: next }],
+      );
+    }
+  }
+
+  private async validateCategoryMetadata(
+    carBrand?: string | null,
+    modelBrand?: string | null,
+  ) {
+    const checks: Array<{ type: 'car_brand' | 'model_brand'; value?: string | null }> = [
+      { type: 'car_brand', value: carBrand },
+      { type: 'model_brand', value: modelBrand },
+    ];
+
+    for (const check of checks) {
+      if (!check.value) continue;
+
+      const category = await this.prisma.category.findFirst({
+        where: {
+          type: check.type,
+          name: check.value,
+          is_active: true,
+        },
+      });
+
+      if (!category) {
+        throw new AppException(
+          ErrorCode.ITEM_CATEGORY_INVALID,
+          `Invalid ${check.type} value "${check.value}". Category must exist and be active.`,
+          [{ type: check.type, value: check.value }],
+        );
+      }
+    }
+  }
+
+  private validatePriceFields(price?: number | null, originalPrice?: number | null) {
+    if (price != null && price < 0) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'price must be greater than or equal to 0');
+    }
+
+    if (originalPrice != null && originalPrice < 0) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'original_price must be greater than or equal to 0');
+    }
+
+    if (price != null && originalPrice != null && originalPrice < price) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'original_price must be greater than or equal to price',
+      );
+    }
+  }
 }
+
 
