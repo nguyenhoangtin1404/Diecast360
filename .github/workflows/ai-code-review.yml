@@ -36,215 +36,94 @@ jobs:
           fi
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-
-      - name: 📄 Get PR diff
+      - name: 🤖 Run OpenAI review action
         if: steps.guard.outputs.skip != 'true'
-        id: diff
+        uses: ./.github/actions/ai-review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        with:
+          provider: openai
+          model: gpt-4.1-mini
+          api_key: ${{ secrets.OPENAI_API_KEY }}
+          comment_title: "## 🤖 AI Code Review – Đánh giá tự động (GPT-4.1-mini)"
+          comment_marker: "<!-- ai-code-review-bot -->"
+          system_prompt: |
+            Bạn là một chuyên gia review code. Hãy review pull request diff sau và đưa ra feedback bằng tiếng Việt. Tập trung vào:
+
+            1. 🐛 **Lỗi & Logic sai** – runtime errors, edge cases, logic không đúng
+            2. 🔒 **Bảo mật** – SQL injection, XSS, hardcoded secrets, patterns không an toàn
+            3. ⚡ **Hiệu năng** – N+1 queries, re-renders không cần thiết, memory leaks
+            4. 📝 **Chất lượng code** – đặt tên, readability, vi phạm DRY, thiếu error handling
+            5. 💡 **Đề xuất cải thiện** – cách tiếp cận tốt hơn, patterns hiện đại, refactors hữu ích
+
+            Quy tắc:
+            - Ngắn gọn, cụ thể và có thể hành động được
+            - Tham chiếu tên file và số dòng cụ thể khi có thể
+            - Dùng markdown formatting
+            - KHÔNG lặp lại code, chỉ tham chiếu
+            - Bỏ qua lỗi style nhỏ (formatting, trailing whitespace, etc.)
+            - Nếu không tìm thấy vấn đề đáng kể, tóm tắt ngắn gọn những điểm tốt của PR.
+            - Ưu tiên theo mức độ nghiêm trọng
+            - LUÔN trả lời bằng tiếng Việt
+
+  # ───────────────────────────────────────────────────────────
+  # Claude Sonnet 4.6 Review (runs in parallel with OpenAI job)
+  # ───────────────────────────────────────────────────────────
+  review-claude:
+    name: Claude Code Review (Sonnet 4.6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 🔑 Check Anthropic API Key
+        id: guard
         run: |
-          # Fetch PR diff directly to file
-          gh pr diff ${{ github.event.pull_request.number }} \
-            --repo ${{ github.repository }} > /tmp/pr_diff_raw.txt
-
-          # Filter out lockfiles and migrations (full block removal via sed)
-          sed -E '
-            /^diff --git a\/(.*\/)?package-lock\.json /,/^diff --git /{ /^diff --git a\/(.*\/)?package-lock\.json /d; /^diff --git /!d; }
-            /^diff --git a\/(.*\/)?pnpm-lock\.yaml /,/^diff --git /{ /^diff --git a\/(.*\/)?pnpm-lock\.yaml /d; /^diff --git /!d; }
-            /^diff --git a\/(.*\/)?yarn\.lock /,/^diff --git /{ /^diff --git a\/(.*\/)?yarn\.lock /d; /^diff --git /!d; }
-            /^diff --git a\/.*prisma\/migrations\//,/^diff --git /{ /^diff --git a\/.*prisma\/migrations\//d; /^diff --git /!d; }
-          ' /tmp/pr_diff_raw.txt > /tmp/pr_diff.txt
-
-          # Count lines
-          DIFF_LINES=$(wc -l < /tmp/pr_diff.txt)
-          echo "📊 Diff size: $DIFF_LINES lines"
-
-          # Skip if diff is too large (>10,000 lines)
-          if [ "$DIFF_LINES" -gt 10000 ]; then
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "⚠️ ANTHROPIC_API_KEY not configured. Skipping Claude review."
             echo "skip=true" >> $GITHUB_OUTPUT
-            echo "reason=too_large" >> $GITHUB_OUTPUT
-            echo "⚠️ Diff too large ($DIFF_LINES lines). Skipping AI review."
-          elif [ "$DIFF_LINES" -lt 5 ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "reason=too_small" >> $GITHUB_OUTPUT
-            echo "ℹ️ Diff too small ($DIFF_LINES lines). Nothing meaningful to review."
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
-
-      - name: 🤖 Review with OpenAI
-        if: steps.guard.outputs.skip != 'true' && steps.diff.outputs.skip != 'true'
-        id: review
-        timeout-minutes: 5
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          # Read diff from file
-          DIFF=$(cat /tmp/pr_diff.txt)
-
-          # Truncate diff if too long for API (keep under ~100K chars)
-          if [ ${#DIFF} -gt 100000 ]; then
-            DIFF="${DIFF:0:100000}
-
-          ... [diff truncated due to size] ..."
-          fi
-
-          # Build the system prompt (python strips YAML indentation)
-          python3 << 'PYEOF'
-          import textwrap
-          prompt = textwrap.dedent("""
-          Bạn là một chuyên gia review code. Hãy review pull request diff sau và đưa ra feedback bằng tiếng Việt. Tập trung vào:
-
-          1. 🐛 **Lỗi & Logic sai** – runtime errors, edge cases, logic không đúng
-          2. 🔒 **Bảo mật** – SQL injection, XSS, hardcoded secrets, patterns không an toàn
-          3. ⚡ **Hiệu năng** – N+1 queries, re-renders không cần thiết, memory leaks
-          4. 📝 **Chất lượng code** – đặt tên, readability, vi phạm DRY, thiếu error handling
-          5. 💡 **Đề xuất cải thiện** – cách tiếp cận tốt hơn, patterns hiện đại, refactors hữu ích
-
-          Quy tắc:
-          - Ngắn gọn, cụ thể và có thể hành động được
-          - Tham chiếu tên file và số dòng cụ thể khi có thể
-          - Nếu code tốt, nói ngắn gọn là OK
-          - Dùng markdown formatting
-          - KHÔNG lặp lại code, chỉ tham chiếu
-          - Bỏ qua lỗi style nhỏ (formatting, trailing whitespace, etc.)
-          - Ưu tiên theo mức độ nghiêm trọng
-          - LUÔN trả lời bằng tiếng Việt
-          """).strip()
-          with open('/tmp/system_prompt.txt', 'w') as f:
-              f.write(prompt)
-          PYEOF
-
-          # Build user content file
-          {
-            echo "Hãy review pull request diff sau:"
-            echo ""
-            echo "$DIFF"
-          } > /tmp/user_content.txt
-
-          # Build JSON payload safely using jq with --rawfile (avoids ARG_MAX)
-          JSON_PAYLOAD=$(jq -n \
-            --rawfile system /tmp/system_prompt.txt \
-            --rawfile user /tmp/user_content.txt \
-            '{
-              model: "gpt-4o-mini",
-              messages: [
-                {role: "system", content: $system},
-                {role: "user", content: $user}
-              ],
-              max_tokens: 4096,
-              temperature: 0.3
-            }')
-
-          # Call OpenAI API with HTTP status check
-          HTTP_STATUS=$(curl -s -o /tmp/api_response.json -w "%{http_code}" \
-            https://api.openai.com/v1/chat/completions \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $OPENAI_API_KEY" \
-            -d "$JSON_PAYLOAD")
-
-          echo "📡 OpenAI API status: $HTTP_STATUS"
-
-          if [ "$HTTP_STATUS" -ne 200 ]; then
-            echo "❌ OpenAI API returned HTTP $HTTP_STATUS"
-            cat /tmp/api_response.json
-            exit 1
-          fi
-
-          # Parse response
-          python3 -c "
-          import json, sys
-          with open('/tmp/api_response.json') as f:
-              data = json.load(f)
-          if 'choices' in data:
-              content = data['choices'][0]['message']['content']
-              with open('/tmp/review_result.txt', 'w') as out:
-                  out.write(content)
-              print('✅ Review parsed successfully')
-          elif 'error' in data:
-              print(f\"❌ OpenAI API Error: {data['error']['message']}\")
-              sys.exit(1)
-          else:
-              print('❌ Unexpected API response')
-              sys.exit(1)
-          "
-
-      - name: 💬 Post review comment
-        if: steps.guard.outputs.skip != 'true' && steps.diff.outputs.skip != 'true'
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: 🧠 Run Claude review action
+        if: steps.guard.outputs.skip != 'true'
+        uses: ./.github/actions/ai-review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          REPO=${{ github.repository }}
-          MARKER="<!-- ai-code-review-bot -->"
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        with:
+          provider: anthropic
+          model: claude-sonnet-4-6
+          api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          comment_title: "## 🧠 AI Code Review – Đánh giá tự động (Claude Sonnet 4.6)"
+          comment_marker: "<!-- ai-code-review-claude -->"
+          system_prompt: |
+            Bạn là một chuyên gia review code cấp Senior với hơn 10 năm kinh nghiệm. Hãy review pull request diff sau và đưa ra feedback chuyên sâu bằng tiếng Việt. Tập trung vào:
 
-          # Check review result exists
-          if [ ! -f /tmp/review_result.txt ]; then
-            echo "❌ Review result file not found. Skipping comment."
-            exit 1
-          fi
+            1. 🐛 **Lỗi & Logic sai** – runtime errors, edge cases, logic không đúng
+            2. 🔒 **Bảo mật** – SQL injection, XSS, hardcoded secrets, patterns không an toàn
+            3. ⚡ **Hiệu năng** – N+1 queries, re-renders không cần thiết, memory leaks
+            4. 🏗️ **Kiến trúc & Design Patterns** – SOLID violations, coupling, layer boundaries
+            5. 📝 **Chất lượng code** – đặt tên, readability, vi phạm DRY, thiếu error handling
+            6. 🧪 **Test coverage** – thiếu unit test, test cases quan trọng bị bỏ qua
+            7. 💡 **Đề xuất cải thiện** – cách tiếp cận tốt hơn, patterns hiện đại, refactors hữu ích
 
-          # Build comment file using echo (avoids heredoc indentation)
-          echo "## 🤖 AI Code Review – Đánh giá tự động (GPT-4o-mini)" > /tmp/comment.md
-          echo "" >> /tmp/comment.md
-          cat /tmp/review_result.txt >> /tmp/comment.md
-          printf '\n---\n' >> /tmp/comment.md
-          echo "<sub>🔄 Tạo tự động bởi OpenAI Code Review workflow | Commit: ${{ github.event.pull_request.head.sha }}</sub>" >> /tmp/comment.md
-          echo "$MARKER" >> /tmp/comment.md
-
-          # Find existing bot comment (dedup: update instead of creating new)
-          EXISTING_COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | tail -1)
-
-          if [ -n "$EXISTING_COMMENT_ID" ]; then
-            echo "♻️ Updating existing comment #$EXISTING_COMMENT_ID"
-            gh api "repos/$REPO/issues/comments/$EXISTING_COMMENT_ID" \
-              -X PATCH \
-              -F "body=@/tmp/comment.md"
-          else
-            echo "💬 Creating new comment"
-            gh pr comment "$PR_NUMBER" \
-              --repo "$REPO" \
-              --body-file /tmp/comment.md
-          fi
-
-          echo "✅ Review posted to PR #$PR_NUMBER"
-
-      - name: ⚠️ Skip notice
-        if: steps.guard.outputs.skip != 'true' && steps.diff.outputs.skip == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          REPO=${{ github.repository }}
-          MARKER="<!-- ai-code-review-bot -->"
-          REASON="${{ steps.diff.outputs.reason }}"
-
-          if [ "$REASON" = "too_large" ]; then
-            MSG="⚠️ **Bỏ qua** – PR diff quá lớn (>10,000 dòng). Vui lòng review thủ công."
-          else
-            MSG="ℹ️ **Bỏ qua** – PR diff quá nhỏ, không đủ nội dung để review."
-          fi
-
-          # Build skip comment
-          echo "## 🤖 AI Code Review – Đánh giá tự động" > /tmp/comment.md
-          echo "" >> /tmp/comment.md
-          echo "$MSG" >> /tmp/comment.md
-          echo "" >> /tmp/comment.md
-          echo "---" >> /tmp/comment.md
-          echo "<sub>🔄 Tạo tự động bởi OpenAI Code Review workflow</sub>" >> /tmp/comment.md
-          echo "$MARKER" >> /tmp/comment.md
-
-          # Dedup: find existing bot comment
-          EXISTING_COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | tail -1)
-
-          if [ -n "$EXISTING_COMMENT_ID" ]; then
-            gh api "repos/$REPO/issues/comments/$EXISTING_COMMENT_ID" \
-              -X PATCH \
-              -F "body=@/tmp/comment.md"
-          else
-            gh pr comment "$PR_NUMBER" \
-              --repo "$REPO" \
-              --body-file /tmp/comment.md
-          fi
+            Quy tắc:
+            - Ngắn gọn, cụ thể và có thể hành động được
+            - Tham chiếu tên file và số dòng cụ thể khi có thể
+            - Dùng markdown formatting
+            - KHÔNG lặp lại code, chỉ tham chiếu
+            - Bỏ qua lỗi style nhỏ (formatting, trailing whitespace, etc.)
+            - Nếu không tìm thấy vấn đề đáng kể, tóm tắt ngắn gọn những điểm tốt của PR.
+            - Ưu tiên theo mức độ nghiêm trọng: Critical > Major > Minor > Suggestion
+            - LUÔN trả lời bằng tiếng Việt

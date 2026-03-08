@@ -1,0 +1,327 @@
+name: "AI Review"
+description: "Fetch PR diff, run AI review (OpenAI/Anthropic), and post/update a PR comment."
+
+inputs:
+  provider:
+    description: "openai | anthropic"
+    required: true
+  model:
+    description: "Model name for provider"
+    required: true
+  api_key:
+    description: "Provider API key"
+    required: true
+  comment_title:
+    description: "Markdown title line (e.g. ## 🤖 ...)"
+    required: true
+  comment_marker:
+    description: "Hidden marker used to dedup/update comment"
+    required: true
+  system_prompt:
+    description: "System prompt in Vietnamese"
+    required: true
+  max_diff_lines:
+    description: "Skip if diff exceeds this line count"
+    required: false
+    default: "10000"
+  min_diff_lines:
+    description: "Skip if diff is smaller than this line count"
+    required: false
+    default: "5"
+  max_diff_chars:
+    description: "Truncate diff to this many bytes/chars (approx)"
+    required: false
+    default: "100000"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Fetch and filter PR diff
+      id: fetch
+      shell: bash
+      env:
+        GH_TOKEN: ${{ env.GH_TOKEN }}
+        PR_NUMBER: ${{ env.PR_NUMBER }}
+        REPO: ${{ env.REPO }}
+      run: |
+        set -euo pipefail
+
+        gh pr diff "$PR_NUMBER" --repo "$REPO" > /tmp/pr_diff_raw.txt
+
+        # Filter out lockfiles and migrations (no apt-get dependency)
+        python3 << 'PYEOF'
+        from __future__ import annotations
+        import fnmatch
+        from pathlib import Path
+
+        raw = Path("/tmp/pr_diff_raw.txt").read_text(encoding="utf-8", errors="replace").splitlines(True)
+
+        EXCLUDES = [
+            "*/package-lock.json",
+            "*/pnpm-lock.yaml",
+            "*/yarn.lock",
+            "*/prisma/migrations/*",
+        ]
+
+        def is_excluded(path: str) -> bool:
+            return any(fnmatch.fnmatch(path, pat) for pat in EXCLUDES)
+
+        out: list[str] = []
+        cur: list[str] = []
+        cur_path: str | None = None
+
+        def flush():
+            nonlocal cur, cur_path
+            if cur and cur_path is not None and not is_excluded(cur_path):
+                out.extend(cur)
+            cur = []
+            cur_path = None
+
+        for line in raw:
+            if line.startswith("diff --git "):
+                flush()
+                parts = line.strip().split(" ")
+                cur_path = parts[2][2:] if len(parts) >= 4 and parts[2].startswith("a/") else ""
+                cur.append(line)
+            else:
+                if cur:
+                    cur.append(line)
+
+        flush()
+        Path("/tmp/pr_diff.txt").write_text("".join(out), encoding="utf-8")
+        PYEOF
+
+        DIFF_LINES=$(wc -l < /tmp/pr_diff.txt)
+        echo "diff_lines=$DIFF_LINES" >> "$GITHUB_OUTPUT"
+        echo "📊 Diff size: $DIFF_LINES lines"
+
+    - name: Decide skip reason
+      id: guard
+      shell: bash
+      run: |
+        set -euo pipefail
+        DIFF_LINES="${{ steps.fetch.outputs.diff_lines }}"
+        MAX="${{ inputs.max_diff_lines }}"
+        MIN="${{ inputs.min_diff_lines }}"
+
+        if [ "$DIFF_LINES" -gt "$MAX" ]; then
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          echo "reason=too_large" >> "$GITHUB_OUTPUT"
+        elif [ "$DIFF_LINES" -lt "$MIN" ]; then
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          echo "reason=too_small" >> "$GITHUB_OUTPUT"
+        else
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Post skip notice
+      if: steps.guard.outputs.skip == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ env.GH_TOKEN }}
+        PR_NUMBER: ${{ env.PR_NUMBER }}
+        REPO: ${{ env.REPO }}
+      run: |
+        set -euo pipefail
+
+        MARKER='${{ inputs.comment_marker }}'
+        REASON='${{ steps.guard.outputs.reason }}'
+
+        if [ "$REASON" = "too_large" ]; then
+          MSG="⚠️ **Bỏ qua** – PR diff quá lớn (>${{ inputs.max_diff_lines }} dòng). Vui lòng review thủ công."
+        else
+          MSG="ℹ️ **Bỏ qua** – PR diff quá nhỏ, không đủ nội dung để review."
+        fi
+
+        {
+          echo '${{ inputs.comment_title }}'
+          echo ""
+          echo "$MSG"
+          echo ""
+          echo "---"
+          echo "<sub>🔄 Tạo tự động bởi AI Code Review workflow</sub>"
+          echo "$MARKER"
+        } > /tmp/ai_review_comment.md
+
+        EXISTING_COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+          --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | tail -1)
+
+        if [ -n "$EXISTING_COMMENT_ID" ]; then
+          gh api "repos/$REPO/issues/comments/$EXISTING_COMMENT_ID" \
+            -X PATCH \
+            -F "body=@/tmp/ai_review_comment.md"
+        else
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file /tmp/ai_review_comment.md
+        fi
+
+    - name: Truncate diff
+      if: steps.guard.outputs.skip != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        MAX="${{ inputs.max_diff_chars }}"
+        python3 - << 'PYEOF'
+        from __future__ import annotations
+        from pathlib import Path
+        import codecs
+        import os
+        import re
+        
+        max_bytes = int(os.environ.get("MAX_BYTES", "100000"))
+        src = Path("/tmp/pr_diff.txt").read_bytes()
+        was_truncated = len(src) > max_bytes
+        
+        # Decode only full UTF-8 sequences (avoid invalid trailing bytes)
+        dec = codecs.getincrementaldecoder("utf-8")("replace")
+        text = dec.decode(src[:max_bytes], final=False)
+        
+        # Prefer truncating at a newline boundary to avoid cutting a diff hunk header mid-line.
+        last_nl = text.rfind("\n")
+        if last_nl != -1 and last_nl > 0:
+          text = text[: last_nl + 1]
+        
+        if was_truncated:
+          text += "\n\n... [diff truncated due to size] ..."
+        
+        Path("/tmp/pr_diff_truncated.txt").write_text(text, encoding="utf-8")
+        PYEOF
+      env:
+        MAX_BYTES: ${{ inputs.max_diff_chars }}
+
+    - name: Build prompts
+      if: steps.guard.outputs.skip != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        printf '%s' '${{ inputs.system_prompt }}' > /tmp/system_prompt.txt
+        {
+          echo "Hãy review pull request diff sau:"
+          echo ""
+          cat /tmp/pr_diff_truncated.txt
+        } > /tmp/user_content.txt
+
+    - name: Call provider API
+      if: steps.guard.outputs.skip != 'true'
+      shell: bash
+      env:
+        API_KEY: ${{ inputs.api_key }}
+      run: |
+        set -euo pipefail
+        umask 077
+
+        PROVIDER='${{ inputs.provider }}'
+        MODEL='${{ inputs.model }}'
+
+        if [ "$PROVIDER" = "openai" ]; then
+          jq -n \
+            --rawfile system /tmp/system_prompt.txt \
+            --rawfile user /tmp/user_content.txt \
+            --arg model "$MODEL" \
+            '{
+              model: $model,
+              messages: [
+                {role: "system", content: $system},
+                {role: "user", content: $user}
+              ],
+              max_completion_tokens: 4096,
+              temperature: 0.3
+            }' > /tmp/payload.json
+
+          HEADERS=$(mktemp /tmp/openai_headers.XXXXXX)
+          printf '%s\n' \
+            "Content-Type: application/json" \
+            "Authorization: Bearer $API_KEY" \
+            > "$HEADERS"
+
+          HTTP_STATUS=$(curl -s -o /tmp/api_response.json -w "%{http_code}" \
+            --retry 3 --retry-delay 5 --retry-max-time 30 \
+            https://api.openai.com/v1/chat/completions \
+            -H @"$HEADERS" \
+            -d @/tmp/payload.json)
+
+          echo "📡 OpenAI API status: $HTTP_STATUS"
+          test "$HTTP_STATUS" -eq 200
+
+          python3 - << 'PYEOF'
+          import json
+          with open("/tmp/api_response.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+          content = data["choices"][0]["message"]["content"]
+          with open("/tmp/review_result.txt", "w", encoding="utf-8") as out:
+              out.write(content)
+          PYEOF
+        elif [ "$PROVIDER" = "anthropic" ]; then
+          jq -n \
+            --rawfile system /tmp/system_prompt.txt \
+            --rawfile user /tmp/user_content.txt \
+            --arg model "$MODEL" \
+            '{
+              model: $model,
+              max_tokens: 4096,
+              temperature: 0.3,
+              system: $system,
+              messages: [
+                {role: "user", content: $user}
+              ]
+            }' > /tmp/payload.json
+
+          HEADERS=$(mktemp /tmp/claude_headers.XXXXXX)
+          printf '%s\n' \
+            "Content-Type: application/json" \
+            "x-api-key: $API_KEY" \
+            "anthropic-version: 2023-06-01" \
+            > "$HEADERS"
+
+          HTTP_STATUS=$(curl -s -o /tmp/api_response.json -w "%{http_code}" \
+            --retry 3 --retry-delay 5 --retry-max-time 30 \
+            https://api.anthropic.com/v1/messages \
+            -H @"$HEADERS" \
+            -d @/tmp/payload.json)
+
+          echo "📡 Claude API status: $HTTP_STATUS"
+          test "$HTTP_STATUS" -eq 200
+
+          python3 - << 'PYEOF'
+          import json
+          with open("/tmp/api_response.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+          parts = [b.get("text","") for b in data.get("content", []) if b.get("type") == "text"]
+          with open("/tmp/review_result.txt", "w", encoding="utf-8") as out:
+              out.write("\n".join(parts).strip())
+          PYEOF
+        else:
+          echo "Unknown provider: $PROVIDER" >&2
+          exit 2
+
+    - name: Post or update PR comment
+      if: steps.guard.outputs.skip != 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ env.GH_TOKEN }}
+        PR_NUMBER: ${{ env.PR_NUMBER }}
+        REPO: ${{ env.REPO }}
+        HEAD_SHA: ${{ env.HEAD_SHA }}
+      run: |
+        set -euo pipefail
+
+        MARKER='${{ inputs.comment_marker }}'
+
+        {
+          echo '${{ inputs.comment_title }}'
+          echo ""
+          cat /tmp/review_result.txt
+          printf '\n---\n'
+          echo "<sub>🔄 Tạo tự động bởi AI Code Review workflow | Commit: $HEAD_SHA</sub>"
+          echo "$MARKER"
+        } > /tmp/comment.md
+
+        EXISTING_COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+          --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | tail -1)
+
+        if [ -n "$EXISTING_COMMENT_ID" ]; then
+          gh api "repos/$REPO/issues/comments/$EXISTING_COMMENT_ID" \
+            -X PATCH \
+            -F "body=@/tmp/comment.md"
+        else
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file /tmp/comment.md
+        fi
