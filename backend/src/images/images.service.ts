@@ -3,7 +3,8 @@ import {
   Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { Prisma } from '../generated/prisma/client';
+import { Prisma, ItemImage } from '../generated/prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { ImageProcessorService, WatermarkProcessingError } from '../image-processor/image-processor.service';
 import { IStorageService } from '../storage/storage.interface';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
@@ -19,7 +20,6 @@ export class ImagesService {
   ) {}
 
   async uploadImage(itemId: string, file: Express.Multer.File, isCover?: boolean) {
-    // Validate item exists
     const item = await this.prisma.item.findFirst({
       where: { id: itemId, deleted_at: null },
     });
@@ -28,10 +28,8 @@ export class ImagesService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
     }
 
-    // Validate file
     this.validateFile(file);
 
-    // Process image and generate thumbnail
     let processedImage: Buffer;
     try {
       processedImage = await this.imageProcessor.processImage(file.buffer, {
@@ -47,65 +45,97 @@ export class ImagesService {
       throw error;
     }
     const thumbnail = await this.imageProcessor.generateThumbnail(file.buffer);
-
-    // Generate filenames
     const imageFilename = this.imageProcessor.generateFilename(file.originalname);
     const thumbnailFilename = this.imageProcessor.generateFilename(file.originalname);
 
-    // Save files
-    const imagePath = await this.storage.saveFile(
-      processedImage,
-      imageFilename,
-      'images',
-    );
-    const thumbnailPath = await this.storage.saveFile(
-      thumbnail,
-      `thumb_${thumbnailFilename}`,
-      'thumbnails',
-    );
+    const savedPaths: string[] = [];
+    try {
+      const imagePath = await this.storage.saveFile(
+        processedImage,
+        imageFilename,
+        'images',
+      );
+      savedPaths.push(imagePath);
 
-    // Get current max display_order
-    const maxOrder = await this.prisma.itemImage.findFirst({
-      where: { item_id: itemId },
-      orderBy: { display_order: 'desc' },
-      select: { display_order: true },
-    });
+      const thumbnailPath = await this.storage.saveFile(
+        thumbnail,
+        `thumb_${thumbnailFilename}`,
+        'thumbnails',
+      );
+      savedPaths.push(thumbnailPath);
 
-    const displayOrder = maxOrder ? maxOrder.display_order + 1 : 0;
+      const image = await this.insertImageWithOrdering(
+        itemId,
+        imagePath,
+        thumbnailPath,
+        Boolean(isCover),
+      );
 
-    // If this is cover or first image, set as cover and unset others
-    const shouldSetCover = isCover || displayOrder === 0;
-    if (shouldSetCover) {
-      await this.prisma.itemImage.updateMany({
-        where: { item_id: itemId, is_cover: true },
-        data: { is_cover: false },
-      });
+      return { image: this.mapImage(image) };
+    } catch (error) {
+      await this.cleanupSavedFiles(savedPaths);
+      throw error;
+    }
+  }
+
+  private async insertImageWithOrdering(
+    itemId: string,
+    imagePath: string,
+    thumbnailPath: string,
+    isCover: boolean,
+  ) {
+    const maxAttempts = 3;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const [imageCount, existingCover] = await Promise.all([
+            tx.itemImage.count({ where: { item_id: itemId } }),
+            tx.itemImage.findFirst({
+              where: { item_id: itemId, is_cover: true },
+            }),
+          ]);
+
+          const displayOrder = imageCount;
+          const shouldSetCover = Boolean(
+            isCover || imageCount === 0 || !existingCover,
+          );
+
+          if (shouldSetCover) {
+            await tx.itemImage.updateMany({
+              where: { item_id: itemId, is_cover: true },
+              data: { is_cover: false },
+            });
+          }
+
+          const image = await tx.itemImage.create({
+            data: {
+              item_id: itemId,
+              file_path: imagePath,
+              thumbnail_path: thumbnailPath,
+              is_cover: shouldSetCover,
+              display_order: displayOrder,
+            },
+          });
+
+          return image;
+        });
+      } catch (error) {
+        if (
+          error instanceof PrismaClientKnownRequestError &&
+          error.code === 'P2002' &&
+          attempt < maxAttempts - 1
+        ) {
+          continue;
+        }
+        throw error;
+      }
     }
 
-    // Create image record
-    const image = await this.prisma.itemImage.create({
-      data: {
-        item_id: itemId,
-        file_path: imagePath,
-        thumbnail_path: thumbnailPath,
-        is_cover: shouldSetCover,
-        display_order: displayOrder,
-      },
-    });
-
-    return {
-      image: {
-        id: image.id,
-        item_id: image.item_id,
-        url: this.storage.getFileUrl(image.file_path),
-        thumbnail_url: image.thumbnail_path
-          ? this.storage.getFileUrl(image.thumbnail_path)
-          : null,
-        is_cover: image.is_cover,
-        display_order: image.display_order,
-        created_at: image.created_at,
-      },
-    };
+    throw new AppException(
+      ErrorCode.VALIDATION_ERROR,
+      'Unable to upload image due to concurrency conflict',
+    );
   }
 
   async updateImage(itemId: string, imageId: string, updateDto: UpdateImageDto) {
@@ -124,10 +154,29 @@ export class ImagesService {
 
     if (updateDto.is_cover !== undefined) {
       if (updateDto.is_cover) {
-        // Unset other covers
         await this.prisma.itemImage.updateMany({
           where: { item_id: itemId, is_cover: true },
           data: { is_cover: false },
+        });
+      } else if (image.is_cover) {
+        const replacementCover = await this.prisma.itemImage.findFirst({
+          where: {
+            item_id: itemId,
+            id: { not: imageId },
+          },
+          orderBy: { display_order: 'asc' },
+        });
+
+        if (!replacementCover) {
+          throw new AppException(
+            ErrorCode.VALIDATION_ERROR,
+            'Item must always have one cover image',
+          );
+        }
+
+        await this.prisma.itemImage.update({
+          where: { id: replacementCover.id },
+          data: { is_cover: true },
         });
       }
       updateData.is_cover = updateDto.is_cover;
@@ -142,46 +191,53 @@ export class ImagesService {
       data: updateData,
     });
 
-    return {
-      image: {
-        id: updated.id,
-        item_id: updated.item_id,
-        url: this.storage.getFileUrl(updated.file_path),
-        thumbnail_url: updated.thumbnail_path
-          ? this.storage.getFileUrl(updated.thumbnail_path)
-          : null,
-        is_cover: updated.is_cover,
-        display_order: updated.display_order,
-        created_at: updated.created_at,
-      },
-    };
+    await this.ensureSingleCover(itemId, updated.is_cover ? updated.id : undefined);
+
+    return { image: this.mapImage(updated) };
   }
 
   async reorderImages(itemId: string, reorderDto: ReorderImagesDto) {
-    // Validate all images belong to this item
-    const images = await this.prisma.itemImage.findMany({
-      where: {
-        item_id: itemId,
-        id: { in: reorderDto.image_ids },
-      },
-    });
+    if (new Set(reorderDto.image_ids).size !== reorderDto.image_ids.length) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Duplicate image IDs in reorder list',
+      );
+    }
 
-    if (images.length !== reorderDto.image_ids.length) {
+    const allImages = await this.prisma.itemImage.findMany({
+      where: { item_id: itemId },
+      orderBy: { display_order: 'asc' },
+    });
+    const existingIds = new Set(allImages.map((img) => img.id));
+
+    if (allImages.length !== reorderDto.image_ids.length) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Reorder must include all item images',
+      );
+    }
+
+    const hasUnknownId = reorderDto.image_ids.some((id) => !existingIds.has(id));
+    if (hasUnknownId) {
       throw new AppException(
         ErrorCode.VALIDATION_ERROR,
         'Some image IDs do not belong to this item',
       );
     }
 
-    // Update display_order
-    const updates = reorderDto.image_ids.map((id, index) =>
-      this.prisma.itemImage.update({
-        where: { id },
-        data: { display_order: index },
-      }),
-    );
+    // Perform reorder inside a transaction to avoid partial updates
+    await this.prisma.$transaction(async (tx) => {
+      for (let index = 0; index < reorderDto.image_ids.length; index++) {
+        const id = reorderDto.image_ids[index];
+        await tx.itemImage.update({
+          where: { id },
+          data: { display_order: index },
+        });
+      }
+    });
 
-    await Promise.all(updates);
+    const preferredCoverId = allImages.find((img) => img.is_cover)?.id ?? reorderDto.image_ids[0];
+    await this.ensureSingleCover(itemId, preferredCoverId);
 
     const updatedImages = await this.prisma.itemImage.findMany({
       where: { item_id: itemId },
@@ -189,17 +245,7 @@ export class ImagesService {
     });
 
     return {
-      images: updatedImages.map((img) => ({
-        id: img.id,
-        item_id: img.item_id,
-        url: this.storage.getFileUrl(img.file_path),
-        thumbnail_url: img.thumbnail_path
-          ? this.storage.getFileUrl(img.thumbnail_path)
-          : null,
-        is_cover: img.is_cover,
-        display_order: img.display_order,
-        created_at: img.created_at,
-      })),
+      images: updatedImages.map((img) => this.mapImage(img)),
     };
   }
 
@@ -215,35 +261,30 @@ export class ImagesService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Image not found');
     }
 
-    const wasCover = image.is_cover;
-
-    // Delete file and thumbnail
-    await this.storage.deleteFile(image.file_path);
-    if (image.thumbnail_path) {
-      await this.storage.deleteFile(image.thumbnail_path);
-    }
-
-    // Delete record
     await this.prisma.itemImage.delete({
       where: { id: imageId },
     });
 
-    // If cover was deleted, set first remaining image as cover
-    if (wasCover) {
-      const firstRemaining = await this.prisma.itemImage.findFirst({
-        where: { item_id: itemId },
-        orderBy: { display_order: 'asc' },
-      });
-
-      if (firstRemaining) {
-        await this.prisma.itemImage.update({
-          where: { id: firstRemaining.id },
-          data: { is_cover: true },
-        });
+    try {
+      await this.storage.deleteFile(image.file_path);
+      if (image.thumbnail_path) {
+        await this.storage.deleteFile(image.thumbnail_path);
       }
+    } catch (error) {
+      await this.prisma.itemImage.create({
+        data: {
+          id: image.id,
+          item_id: image.item_id,
+          file_path: image.file_path,
+          thumbnail_path: image.thumbnail_path,
+          is_cover: image.is_cover,
+          display_order: image.display_order,
+          created_at: image.created_at,
+        },
+      });
+      throw error;
     }
 
-    // Reorder remaining images
     const remainingImages = await this.prisma.itemImage.findMany({
       where: { item_id: itemId },
       orderBy: { display_order: 'asc' },
@@ -257,6 +298,7 @@ export class ImagesService {
         }),
       ),
     );
+    await this.ensureSingleCover(itemId);
 
     return {};
   }
@@ -282,6 +324,62 @@ export class ImagesService {
         `File size exceeds maximum of ${maxSizeMB}MB`,
       );
     }
+  }
+
+  private mapImage(image: ItemImage) {
+    return {
+      id: image.id,
+      item_id: image.item_id,
+      url: this.storage.getFileUrl(image.file_path),
+      thumbnail_url: image.thumbnail_path
+        ? this.storage.getFileUrl(image.thumbnail_path)
+        : null,
+      is_cover: image.is_cover,
+      display_order: image.display_order,
+      created_at: image.created_at,
+    };
+  }
+
+  private async cleanupSavedFiles(paths: string[]) {
+    await Promise.all(
+      paths.map(async (path) => {
+        try {
+          await this.storage.deleteFile(path);
+        } catch {
+          // Best-effort cleanup
+        }
+      }),
+    );
+  }
+
+  private async ensureSingleCover(itemId: string, preferredImageId?: string) {
+    const images = await this.prisma.itemImage.findMany({
+      where: { item_id: itemId },
+      orderBy: { display_order: 'asc' },
+    });
+
+    if (images.length === 0) {
+      return;
+    }
+
+    const covers = images.filter((img) => img.is_cover);
+    if (covers.length === 1) {
+      return;
+    }
+
+    const preferred = preferredImageId
+      ? images.find((img) => img.id === preferredImageId)
+      : undefined;
+    const nextCover = preferred ?? images[0];
+
+    await this.prisma.itemImage.updateMany({
+      where: { item_id: itemId },
+      data: { is_cover: false },
+    });
+    await this.prisma.itemImage.update({
+      where: { id: nextCover.id },
+      data: { is_cover: true },
+    });
   }
 }
 

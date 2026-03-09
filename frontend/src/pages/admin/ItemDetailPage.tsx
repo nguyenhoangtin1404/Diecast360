@@ -654,6 +654,7 @@ export const ItemDetailPage = () => {
   const images = (data?.images || []) as ItemImage[];
   const spinSets = (data?.spin_sets || []) as SpinSet[];
   const selectedSpinSet = spinSets.find((set) => set.id === selectedSpinSetId);
+  const maxFramesReached = (selectedSpinSet?.frames?.length ?? 0) >= 48;
   const isNewItem = id === 'new';
 
   const goToStep = (step: ProductStep) => {
@@ -1608,6 +1609,7 @@ export const ItemDetailPage = () => {
               type="file"
               multiple
               accept="image/*"
+              aria-label="Upload item images"
               style={{ 
                 width: '100%', 
                 padding: '10px 12px',
@@ -1618,7 +1620,6 @@ export const ItemDetailPage = () => {
                 transition: 'all 0.2s',
                 color: '#1a1a1a',
                 backgroundColor: '#fff',
-                display: 'none',
               }}
               onFocus={(e) => {
                 e.currentTarget.style.borderColor = '#007bff';
@@ -1990,9 +1991,10 @@ export const ItemDetailPage = () => {
                     </label>
                     <input
                       type="file"
+                      data-testid="spinner-frame-upload"
                       multiple
                       accept="image/*"
-                      disabled={uploadingFrames}
+                      disabled={uploadingFrames || maxFramesReached}
                       onChange={(e) => handleUploadFrames(e, selectedSpinSet.id)}
                       style={{ 
                         width: '100%', 
@@ -2000,9 +2002,14 @@ export const ItemDetailPage = () => {
                         border: '1px solid #ddd',
                         borderRadius: '8px',
                         fontSize: '14px',
-                        cursor: uploadingFrames ? 'not-allowed' : 'pointer',
+                        cursor: uploadingFrames || maxFramesReached ? 'not-allowed' : 'pointer',
                       }}
                     />
+                    {maxFramesReached && (
+                      <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#dc3545' }}>
+                        Đã đạt giới hạn 48 frames. Vui lòng xóa bớt frame nếu muốn upload thêm.
+                      </p>
+                    )}
                     {uploadingFrames && (
                       <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#007bff' }}>
                         Đang upload frames...

@@ -186,4 +186,27 @@ describe('ItemDetailPage main flows', () => {
       expect(h.mockNavigate).toHaveBeenCalledWith('/admin/items');
     });
   });
-});
+  it('disables upload input and shows limit message when 48 frames are already present', async () => {
+    const maxFramesResponse = createBaseItemData();
+    // Replace the single frame with 48 frames
+    maxFramesResponse.spin_sets[0].frames = Array.from({ length: 48 }, (_, i) => ({
+      id: `frame-${i + 1}`,
+      spin_set_id: 'spin1',
+      frame_index: i,
+      image_url: `https://img.example/f${i + 1}.jpg`,
+      thumbnail_url: null,
+      created_at: '2026-01-01',
+    }));
+
+    h.mockItemResponse = maxFramesResponse;
+    h.apiClient.get.mockImplementation(async () => ({ data: h.mockItemResponse }));
+
+    render(<ItemDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Đã đạt giới hạn 48 frames/)).toBeTruthy();
+    });
+
+    const fileInput = screen.getByTestId('spinner-frame-upload') as HTMLInputElement;
+    expect(fileInput.disabled).toBe(true);
+  });});
