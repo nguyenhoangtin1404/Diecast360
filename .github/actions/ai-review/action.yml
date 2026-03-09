@@ -32,26 +32,47 @@ inputs:
     description: "Truncate diff to this many bytes/chars (approx)"
     required: false
     default: "100000"
+  gh_token:
+    description: "GitHub token for gh CLI"
+    required: true
+  pr_number:
+    description: "Pull request number"
+    required: true
+  repo:
+    description: "owner/repo"
+    required: true
+  head_sha:
+    description: "PR head commit SHA"
+    required: true
 
 runs:
   using: "composite"
   steps:
+    - name: Initialize temp workspace
+      shell: bash
+      run: |
+        set -euo pipefail
+        WORK_DIR=$(mktemp -d "${RUNNER_TEMP:-/tmp}/ai-review.XXXXXX")
+        echo "WORK_DIR=$WORK_DIR" >> "$GITHUB_ENV"
+
     - name: Fetch and filter PR diff
       id: fetch
       shell: bash
       env:
-        GH_TOKEN: ${{ env.GH_TOKEN }}
-        PR_NUMBER: ${{ env.PR_NUMBER }}
-        REPO: ${{ env.REPO }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        REPO: ${{ inputs.repo }}
       run: |
         set -euo pipefail
 
-        gh pr diff "$PR_NUMBER" --repo "$REPO" > /tmp/pr_diff_raw.txt
+        gh pr diff "$PR_NUMBER" --repo "$REPO" > "$WORK_DIR/pr_diff_raw.txt"
 
         # Filter out lockfiles and migrations (no apt-get dependency)
-        python3 -c $'from pathlib import Path\nimport fnmatch\n\nraw = Path(\"/tmp/pr_diff_raw.txt\").read_text(encoding=\"utf-8\", errors=\"replace\").splitlines(True)\nEXCLUDES = [\"*/package-lock.json\", \"*/pnpm-lock.yaml\", \"*/yarn.lock\", \"*/prisma/migrations/*\"]\n\ndef is_excluded(p: str) -> bool:\n    return any(fnmatch.fnmatch(p, pat) for pat in EXCLUDES)\n\nout = []\ncur = []\ncur_path = None\n\nfor line in raw:\n    if line.startswith(\"diff --git \"):\n        if cur and cur_path is not None and not is_excluded(cur_path):\n            out.extend(cur)\n        cur = []\n        parts = line.strip().split(\" \")\n        cur_path = parts[2][2:] if len(parts) >= 4 and parts[2].startswith(\"a/\") else \"\"\n        cur.append(line)\n    else:\n        if cur:\n            cur.append(line)\n\nif cur and cur_path is not None and not is_excluded(cur_path):\n    out.extend(cur)\n\nPath(\"/tmp/pr_diff.txt\").write_text(\"\".join(out), encoding=\"utf-8\")\n'
+        python3 "$GITHUB_ACTION_PATH/scripts/filter_diff.py" \
+          "$WORK_DIR/pr_diff_raw.txt" \
+          "$WORK_DIR/pr_diff.txt"
 
-        DIFF_LINES=$(wc -l < /tmp/pr_diff.txt)
+        DIFF_LINES=$(wc -l < "$WORK_DIR/pr_diff.txt")
         echo "diff_lines=$DIFF_LINES" >> "$GITHUB_OUTPUT"
         echo "📊 Diff size: $DIFF_LINES lines"
 
@@ -78,13 +99,14 @@ runs:
       if: steps.guard.outputs.skip == 'true'
       shell: bash
       env:
-        GH_TOKEN: ${{ env.GH_TOKEN }}
-        PR_NUMBER: ${{ env.PR_NUMBER }}
-        REPO: ${{ env.REPO }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        REPO: ${{ inputs.repo }}
+        MARKER: ${{ inputs.comment_marker }}
+        TITLE: ${{ inputs.comment_title }}
       run: |
         set -euo pipefail
 
-        MARKER='${{ inputs.comment_marker }}'
         REASON='${{ steps.guard.outputs.reason }}'
 
         if [ "$REASON" = "too_large" ]; then
@@ -94,24 +116,25 @@ runs:
         fi
 
         {
-          echo '${{ inputs.comment_title }}'
+          echo "$TITLE"
           echo ""
           echo "$MSG"
           echo ""
           echo "---"
           echo "<sub>🔄 Tạo tự động bởi AI Code Review workflow</sub>"
           echo "$MARKER"
-        } > /tmp/ai_review_comment.md
+        } > "$WORK_DIR/ai_review_comment.md"
 
-        EXISTING_COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
-          --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | tail -1)
+        EXISTING_COMMENT_ID=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments?per_page=100" \
+          | jq -r --arg marker "$MARKER" '.[] | select(.body and (.body | contains($marker))) | .id' \
+          | tail -1)
 
         if [ -n "$EXISTING_COMMENT_ID" ]; then
           gh api "repos/$REPO/issues/comments/$EXISTING_COMMENT_ID" \
             -X PATCH \
-            -F "body=@/tmp/ai_review_comment.md"
+            -F "body=@$WORK_DIR/ai_review_comment.md"
         else
-          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file /tmp/ai_review_comment.md
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file "$WORK_DIR/ai_review_comment.md"
         fi
 
     - name: Truncate diff
@@ -119,39 +142,41 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        MAX="${{ inputs.max_diff_chars }}"
-        python3 -c $'from pathlib import Path\nimport codecs\nimport os\n\nmax_bytes = int(os.environ.get(\"MAX_BYTES\", \"100000\"))\nsrc = Path(\"/tmp/pr_diff.txt\").read_bytes()\nwas_truncated = len(src) > max_bytes\n\n# Decode only full UTF-8 sequences (avoid invalid trailing bytes)\ndec = codecs.getincrementaldecoder(\"utf-8\")(\"replace\")\ntext = dec.decode(src[:max_bytes], final=False)\n\n# Prefer truncating at a newline boundary to avoid cutting a diff hunk header mid-line.\nlast_nl = text.rfind(\"\\n\")\nif last_nl != -1 and last_nl > 0:\n    text = text[: last_nl + 1]\n\nif was_truncated:\n    text += \"\\n\\n... [diff truncated due to size] ...\"\n\nPath(\"/tmp/pr_diff_truncated.txt\").write_text(text, encoding=\"utf-8\")\n'
+        python3 "$GITHUB_ACTION_PATH/scripts/truncate_diff.py" \
+          "$WORK_DIR/pr_diff.txt" \
+          "$WORK_DIR/pr_diff_truncated.txt"
       env:
         MAX_BYTES: ${{ inputs.max_diff_chars }}
 
     - name: Build prompts
       if: steps.guard.outputs.skip != 'true'
       shell: bash
+      env:
+        SYSTEM_PROMPT: ${{ inputs.system_prompt }}
       run: |
         set -euo pipefail
-        printf '%s' '${{ inputs.system_prompt }}' > /tmp/system_prompt.txt
+        printf '%s' "$SYSTEM_PROMPT" > "$WORK_DIR/system_prompt.txt"
         {
           echo "Hãy review pull request diff sau:"
           echo ""
-          cat /tmp/pr_diff_truncated.txt
-        } > /tmp/user_content.txt
+          cat "$WORK_DIR/pr_diff_truncated.txt"
+        } > "$WORK_DIR/user_content.txt"
 
     - name: Call provider API
       if: steps.guard.outputs.skip != 'true'
       shell: bash
       env:
         API_KEY: ${{ inputs.api_key }}
+        PROVIDER: ${{ inputs.provider }}
+        MODEL: ${{ inputs.model }}
       run: |
         set -euo pipefail
         umask 077
 
-        PROVIDER='${{ inputs.provider }}'
-        MODEL='${{ inputs.model }}'
-
         if [ "$PROVIDER" = "openai" ]; then
           jq -n \
-            --rawfile system /tmp/system_prompt.txt \
-            --rawfile user /tmp/user_content.txt \
+            --rawfile system "$WORK_DIR/system_prompt.txt" \
+            --rawfile user "$WORK_DIR/user_content.txt" \
             --arg model "$MODEL" \
             '{
               model: $model,
@@ -161,56 +186,51 @@ runs:
               ],
               max_completion_tokens: 4096,
               temperature: 0.3
-            }' > /tmp/payload.json
+            }' > "$WORK_DIR/payload.json"
 
-          HEADERS=$(mktemp /tmp/openai_headers.XXXXXX)
-          printf '%s\n' \
-            "Content-Type: application/json" \
-            "Authorization: Bearer $API_KEY" \
-            > "$HEADERS"
-
-          HTTP_STATUS=$(curl -s -o /tmp/api_response.json -w "%{http_code}" \
-            --retry 3 --retry-delay 5 --retry-max-time 30 \
+          HTTP_STATUS=$(curl -s -o "$WORK_DIR/api_response.json" -w "%{http_code}" \
+            --retry 3 --retry-delay 5 --retry-max-time 120 \
             https://api.openai.com/v1/chat/completions \
-            -H @"$HEADERS" \
-            -d @/tmp/payload.json)
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $API_KEY" \
+            -d @"$WORK_DIR/payload.json")
 
           echo "📡 OpenAI API status: $HTTP_STATUS"
           test "$HTTP_STATUS" -eq 200
 
-          python3 -c $'import json\n\nwith open(\"/tmp/api_response.json\", \"r\", encoding=\"utf-8\") as f:\n    data = json.load(f)\n\ncontent = data[\"choices\"][0][\"message\"][\"content\"]\nwith open(\"/tmp/review_result.txt\", \"w\", encoding=\"utf-8\") as out:\n    out.write(content)\n'
+          python3 "$GITHUB_ACTION_PATH/scripts/extract_openai_response.py" \
+            "$WORK_DIR/api_response.json" \
+            "$WORK_DIR/review_result.txt"
         elif [ "$PROVIDER" = "anthropic" ]; then
           jq -n \
-            --rawfile system /tmp/system_prompt.txt \
-            --rawfile user /tmp/user_content.txt \
+            --rawfile system "$WORK_DIR/system_prompt.txt" \
+            --rawfile user "$WORK_DIR/user_content.txt" \
             --arg model "$MODEL" \
             '{
               model: $model,
+              # Anthropic messages API uses max_tokens, unlike OpenAI chat/completions max_completion_tokens.
               max_tokens: 4096,
               temperature: 0.3,
               system: $system,
               messages: [
                 {role: "user", content: $user}
               ]
-            }' > /tmp/payload.json
+            }' > "$WORK_DIR/payload.json"
 
-          HEADERS=$(mktemp /tmp/claude_headers.XXXXXX)
-          printf '%s\n' \
-            "Content-Type: application/json" \
-            "x-api-key: $API_KEY" \
-            "anthropic-version: 2023-06-01" \
-            > "$HEADERS"
-
-          HTTP_STATUS=$(curl -s -o /tmp/api_response.json -w "%{http_code}" \
-            --retry 3 --retry-delay 5 --retry-max-time 30 \
+          HTTP_STATUS=$(curl -s -o "$WORK_DIR/api_response.json" -w "%{http_code}" \
+            --retry 3 --retry-delay 5 --retry-max-time 120 \
             https://api.anthropic.com/v1/messages \
-            -H @"$HEADERS" \
-            -d @/tmp/payload.json)
+            -H "Content-Type: application/json" \
+            -H "x-api-key: $API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -d @"$WORK_DIR/payload.json")
 
           echo "📡 Claude API status: $HTTP_STATUS"
           test "$HTTP_STATUS" -eq 200
 
-          python3 -c $'import json\n\nwith open(\"/tmp/api_response.json\", \"r\", encoding=\"utf-8\") as f:\n    data = json.load(f)\n\nparts = [b.get(\"text\", \"\") for b in data.get(\"content\", []) if b.get(\"type\") == \"text\"]\nwith open(\"/tmp/review_result.txt\", \"w\", encoding=\"utf-8\") as out:\n    out.write(\"\\n\".join(parts).strip())\n'
+          python3 "$GITHUB_ACTION_PATH/scripts/extract_anthropic_response.py" \
+            "$WORK_DIR/api_response.json" \
+            "$WORK_DIR/review_result.txt"
         else
           echo "Unknown provider: $PROVIDER" >&2
           exit 2
@@ -220,31 +240,41 @@ runs:
       if: steps.guard.outputs.skip != 'true'
       shell: bash
       env:
-        GH_TOKEN: ${{ env.GH_TOKEN }}
-        PR_NUMBER: ${{ env.PR_NUMBER }}
-        REPO: ${{ env.REPO }}
-        HEAD_SHA: ${{ env.HEAD_SHA }}
+        GH_TOKEN: ${{ inputs.gh_token }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        REPO: ${{ inputs.repo }}
+        HEAD_SHA: ${{ inputs.head_sha }}
+        MARKER: ${{ inputs.comment_marker }}
+        TITLE: ${{ inputs.comment_title }}
       run: |
         set -euo pipefail
 
-        MARKER='${{ inputs.comment_marker }}'
-
         {
-          echo '${{ inputs.comment_title }}'
+          echo "$TITLE"
           echo ""
-          cat /tmp/review_result.txt
+          cat "$WORK_DIR/review_result.txt"
           printf '\n---\n'
           echo "<sub>🔄 Tạo tự động bởi AI Code Review workflow | Commit: $HEAD_SHA</sub>"
           echo "$MARKER"
-        } > /tmp/comment.md
+        } > "$WORK_DIR/comment.md"
 
-        EXISTING_COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
-          --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | tail -1)
+        EXISTING_COMMENT_ID=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments?per_page=100" \
+          | jq -r --arg marker "$MARKER" '.[] | select(.body and (.body | contains($marker))) | .id' \
+          | tail -1)
 
         if [ -n "$EXISTING_COMMENT_ID" ]; then
           gh api "repos/$REPO/issues/comments/$EXISTING_COMMENT_ID" \
             -X PATCH \
-            -F "body=@/tmp/comment.md"
+            -F "body=@$WORK_DIR/comment.md"
         else
-          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file /tmp/comment.md
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file "$WORK_DIR/comment.md"
+        fi
+
+    - name: Cleanup sensitive temp files
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -n "${WORK_DIR:-}" ] && [ -d "$WORK_DIR" ]; then
+          rm -rf "$WORK_DIR"
         fi

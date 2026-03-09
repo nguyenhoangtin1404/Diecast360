@@ -17,8 +17,12 @@ permissions:
 jobs:
   review:
     name: OpenAI Code Review
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
@@ -39,15 +43,14 @@ jobs:
       - name: 🤖 Run OpenAI review action
         if: steps.guard.outputs.skip != 'true'
         uses: ./.github/actions/ai-review
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         with:
           provider: openai
           model: gpt-4.1-mini
           api_key: ${{ secrets.OPENAI_API_KEY }}
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_number: ${{ github.event.pull_request.number }}
+          repo: ${{ github.repository }}
+          head_sha: ${{ github.event.pull_request.head.sha }}
           comment_title: "## 🤖 AI Code Review – Đánh giá tự động (GPT-4.1-mini)"
           comment_marker: "<!-- ai-code-review-bot -->"
           system_prompt: |
@@ -70,12 +73,16 @@ jobs:
             - LUÔN trả lời bằng tiếng Việt
 
   # ───────────────────────────────────────────────────────────
-  # Claude Sonnet 4.6 Review (runs in parallel with OpenAI job)
+  # Claude Sonnet 4.5 Review (runs in parallel with OpenAI job)
   # ───────────────────────────────────────────────────────────
   review-claude:
-    name: Claude Code Review (Sonnet 4.6)
+    name: Claude Code Review (Sonnet 4.5)
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
@@ -96,16 +103,15 @@ jobs:
       - name: 🧠 Run Claude review action
         if: steps.guard.outputs.skip != 'true'
         uses: ./.github/actions/ai-review
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         with:
           provider: anthropic
-          model: claude-sonnet-4-6
+          model: claude-sonnet-4-5
           api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          comment_title: "## 🧠 AI Code Review – Đánh giá tự động (Claude Sonnet 4.6)"
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_number: ${{ github.event.pull_request.number }}
+          repo: ${{ github.repository }}
+          head_sha: ${{ github.event.pull_request.head.sha }}
+          comment_title: "## 🧠 AI Code Review – Đánh giá tự động (Claude Sonnet 4.5)"
           comment_marker: "<!-- ai-code-review-claude -->"
           system_prompt: |
             Bạn là một chuyên gia review code cấp Senior với hơn 10 năm kinh nghiệm. Hãy review pull request diff sau và đưa ra feedback chuyên sâu bằng tiếng Việt. Tập trung vào:
