@@ -213,7 +213,8 @@ runs:
           test "$HTTP_STATUS" -eq 200
           jq -c '.usage // {}' "$WORK_DIR/api_response.json" | sed 's/^/📈 OpenAI usage: /'
 
-          python3 "$GITHUB_ACTION_PATH/scripts/extract_openai_response.py" \
+          python3 "$GITHUB_ACTION_PATH/scripts/extract_response.py" \
+            --provider openai \
             "$WORK_DIR/api_response.json" \
             "$WORK_DIR/review_result.txt"
         elif [ "$PROVIDER" = "anthropic" ]; then
@@ -244,7 +245,8 @@ runs:
           test "$HTTP_STATUS" -eq 200
           jq -c '.usage // {}' "$WORK_DIR/api_response.json" | sed 's/^/📈 Claude usage: /'
 
-          python3 "$GITHUB_ACTION_PATH/scripts/extract_anthropic_response.py" \
+          python3 "$GITHUB_ACTION_PATH/scripts/extract_response.py" \
+            --provider anthropic \
             "$WORK_DIR/api_response.json" \
             "$WORK_DIR/review_result.txt"
         else

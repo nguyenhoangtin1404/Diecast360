@@ -18,7 +18,6 @@ jobs:
   review:
     name: OpenAI Code Review
     if: github.event.pull_request.draft == false
-    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -43,6 +42,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       - name: 🤖 Run OpenAI review action
         if: steps.guard.outputs.skip != 'true'
+        continue-on-error: true
         uses: ./.github/actions/ai-review
         with:
           provider: openai
@@ -79,7 +79,6 @@ jobs:
   review-claude:
     name: Claude Code Review (Sonnet 4.6)
     if: github.event.pull_request.draft == false
-    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -104,6 +103,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       - name: 🧠 Run Claude review action
         if: steps.guard.outputs.skip != 'true'
+        continue-on-error: true
         uses: ./.github/actions/ai-review
         with:
           provider: anthropic

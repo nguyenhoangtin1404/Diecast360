@@ -34,7 +34,7 @@ cur_path = None
 
 for line in raw:
     if line.startswith("diff --git "):
-        if cur and cur_path is not None and not is_excluded(cur_path):
+        if cur and (cur_path is None or not is_excluded(cur_path)):
             out.extend(cur)
         cur = []
         parts = line.strip().split(" ")
@@ -42,12 +42,12 @@ for line in raw:
             path_a = parts[2]
             cur_path = path_a[2:] if path_a.startswith("a/") else path_a
         else:
-            cur_path = ""
+            cur_path = None
         cur.append(line)
     elif cur:
         cur.append(line)
 
-if cur and cur_path is not None and not is_excluded(cur_path):
+if cur and (cur_path is None or not is_excluded(cur_path)):
     out.extend(cur)
 
 dest.write_text("".join(out), encoding="utf-8")
