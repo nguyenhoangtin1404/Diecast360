@@ -70,16 +70,11 @@ runs:
         cur: list[str] = []
         cur_path: str | None = None
 
-        def flush():
-            nonlocal cur, cur_path
-            if cur and cur_path is not None and not is_excluded(cur_path):
-                out.extend(cur)
-            cur = []
-            cur_path = None
-
         for line in raw:
             if line.startswith("diff --git "):
-                flush()
+                if cur and cur_path is not None and not is_excluded(cur_path):
+                    out.extend(cur)
+                cur = []
                 parts = line.strip().split(" ")
                 cur_path = parts[2][2:] if len(parts) >= 4 and parts[2].startswith("a/") else ""
                 cur.append(line)
@@ -87,7 +82,8 @@ runs:
                 if cur:
                     cur.append(line)
 
-        flush()
+        if cur and cur_path is not None and not is_excluded(cur_path):
+            out.extend(cur)
         Path("/tmp/pr_diff.txt").write_text("".join(out), encoding="utf-8")
         PYEOF
 
