@@ -38,7 +38,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 02-01: Harden image and spinner upload workflows
+- [x] 02-01: Harden image and spinner upload workflows
 
 ### Phase 3: Public Experience
 **Goal**: Reliable public browsing and item detail presentation.

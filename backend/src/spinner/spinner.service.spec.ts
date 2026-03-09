@@ -61,6 +61,8 @@ describe('SpinnerService', () => {
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        count: jest.fn(),
+        updateMany: jest.fn(),
       },
       $transaction: jest.fn(async (fn: (prisma: unknown) => Promise<unknown>) => fn(prisma)),
     };
@@ -208,14 +210,21 @@ describe('SpinnerService', () => {
   describe('uploadFrame', () => {
     it('should upload frame and auto-assign frame_index', async () => {
       prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
-      prisma.spinFrame.findFirst.mockResolvedValue({ frame_index: 2 }); // max existing
-      prisma.spinFrame.create.mockResolvedValue({ ...mockFrame, frame_index: 3 });
+      prisma.spinFrame.count.mockResolvedValue(2);
+      prisma.spinFrame.create.mockResolvedValue({ ...mockFrame, frame_index: 2 });
 
       const result = await service.uploadFrame('spin-1', mockFile, {});
 
-      expect(result.frame.frame_index).toBe(3);
+      expect(result.frame.frame_index).toBe(2);
+      expect(prisma.spinFrame.updateMany).not.toHaveBeenCalled();
       expect(imageProcessor.processImage).toHaveBeenCalled();
       expect(storage.saveFile).toHaveBeenCalledTimes(2);
+      expect(prisma.spinFrame.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          spin_set_id: 'spin-1',
+          frame_index: 2,
+        }),
+      });
     });
 
     it('should throw NOT_FOUND when spin set does not exist', async () => {
@@ -226,21 +235,57 @@ describe('SpinnerService', () => {
       ).rejects.toThrow(AppException);
     });
 
-    it('should throw on duplicate frame_index', async () => {
+    it('should insert frame at requested index and shift existing frames', async () => {
       prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
-      prisma.spinFrame.findFirst.mockResolvedValue({ frame_index: 0 }); // exists
+      prisma.spinFrame.count.mockResolvedValue(3);
+      prisma.spinFrame.create.mockResolvedValue({ ...mockFrame, frame_index: 1 });
 
-      await expect(
-        service.uploadFrame('spin-1', mockFile, { frame_index: 0 }),
-      ).rejects.toThrow(AppException);
+      const result = await service.uploadFrame('spin-1', mockFile, { frame_index: 1 });
+
+      expect(result.frame.frame_index).toBe(1);
+      expect(prisma.spinFrame.updateMany).toHaveBeenCalledWith({
+        where: { spin_set_id: 'spin-1', frame_index: { gte: 1 } },
+        data: { frame_index: { increment: 1 } },
+      });
+      expect(prisma.spinFrame.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ spin_set_id: 'spin-1', frame_index: 1 }),
+      });
     });
 
+    it('should reject negative frame_index', async () => {
+      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinFrame.count.mockResolvedValue(1);
+
+      await expect(
+        service.uploadFrame('spin-1', mockFile, { frame_index: -1 }),
+      ).rejects.toThrow(AppException);
+    });
+    it('should reject uploads beyond max frame limit', async () => {
+      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinFrame.count.mockResolvedValue(48); // max frames reached
+
+      await expect(
+        service.uploadFrame('spin-1', mockFile, {}),
+      ).rejects.toThrow(AppException);
+      expect(storage.saveFile).not.toHaveBeenCalled();
+    });
     it('should convert WatermarkProcessingError to AppException', async () => {
       prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
       imageProcessor.processImage.mockRejectedValueOnce(new WatermarkProcessingError('fail watermark'));
 
       await expect(service.uploadFrame('spin-1', mockFile, {})).rejects.toThrow(AppException);
       expect(storage.saveFile).not.toHaveBeenCalled();
+    });
+
+    it('should cleanup saved files when db transaction fails', async () => {
+      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinFrame.count.mockResolvedValue(0);
+      prisma.$transaction.mockImplementationOnce(async () => {
+        throw new Error('DB failure');
+      });
+
+      await expect(service.uploadFrame('spin-1', mockFile, {})).rejects.toThrow('DB failure');
+      expect(storage.deleteFile).toHaveBeenCalledTimes(2);
     });
   });
 

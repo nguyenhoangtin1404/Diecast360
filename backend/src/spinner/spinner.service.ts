@@ -1,4 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ImageProcessorService, WatermarkProcessingError } from '../image-processor/image-processor.service';
 import { IStorageService } from '../storage/storage.interface';
@@ -164,6 +165,18 @@ export class SpinnerService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Spin set not found');
     }
 
+    // Enforce max number of frames per spin set
+    const maxFrames = parseInt(process.env.MAX_SPINNER_FRAMES || '48', 10);
+    const existingCount = await this.prisma.spinFrame.count({
+      where: { spin_set_id: spinSetId },
+    });
+    if (existingCount >= maxFrames) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        `Cannot upload more than ${maxFrames} frames`,
+      );
+    }
+
     // Validate file
     this.validateFile(file);
 
@@ -188,68 +201,126 @@ export class SpinnerService {
     const imageFilename = this.imageProcessor.generateFilename(file.originalname);
     const thumbnailFilename = this.imageProcessor.generateFilename(file.originalname);
 
-    // Save files
-    const imagePath = await this.storage.saveFile(
-      processedImage,
-      imageFilename,
-      'spinner',
-    );
-    const thumbnailPath = await this.storage.saveFile(
-      thumbnail,
-      `thumb_${thumbnailFilename}`,
-      'spinner/thumbnails',
-    );
+    const savedPaths: string[] = [];
+    try {
+      const imagePath = await this.storage.saveFile(
+        processedImage,
+        imageFilename,
+        'spinner',
+      );
+      savedPaths.push(imagePath);
 
-    // Determine frame_index
-    let frameIndex: number;
-    if (uploadDto.frame_index !== undefined) {
-      // Check if frame_index already exists
-      const existing = await this.prisma.spinFrame.findFirst({
-        where: {
-          spin_set_id: spinSetId,
-          frame_index: uploadDto.frame_index,
-        },
-      });
+      const thumbnailPath = await this.storage.saveFile(
+        thumbnail,
+        `thumb_${thumbnailFilename}`,
+        'spinner/thumbnails',
+      );
+      savedPaths.push(thumbnailPath);
 
-      if (existing) {
-        throw new AppException(
-          ErrorCode.SPIN_FRAME_INDEX_CONFLICT,
-          `Frame index ${uploadDto.frame_index} already exists`,
-        );
+      const frame = await this.insertFrameWithOrdering(
+        spinSetId,
+        imagePath,
+        thumbnailPath,
+        uploadDto.frame_index,
+      );
+
+      return { frame: this.mapFrame(frame) };
+    } catch (error) {
+      await this.cleanupSavedFiles(savedPaths);
+      throw error;
+    }
+  }
+
+  private async insertFrameWithOrdering(
+    spinSetId: string,
+    imagePath: string,
+    thumbnailPath: string,
+    requestedIndex?: number,
+  ) {
+    const maxAttempts = 3;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const frameCount = await tx.spinFrame.count({
+            where: { spin_set_id: spinSetId },
+          });
+
+          let targetIndex = frameCount;
+          if (requestedIndex !== undefined) {
+            if (requestedIndex < 0) {
+              throw new AppException(
+                ErrorCode.VALIDATION_ERROR,
+                'frame_index must be >= 0',
+              );
+            }
+
+            // Cap to end-of-list when index is too large
+            targetIndex = Math.min(requestedIndex, frameCount);
+
+            // Shift existing frames to make room for inserted index
+            await tx.spinFrame.updateMany({
+              where: {
+                spin_set_id: spinSetId,
+                frame_index: { gte: targetIndex },
+              },
+              data: { frame_index: { increment: 1 } },
+            });
+          }
+
+          return tx.spinFrame.create({
+            data: {
+              spin_set_id: spinSetId,
+              frame_index: targetIndex,
+              file_path: imagePath,
+              thumbnail_path: thumbnailPath,
+            },
+          });
+        });
+      } catch (error) {
+        // Retry on unique constraint collision due to concurrency
+        if (
+          error instanceof PrismaClientKnownRequestError &&
+          error.code === 'P2002' &&
+          attempt < maxAttempts - 1
+        ) {
+          continue;
+        }
+
+        throw error;
       }
-
-      frameIndex = uploadDto.frame_index;
-    } else {
-      // Append at the end
-      const maxFrame = await this.prisma.spinFrame.findFirst({
-        where: { spin_set_id: spinSetId },
-        orderBy: { frame_index: 'desc' },
-        select: { frame_index: true },
-      });
-
-      frameIndex = maxFrame ? maxFrame.frame_index + 1 : 0;
     }
 
-    // Create frame
-    const frame = await this.prisma.spinFrame.create({
-      data: {
-        spin_set_id: spinSetId,
-        frame_index: frameIndex,
-        file_path: imagePath,
-        thumbnail_path: thumbnailPath,
-      },
-    });
+    // Should never reach here, but included for type safety
+    throw new AppException(
+      ErrorCode.VALIDATION_ERROR,
+      'Unable to upload frame due to concurrency conflict',
+    );
+  }
 
+  private mapFrame(frame: any) {
     return {
-      frame: {
-        id: frame.id,
-        spin_set_id: frame.spin_set_id,
-        frame_index: frame.frame_index,
-        image_url: this.storage.getFileUrl(frame.file_path),
-        thumbnail_url: this.storage.getFileUrl(frame.thumbnail_path),
-        created_at: frame.created_at,
-      },
+      id: frame.id,
+      spin_set_id: frame.spin_set_id,
+      frame_index: frame.frame_index,
+      image_url: this.storage.getFileUrl(frame.file_path),
+      thumbnail_url: frame.thumbnail_path
+        ? this.storage.getFileUrl(frame.thumbnail_path)
+        : null,
+      created_at: frame.created_at,
     };
+  }
+
+  private async cleanupSavedFiles(paths: string[]) {
+    await Promise.all(
+      paths.map(async (path) => {
+        try {
+          await this.storage.deleteFile(path);
+        } catch {
+          // Best-effort cleanup
+        }
+      }),
+    );
   }
 
   async reorderFrames(spinSetId: string, reorderDto: ReorderFramesDto) {

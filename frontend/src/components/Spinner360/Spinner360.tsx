@@ -32,6 +32,13 @@ export const Spinner360: React.FC<Spinner360Props> = ({
 
   const totalFrames = frames.length;
 
+  // Reset current frame and loaded set when frames change to avoid stale indexes
+  useEffect(() => {
+    if (totalFrames === 0) return;
+    setCurrentFrame((prev) => (prev >= totalFrames ? 0 : prev));
+    setLoadedFrames(new Set([0]));
+  }, [totalFrames]);
+
   // Preload next frames
   useEffect(() => {
     const preloadRange = 3;

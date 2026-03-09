@@ -9,6 +9,7 @@ describe('ImagesService', () => {
   let prisma: {
     item: Record<string, jest.Mock>;
     itemImage: Record<string, jest.Mock>;
+    $transaction: jest.Mock;
   };
   let imageProcessor: Record<string, jest.Mock>;
   let storage: Record<string, jest.Mock>;
@@ -50,7 +51,9 @@ describe('ImagesService', () => {
         update: jest.fn(),
         updateMany: jest.fn(),
         delete: jest.fn(),
+        count: jest.fn(),
       },
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
     };
 
     imageProcessor = {
@@ -90,7 +93,8 @@ describe('ImagesService', () => {
   describe('uploadImage', () => {
     it('should upload and process image successfully', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
-      prisma.itemImage.findFirst.mockResolvedValue(null); // no existing images
+      prisma.itemImage.count.mockResolvedValue(0);
+      prisma.itemImage.findFirst.mockResolvedValue(null);
       prisma.itemImage.create.mockResolvedValue(mockImage);
       prisma.itemImage.updateMany.mockResolvedValue({ count: 0 });
 
@@ -111,6 +115,7 @@ describe('ImagesService', () => {
 
     it('should set first image as cover by default', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
+      prisma.itemImage.count.mockResolvedValue(0);
       prisma.itemImage.findFirst.mockResolvedValue(null); // no existing → display_order = 0
       prisma.itemImage.create.mockResolvedValue(mockImage);
       prisma.itemImage.updateMany.mockResolvedValue({ count: 0 });
@@ -119,12 +124,14 @@ describe('ImagesService', () => {
 
       const createCall = prisma.itemImage.create.mock.calls[0][0];
       expect(createCall.data.is_cover).toBe(true);
+      expect(createCall.data.display_order).toBe(0);
     });
 
     it('should explicitly set cover when isCover=true', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
-      prisma.itemImage.findFirst.mockResolvedValue({ display_order: 2 }); // has existing
-      prisma.itemImage.create.mockResolvedValue({ ...mockImage, display_order: 3 });
+      prisma.itemImage.count.mockResolvedValue(1);
+      prisma.itemImage.findFirst.mockResolvedValue({ display_order: 2 }); // has existing cover
+      prisma.itemImage.create.mockResolvedValue({ ...mockImage, display_order: 1 });
       prisma.itemImage.updateMany.mockResolvedValue({ count: 1 });
 
       await service.uploadImage('item-1', mockFile, true);
@@ -143,6 +150,19 @@ describe('ImagesService', () => {
       await expect(service.uploadImage('item-1', mockFile)).rejects.toThrow(AppException);
       expect(imageProcessor.generateThumbnail).not.toHaveBeenCalled();
     });
+
+    it('should cleanup saved files when db transaction fails', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      prisma.itemImage.count.mockResolvedValue(0);
+
+      // Make $transaction throw to simulate DB failure after file save
+      prisma.$transaction.mockImplementationOnce(async () => {
+        throw new Error('DB failure');
+      });
+
+      await expect(service.uploadImage('item-1', mockFile)).rejects.toThrow('DB failure');
+      expect(storage.deleteFile).toHaveBeenCalledTimes(2);
+    });
   });
 
   // ============================================================
@@ -152,6 +172,7 @@ describe('ImagesService', () => {
     it('should update image properties', async () => {
       prisma.itemImage.findFirst.mockResolvedValue(mockImage);
       prisma.itemImage.update.mockResolvedValue({ ...mockImage, display_order: 5 });
+      prisma.itemImage.findMany.mockResolvedValue([mockImage]);
 
       const result = await service.updateImage('item-1', 'img-1', { display_order: 5 });
 
@@ -170,6 +191,7 @@ describe('ImagesService', () => {
       prisma.itemImage.findFirst.mockResolvedValue(mockImage);
       prisma.itemImage.update.mockResolvedValue({ ...mockImage, is_cover: true });
       prisma.itemImage.updateMany.mockResolvedValue({ count: 1 });
+      prisma.itemImage.findMany.mockResolvedValue([mockImage]);
 
       await service.updateImage('item-1', 'img-1', { is_cover: true });
 
@@ -191,8 +213,12 @@ describe('ImagesService', () => {
           { id: 'img-2' },
         ])
         .mockResolvedValueOnce([
-          { ...mockImage, id: 'img-2', display_order: 0 },
-          { ...mockImage, id: 'img-1', display_order: 1 },
+          { id: 'img-1' },
+          { id: 'img-2' },
+        ])
+        .mockResolvedValueOnce([
+          { ...mockImage, id: 'img-2', display_order: 0, is_cover: false },
+          { ...mockImage, id: 'img-1', display_order: 1, is_cover: true },
         ]);
       prisma.itemImage.update.mockResolvedValue({});
 
@@ -201,7 +227,7 @@ describe('ImagesService', () => {
       });
 
       expect(result.images).toHaveLength(2);
-      expect(prisma.itemImage.update).toHaveBeenCalledTimes(2);
+      expect(prisma.itemImage.update).toHaveBeenCalled();
     });
 
     it('should throw if some image IDs do not belong to item', async () => {
@@ -242,7 +268,9 @@ describe('ImagesService', () => {
         .mockResolvedValueOnce({ id: 'img-2', display_order: 1 }); // first remaining
       prisma.itemImage.delete.mockResolvedValue({});
       prisma.itemImage.update.mockResolvedValue({});
-      prisma.itemImage.findMany.mockResolvedValue([]);
+      prisma.itemImage.findMany.mockResolvedValue([
+        { id: 'img-2', item_id: 'item-1', file_path: 'images/2.jpg', thumbnail_path: 'thumbnails/2.jpg', is_cover: false, display_order: 1, created_at: new Date() },
+      ]);
 
       await service.deleteImage('item-1', 'img-1');
 

@@ -118,6 +118,7 @@ describe('ItemDetailPage integration (real React Query)', () => {
     });
 
     expect(screen.getByText('Chưa có ảnh nào được upload.')).toBeTruthy();
+    expect(screen.getByLabelText('Upload item images')).toBeTruthy();
   });
 
   it('stays on create page and shows toast when create response has no item id', async () => {
