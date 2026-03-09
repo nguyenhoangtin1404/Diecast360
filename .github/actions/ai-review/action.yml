@@ -1,0 +1,297 @@
+name: "AI Review"
+description: "Fetch PR diff, run AI review (OpenAI/Anthropic), and post/update a PR comment."
+
+inputs:
+  provider:
+    description: "openai | anthropic"
+    required: true
+  model:
+    description: "Model name for provider"
+    required: true
+  api_key:
+    description: "Provider API key"
+    required: true
+  comment_title:
+    description: "Markdown title line (e.g. ## 🤖 ...)"
+    required: true
+  comment_marker:
+    description: "Hidden marker used to dedup/update comment"
+    required: true
+  system_prompt:
+    description: "System prompt in Vietnamese"
+    required: true
+  max_diff_lines:
+    description: "Skip if diff exceeds this line count"
+    required: false
+    default: "10000"
+  min_diff_lines:
+    description: "Skip if diff is smaller than this line count"
+    required: false
+    default: "5"
+  max_diff_chars:
+    description: "Truncate diff to this many bytes/chars (approx)"
+    required: false
+    default: "100000"
+  max_tokens:
+    description: "Max tokens for AI response"
+    required: false
+    default: "4096"
+  gh_token:
+    description: "GitHub token for gh CLI"
+    required: true
+  pr_number:
+    description: "Pull request number"
+    required: true
+  repo:
+    description: "owner/repo"
+    required: true
+  head_sha:
+    description: "PR head commit SHA"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Initialize temp workspace
+      shell: bash
+      run: |
+        set -euo pipefail
+        WORK_DIR=$(mktemp -d "${RUNNER_TEMP:?RUNNER_TEMP not set}/ai-review.XXXXXX")
+        echo "WORK_DIR=$WORK_DIR" >> "$GITHUB_ENV"
+
+    - name: Fetch and filter PR diff
+      id: fetch
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.gh_token }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        REPO: ${{ inputs.repo }}
+      run: |
+        set -euo pipefail
+
+        gh pr diff "$PR_NUMBER" --repo "$REPO" > "$WORK_DIR/pr_diff_raw.txt"
+        RAW_DIFF_LINES=$(wc -l < "$WORK_DIR/pr_diff_raw.txt")
+
+        # Filter out lockfiles and migrations (no apt-get dependency)
+        python3 "$GITHUB_ACTION_PATH/scripts/filter_diff.py" \
+          "$WORK_DIR/pr_diff_raw.txt" \
+          "$WORK_DIR/pr_diff.txt"
+
+        DIFF_LINES=$(wc -l < "$WORK_DIR/pr_diff.txt")
+        echo "raw_diff_lines=$RAW_DIFF_LINES" >> "$GITHUB_OUTPUT"
+        echo "diff_lines=$DIFF_LINES" >> "$GITHUB_OUTPUT"
+        echo "📊 Diff size: $DIFF_LINES lines"
+
+    - name: Decide skip reason
+      id: guard
+      shell: bash
+      run: |
+        set -euo pipefail
+        DIFF_LINES="${{ steps.fetch.outputs.diff_lines }}"
+        RAW_DIFF_LINES="${{ steps.fetch.outputs.raw_diff_lines }}"
+        MAX="${{ inputs.max_diff_lines }}"
+        MIN="${{ inputs.min_diff_lines }}"
+
+        if [ "$DIFF_LINES" -gt "$MAX" ]; then
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          echo "reason=too_large" >> "$GITHUB_OUTPUT"
+        elif [ "$DIFF_LINES" -eq 0 ] && [ "$RAW_DIFF_LINES" -gt 0 ]; then
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          echo "reason=all_filtered" >> "$GITHUB_OUTPUT"
+        elif [ "$DIFF_LINES" -lt "$MIN" ]; then
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          echo "reason=too_small" >> "$GITHUB_OUTPUT"
+        else
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Post skip notice
+      if: steps.guard.outputs.skip == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.gh_token }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        REPO: ${{ inputs.repo }}
+        MARKER: ${{ inputs.comment_marker }}
+        TITLE: ${{ inputs.comment_title }}
+        REASON: ${{ steps.guard.outputs.reason }}
+      run: |
+        set -euo pipefail
+
+        if [ "$REASON" = "too_large" ]; then
+          MSG="⚠️ **Bỏ qua** – PR diff quá lớn (>${{ inputs.max_diff_lines }} dòng). Vui lòng review thủ công."
+        elif [ "$REASON" = "all_filtered" ]; then
+          MSG="ℹ️ **Bỏ qua** – Chỉ có thay đổi thuộc danh sách đã lọc (lockfiles/build artifacts/migrations), không review tự động."
+        else
+          MSG="ℹ️ **Bỏ qua** – PR diff quá nhỏ, không đủ nội dung để review."
+        fi
+
+        {
+          echo "$TITLE"
+          echo ""
+          echo "$MSG"
+          echo ""
+          echo "---"
+          echo "<sub>🔄 Tạo tự động bởi AI Code Review workflow</sub>"
+          echo "$MARKER"
+        } > "$WORK_DIR/ai_review_comment.md"
+
+        EXISTING_COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments?per_page=100&sort=created&direction=desc" \
+          | jq -r --arg marker "$MARKER" 'first(.[] | select(.body and (.body | contains($marker))) | .id) // empty')
+
+        if [ -n "$EXISTING_COMMENT_ID" ]; then
+          gh api "repos/$REPO/issues/comments/$EXISTING_COMMENT_ID" \
+            -X PATCH \
+            -F "body=@$WORK_DIR/ai_review_comment.md"
+        else
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file "$WORK_DIR/ai_review_comment.md"
+        fi
+
+    - name: Truncate diff
+      if: steps.guard.outputs.skip != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        python3 "$GITHUB_ACTION_PATH/scripts/truncate_diff.py" \
+          "$WORK_DIR/pr_diff.txt" \
+          "$WORK_DIR/pr_diff_truncated.txt"
+      env:
+        MAX_BYTES: ${{ inputs.max_diff_chars }}
+
+    - name: Build prompts
+      if: steps.guard.outputs.skip != 'true'
+      shell: bash
+      env:
+        SYSTEM_PROMPT: ${{ inputs.system_prompt }}
+      run: |
+        set -euo pipefail
+        printf '%s' "$SYSTEM_PROMPT" > "$WORK_DIR/system_prompt.txt"
+        {
+          echo "Hãy review pull request diff sau:"
+          echo ""
+          cat "$WORK_DIR/pr_diff_truncated.txt"
+        } > "$WORK_DIR/user_content.txt"
+
+    - name: Call provider API
+      if: steps.guard.outputs.skip != 'true'
+      shell: bash
+      env:
+        API_KEY: ${{ inputs.api_key }}
+        PROVIDER: ${{ inputs.provider }}
+        MODEL: ${{ inputs.model }}
+        MAX_TOKENS: ${{ inputs.max_tokens }}
+      run: |
+        set -euo pipefail
+        # Keep shell xtrace disabled in this block to avoid accidental API key exposure in logs.
+        set +x
+        umask 077
+
+        if [ "$PROVIDER" = "openai" ]; then
+          jq -n \
+            --rawfile system "$WORK_DIR/system_prompt.txt" \
+            --rawfile user "$WORK_DIR/user_content.txt" \
+            --arg model "$MODEL" \
+            --arg max_tokens "$MAX_TOKENS" \
+            '{
+              model: $model,
+              messages: [
+                {role: "system", content: $system},
+                {role: "user", content: $user}
+              ],
+              max_completion_tokens: ($max_tokens|tonumber),
+              temperature: 0.3
+            }' > "$WORK_DIR/payload.json"
+
+          HTTP_STATUS=$(curl -s -o "$WORK_DIR/api_response.json" -w "%{http_code}" \
+            --retry 5 --retry-all-errors --retry-max-time 180 \
+            https://api.openai.com/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $API_KEY" \
+            -d @"$WORK_DIR/payload.json")
+
+          echo "📡 OpenAI API status: $HTTP_STATUS"
+          test "$HTTP_STATUS" -eq 200
+          jq -c '.usage // {}' "$WORK_DIR/api_response.json" | sed 's/^/📈 OpenAI usage: /'
+
+          python3 "$GITHUB_ACTION_PATH/scripts/extract_response.py" \
+            --provider openai \
+            "$WORK_DIR/api_response.json" \
+            "$WORK_DIR/review_result.txt"
+        elif [ "$PROVIDER" = "anthropic" ]; then
+          jq -n \
+            --rawfile system "$WORK_DIR/system_prompt.txt" \
+            --rawfile user "$WORK_DIR/user_content.txt" \
+            --arg model "$MODEL" \
+            --arg max_tokens "$MAX_TOKENS" \
+            '{
+              model: $model,
+              max_tokens: ($max_tokens|tonumber),
+              temperature: 0.3,
+              system: $system,
+              messages: [
+                {role: "user", content: $user}
+              ]
+            }' > "$WORK_DIR/payload.json"
+
+          HTTP_STATUS=$(curl -s -o "$WORK_DIR/api_response.json" -w "%{http_code}" \
+            --retry 5 --retry-all-errors --retry-max-time 180 \
+            https://api.anthropic.com/v1/messages \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: $API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -d @"$WORK_DIR/payload.json")
+
+          echo "📡 Claude API status: $HTTP_STATUS"
+          test "$HTTP_STATUS" -eq 200
+          jq -c '.usage // {}' "$WORK_DIR/api_response.json" | sed 's/^/📈 Claude usage: /'
+
+          python3 "$GITHUB_ACTION_PATH/scripts/extract_response.py" \
+            --provider anthropic \
+            "$WORK_DIR/api_response.json" \
+            "$WORK_DIR/review_result.txt"
+        else
+          echo "Unknown provider: $PROVIDER" >&2
+          exit 2
+        fi
+
+    - name: Post or update PR comment
+      if: steps.guard.outputs.skip != 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.gh_token }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        REPO: ${{ inputs.repo }}
+        HEAD_SHA: ${{ inputs.head_sha }}
+        MARKER: ${{ inputs.comment_marker }}
+        TITLE: ${{ inputs.comment_title }}
+      run: |
+        set -euo pipefail
+
+        {
+          echo "$TITLE"
+          echo ""
+          cat "$WORK_DIR/review_result.txt"
+          printf '\n---\n'
+          echo "<sub>🔄 Tạo tự động bởi AI Code Review workflow | Commit: $HEAD_SHA</sub>"
+          echo "$MARKER"
+        } > "$WORK_DIR/comment.md"
+
+        EXISTING_COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments?per_page=100&sort=created&direction=desc" \
+          | jq -r --arg marker "$MARKER" 'first(.[] | select(.body and (.body | contains($marker))) | .id) // empty')
+
+        if [ -n "$EXISTING_COMMENT_ID" ]; then
+          gh api "repos/$REPO/issues/comments/$EXISTING_COMMENT_ID" \
+            -X PATCH \
+            -F "body=@$WORK_DIR/comment.md"
+        else
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file "$WORK_DIR/comment.md"
+        fi
+
+    - name: Cleanup sensitive temp files
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -n "${WORK_DIR:-}" ] && [ -d "$WORK_DIR" ]; then
+          rm -rf "$WORK_DIR"
+        fi
