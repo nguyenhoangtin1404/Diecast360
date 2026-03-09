@@ -49,43 +49,7 @@ runs:
         gh pr diff "$PR_NUMBER" --repo "$REPO" > /tmp/pr_diff_raw.txt
 
         # Filter out lockfiles and migrations (no apt-get dependency)
-        python3 <<'PYEOF'
-from __future__ import annotations
-import fnmatch
-from pathlib import Path
-
-raw = Path("/tmp/pr_diff_raw.txt").read_text(encoding="utf-8", errors="replace").splitlines(True)
-
-EXCLUDES = [
-    "*/package-lock.json",
-    "*/pnpm-lock.yaml",
-    "*/yarn.lock",
-    "*/prisma/migrations/*",
-]
-
-def is_excluded(path: str) -> bool:
-    return any(fnmatch.fnmatch(path, pat) for pat in EXCLUDES)
-
-out: list[str] = []
-cur: list[str] = []
-cur_path: str | None = None
-
-for line in raw:
-    if line.startswith("diff --git "):
-        if cur and cur_path is not None and not is_excluded(cur_path):
-            out.extend(cur)
-        cur = []
-        parts = line.strip().split(" ")
-        cur_path = parts[2][2:] if len(parts) >= 4 and parts[2].startswith("a/") else ""
-        cur.append(line)
-    else:
-        if cur:
-            cur.append(line)
-
-if cur and cur_path is not None and not is_excluded(cur_path):
-    out.extend(cur)
-Path("/tmp/pr_diff.txt").write_text("".join(out), encoding="utf-8")
-PYEOF
+        python3 -c $'from pathlib import Path\nimport fnmatch\n\nraw = Path(\"/tmp/pr_diff_raw.txt\").read_text(encoding=\"utf-8\", errors=\"replace\").splitlines(True)\nEXCLUDES = [\"*/package-lock.json\", \"*/pnpm-lock.yaml\", \"*/yarn.lock\", \"*/prisma/migrations/*\"]\n\ndef is_excluded(p: str) -> bool:\n    return any(fnmatch.fnmatch(p, pat) for pat in EXCLUDES)\n\nout = []\ncur = []\ncur_path = None\n\nfor line in raw:\n    if line.startswith(\"diff --git \"):\n        if cur and cur_path is not None and not is_excluded(cur_path):\n            out.extend(cur)\n        cur = []\n        parts = line.strip().split(\" \")\n        cur_path = parts[2][2:] if len(parts) >= 4 and parts[2].startswith(\"a/\") else \"\"\n        cur.append(line)\n    else:\n        if cur:\n            cur.append(line)\n\nif cur and cur_path is not None and not is_excluded(cur_path):\n    out.extend(cur)\n\nPath(\"/tmp/pr_diff.txt\").write_text(\"\".join(out), encoding=\"utf-8\")\n'
 
         DIFF_LINES=$(wc -l < /tmp/pr_diff.txt)
         echo "diff_lines=$DIFF_LINES" >> "$GITHUB_OUTPUT"
@@ -156,30 +120,7 @@ PYEOF
       run: |
         set -euo pipefail
         MAX="${{ inputs.max_diff_chars }}"
-        python3 - <<'PYEOF'
-from __future__ import annotations
-from pathlib import Path
-import codecs
-import os
-
-max_bytes = int(os.environ.get("MAX_BYTES", "100000"))
-src = Path("/tmp/pr_diff.txt").read_bytes()
-was_truncated = len(src) > max_bytes
-
-# Decode only full UTF-8 sequences (avoid invalid trailing bytes)
-dec = codecs.getincrementaldecoder("utf-8")("replace")
-text = dec.decode(src[:max_bytes], final=False)
-
-# Prefer truncating at a newline boundary to avoid cutting a diff hunk header mid-line.
-last_nl = text.rfind("\n")
-if last_nl != -1 and last_nl > 0:
-    text = text[: last_nl + 1]
-
-if was_truncated:
-    text += "\n\n... [diff truncated due to size] ..."
-
-Path("/tmp/pr_diff_truncated.txt").write_text(text, encoding="utf-8")
-PYEOF
+        python3 -c $'from pathlib import Path\nimport codecs\nimport os\n\nmax_bytes = int(os.environ.get(\"MAX_BYTES\", \"100000\"))\nsrc = Path(\"/tmp/pr_diff.txt\").read_bytes()\nwas_truncated = len(src) > max_bytes\n\n# Decode only full UTF-8 sequences (avoid invalid trailing bytes)\ndec = codecs.getincrementaldecoder(\"utf-8\")(\"replace\")\ntext = dec.decode(src[:max_bytes], final=False)\n\n# Prefer truncating at a newline boundary to avoid cutting a diff hunk header mid-line.\nlast_nl = text.rfind(\"\\n\")\nif last_nl != -1 and last_nl > 0:\n    text = text[: last_nl + 1]\n\nif was_truncated:\n    text += \"\\n\\n... [diff truncated due to size] ...\"\n\nPath(\"/tmp/pr_diff_truncated.txt\").write_text(text, encoding=\"utf-8\")\n'
       env:
         MAX_BYTES: ${{ inputs.max_diff_chars }}
 
