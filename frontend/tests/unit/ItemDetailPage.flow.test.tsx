@@ -3,6 +3,7 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ItemDetailPage } from '../../src/pages/admin/ItemDetailPage';
+import { MAX_SPINNER_FRAMES } from '../../src/constants/spinner';
 
 type Params = { id: string };
 
@@ -186,10 +187,10 @@ describe('ItemDetailPage main flows', () => {
       expect(h.mockNavigate).toHaveBeenCalledWith('/admin/items');
     });
   });
-  it('disables upload input and shows limit message when 48 frames are already present', async () => {
+  it('disables upload input and shows limit message when max frames are already present', async () => {
     const maxFramesResponse = createBaseItemData();
-    // Replace the single frame with 48 frames
-    maxFramesResponse.spin_sets[0].frames = Array.from({ length: 48 }, (_, i) => ({
+    // Replace the single frame with max frames
+    maxFramesResponse.spin_sets[0].frames = Array.from({ length: MAX_SPINNER_FRAMES }, (_, i) => ({
       id: `frame-${i + 1}`,
       spin_set_id: 'spin1',
       frame_index: i,
@@ -204,9 +205,10 @@ describe('ItemDetailPage main flows', () => {
     render(<ItemDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Đã đạt giới hạn 48 frames/)).toBeTruthy();
+      expect(screen.getByText(new RegExp(`Đã đạt giới hạn ${MAX_SPINNER_FRAMES} frames`))).toBeTruthy();
     });
 
     const fileInput = screen.getByTestId('spinner-frame-upload') as HTMLInputElement;
     expect(fileInput.disabled).toBe(true);
-  });});
+  });
+});

@@ -1,10 +1,9 @@
 import { test, expect, type Route } from '@playwright/test';
-
-const MAX_FRAMES = 48;
+import { MAX_SPINNER_FRAMES } from '../../src/constants/spinner';
 
 // Helper to create a fake item response with max frames
-function createItemResponseWithMaxFrames() {
-  const frames = Array.from({ length: MAX_FRAMES }, (_, i) => ({
+function createItemResponseWithFrames(frameCount = MAX_SPINNER_FRAMES) {
+  const frames = Array.from({ length: frameCount }, (_, i) => ({
     id: `frame-${i + 1}`,
     spin_set_id: 'spin1',
     frame_index: i,
@@ -56,7 +55,7 @@ const mockUserResponse = {
 };
 
 test.describe('Spinner upload limits', () => {
-  test('disables upload and shows warning when 48 frames are already present', async ({ page }) => {
+  test('disables upload and shows warning when max frames are already present', async ({ page }) => {
     // Ensure auth check passes
     await page.route('**/api/v1/auth/me', (route: Route) => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockUserResponse) });
@@ -64,7 +63,7 @@ test.describe('Spinner upload limits', () => {
 
     // Return an item that already has 48 frames in its spin set
     await page.route('**/api/v1/items/1', (route: Route) => {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(createItemResponseWithMaxFrames()) });
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(createItemResponseWithFrames()) });
     });
 
     // Fail fast if the page attempts to upload another frame (UI should block)
@@ -75,21 +74,25 @@ test.describe('Spinner upload limits', () => {
     await page.goto('/admin/items/1?step=3');
 
     // Ensure warning message is visible and upload input is disabled
-    await expect(page.getByText(/Đã đạt giới hạn 48 frames/)).toBeVisible();
+    await expect(page.getByText(new RegExp(`Đã đạt giới hạn ${MAX_SPINNER_FRAMES} frames`))).toBeVisible();
     await expect(page.getByTestId('spinner-frame-upload')).toBeDisabled();
   });
 
-  test('shows error when API rejects upload beyond 48 frames', async ({ page }) => {
+  test('shows error when API rejects upload even when UI still allows selecting file', async ({ page }) => {
     await page.route('**/api/v1/auth/me', (route: Route) => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockUserResponse) });
     });
 
-    // Return an item already at 48 frames
+    // Return an item below limit so UI still allows selecting a file
     await page.route('**/api/v1/items/1', (route: Route) => {
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(createItemResponseWithMaxFrames()) });
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createItemResponseWithFrames(MAX_SPINNER_FRAMES - 1)),
+      });
     });
 
-    // Simulate backend rejecting uploads beyond max frames
+    // Simulate backend rejecting upload (e.g. concurrent updates already reached limit)
     await page.route('**/api/v1/spin-sets/*/frames', (route: Route) => {
       route.fulfill({
         status: 400,
@@ -102,14 +105,7 @@ test.describe('Spinner upload limits', () => {
     const alertPromise = page.waitForEvent('dialog');
 
     await page.goto('/admin/items/1?step=3');
-
-    // Force-enable the upload input and attempt to upload a file
-    await page.evaluate(() => {
-      const input = document.querySelector('[data-testid="spinner-frame-upload"]') as HTMLInputElement | null;
-      if (input) {
-        input.disabled = false;
-      }
-    });
+    await expect(page.getByTestId('spinner-frame-upload')).toBeEnabled();
 
     // Provide a small dummy file
     const file = { name: 'frame.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff]) };

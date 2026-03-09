@@ -10,6 +10,7 @@ import { showToast } from '../../utils/toast';
 import type { FacebookPost } from '../../types/item.types';
 import { jumpToStepWithAutoSave, navigateStepWithAutoSave, type ProductStep } from './itemStepNavigation';
 import { buildStepUrlAfterCreate, evaluateFinishDecision, shouldBlockEnterSubmit } from './itemWorkflow';
+import { MAX_SPINNER_FRAMES } from '../../constants/spinner';
 
 // Helper functions for number formatting
 const formatNumber = (value: string): string => {
@@ -654,7 +655,7 @@ export const ItemDetailPage = () => {
   const images = (data?.images || []) as ItemImage[];
   const spinSets = (data?.spin_sets || []) as SpinSet[];
   const selectedSpinSet = spinSets.find((set) => set.id === selectedSpinSetId);
-  const maxFramesReached = (selectedSpinSet?.frames?.length ?? 0) >= 48;
+  const maxFramesReached = (selectedSpinSet?.frames?.length ?? 0) >= MAX_SPINNER_FRAMES;
   const isNewItem = id === 'new';
 
   const goToStep = (step: ProductStep) => {
@@ -2007,7 +2008,7 @@ export const ItemDetailPage = () => {
                     />
                     {maxFramesReached && (
                       <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#dc3545' }}>
-                        Đã đạt giới hạn 48 frames. Vui lòng xóa bớt frame nếu muốn upload thêm.
+                        Đã đạt giới hạn {MAX_SPINNER_FRAMES} frames. Vui lòng xóa bớt frame nếu muốn upload thêm.
                       </p>
                     )}
                     {uploadingFrames && (

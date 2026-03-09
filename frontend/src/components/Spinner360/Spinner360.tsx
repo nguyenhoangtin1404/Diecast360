@@ -31,21 +31,17 @@ export const Spinner360: React.FC<Spinner360Props> = ({
   const autoplayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const totalFrames = frames.length;
-
-  // Reset current frame and loaded set when frames change to avoid stale indexes
-  useEffect(() => {
-    if (totalFrames === 0) return;
-    setCurrentFrame((prev) => (prev >= totalFrames ? 0 : prev));
-    setLoadedFrames(new Set([0]));
-  }, [totalFrames]);
+  const activeFrame = totalFrames > 0 ? currentFrame % totalFrames : 0;
 
   // Preload next frames
   useEffect(() => {
+    if (totalFrames === 0) return;
+
     const preloadRange = 3;
     const framesToLoad = new Set<number>();
 
     for (let i = -preloadRange; i <= preloadRange; i++) {
-      const index = (currentFrame + i + totalFrames) % totalFrames;
+      const index = (activeFrame + i + totalFrames) % totalFrames;
       framesToLoad.add(index);
     }
 
@@ -58,7 +54,7 @@ export const Spinner360: React.FC<Spinner360Props> = ({
         };
       }
     });
-  }, [currentFrame, totalFrames, loadedFrames, frames]);
+  }, [activeFrame, totalFrames, loadedFrames, frames]);
 
   // Autoplay logic
   useEffect(() => {
@@ -99,11 +95,11 @@ export const Spinner360: React.FC<Spinner360Props> = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
+    if (!isDragging || totalFrames === 0) return;
 
     const delta = e.clientX - dragStart;
     const frameDelta = Math.round((delta / width) * totalFrames * 0.5);
-    const newFrame = (currentFrame - frameDelta + totalFrames) % totalFrames;
+    const newFrame = (activeFrame - frameDelta + totalFrames) % totalFrames;
     setCurrentFrame(newFrame);
     setDragStart(e.clientX);
   };
@@ -119,12 +115,12 @@ export const Spinner360: React.FC<Spinner360Props> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
+    if (!isDragging || totalFrames === 0) return;
     e.preventDefault();
 
     const delta = e.touches[0].clientX - dragStart;
     const frameDelta = Math.round((delta / width) * totalFrames * 0.5);
-    const newFrame = (currentFrame - frameDelta + totalFrames) % totalFrames;
+    const newFrame = (activeFrame - frameDelta + totalFrames) % totalFrames;
     setCurrentFrame(newFrame);
     setDragStart(e.touches[0].clientX);
   };
@@ -162,8 +158,8 @@ export const Spinner360: React.FC<Spinner360Props> = ({
         onTouchEnd={handleTouchEnd}
       >
         <img
-          src={getFrameImage(currentFrame)}
-          alt={`Frame ${currentFrame + 1}`}
+          src={getFrameImage(activeFrame)}
+          alt={`Frame ${activeFrame + 1}`}
           style={{
             width: '100%',
             height: '100%',
@@ -177,7 +173,7 @@ export const Spinner360: React.FC<Spinner360Props> = ({
           {isAutoplaying ? 'Pause' : 'Play'}
         </button>
         <span style={{ margin: '0 10px' }}>
-          {currentFrame + 1} / {totalFrames}
+          {activeFrame + 1} / {totalFrames}
         </span>
       </div>
     </div>
