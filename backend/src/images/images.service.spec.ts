@@ -227,15 +227,21 @@ describe('ImagesService', () => {
       });
 
       expect(result.images).toHaveLength(2);
-      expect(prisma.itemImage.update).toHaveBeenCalled();
+      // 2 calls for display_order updates + 1 call when ensureSingleCover enforces a single cover
+      expect(prisma.itemImage.update).toHaveBeenCalledTimes(3);
     });
 
     it('should throw if some image IDs do not belong to item', async () => {
       prisma.itemImage.findMany.mockResolvedValue([{ id: 'img-1' }]); // only 1 found
 
+      await expect(service.reorderImages('item-1', { image_ids: ['img-1', 'img-wrong'] }))
+        .rejects.toThrow('Reorder must include all item images');
+    });
+
+    it('should throw when duplicate IDs are provided', async () => {
       await expect(
-        service.reorderImages('item-1', { image_ids: ['img-1', 'img-wrong'] }),
-      ).rejects.toThrow(AppException);
+        service.reorderImages('item-1', { image_ids: ['img-1', 'img-1'] }),
+      ).rejects.toThrow('Duplicate image IDs in reorder list');
     });
   });
 
@@ -298,28 +304,24 @@ describe('ImagesService', () => {
 
     it('should reject files that are too large', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
-      process.env.MAX_UPLOAD_MB = '1';
-
-      const largeFile = { ...mockFile, size: 2 * 1024 * 1024 }; // 2MB
+      const largeFile = { ...mockFile, size: 11 * 1024 * 1024 }; // exceeds default 10MB
 
       await expect(
         service.uploadImage('item-1', largeFile as Express.Multer.File),
       ).rejects.toThrow(AppException);
-
-      delete process.env.MAX_UPLOAD_MB;
     });
   });
   // ============================================================
   // Error resilience
   // ============================================================
   describe('deleteImage error handling', () => {
-    it('should propagate error when storage.deleteFile fails', async () => {
+    it('should not fail request when storage.deleteFile fails during cleanup', async () => {
       prisma.itemImage.findFirst.mockResolvedValue(mockImage);
+      prisma.itemImage.delete.mockResolvedValue(mockImage);
+      prisma.itemImage.findMany.mockResolvedValue([]);
       storage.deleteFile.mockRejectedValueOnce(new Error('S3 unavailable'));
 
-      await expect(
-        service.deleteImage('item-1', 'img-1'),
-      ).rejects.toThrow('S3 unavailable');
+      await expect(service.deleteImage('item-1', 'img-1')).resolves.toEqual({});
     });
   });
 });

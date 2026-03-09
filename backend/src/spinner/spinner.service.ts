@@ -1,5 +1,5 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Prisma, SpinFrame } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ImageProcessorService, WatermarkProcessingError } from '../image-processor/image-processor.service';
 import { IStorageService } from '../storage/storage.interface';
@@ -8,14 +8,33 @@ import { CreateSpinSetDto } from './dto/create-spin-set.dto';
 import { UpdateSpinSetDto } from './dto/update-spin-set.dto';
 import { UploadFrameDto } from './dto/upload-frame.dto';
 import { ReorderFramesDto } from './dto/reorder-frames.dto';
+import { isPrismaUniqueConstraintError } from '../common/prisma/prisma-error.utils';
 
 @Injectable()
 export class SpinnerService {
+  private readonly logger = new Logger(SpinnerService.name);
+  private readonly maxFrames: number;
+  private readonly allowedMimeTypes: string[];
+  private readonly maxUploadBytes: number;
+
   constructor(
     private prisma: PrismaService,
     private imageProcessor: ImageProcessorService,
     @Inject('IStorageService') private storage: IStorageService,
-  ) {}
+  ) {
+    const parsed = Number.parseInt(process.env.MAX_SPINNER_FRAMES || '48', 10);
+    this.maxFrames = Number.isFinite(parsed) && parsed > 0 ? parsed : 48;
+    this.allowedMimeTypes = (process.env.ALLOWED_MIME || 'image/jpeg,image/png')
+      .split(',')
+      .map((m) => m.trim())
+      .filter(Boolean);
+
+    const maxUploadMB = Number.parseInt(process.env.MAX_UPLOAD_MB || '10', 10);
+    if (!Number.isFinite(maxUploadMB) || maxUploadMB <= 0) {
+      throw new Error('Invalid MAX_UPLOAD_MB config');
+    }
+    this.maxUploadBytes = maxUploadMB * 1024 * 1024;
+  }
 
   async getSpinSets(itemId: string) {
     const spinSets = await this.prisma.spinSet.findMany({
@@ -165,15 +184,14 @@ export class SpinnerService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Spin set not found');
     }
 
-    // Enforce max number of frames per spin set
-    const maxFrames = parseInt(process.env.MAX_SPINNER_FRAMES || '48', 10);
+    // Fast-fail check for common case; transaction-level guard in insertFrameWithOrdering is authoritative.
     const existingCount = await this.prisma.spinFrame.count({
       where: { spin_set_id: spinSetId },
     });
-    if (existingCount >= maxFrames) {
+    if (existingCount >= this.maxFrames) {
       throw new AppException(
         ErrorCode.VALIDATION_ERROR,
-        `Cannot upload more than ${maxFrames} frames`,
+        `Cannot upload more than ${this.maxFrames} frames`,
       );
     }
 
@@ -226,7 +244,7 @@ export class SpinnerService {
 
       return { frame: this.mapFrame(frame) };
     } catch (error) {
-      await this.cleanupSavedFiles(savedPaths);
+      await this.cleanupSavedFiles(savedPaths, `uploadFrame:spinSetId=${spinSetId}`);
       throw error;
     }
   }
@@ -236,7 +254,7 @@ export class SpinnerService {
     imagePath: string,
     thumbnailPath: string,
     requestedIndex?: number,
-  ) {
+  ): Promise<SpinFrame> {
     const maxAttempts = 3;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -245,6 +263,12 @@ export class SpinnerService {
           const frameCount = await tx.spinFrame.count({
             where: { spin_set_id: spinSetId },
           });
+          if (frameCount >= this.maxFrames) {
+            throw new AppException(
+              ErrorCode.VALIDATION_ERROR,
+              `Cannot upload more than ${this.maxFrames} frames`,
+            );
+          }
 
           let targetIndex = frameCount;
           if (requestedIndex !== undefined) {
@@ -276,14 +300,11 @@ export class SpinnerService {
               thumbnail_path: thumbnailPath,
             },
           });
-        });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
       } catch (error) {
         // Retry on unique constraint collision due to concurrency
-        if (
-          error instanceof PrismaClientKnownRequestError &&
-          error.code === 'P2002' &&
-          attempt < maxAttempts - 1
-        ) {
+        if (isPrismaUniqueConstraintError(error) && attempt < maxAttempts - 1) {
+          await this.delayBeforeRetry(attempt);
           continue;
         }
 
@@ -298,7 +319,7 @@ export class SpinnerService {
     );
   }
 
-  private mapFrame(frame: any) {
+  private mapFrame(frame: SpinFrame) {
     return {
       id: frame.id,
       spin_set_id: frame.spin_set_id,
@@ -311,13 +332,13 @@ export class SpinnerService {
     };
   }
 
-  private async cleanupSavedFiles(paths: string[]) {
+  private async cleanupSavedFiles(paths: string[], context: string) {
     await Promise.all(
       paths.map(async (path) => {
         try {
           await this.storage.deleteFile(path);
-        } catch {
-          // Best-effort cleanup
+        } catch (error) {
+          this.logger.warn(`[${context}] Failed to cleanup file: ${path}`, error as Error);
         }
       }),
     );
@@ -375,7 +396,7 @@ export class SpinnerService {
     // 1. Update all to temporary negative indices: -1, -2, -3...
     // 2. Update to new correct positive indices: 0, 1, 2...
     
-    await this.prisma.$transaction(async (tx) => {
+    const updatedFrames = await this.prisma.$transaction(async (tx) => {
       // Step 1: Set to temporary negative indices to free up the positive range
       // Map id -> final_index
       const idToIndexMap = new Map<string, number>();
@@ -402,12 +423,10 @@ export class SpinnerService {
           data: { frame_index: newIndex },
         });
       }
-    });
-
-    // Get updated frames
-    const updatedFrames = await this.prisma.spinFrame.findMany({
-      where: { spin_set_id: spinSetId },
-      orderBy: { frame_index: 'asc' },
+      return tx.spinFrame.findMany({
+        where: { spin_set_id: spinSetId },
+        orderBy: { frame_index: 'asc' },
+      });
     });
 
     return {
@@ -436,56 +455,54 @@ export class SpinnerService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Frame not found');
     }
 
-    // Delete file and thumbnail
-    await this.storage.deleteFile(frame.file_path);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.spinFrame.delete({
+        where: { id: frameId },
+      });
+
+      const remainingFrames = await tx.spinFrame.findMany({
+        where: { spin_set_id: spinSetId },
+        orderBy: { frame_index: 'asc' },
+      });
+
+      await Promise.all(
+        remainingFrames.map((f, index) =>
+          tx.spinFrame.update({
+            where: { id: f.id },
+            data: { frame_index: index },
+          }),
+        ),
+      );
+    });
+
+    const pathsToCleanup = [frame.file_path];
     if (frame.thumbnail_path) {
-      await this.storage.deleteFile(frame.thumbnail_path);
+      pathsToCleanup.push(frame.thumbnail_path);
     }
-
-    // Delete frame
-    await this.prisma.spinFrame.delete({
-      where: { id: frameId },
-    });
-
-    // Reorder remaining frames to be contiguous starting from 0
-    const remainingFrames = await this.prisma.spinFrame.findMany({
-      where: { spin_set_id: spinSetId },
-      orderBy: { frame_index: 'asc' },
-    });
-
-    await Promise.all(
-      remainingFrames.map((f, index) =>
-        this.prisma.spinFrame.update({
-          where: { id: f.id },
-          data: { frame_index: index },
-        }),
-      ),
-    );
+    await this.cleanupSavedFiles(pathsToCleanup, `deleteFrame:spinSetId=${spinSetId}`);
 
     return {};
   }
 
   private validateFile(file: Express.Multer.File) {
-    const allowedMime = (process.env.ALLOWED_MIME || 'image/jpeg,image/png')
-      .split(',')
-      .map((m) => m.trim());
-
-    if (!allowedMime.includes(file.mimetype)) {
+    if (!this.allowedMimeTypes.includes(file.mimetype)) {
       throw new AppException(
         ErrorCode.UPLOAD_INVALID_TYPE,
-        `Invalid file type. Allowed types: ${allowedMime.join(', ')}`,
+        `Invalid file type. Allowed types: ${this.allowedMimeTypes.join(', ')}`,
       );
     }
 
-    const maxSizeMB = parseInt(process.env.MAX_UPLOAD_MB || '10');
-    const maxSizeBytes = maxSizeMB * 1024 * 1024;
-
-    if (file.size > maxSizeBytes) {
+    if (file.size > this.maxUploadBytes) {
       throw new AppException(
         ErrorCode.UPLOAD_TOO_LARGE,
-        `File size exceeds maximum of ${maxSizeMB}MB`,
+        `File size exceeds maximum of ${Math.floor(this.maxUploadBytes / (1024 * 1024))}MB`,
       );
     }
+  }
+
+  private async delayBeforeRetry(attempt: number) {
+    const delayMs = Math.pow(2, attempt) * 50 + Math.random() * 50;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
 }
 
