@@ -178,14 +178,7 @@ runs:
           echo "📡 OpenAI API status: $HTTP_STATUS"
           test "$HTTP_STATUS" -eq 200
 
-          python3 - << 'PYEOF'
-          import json
-          with open("/tmp/api_response.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
-          content = data["choices"][0]["message"]["content"]
-          with open("/tmp/review_result.txt", "w", encoding="utf-8") as out:
-              out.write(content)
-          PYEOF
+          python3 -c $'import json\n\nwith open(\"/tmp/api_response.json\", \"r\", encoding=\"utf-8\") as f:\n    data = json.load(f)\n\ncontent = data[\"choices\"][0][\"message\"][\"content\"]\nwith open(\"/tmp/review_result.txt\", \"w\", encoding=\"utf-8\") as out:\n    out.write(content)\n'
         elif [ "$PROVIDER" = "anthropic" ]; then
           jq -n \
             --rawfile system /tmp/system_prompt.txt \
@@ -217,17 +210,11 @@ runs:
           echo "📡 Claude API status: $HTTP_STATUS"
           test "$HTTP_STATUS" -eq 200
 
-          python3 - << 'PYEOF'
-          import json
-          with open("/tmp/api_response.json", "r", encoding="utf-8") as f:
-              data = json.load(f)
-          parts = [b.get("text","") for b in data.get("content", []) if b.get("type") == "text"]
-          with open("/tmp/review_result.txt", "w", encoding="utf-8") as out:
-              out.write("\n".join(parts).strip())
-          PYEOF
-        else:
+          python3 -c $'import json\n\nwith open(\"/tmp/api_response.json\", \"r\", encoding=\"utf-8\") as f:\n    data = json.load(f)\n\nparts = [b.get(\"text\", \"\") for b in data.get(\"content\", []) if b.get(\"type\") == \"text\"]\nwith open(\"/tmp/review_result.txt\", \"w\", encoding=\"utf-8\") as out:\n    out.write(\"\\n\".join(parts).strip())\n'
+        else
           echo "Unknown provider: $PROVIDER" >&2
           exit 2
+        fi
 
     - name: Post or update PR comment
       if: steps.guard.outputs.skip != 'true'
