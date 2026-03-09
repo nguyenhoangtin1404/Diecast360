@@ -73,10 +73,10 @@ jobs:
             - LUÔN trả lời bằng tiếng Việt
 
   # ───────────────────────────────────────────────────────────
-  # Claude Sonnet 4.5 Review (runs in parallel with OpenAI job)
+  # Claude Sonnet 4.6 Review (runs in parallel with OpenAI job)
   # ───────────────────────────────────────────────────────────
   review-claude:
-    name: Claude Code Review (Sonnet 4.5)
+    name: Claude Code Review (Sonnet 4.6)
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -105,7 +105,7 @@ jobs:
         uses: ./.github/actions/ai-review
         with:
           provider: anthropic
-          model: claude-sonnet-4-5
+          model: claude-sonnet-4-6
           api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           gh_token: ${{ secrets.GITHUB_TOKEN }}
           pr_number: ${{ github.event.pull_request.number }}
