@@ -8,7 +8,9 @@ if len(sys.argv) != 3:
 
 response = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 if "error" in response:
-    raise SystemExit(f"Anthropic API error: {response['error']}")
+    error = response.get("error", {})
+    msg = error.get("message", str(error)) if isinstance(error, dict) else str(error)
+    raise SystemExit(f"Anthropic API error: {msg}")
 
 parts = [b.get("text", "") for b in response.get("content", []) if b.get("type") == "text"]
 if not parts:

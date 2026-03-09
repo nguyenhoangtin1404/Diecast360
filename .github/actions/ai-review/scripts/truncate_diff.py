@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import codecs
 import os
 import sys
 
@@ -9,11 +8,18 @@ if len(sys.argv) != 3:
 
 max_bytes = int(os.environ.get("MAX_BYTES", "100000"))
 src = Path(sys.argv[1]).read_bytes()
+text = src.decode("utf-8", errors="replace")
 was_truncated = len(src) > max_bytes
 
-# Decode only full UTF-8 sequences (avoid invalid trailing bytes)
-dec = codecs.getincrementaldecoder("utf-8")("replace")
-text = dec.decode(src[:max_bytes], final=False)
+if was_truncated:
+    lo, hi = 0, len(text)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if len(text[:mid].encode("utf-8")) <= max_bytes:
+            lo = mid
+        else:
+            hi = mid - 1
+    text = text[:lo]
 
 # Prefer truncating at newline boundary to avoid cutting diff hunk headers mid-line.
 last_nl = text.rfind("\n")

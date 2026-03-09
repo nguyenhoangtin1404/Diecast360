@@ -9,11 +9,24 @@ if len(sys.argv) != 3:
 src = Path(sys.argv[1])
 dest = Path(sys.argv[2])
 raw = src.read_text(encoding="utf-8", errors="replace").splitlines(True)
-excludes = ["*/package-lock.json", "*/pnpm-lock.yaml", "*/yarn.lock", "*/prisma/migrations/*"]
+excludes = [
+    "*/package-lock.json",
+    "*/pnpm-lock.yaml",
+    "*/yarn.lock",
+    "*/prisma/migrations/*",
+    "*/Cargo.lock",
+    "*/Gemfile.lock",
+    "*/go.sum",
+    "*/poetry.lock",
+    "*/.next/*",
+    "*/dist/*",
+    "*/build/*",
+]
 
 
 def is_excluded(path: str) -> bool:
     return any(fnmatch.fnmatch(path, pat) for pat in excludes)
+
 
 out = []
 cur = []
@@ -25,7 +38,11 @@ for line in raw:
             out.extend(cur)
         cur = []
         parts = line.strip().split(" ")
-        cur_path = parts[2][2:] if len(parts) >= 4 and parts[2].startswith("a/") else ""
+        if len(parts) >= 4:
+            path_a = parts[2]
+            cur_path = path_a[2:] if path_a.startswith("a/") else path_a
+        else:
+            cur_path = ""
         cur.append(line)
     elif cur:
         cur.append(line)

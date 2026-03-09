@@ -32,6 +32,10 @@ inputs:
     description: "Truncate diff to this many bytes/chars (approx)"
     required: false
     default: "100000"
+  max_tokens:
+    description: "Max tokens for AI response"
+    required: false
+    default: "4096"
   gh_token:
     description: "GitHub token for gh CLI"
     required: true
@@ -52,7 +56,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        WORK_DIR=$(mktemp -d "${RUNNER_TEMP:-/tmp}/ai-review.XXXXXX")
+        WORK_DIR=$(mktemp -d "${RUNNER_TEMP:?RUNNER_TEMP not set}/ai-review.XXXXXX")
         echo "WORK_DIR=$WORK_DIR" >> "$GITHUB_ENV"
 
     - name: Fetch and filter PR diff
@@ -125,9 +129,8 @@ runs:
           echo "$MARKER"
         } > "$WORK_DIR/ai_review_comment.md"
 
-        EXISTING_COMMENT_ID=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments?per_page=100" \
-          | jq -r --arg marker "$MARKER" '.[] | select(.body and (.body | contains($marker))) | .id' \
-          | tail -1)
+        EXISTING_COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments?per_page=100&sort=created&direction=desc" \
+          | jq -r --arg marker "$MARKER" 'first(.[] | select(.body and (.body | contains($marker))) | .id) // empty')
 
         if [ -n "$EXISTING_COMMENT_ID" ]; then
           gh api "repos/$REPO/issues/comments/$EXISTING_COMMENT_ID" \
@@ -169,8 +172,10 @@ runs:
         API_KEY: ${{ inputs.api_key }}
         PROVIDER: ${{ inputs.provider }}
         MODEL: ${{ inputs.model }}
+        MAX_TOKENS: ${{ inputs.max_tokens }}
       run: |
         set -euo pipefail
+        set +x
         umask 077
 
         if [ "$PROVIDER" = "openai" ]; then
@@ -178,13 +183,14 @@ runs:
             --rawfile system "$WORK_DIR/system_prompt.txt" \
             --rawfile user "$WORK_DIR/user_content.txt" \
             --arg model "$MODEL" \
+            --arg max_tokens "$MAX_TOKENS" \
             '{
               model: $model,
               messages: [
                 {role: "system", content: $system},
                 {role: "user", content: $user}
               ],
-              max_completion_tokens: 4096,
+              max_completion_tokens: ($max_tokens|tonumber),
               temperature: 0.3
             }' > "$WORK_DIR/payload.json"
 
@@ -197,6 +203,7 @@ runs:
 
           echo "📡 OpenAI API status: $HTTP_STATUS"
           test "$HTTP_STATUS" -eq 200
+          jq -c '.usage // {}' "$WORK_DIR/api_response.json" | sed 's/^/📈 OpenAI usage: /'
 
           python3 "$GITHUB_ACTION_PATH/scripts/extract_openai_response.py" \
             "$WORK_DIR/api_response.json" \
@@ -206,10 +213,10 @@ runs:
             --rawfile system "$WORK_DIR/system_prompt.txt" \
             --rawfile user "$WORK_DIR/user_content.txt" \
             --arg model "$MODEL" \
+            --arg max_tokens "$MAX_TOKENS" \
             '{
               model: $model,
-              # Anthropic messages API uses max_tokens, unlike OpenAI chat/completions max_completion_tokens.
-              max_tokens: 4096,
+              max_tokens: ($max_tokens|tonumber),
               temperature: 0.3,
               system: $system,
               messages: [
@@ -227,6 +234,7 @@ runs:
 
           echo "📡 Claude API status: $HTTP_STATUS"
           test "$HTTP_STATUS" -eq 200
+          jq -c '.usage // {}' "$WORK_DIR/api_response.json" | sed 's/^/📈 Claude usage: /'
 
           python3 "$GITHUB_ACTION_PATH/scripts/extract_anthropic_response.py" \
             "$WORK_DIR/api_response.json" \
@@ -258,9 +266,8 @@ runs:
           echo "$MARKER"
         } > "$WORK_DIR/comment.md"
 
-        EXISTING_COMMENT_ID=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments?per_page=100" \
-          | jq -r --arg marker "$MARKER" '.[] | select(.body and (.body | contains($marker))) | .id' \
-          | tail -1)
+        EXISTING_COMMENT_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments?per_page=100&sort=created&direction=desc" \
+          | jq -r --arg marker "$MARKER" 'first(.[] | select(.body and (.body | contains($marker))) | .id) // empty')
 
         if [ -n "$EXISTING_COMMENT_ID" ]; then
           gh api "repos/$REPO/issues/comments/$EXISTING_COMMENT_ID" \
