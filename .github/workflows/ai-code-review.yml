@@ -18,6 +18,7 @@ jobs:
   review:
     name: OpenAI Code Review
     if: github.event.pull_request.draft == false
+    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -78,6 +79,7 @@ jobs:
   review-claude:
     name: Claude Code Review (Sonnet 4.6)
     if: github.event.pull_request.draft == false
+    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -111,7 +113,7 @@ jobs:
           pr_number: ${{ github.event.pull_request.number }}
           repo: ${{ github.repository }}
           head_sha: ${{ github.event.pull_request.head.sha }}
-          comment_title: "## 🧠 AI Code Review – Đánh giá tự động (Claude Sonnet 4.5)"
+          comment_title: "## 🧠 AI Code Review – Đánh giá tự động (Claude Sonnet 4.6)"
           comment_marker: "<!-- ai-code-review-claude -->"
           system_prompt: |
             Bạn là một chuyên gia review code cấp Senior với hơn 10 năm kinh nghiệm. Hãy review pull request diff sau và đưa ra feedback chuyên sâu bằng tiếng Việt. Tập trung vào:

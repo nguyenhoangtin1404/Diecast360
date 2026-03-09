@@ -70,6 +70,7 @@ runs:
         set -euo pipefail
 
         gh pr diff "$PR_NUMBER" --repo "$REPO" > "$WORK_DIR/pr_diff_raw.txt"
+        RAW_DIFF_LINES=$(wc -l < "$WORK_DIR/pr_diff_raw.txt")
 
         # Filter out lockfiles and migrations (no apt-get dependency)
         python3 "$GITHUB_ACTION_PATH/scripts/filter_diff.py" \
@@ -77,6 +78,7 @@ runs:
           "$WORK_DIR/pr_diff.txt"
 
         DIFF_LINES=$(wc -l < "$WORK_DIR/pr_diff.txt")
+        echo "raw_diff_lines=$RAW_DIFF_LINES" >> "$GITHUB_OUTPUT"
         echo "diff_lines=$DIFF_LINES" >> "$GITHUB_OUTPUT"
         echo "📊 Diff size: $DIFF_LINES lines"
 
@@ -86,12 +88,16 @@ runs:
       run: |
         set -euo pipefail
         DIFF_LINES="${{ steps.fetch.outputs.diff_lines }}"
+        RAW_DIFF_LINES="${{ steps.fetch.outputs.raw_diff_lines }}"
         MAX="${{ inputs.max_diff_lines }}"
         MIN="${{ inputs.min_diff_lines }}"
 
         if [ "$DIFF_LINES" -gt "$MAX" ]; then
           echo "skip=true" >> "$GITHUB_OUTPUT"
           echo "reason=too_large" >> "$GITHUB_OUTPUT"
+        elif [ "$DIFF_LINES" -eq 0 ] && [ "$RAW_DIFF_LINES" -gt 0 ]; then
+          echo "skip=true" >> "$GITHUB_OUTPUT"
+          echo "reason=all_filtered" >> "$GITHUB_OUTPUT"
         elif [ "$DIFF_LINES" -lt "$MIN" ]; then
           echo "skip=true" >> "$GITHUB_OUTPUT"
           echo "reason=too_small" >> "$GITHUB_OUTPUT"
@@ -108,13 +114,14 @@ runs:
         REPO: ${{ inputs.repo }}
         MARKER: ${{ inputs.comment_marker }}
         TITLE: ${{ inputs.comment_title }}
+        REASON: ${{ steps.guard.outputs.reason }}
       run: |
         set -euo pipefail
 
-        REASON='${{ steps.guard.outputs.reason }}'
-
         if [ "$REASON" = "too_large" ]; then
           MSG="⚠️ **Bỏ qua** – PR diff quá lớn (>${{ inputs.max_diff_lines }} dòng). Vui lòng review thủ công."
+        elif [ "$REASON" = "all_filtered" ]; then
+          MSG="ℹ️ **Bỏ qua** – Chỉ có thay đổi thuộc danh sách đã lọc (lockfiles/build artifacts/migrations), không review tự động."
         else
           MSG="ℹ️ **Bỏ qua** – PR diff quá nhỏ, không đủ nội dung để review."
         fi
@@ -175,6 +182,7 @@ runs:
         MAX_TOKENS: ${{ inputs.max_tokens }}
       run: |
         set -euo pipefail
+        # Keep shell xtrace disabled in this block to avoid accidental API key exposure in logs.
         set +x
         umask 077
 
@@ -195,7 +203,7 @@ runs:
             }' > "$WORK_DIR/payload.json"
 
           HTTP_STATUS=$(curl -s -o "$WORK_DIR/api_response.json" -w "%{http_code}" \
-            --retry 3 --retry-delay 5 --retry-max-time 120 \
+            --retry 5 --retry-all-errors --retry-max-time 180 \
             https://api.openai.com/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $API_KEY" \
@@ -225,7 +233,7 @@ runs:
             }' > "$WORK_DIR/payload.json"
 
           HTTP_STATUS=$(curl -s -o "$WORK_DIR/api_response.json" -w "%{http_code}" \
-            --retry 3 --retry-delay 5 --retry-max-time 120 \
+            --retry 5 --retry-all-errors --retry-max-time 180 \
             https://api.anthropic.com/v1/messages \
             -H "Content-Type: application/json" \
             -H "x-api-key: $API_KEY" \

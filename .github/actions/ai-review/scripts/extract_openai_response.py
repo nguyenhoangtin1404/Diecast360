@@ -17,4 +17,4 @@ try:
 except (KeyError, IndexError, TypeError) as exc:
     raise SystemExit(f"OpenAI response format invalid: {exc}")
 
-Path(sys.argv[2]).write_text(content, encoding="utf-8")
+Path(sys.argv[2]).write_text(content.strip(), encoding="utf-8")
