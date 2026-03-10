@@ -99,6 +99,7 @@ jobs:
         run: npm run test:unit
 
       - name: ♻️ Cache Playwright browsers
+        id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
@@ -106,10 +107,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
+      - name: 📥 Install Playwright browsers (cache miss)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps
+
       - name: 🧭 Run Playwright E2E tests
-        run: |
-          npx playwright install --with-deps
-          npm run test:e2e
+        run: npm run test:e2e
 
       - name: 📊 Upload build artifacts
         uses: actions/upload-artifact@v4

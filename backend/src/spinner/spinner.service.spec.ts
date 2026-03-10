@@ -292,7 +292,8 @@ describe('SpinnerService', () => {
       await expect(
         service.uploadFrame('spin-1', mockFile, {}),
       ).rejects.toThrow(AppException);
-      expect(storage.saveFile).not.toHaveBeenCalled();
+      expect(storage.saveFile).toHaveBeenCalledTimes(2);
+      expect(storage.deleteFile).toHaveBeenCalledTimes(2);
     });
     it('should convert WatermarkProcessingError to AppException', async () => {
       prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);

@@ -15,7 +15,7 @@ created: 2026-03-04
 ## Discretion Areas
 
 - **Frontend UX approach:** backend contract is strict; UI can be optimistic but must always reconcile with server state after API responses.
-- **Max frame count / rate limits:** not enforced yet; can be added later if performance issues appear.
+- **Max frame count / rate limits:** max spinner frame count is now enforced server-side; broader rate-limits can be added later if traffic requires.
 
 ## Deferred Ideas
 

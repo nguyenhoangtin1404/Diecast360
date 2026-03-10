@@ -95,6 +95,7 @@ export class ImagesService {
     isCover: boolean,
   ): Promise<ItemImage> {
     const maxAttempts = 3;
+    let exhaustedRetry = false;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
@@ -136,13 +137,22 @@ export class ImagesService {
         const shouldRetry =
           isPrismaUniqueConstraintError(error) || isPrismaRetryableTransactionError(error);
 
-        if (shouldRetry && attempt < maxAttempts - 1) {
-          await this.delayBeforeRetry(attempt);
-          continue;
+        if (shouldRetry) {
+          if (attempt < maxAttempts - 1) {
+            await this.delayBeforeRetry(attempt);
+            continue;
+          }
+
+          exhaustedRetry = true;
+          break;
         }
 
         throw error;
       }
+    }
+
+    if (!exhaustedRetry) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Unable to upload image');
     }
 
     throw new AppException(

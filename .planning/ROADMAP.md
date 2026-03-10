@@ -7,7 +7,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 ## Phases
 
 - [x] **Phase 1: Inventory Foundation** - Data model and item lifecycle management.
-- [ ] **Phase 2: Media Pipeline** - Image and spinner asset management.
+- [x] **Phase 2: Media Pipeline** - Image and spinner asset management.
 - [ ] **Phase 3: Public Experience** - Public catalog and product viewing workflow.
 - [ ] **Phase 4: AI and Social Selling** - Content generation and seller assist tools.
 - [ ] **Phase 5: Production and Integrations** - Docker, CI, and Facebook API baseline.
@@ -157,7 +157,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Inventory Foundation | 1/1 | Complete | 2026-03-05 |
-| 2. Media Pipeline | 0/1 | In progress (partial) | Admin 4-step flow + media validation on finish |
+| 2. Media Pipeline | 1/1 | Complete | 2026-03-10 |
 | 3. Public Experience | 0/1 | Not started | - |
 | 4. AI and Social Selling | 0/1 | In progress (partial) | Step 4 "Hoàn tất" flow and guardrails implemented |
 | 5. Production and Integrations | 0/1 | Not started | - |
@@ -188,6 +188,14 @@ Completed in codebase for Phase 1:
 - Added regression coverage for status transition guard, soft-delete exclusion, category filters, and price validation.
 - Targeted test suite passed: `npx jest src/items/items.service.spec.ts` (37 tests).
 
+## Execution Update (2026-03-10)
+
+Completed in codebase for Phase 2:
+- Closed concurrency gaps for image/frame reorder/delete with transaction-safe ordering strategies.
+- Hardened upload validation + rollback behavior and aligned retry/error flow in media services.
+- Added backend media service unit coverage and frontend regression/E2E checks for spinner/media edge behavior.
+- Added backend unit tests to CI and improved Playwright readiness/cache execution.
+
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet executed and pending tasks:
@@ -202,7 +210,6 @@ Phases not yet executed and pending tasks:
 - Phase 13: `13-01`, `13-02`, `13-03` Extended E2E coverage and quality gates.
 
 Partially executed phases (still pending full completion):
-- Phase 2: `02-01` still pending full media pipeline hardening across all upload surfaces and resiliency checks.
 - Phase 4: `04-01` still pending complete AI-social publishing lifecycle validation.
 - Phase 6: `06-01`, `06-02` still pending full admin/public responsive hardening and smoke checks.
 

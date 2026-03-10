@@ -179,18 +179,6 @@ export class SpinnerService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Spin set not found');
     }
 
-    // Fast-fail for common case; authoritative max-frame enforcement is inside
-    // insertFrameWithOrdering transaction (Serializable + retry).
-    const existingCount = await this.prisma.spinFrame.count({
-      where: { spin_set_id: spinSetId },
-    });
-    if (existingCount >= this.maxFrames) {
-      throw new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        `Cannot upload more than ${this.maxFrames} frames`,
-      );
-    }
-
     await this.validateFile(file);
 
     let processedImage: Buffer;
@@ -247,6 +235,7 @@ export class SpinnerService {
     requestedIndex?: number,
   ): Promise<SpinFrame> {
     const maxAttempts = 3;
+    let exhaustedRetry = false;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
@@ -294,13 +283,22 @@ export class SpinnerService {
         const shouldRetry =
           isPrismaUniqueConstraintError(error) || isPrismaRetryableTransactionError(error);
 
-        if (shouldRetry && attempt < maxAttempts - 1) {
-          await this.delayBeforeRetry(attempt);
-          continue;
+        if (shouldRetry) {
+          if (attempt < maxAttempts - 1) {
+            await this.delayBeforeRetry(attempt);
+            continue;
+          }
+
+          exhaustedRetry = true;
+          break;
         }
 
         throw error;
       }
+    }
+
+    if (!exhaustedRetry) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Unable to upload frame');
     }
 
     throw new AppException(

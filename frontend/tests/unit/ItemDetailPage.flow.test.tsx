@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockInvalidateQueries: vi.fn(),
   mockShowToast: vi.fn(),
+  uploadFile: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => ({})),
   apiClient: {
     get: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => ({ data: {} })),
     post: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => ({ ok: true, data: { item: { id: 'new123' } } })),
@@ -75,7 +76,7 @@ vi.mock('react-router-dom', () => ({
 
 vi.mock('../../src/api/client', () => ({
   apiClient: h.apiClient,
-  uploadFile: vi.fn(async () => ({})),
+  uploadFile: (...args: unknown[]) => h.uploadFile(...args),
 }));
 
 vi.mock('../../src/utils/toast', () => ({
@@ -129,6 +130,12 @@ describe('ItemDetailPage main flows', () => {
     h.mockNavigate.mockReset();
     h.mockInvalidateQueries.mockReset();
     h.mockShowToast.mockReset();
+    h.uploadFile.mockReset();
+    vi.stubGlobal('confirm', vi.fn(() => true));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('does not submit when pressing Enter in step 1 input', async () => {
@@ -210,5 +217,77 @@ describe('ItemDetailPage main flows', () => {
 
     const fileInput = screen.getByTestId('spinner-frame-upload') as HTMLInputElement;
     expect(fileInput.disabled).toBe(true);
+  });
+
+  it('uploads multiple images and invalidates item query after each upload', async () => {
+    const noImageResponse = createBaseItemData();
+    noImageResponse.images = [];
+    h.mockItemResponse = noImageResponse;
+    h.apiClient.get.mockImplementation(async () => ({ data: h.mockItemResponse }));
+
+    render(<ItemDetailPage />);
+    fireEvent.click(screen.getAllByRole('button', { name: /Hình ảnh/i })[0]);
+
+    const fileInput = await screen.findByLabelText('Upload item images');
+    const file1 = new File([new Uint8Array([1, 2, 3])], 'img-1.jpg', { type: 'image/jpeg' });
+    const file2 = new File([new Uint8Array([4, 5, 6])], 'img-2.jpg', { type: 'image/jpeg' });
+
+    fireEvent.change(fileInput, { target: { files: [file1, file2] } });
+
+    await waitFor(() => {
+      expect(h.uploadFile).toHaveBeenCalledTimes(2);
+    });
+
+    const firstForm = h.uploadFile.mock.calls[0][1] as FormData;
+    const secondForm = h.uploadFile.mock.calls[1][1] as FormData;
+    expect(firstForm.get('is_cover')).toBe('true');
+    expect(secondForm.get('is_cover')).toBe('false');
+    expect(h.mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['item', '1'] });
+  });
+
+  it('keeps UI in sync when setting cover then deleting previous cover image', async () => {
+    h.mockItemResponse = {
+      ...createBaseItemData(),
+      images: [
+        {
+          id: 'img1',
+          item_id: '1',
+          url: 'https://img.example/1.jpg',
+          thumbnail_url: null,
+          is_cover: true,
+          display_order: 0,
+          created_at: '2026-01-01',
+        },
+        {
+          id: 'img2',
+          item_id: '1',
+          url: 'https://img.example/2.jpg',
+          thumbnail_url: null,
+          is_cover: false,
+          display_order: 1,
+          created_at: '2026-01-01',
+        },
+      ],
+    };
+    h.apiClient.get.mockImplementation(async () => ({ data: h.mockItemResponse }));
+
+    render(<ItemDetailPage />);
+    fireEvent.click(screen.getAllByRole('button', { name: /Hình ảnh/i })[0]);
+
+    const setCoverButtons = await screen.findAllByRole('button', { name: /Đặt làm ảnh đại diện/i });
+    fireEvent.click(setCoverButtons[0]);
+
+    await waitFor(() => {
+      expect(h.apiClient.patch).toHaveBeenCalledWith('/items/1/images/img2', { is_cover: true });
+    });
+
+    const deleteButtons = screen.getAllByRole('button', { name: 'Xóa' });
+    fireEvent.click(deleteButtons[0]);
+
+    await waitFor(() => {
+      expect(h.apiClient.delete).toHaveBeenCalledWith('/items/1/images/img1');
+    });
+
+    expect(h.mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['item', '1'] });
   });
 });
