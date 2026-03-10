@@ -51,6 +51,9 @@ jobs:
       - name: 🏗️ Build
         run: npm run build
 
+      - name: 🧪 Run backend unit tests
+        run: npx jest --runInBand
+
       - name: 📊 Upload build artifacts
         uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main'
