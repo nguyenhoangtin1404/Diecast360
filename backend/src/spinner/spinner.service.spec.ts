@@ -3,6 +3,8 @@ import { SpinnerService } from './spinner.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ImageProcessorService, WatermarkProcessingError } from '../image-processor/image-processor.service';
 import { AppException } from '../common/exceptions/http-exception.filter';
+import { UploadSupportService } from '../common/upload/upload-support.service';
+import { Prisma } from '../generated/prisma/client';
 
 describe('SpinnerService', () => {
   let service: SpinnerService;
@@ -10,6 +12,7 @@ describe('SpinnerService', () => {
     item: Record<string, jest.Mock>;
     spinSet: Record<string, jest.Mock>;
     spinFrame: Record<string, jest.Mock>;
+    $executeRaw: jest.Mock;
     $transaction: jest.Mock;
   };
   let imageProcessor: Record<string, jest.Mock>;
@@ -35,9 +38,12 @@ describe('SpinnerService', () => {
   };
 
   const mockFile = {
-    buffer: Buffer.from('test-image'),
-    originalname: 'frame.jpg',
-    mimetype: 'image/jpeg',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP+H8hQ6wAAAABJRU5ErkJggg==',
+      'base64',
+    ),
+    originalname: 'frame.png',
+    mimetype: 'image/png',
     size: 1024,
     fieldname: 'file',
     encoding: '7bit',
@@ -64,6 +70,7 @@ describe('SpinnerService', () => {
         count: jest.fn(),
         updateMany: jest.fn(),
       },
+      $executeRaw: jest.fn().mockResolvedValue(1),
       $transaction: jest.fn(async (fn: (prisma: unknown) => Promise<unknown>) => fn(prisma)),
     };
 
@@ -82,6 +89,7 @@ describe('SpinnerService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SpinnerService,
+        UploadSupportService,
         { provide: PrismaService, useValue: prisma },
         { provide: ImageProcessorService, useValue: imageProcessor },
         { provide: 'IStorageService', useValue: storage },
@@ -252,6 +260,23 @@ describe('SpinnerService', () => {
       });
     });
 
+    it('should clamp requested frame_index to frameCount when index is too large', async () => {
+      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinFrame.count.mockResolvedValue(3);
+      prisma.spinFrame.create.mockResolvedValue({ ...mockFrame, frame_index: 3 });
+
+      const result = await service.uploadFrame('spin-1', mockFile, { frame_index: 100 });
+
+      expect(result.frame.frame_index).toBe(3);
+      expect(prisma.spinFrame.updateMany).toHaveBeenCalledWith({
+        where: { spin_set_id: 'spin-1', frame_index: { gte: 3 } },
+        data: { frame_index: { increment: 1 } },
+      });
+      expect(prisma.spinFrame.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ spin_set_id: 'spin-1', frame_index: 3 }),
+      });
+    });
+
     it('should reject negative frame_index', async () => {
       prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
       prisma.spinFrame.count.mockResolvedValue(1);
@@ -305,6 +330,47 @@ describe('SpinnerService', () => {
       expect(storage.deleteFile).toHaveBeenCalledWith('spinner/thumbnails/thumb_frame0.jpg');
     });
 
+    it('should reindex remaining frames using 2-phase raw updates', async () => {
+      prisma.spinFrame.findFirst.mockResolvedValue(mockFrame);
+      prisma.spinFrame.delete.mockResolvedValue(mockFrame);
+      prisma.spinFrame.findMany.mockResolvedValue([
+        { ...mockFrame, id: 'f-2', frame_index: 1 },
+        { ...mockFrame, id: 'f-3', frame_index: 2 },
+      ]);
+
+      await service.deleteFrame('spin-1', 'frame-1');
+
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
+      expect(prisma.spinFrame.update).not.toHaveBeenCalled();
+
+      const firstSql = prisma.$executeRaw.mock.calls[0][0] as { strings?: string[] };
+      const secondSql = prisma.$executeRaw.mock.calls[1][0] as { strings?: string[] };
+
+      expect(firstSql.strings?.join('')).toContain('SET "frame_index" = -("frame_index" + 1)');
+      expect(secondSql.strings?.join('')).toContain('FROM (VALUES');
+    });
+
+    it('should avoid legacy per-row unique conflicts by not calling spinFrame.update during delete reorder', async () => {
+      prisma.spinFrame.findFirst.mockResolvedValue(mockFrame);
+      prisma.spinFrame.delete.mockResolvedValue(mockFrame);
+      prisma.spinFrame.findMany.mockResolvedValue([
+        { ...mockFrame, id: 'f-2', frame_index: 1 },
+        { ...mockFrame, id: 'f-3', frame_index: 0 },
+      ]);
+
+      // If implementation regresses to per-row updates, this would fail with P2002 on index swap.
+      prisma.spinFrame.update.mockImplementation(() => {
+        throw new Prisma.PrismaClientKnownRequestError('Unique conflict', {
+          code: 'P2002',
+          clientVersion: 'test',
+        });
+      });
+
+      await expect(service.deleteFrame('spin-1', 'frame-1')).resolves.toEqual({});
+      expect(prisma.spinFrame.update).not.toHaveBeenCalled();
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
+    });
+
     it('should throw NOT_FOUND when frame does not exist', async () => {
       prisma.spinFrame.findFirst.mockResolvedValue(null);
 
@@ -324,21 +390,19 @@ describe('SpinnerService', () => {
 
       prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
       prisma.spinFrame.findMany
-        .mockResolvedValueOnce([frame1, frame2])  // validate frame IDs
-        .mockResolvedValueOnce([frame1, frame2])  // get all frames for completeness check
+        .mockResolvedValueOnce([frame1, frame2])  // all frames in transaction
         .mockResolvedValueOnce([                  // final result after reorder
           { ...frame2, frame_index: 0 },
           { ...frame1, frame_index: 1 },
         ]);
-      prisma.spinFrame.update.mockResolvedValue({});
 
       const result = await service.reorderFrames('spin-1', {
         frame_ids: ['f-2', 'f-1'],
       });
 
       expect(result.frames).toHaveLength(2);
-      // 2-step update: first negative indices, then positive
-      expect(prisma.spinFrame.update).toHaveBeenCalled();
+      // 2-step update via raw SQL: temporary negatives then final indices
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
     });
 
     it('should throw NOT_FOUND when spin set does not exist', async () => {
@@ -390,13 +454,13 @@ describe('SpinnerService', () => {
   // Error resilience
   // ============================================================
   describe('deleteFrame error handling', () => {
-    it('should propagate error when storage.deleteFile fails', async () => {
+    it('should not fail request when storage.deleteFile fails during cleanup', async () => {
       prisma.spinFrame.findFirst.mockResolvedValue(mockFrame);
+      prisma.spinFrame.delete.mockResolvedValue(mockFrame);
+      prisma.spinFrame.findMany.mockResolvedValue([]);
       storage.deleteFile.mockRejectedValueOnce(new Error('Disk error'));
 
-      await expect(
-        service.deleteFrame('spin-1', 'frame-1'),
-      ).rejects.toThrow('Disk error');
+      await expect(service.deleteFrame('spin-1', 'frame-1')).resolves.toEqual({});
     });
   });
 });
