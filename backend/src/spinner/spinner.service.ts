@@ -1,14 +1,21 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { Prisma, SpinFrame } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { ImageProcessorService, WatermarkProcessingError } from '../image-processor/image-processor.service';
+import {
+  ImageProcessorService,
+  WatermarkProcessingError,
+} from '../image-processor/image-processor.service';
 import { IStorageService } from '../storage/storage.interface';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { CreateSpinSetDto } from './dto/create-spin-set.dto';
 import { UpdateSpinSetDto } from './dto/update-spin-set.dto';
 import { UploadFrameDto } from './dto/upload-frame.dto';
 import { ReorderFramesDto } from './dto/reorder-frames.dto';
-import { isPrismaUniqueConstraintError } from '../common/prisma/prisma-error.utils';
+import {
+  isPrismaRetryableTransactionError,
+  isPrismaUniqueConstraintError,
+} from '../common/prisma/prisma-error.utils';
+import { UploadSupportService } from '../common/upload/upload-support.service';
 
 @Injectable()
 export class SpinnerService {
@@ -21,19 +28,11 @@ export class SpinnerService {
     private prisma: PrismaService,
     private imageProcessor: ImageProcessorService,
     @Inject('IStorageService') private storage: IStorageService,
+    private uploadSupport: UploadSupportService,
   ) {
-    const parsed = Number.parseInt(process.env.MAX_SPINNER_FRAMES || '48', 10);
-    this.maxFrames = Number.isFinite(parsed) && parsed > 0 ? parsed : 48;
-    this.allowedMimeTypes = (process.env.ALLOWED_MIME || 'image/jpeg,image/png')
-      .split(',')
-      .map((m) => m.trim())
-      .filter(Boolean);
-
-    const maxUploadMB = Number.parseInt(process.env.MAX_UPLOAD_MB || '10', 10);
-    if (!Number.isFinite(maxUploadMB) || maxUploadMB <= 0) {
-      throw new Error('Invalid MAX_UPLOAD_MB config');
-    }
-    this.maxUploadBytes = maxUploadMB * 1024 * 1024;
+    this.allowedMimeTypes = this.uploadSupport.resolveAllowedMimeTypes(this.logger);
+    this.maxUploadBytes = this.uploadSupport.resolveMaxUploadBytes(this.logger, 10);
+    this.maxFrames = this.uploadSupport.resolveMaxSpinnerFrames(this.logger, 48);
   }
 
   async getSpinSets(itemId: string) {
@@ -69,7 +68,6 @@ export class SpinnerService {
   }
 
   async createSpinSet(itemId: string, createDto: CreateSpinSetDto) {
-    // Validate item exists
     const item = await this.prisma.item.findFirst({
       where: { id: itemId, deleted_at: null },
     });
@@ -78,7 +76,6 @@ export class SpinnerService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
     }
 
-    // If setting as default, unset other defaults
     if (createDto.is_default) {
       await this.prisma.spinSet.updateMany({
         where: { item_id: itemId, is_default: true },
@@ -117,7 +114,7 @@ export class SpinnerService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Spin set not found');
     }
 
-    const updateData: any = {};
+    const updateData: Prisma.SpinSetUpdateInput = {};
 
     if (updateDto.label !== undefined) {
       updateData.label = updateDto.label;
@@ -125,7 +122,6 @@ export class SpinnerService {
 
     if (updateDto.is_default !== undefined) {
       if (updateDto.is_default) {
-        // Unset other defaults for this item
         await this.prisma.spinSet.updateMany({
           where: {
             item_id: spinSet.item_id,
@@ -175,7 +171,6 @@ export class SpinnerService {
     file: Express.Multer.File,
     uploadDto: UploadFrameDto,
   ) {
-    // Validate spin set exists
     const spinSet = await this.prisma.spinSet.findUnique({
       where: { id: spinSetId },
     });
@@ -184,7 +179,8 @@ export class SpinnerService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Spin set not found');
     }
 
-    // Fast-fail check for common case; transaction-level guard in insertFrameWithOrdering is authoritative.
+    // Fast-fail for common case; authoritative max-frame enforcement is inside
+    // insertFrameWithOrdering transaction (Serializable + retry).
     const existingCount = await this.prisma.spinFrame.count({
       where: { spin_set_id: spinSetId },
     });
@@ -195,10 +191,8 @@ export class SpinnerService {
       );
     }
 
-    // Validate file
-    this.validateFile(file);
+    await this.validateFile(file);
 
-    // Process image and generate thumbnail
     let processedImage: Buffer;
     try {
       processedImage = await this.imageProcessor.processImage(file.buffer, {
@@ -213,24 +207,21 @@ export class SpinnerService {
       }
       throw error;
     }
+
     const thumbnail = await this.imageProcessor.generateThumbnail(file.buffer);
 
-    // Generate filenames
-    const imageFilename = this.imageProcessor.generateFilename(file.originalname);
-    const thumbnailFilename = this.imageProcessor.generateFilename(file.originalname);
+    const baseFilename = this.imageProcessor.generateFilename(file.originalname);
+    const imageFilename = `frame_${baseFilename}`;
+    const thumbnailFilename = `thumb_${baseFilename}`;
 
     const savedPaths: string[] = [];
     try {
-      const imagePath = await this.storage.saveFile(
-        processedImage,
-        imageFilename,
-        'spinner',
-      );
+      const imagePath = await this.storage.saveFile(processedImage, imageFilename, 'spinner');
       savedPaths.push(imagePath);
 
       const thumbnailPath = await this.storage.saveFile(
         thumbnail,
-        `thumb_${thumbnailFilename}`,
+        thumbnailFilename,
         'spinner/thumbnails',
       );
       savedPaths.push(thumbnailPath);
@@ -259,51 +250,51 @@ export class SpinnerService {
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        return await this.prisma.$transaction(async (tx) => {
-          const frameCount = await tx.spinFrame.count({
-            where: { spin_set_id: spinSetId },
-          });
-          if (frameCount >= this.maxFrames) {
-            throw new AppException(
-              ErrorCode.VALIDATION_ERROR,
-              `Cannot upload more than ${this.maxFrames} frames`,
-            );
-          }
-
-          let targetIndex = frameCount;
-          if (requestedIndex !== undefined) {
-            if (requestedIndex < 0) {
+        return await this.prisma.$transaction(
+          async (tx) => {
+            const frameCount = await tx.spinFrame.count({
+              where: { spin_set_id: spinSetId },
+            });
+            if (frameCount >= this.maxFrames) {
               throw new AppException(
                 ErrorCode.VALIDATION_ERROR,
-                'frame_index must be >= 0',
+                `Cannot upload more than ${this.maxFrames} frames`,
               );
             }
 
-            // Cap to end-of-list when index is too large
-            targetIndex = Math.min(requestedIndex, frameCount);
+            let targetIndex = frameCount;
+            if (requestedIndex !== undefined) {
+              if (requestedIndex < 0) {
+                throw new AppException(ErrorCode.VALIDATION_ERROR, 'frame_index must be >= 0');
+              }
 
-            // Shift existing frames to make room for inserted index
-            await tx.spinFrame.updateMany({
-              where: {
+              targetIndex = Math.min(requestedIndex, frameCount);
+
+              await tx.spinFrame.updateMany({
+                where: {
+                  spin_set_id: spinSetId,
+                  frame_index: { gte: targetIndex },
+                },
+                data: { frame_index: { increment: 1 } },
+              });
+            }
+
+            return tx.spinFrame.create({
+              data: {
                 spin_set_id: spinSetId,
-                frame_index: { gte: targetIndex },
+                frame_index: targetIndex,
+                file_path: imagePath,
+                thumbnail_path: thumbnailPath,
               },
-              data: { frame_index: { increment: 1 } },
             });
-          }
-
-          return tx.spinFrame.create({
-            data: {
-              spin_set_id: spinSetId,
-              frame_index: targetIndex,
-              file_path: imagePath,
-              thumbnail_path: thumbnailPath,
-            },
-          });
-        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
       } catch (error) {
-        // Retry on unique constraint collision due to concurrency
-        if (isPrismaUniqueConstraintError(error) && attempt < maxAttempts - 1) {
+        const shouldRetry =
+          isPrismaUniqueConstraintError(error) || isPrismaRetryableTransactionError(error);
+
+        if (shouldRetry && attempt < maxAttempts - 1) {
           await this.delayBeforeRetry(attempt);
           continue;
         }
@@ -312,7 +303,6 @@ export class SpinnerService {
       }
     }
 
-    // Should never reach here, but included for type safety
     throw new AppException(
       ErrorCode.VALIDATION_ERROR,
       'Unable to upload frame due to concurrency conflict',
@@ -325,27 +315,16 @@ export class SpinnerService {
       spin_set_id: frame.spin_set_id,
       frame_index: frame.frame_index,
       image_url: this.storage.getFileUrl(frame.file_path),
-      thumbnail_url: frame.thumbnail_path
-        ? this.storage.getFileUrl(frame.thumbnail_path)
-        : null,
+      thumbnail_url: frame.thumbnail_path ? this.storage.getFileUrl(frame.thumbnail_path) : null,
       created_at: frame.created_at,
     };
   }
 
   private async cleanupSavedFiles(paths: string[], context: string) {
-    await Promise.all(
-      paths.map(async (path) => {
-        try {
-          await this.storage.deleteFile(path);
-        } catch (error) {
-          this.logger.warn(`[${context}] Failed to cleanup file: ${path}`, error as Error);
-        }
-      }),
-    );
+    await this.uploadSupport.cleanupSavedFiles(this.storage, this.logger, paths, context);
   }
 
   async reorderFrames(spinSetId: string, reorderDto: ReorderFramesDto) {
-    // Validate spin set exists
     const spinSet = await this.prisma.spinSet.findUnique({
       where: { id: spinSetId },
     });
@@ -354,93 +333,76 @@ export class SpinnerService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Spin set not found');
     }
 
-    // Validate all frames belong to this spin set
-    const frames = await this.prisma.spinFrame.findMany({
-      where: {
-        spin_set_id: spinSetId,
-        id: { in: reorderDto.frame_ids },
-      },
-    });
-
-    if (frames.length !== reorderDto.frame_ids.length) {
-      throw new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        'Some frame IDs do not belong to this spin set',
-      );
-    }
-
-    // Get all frames for this spin set to check completeness
-    const allFrames = await this.prisma.spinFrame.findMany({
-      where: { spin_set_id: spinSetId },
-    });
-
-    if (allFrames.length !== reorderDto.frame_ids.length) {
-      throw new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        'Reorder must include all frames',
-      );
-    }
-
-    // Check for duplicates
     if (new Set(reorderDto.frame_ids).size !== reorderDto.frame_ids.length) {
-      throw new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        'Duplicate frame IDs in reorder list',
-      );
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Duplicate frame IDs in reorder list');
     }
 
-    // Use a transaction to update frames safely
-    // Because of the unique constraint on [spin_set_id, frame_index], we can't simply direct update
-    // e.g. swapping 0 and 1 -> updating 0 to 1 fails because 1 exists
-    // Strategy:
-    // 1. Update all to temporary negative indices: -1, -2, -3...
-    // 2. Update to new correct positive indices: 0, 1, 2...
-    
-    const updatedFrames = await this.prisma.$transaction(async (tx) => {
-      // Step 1: Set to temporary negative indices to free up the positive range
-      // Map id -> final_index
-      const idToIndexMap = new Map<string, number>();
-      reorderDto.frame_ids.forEach((id, index) => {
-        idToIndexMap.set(id, index);
-      });
+    const maxAttempts = 3;
 
-      // Update each frame to a temporary negative index based on its current position to ensure uniqueness
-      // We use -(index + 1) to ensure they are all negative and unique: -1, -2, -3...
-      for (const frame of allFrames) {
-        await tx.spinFrame.update({
-          where: { id: frame.id },
-          data: { frame_index: -1 * (frame.frame_index + 1) }, 
-        });
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const updatedFrames = await this.prisma.$transaction(
+          async (tx) => {
+            const allFrames = await tx.spinFrame.findMany({
+              where: { spin_set_id: spinSetId },
+              orderBy: { frame_index: 'asc' },
+            });
+
+            if (allFrames.length !== reorderDto.frame_ids.length) {
+              throw new AppException(
+                ErrorCode.VALIDATION_ERROR,
+                'Reorder must include all frames',
+              );
+            }
+
+            const existingIds = new Set(allFrames.map((frame) => frame.id));
+            const hasUnknownId = reorderDto.frame_ids.some((id) => !existingIds.has(id));
+            if (hasUnknownId) {
+              throw new AppException(
+                ErrorCode.VALIDATION_ERROR,
+                'Some frame IDs do not belong to this spin set',
+              );
+            }
+
+            await this.reorderSpinFramesSafely(tx, spinSetId, reorderDto.frame_ids);
+
+            return tx.spinFrame.findMany({
+              where: { spin_set_id: spinSetId },
+              orderBy: { frame_index: 'asc' },
+            });
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+
+        return {
+          frames: updatedFrames.map((frame) => ({
+            id: frame.id,
+            spin_set_id: frame.spin_set_id,
+            frame_index: frame.frame_index,
+            image_url: this.storage.getFileUrl(frame.file_path),
+            thumbnail_url: frame.thumbnail_path
+              ? this.storage.getFileUrl(frame.thumbnail_path)
+              : null,
+            created_at: frame.created_at,
+          })),
+        };
+      } catch (error) {
+        const shouldRetry =
+          isPrismaUniqueConstraintError(error) || isPrismaRetryableTransactionError(error);
+
+        if (shouldRetry && attempt < maxAttempts - 1) {
+          await this.delayBeforeRetry(attempt);
+          continue;
+        }
+
+        throw error;
       }
+    }
 
-      // Step 2: Update to final desired indices
-      for (const frameId of reorderDto.frame_ids) {
-        const newIndex = idToIndexMap.get(frameId);
-        if (newIndex === undefined) continue;
-
-        await tx.spinFrame.update({
-          where: { id: frameId },
-          data: { frame_index: newIndex },
-        });
-      }
-      return tx.spinFrame.findMany({
-        where: { spin_set_id: spinSetId },
-        orderBy: { frame_index: 'asc' },
-      });
-    });
-
-    return {
-      frames: updatedFrames.map((frame) => ({
-        id: frame.id,
-        spin_set_id: frame.spin_set_id,
-        frame_index: frame.frame_index,
-        image_url: this.storage.getFileUrl(frame.file_path),
-        thumbnail_url: frame.thumbnail_path
-          ? this.storage.getFileUrl(frame.thumbnail_path)
-          : null,
-        created_at: frame.created_at,
-      })),
-    };
+    throw new AppException(
+      ErrorCode.VALIDATION_ERROR,
+      'Unable to reorder frames due to concurrency conflict',
+    );
   }
 
   async deleteFrame(spinSetId: string, frameId: string) {
@@ -462,16 +424,14 @@ export class SpinnerService {
 
       const remainingFrames = await tx.spinFrame.findMany({
         where: { spin_set_id: spinSetId },
-        orderBy: { frame_index: 'asc' },
       });
 
-      await Promise.all(
-        remainingFrames.map((f, index) =>
-          tx.spinFrame.update({
-            where: { id: f.id },
-            data: { frame_index: index },
-          }),
-        ),
+      await this.reorderSpinFramesSafely(
+        tx,
+        spinSetId,
+        remainingFrames
+          .sort((a, b) => a.frame_index - b.frame_index)
+          .map((remainingFrame) => remainingFrame.id),
       );
     });
 
@@ -484,25 +444,41 @@ export class SpinnerService {
     return {};
   }
 
-  private validateFile(file: Express.Multer.File) {
-    if (!this.allowedMimeTypes.includes(file.mimetype)) {
-      throw new AppException(
-        ErrorCode.UPLOAD_INVALID_TYPE,
-        `Invalid file type. Allowed types: ${this.allowedMimeTypes.join(', ')}`,
-      );
+  private async reorderSpinFramesSafely(
+    tx: Prisma.TransactionClient,
+    spinSetId: string,
+    orderedFrameIds: string[],
+  ) {
+    await tx.$executeRaw(
+      Prisma.sql`
+        UPDATE "spin_frames"
+        SET "frame_index" = -("frame_index" + 1)
+        WHERE "spin_set_id" = ${spinSetId}
+      `,
+    );
+
+    if (orderedFrameIds.length === 0) {
+      return;
     }
 
-    if (file.size > this.maxUploadBytes) {
-      throw new AppException(
-        ErrorCode.UPLOAD_TOO_LARGE,
-        `File size exceeds maximum of ${Math.floor(this.maxUploadBytes / (1024 * 1024))}MB`,
-      );
-    }
+    const values = orderedFrameIds.map((id, index) => Prisma.sql`(${id}::uuid, ${index})`);
+
+    await tx.$executeRaw(
+      Prisma.sql`
+        UPDATE "spin_frames" AS sf
+        SET "frame_index" = v.new_index
+        FROM (VALUES ${Prisma.join(values)}) AS v(id, new_index)
+        WHERE sf.id = v.id
+          AND sf.spin_set_id = ${spinSetId}
+      `,
+    );
+  }
+
+  private async validateFile(file: Express.Multer.File) {
+    await this.uploadSupport.validateFile(file, this.allowedMimeTypes, this.maxUploadBytes);
   }
 
   private async delayBeforeRetry(attempt: number) {
-    const delayMs = Math.pow(2, attempt) * 50 + Math.random() * 50;
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await this.uploadSupport.delayBeforeRetry(attempt);
   }
 }
-

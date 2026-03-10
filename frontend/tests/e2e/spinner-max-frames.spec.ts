@@ -79,6 +79,14 @@ test.describe('Spinner upload limits', () => {
   });
 
   test('shows error when API rejects upload even when UI still allows selecting file', async ({ page }) => {
+    await page.addInitScript(() => {
+      const alerts: string[] = [];
+      (window as unknown as { __alerts: string[] }).__alerts = alerts;
+      window.alert = (message?: string) => {
+        alerts.push(String(message ?? ''));
+      };
+    });
+
     await page.route('**/api/v1/auth/me', (route: Route) => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockUserResponse) });
     });
@@ -101,18 +109,29 @@ test.describe('Spinner upload limits', () => {
       });
     });
 
-    // Capture the alert triggered by upload failure
-    const alertPromise = page.waitForEvent('dialog');
-
     await page.goto('/admin/items/1?step=3');
     await expect(page.getByTestId('spinner-frame-upload')).toBeEnabled();
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const alerts = (window as unknown as { __alerts?: string[] }).__alerts ?? [];
+        return alerts.length;
+      });
+    }).toBe(0);
 
     // Provide a small dummy file
     const file = { name: 'frame.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff]) };
     await page.setInputFiles('[data-testid="spinner-frame-upload"]', file);
 
-    const dialog = await alertPromise;
-    expect(dialog.message()).toContain('Có lỗi khi upload frames');
-    await dialog.dismiss();
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const alerts = (window as unknown as { __alerts?: string[] }).__alerts ?? [];
+        return alerts.length;
+      });
+    }).toBeGreaterThan(0);
+
+    const alerts = await page.evaluate(() => {
+      return (window as unknown as { __alerts?: string[] }).__alerts ?? [];
+    });
+    expect(alerts.some((msg) => msg.includes('Có lỗi khi upload frames'))).toBeTruthy();
   });
 });

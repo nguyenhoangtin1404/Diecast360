@@ -1,9 +1,4 @@
-const rawMaxFrames =
-  (
-    import.meta as {
-      env?: Record<string, string | undefined>;
-    }
-  ).env?.VITE_MAX_SPINNER_FRAMES ?? '48';
+const rawMaxFrames = import.meta.env?.VITE_MAX_SPINNER_FRAMES ?? '48';
 
 const parsed = Number.parseInt(rawMaxFrames, 10);
 

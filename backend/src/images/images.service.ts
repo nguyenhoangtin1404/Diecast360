@@ -1,16 +1,19 @@
-import {
-  Injectable,
-  Inject,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { Prisma, ItemImage } from '../generated/prisma/client';
-import { ImageProcessorService, WatermarkProcessingError } from '../image-processor/image-processor.service';
+import {
+  ImageProcessorService,
+  WatermarkProcessingError,
+} from '../image-processor/image-processor.service';
 import { IStorageService } from '../storage/storage.interface';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { UpdateImageDto } from './dto/update-image.dto';
 import { ReorderImagesDto } from './dto/reorder-images.dto';
-import { isPrismaUniqueConstraintError } from '../common/prisma/prisma-error.utils';
+import {
+  isPrismaRetryableTransactionError,
+  isPrismaUniqueConstraintError,
+} from '../common/prisma/prisma-error.utils';
+import { UploadSupportService } from '../common/upload/upload-support.service';
 
 @Injectable()
 export class ImagesService {
@@ -22,17 +25,10 @@ export class ImagesService {
     private prisma: PrismaService,
     private imageProcessor: ImageProcessorService,
     @Inject('IStorageService') private storage: IStorageService,
+    private uploadSupport: UploadSupportService,
   ) {
-    this.allowedMimeTypes = (process.env.ALLOWED_MIME || 'image/jpeg,image/png')
-      .split(',')
-      .map((m) => m.trim())
-      .filter(Boolean);
-
-    const maxUploadMB = Number.parseInt(process.env.MAX_UPLOAD_MB || '10', 10);
-    if (!Number.isFinite(maxUploadMB) || maxUploadMB <= 0) {
-      throw new Error('Invalid MAX_UPLOAD_MB config');
-    }
-    this.maxUploadBytes = maxUploadMB * 1024 * 1024;
+    this.allowedMimeTypes = this.uploadSupport.resolveAllowedMimeTypes(this.logger);
+    this.maxUploadBytes = this.uploadSupport.resolveMaxUploadBytes(this.logger, 10);
   }
 
   async uploadImage(itemId: string, file: Express.Multer.File, isCover?: boolean) {
@@ -44,7 +40,7 @@ export class ImagesService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
     }
 
-    this.validateFile(file);
+    await this.validateFile(file);
 
     let processedImage: Buffer;
     try {
@@ -60,22 +56,20 @@ export class ImagesService {
       }
       throw error;
     }
+
     const thumbnail = await this.imageProcessor.generateThumbnail(file.buffer);
-    const imageFilename = this.imageProcessor.generateFilename(file.originalname);
-    const thumbnailFilename = this.imageProcessor.generateFilename(file.originalname);
+    const baseFilename = this.imageProcessor.generateFilename(file.originalname);
+    const imageFilename = `img_${baseFilename}`;
+    const thumbnailFilename = `thumb_${baseFilename}`;
 
     const savedPaths: string[] = [];
     try {
-      const imagePath = await this.storage.saveFile(
-        processedImage,
-        imageFilename,
-        'images',
-      );
+      const imagePath = await this.storage.saveFile(processedImage, imageFilename, 'images');
       savedPaths.push(imagePath);
 
       const thumbnailPath = await this.storage.saveFile(
         thumbnail,
-        `thumb_${thumbnailFilename}`,
+        thumbnailFilename,
         'thumbnails',
       );
       savedPaths.push(thumbnailPath);
@@ -104,43 +98,49 @@ export class ImagesService {
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        return await this.prisma.$transaction(async (tx) => {
-          const [imageCount, existingCover] = await Promise.all([
-            tx.itemImage.count({ where: { item_id: itemId } }),
-            tx.itemImage.findFirst({
-              where: { item_id: itemId, is_cover: true },
-            }),
-          ]);
+        return await this.prisma.$transaction(
+          async (tx) => {
+            const imageCount = await tx.itemImage.count({ where: { item_id: itemId } });
 
-          const displayOrder = imageCount;
-          const shouldSetCover = Boolean(
-            isCover || imageCount === 0 || !existingCover,
-          );
+            let existingCover: Pick<ItemImage, 'id'> | null = null;
+            if (!isCover && imageCount > 0) {
+              existingCover = await tx.itemImage.findFirst({
+                where: { item_id: itemId, is_cover: true },
+                select: { id: true },
+              });
+            }
 
-          if (shouldSetCover) {
-            await tx.itemImage.updateMany({
-              where: { item_id: itemId, is_cover: true },
-              data: { is_cover: false },
+            const displayOrder = imageCount;
+            const shouldSetCover = Boolean(isCover || imageCount === 0 || !existingCover);
+
+            if (shouldSetCover) {
+              await tx.itemImage.updateMany({
+                where: { item_id: itemId, is_cover: true },
+                data: { is_cover: false },
+              });
+            }
+
+            return tx.itemImage.create({
+              data: {
+                item_id: itemId,
+                file_path: imagePath,
+                thumbnail_path: thumbnailPath,
+                is_cover: shouldSetCover,
+                display_order: displayOrder,
+              },
             });
-          }
-
-          const image = await tx.itemImage.create({
-            data: {
-              item_id: itemId,
-              file_path: imagePath,
-              thumbnail_path: thumbnailPath,
-              is_cover: shouldSetCover,
-              display_order: displayOrder,
-            },
-          });
-
-          return image;
-        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
       } catch (error) {
-        if (isPrismaUniqueConstraintError(error) && attempt < maxAttempts - 1) {
+        const shouldRetry =
+          isPrismaUniqueConstraintError(error) || isPrismaRetryableTransactionError(error);
+
+        if (shouldRetry && attempt < maxAttempts - 1) {
           await this.delayBeforeRetry(attempt);
           continue;
         }
+
         throw error;
       }
     }
@@ -207,11 +207,7 @@ export class ImagesService {
         data: updateData,
       });
 
-      await this.ensureSingleCover(
-        itemId,
-        nextImage.is_cover ? nextImage.id : preferredCoverId,
-        tx,
-      );
+      await this.ensureSingleCover(tx, itemId, nextImage.is_cover ? nextImage.id : preferredCoverId);
       return nextImage;
     });
 
@@ -220,54 +216,72 @@ export class ImagesService {
 
   async reorderImages(itemId: string, reorderDto: ReorderImagesDto) {
     if (new Set(reorderDto.image_ids).size !== reorderDto.image_ids.length) {
-      throw new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        'Duplicate image IDs in reorder list',
-      );
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Duplicate image IDs in reorder list');
     }
 
-    const allImages = await this.prisma.itemImage.findMany({
-      where: { item_id: itemId },
-      orderBy: { display_order: 'asc' },
-    });
-    const existingIds = new Set(allImages.map((img) => img.id));
+    const maxAttempts = 3;
 
-    if (allImages.length !== reorderDto.image_ids.length) {
-      throw new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        'Reorder must include all item images',
-      );
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const updatedImages = await this.prisma.$transaction(
+          async (tx) => {
+            const allImages = await tx.itemImage.findMany({
+              where: { item_id: itemId },
+              orderBy: { display_order: 'asc' },
+            });
+
+            const existingIds = new Set(allImages.map((img) => img.id));
+            if (allImages.length !== reorderDto.image_ids.length) {
+              throw new AppException(
+                ErrorCode.VALIDATION_ERROR,
+                'Reorder must include all item images',
+              );
+            }
+
+            const hasUnknownId = reorderDto.image_ids.some((id) => !existingIds.has(id));
+            if (hasUnknownId) {
+              throw new AppException(
+                ErrorCode.VALIDATION_ERROR,
+                'Some image IDs do not belong to this item',
+              );
+            }
+
+            await this.reorderItemImagesSafely(tx, allImages, reorderDto.image_ids);
+
+            const indexById = new Map<string, number>();
+            reorderDto.image_ids.forEach((id, index) => {
+              indexById.set(id, index);
+            });
+
+            const reorderedImages = allImages
+              .map((img) => ({ ...img, display_order: indexById.get(img.id) ?? img.display_order }))
+              .sort((a, b) => a.display_order - b.display_order);
+
+            return this.ensureSingleCover(tx, itemId, undefined, reorderedImages);
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+
+        return {
+          images: updatedImages.map((img) => this.mapImage(img)),
+        };
+      } catch (error) {
+        const shouldRetry =
+          isPrismaUniqueConstraintError(error) || isPrismaRetryableTransactionError(error);
+
+        if (shouldRetry && attempt < maxAttempts - 1) {
+          await this.delayBeforeRetry(attempt);
+          continue;
+        }
+
+        throw error;
+      }
     }
 
-    const hasUnknownId = reorderDto.image_ids.some((id) => !existingIds.has(id));
-    if (hasUnknownId) {
-      throw new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        'Some image IDs do not belong to this item',
-      );
-    }
-
-    // Perform reorder inside a transaction to avoid partial updates
-    const updatedImages = await this.prisma.$transaction(async (tx) => {
-      await Promise.all(
-        reorderDto.image_ids.map((id, index) =>
-          tx.itemImage.update({
-            where: { id },
-            data: { display_order: index },
-          }),
-        ),
-      );
-
-      await this.ensureSingleCover(itemId, undefined, tx);
-      return tx.itemImage.findMany({
-        where: { item_id: itemId },
-        orderBy: { display_order: 'asc' },
-      });
-    });
-
-    return {
-      images: updatedImages.map((img) => this.mapImage(img)),
-    };
+    throw new AppException(
+      ErrorCode.VALIDATION_ERROR,
+      'Unable to reorder images due to concurrency conflict',
+    );
   }
 
   async deleteImage(itemId: string, imageId: string) {
@@ -292,16 +306,15 @@ export class ImagesService {
         orderBy: { display_order: 'asc' },
       });
 
-      await Promise.all(
-        remainingImages.map((img, index) =>
-          tx.itemImage.update({
-            where: { id: img.id },
-            data: { display_order: index },
-          }),
-        ),
-      );
+      const orderedIds = remainingImages.map((img) => img.id);
+      await this.reorderItemImagesSafely(tx, remainingImages, orderedIds);
 
-      await this.ensureSingleCover(itemId, undefined, tx);
+      const normalized = remainingImages.map((img, index) => ({
+        ...img,
+        display_order: index,
+      }));
+
+      await this.ensureSingleCover(tx, itemId, undefined, normalized);
     });
 
     const pathsToCleanup = [image.file_path];
@@ -313,20 +326,32 @@ export class ImagesService {
     return {};
   }
 
-  private validateFile(file: Express.Multer.File) {
-    if (!this.allowedMimeTypes.includes(file.mimetype)) {
-      throw new AppException(
-        ErrorCode.UPLOAD_INVALID_TYPE,
-        `Invalid file type. Allowed types: ${this.allowedMimeTypes.join(', ')}`,
-      );
-    }
+  private async reorderItemImagesSafely(
+    tx: Prisma.TransactionClient,
+    allImages: Pick<ItemImage, 'id'>[],
+    orderedIds: string[],
+  ) {
+    await Promise.all(
+      allImages.map((img, index) =>
+        tx.itemImage.update({
+          where: { id: img.id },
+          data: { display_order: -1 * (index + 1) },
+        }),
+      ),
+    );
 
-    if (file.size > this.maxUploadBytes) {
-      throw new AppException(
-        ErrorCode.UPLOAD_TOO_LARGE,
-        `File size exceeds maximum of ${Math.floor(this.maxUploadBytes / (1024 * 1024))}MB`,
-      );
-    }
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        tx.itemImage.update({
+          where: { id },
+          data: { display_order: index },
+        }),
+      ),
+    );
+  }
+
+  private async validateFile(file: Express.Multer.File) {
+    await this.uploadSupport.validateFile(file, this.allowedMimeTypes, this.maxUploadBytes);
   }
 
   private mapImage(image: ItemImage) {
@@ -334,9 +359,7 @@ export class ImagesService {
       id: image.id,
       item_id: image.item_id,
       url: this.storage.getFileUrl(image.file_path),
-      thumbnail_url: image.thumbnail_path
-        ? this.storage.getFileUrl(image.thumbnail_path)
-        : null,
+      thumbnail_url: image.thumbnail_path ? this.storage.getFileUrl(image.thumbnail_path) : null,
       is_cover: image.is_cover,
       display_order: image.display_order,
       created_at: image.created_at,
@@ -344,68 +367,57 @@ export class ImagesService {
   }
 
   private async cleanupSavedFiles(paths: string[], context: string) {
-    await Promise.all(
-      paths.map(async (path) => {
-        try {
-          await this.storage.deleteFile(path);
-        } catch (error) {
-          this.logger.warn(`[${context}] Failed to cleanup file: ${path}`, error as Error);
-        }
-      }),
-    );
+    await this.uploadSupport.cleanupSavedFiles(this.storage, this.logger, paths, context);
   }
 
   private async ensureSingleCover(
+    tx: Prisma.TransactionClient,
     itemId: string,
     preferredImageId?: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    if (tx) {
-      await this.ensureSingleCoverWithClient(tx, itemId, preferredImageId);
-      return;
-    }
+    preloadedImages?: ItemImage[],
+  ): Promise<ItemImage[]> {
+    const mustReturnFreshState = preloadedImages !== undefined;
+    const images =
+      preloadedImages ??
+      (await tx.itemImage.findMany({
+        where: { item_id: itemId },
+        orderBy: { display_order: 'asc' },
+      }));
 
-    await this.prisma.$transaction(async (innerTx) => {
-      await this.ensureSingleCoverWithClient(innerTx, itemId, preferredImageId);
-    });
-  }
-
-  private async ensureSingleCoverWithClient(
-    client: Prisma.TransactionClient,
-    itemId: string,
-    preferredImageId?: string,
-  ) {
-    const images = await client.itemImage.findMany({
-      where: { item_id: itemId },
-      orderBy: { display_order: 'asc' },
-    });
-
-    if (images.length === 0) return;
+    if (images.length === 0) return images;
 
     const covers = images.filter((img) => img.is_cover);
-    if (covers.length === 1) return;
+    if (covers.length === 1) {
+      if (!mustReturnFreshState) return images;
+      return tx.itemImage.findMany({
+        where: { item_id: itemId },
+        orderBy: { display_order: 'asc' },
+      });
+    }
 
-    const preferred = preferredImageId
-      ? images.find((img) => img.id === preferredImageId)
-      : undefined;
+    const preferred = preferredImageId ? images.find((img) => img.id === preferredImageId) : undefined;
     if (preferredImageId && !preferred) {
       this.logger.warn(`Preferred cover image not found: ${preferredImageId} for item ${itemId}`);
     }
+
     const nextCover = preferred ?? covers[0] ?? images[0];
 
-    await client.itemImage.updateMany({
+    await tx.itemImage.updateMany({
       where: { item_id: itemId },
       data: { is_cover: false },
     });
-    await client.itemImage.update({
+    await tx.itemImage.update({
       where: { id: nextCover.id },
       data: { is_cover: true },
+    });
+
+    return tx.itemImage.findMany({
+      where: { item_id: itemId },
+      orderBy: { display_order: 'asc' },
     });
   }
 
   private async delayBeforeRetry(attempt: number) {
-    const delayMs = Math.pow(2, attempt) * 50 + Math.random() * 50;
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await this.uploadSupport.delayBeforeRetry(attempt);
   }
 }
-
