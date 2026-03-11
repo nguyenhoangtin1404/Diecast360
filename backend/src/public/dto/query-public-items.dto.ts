@@ -1,4 +1,4 @@
-import { IsOptional, IsInt, Min, IsString, IsIn } from 'class-validator';
+import { IsOptional, IsInt, Min, IsString, IsIn, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QueryPublicItemsDto {
@@ -12,11 +12,12 @@ export class QueryPublicItemsDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   page_size?: number = 20;
 
   @IsOptional()
   @IsIn(['con_hang', 'giu_cho', 'da_ban'])
-  status?: string;
+  status?: 'con_hang' | 'giu_cho' | 'da_ban';
 
   @IsOptional()
   @IsString()
@@ -32,14 +33,14 @@ export class QueryPublicItemsDto {
 
   @IsOptional()
   @IsIn(['new', 'old'])
-  condition?: string;
+  condition?: 'new' | 'old';
 
   @IsOptional()
   @IsIn(['name', 'price', 'created_at'])
-  sort_by?: string = 'created_at';
+  sort_by?: 'name' | 'price' | 'created_at' = 'created_at';
 
   @IsOptional()
   @IsIn(['asc', 'desc'])
-  sort_order?: string = 'desc';
+  sort_order?: 'asc' | 'desc' = 'desc';
 }
 

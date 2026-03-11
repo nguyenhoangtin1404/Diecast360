@@ -8,7 +8,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 
 - [x] **Phase 1: Inventory Foundation** - Data model and item lifecycle management.
 - [x] **Phase 2: Media Pipeline** - Image and spinner asset management.
-- [ ] **Phase 3: Public Experience** - Public catalog and product viewing workflow.
+- [x] **Phase 3: Public Experience** - Public catalog and product viewing workflow.
 - [ ] **Phase 4: AI and Social Selling** - Content generation and seller assist tools.
 - [ ] **Phase 5: Production and Integrations** - Docker, CI, and Facebook API baseline.
 - [ ] **Phase 6: Issue #58 - Mobile Responsive UI** - Mobile-first UX hardening for admin/public pages.
@@ -47,7 +47,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 03-01: Deliver public catalog and detail UX consistency
+- [x] 03-01: Deliver public catalog and detail UX consistency
 
 ### Phase 4: AI and Social Selling
 **Goal**: AI-generated listing content and social-ready outputs.
@@ -158,7 +158,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Inventory Foundation | 1/1 | Complete | 2026-03-05 |
 | 2. Media Pipeline | 1/1 | Complete | 2026-03-10 |
-| 3. Public Experience | 0/1 | Not started | - |
+| 3. Public Experience | 1/1 | Complete | 2026-03-10 |
 | 4. AI and Social Selling | 0/1 | In progress (partial) | Step 4 "Hoàn tất" flow and guardrails implemented |
 | 5. Production and Integrations | 0/1 | Not started | - |
 | 6. Issue #58 - Mobile Responsive UI | 0/2 | In progress (partial) | Mobile stepper UX and navigation controls improved |
@@ -188,7 +188,7 @@ Completed in codebase for Phase 1:
 - Added regression coverage for status transition guard, soft-delete exclusion, category filters, and price validation.
 - Targeted test suite passed: `npx jest src/items/items.service.spec.ts` (37 tests).
 
-## Execution Update (2026-03-10)
+## Execution Update (2026-03-10, Phase 2)
 
 Completed in codebase for Phase 2:
 - Closed concurrency gaps for image/frame reorder/delete with transaction-safe ordering strategies.
@@ -196,10 +196,16 @@ Completed in codebase for Phase 2:
 - Added backend media service unit coverage and frontend regression/E2E checks for spinner/media edge behavior.
 - Added backend unit tests to CI and improved Playwright readiness/cache execution.
 
+## Execution Update (2026-03-10, Phase 3)
+
+Completed in codebase for Phase 3:
+- Hardened public list/detail API consistency and visibility guards.
+- Added public service regression tests for filtering, paging, and spinner frame normalization.
+- Stabilized catalog URL query state (filters/sort/search) and public item media fallback behavior.
+
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet executed and pending tasks:
-- Phase 3: `03-01` Deliver public catalog and detail UX consistency.
 - Phase 5: `05-01` Ship production hardening and Facebook integration baseline.
 - Phase 7: `07-01`, `07-02`, `07-03` Quantity/custom-attributes schema, API, admin UI.
 - Phase 8: `08-01`, `08-02`, `08-03` Advanced inventory transactions and audit trail.

@@ -3,6 +3,8 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { IStorageService } from '../storage/storage.interface';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { QueryPublicItemsDto } from './dto/query-public-items.dto';
+import { Prisma } from '../generated/prisma/client';
+import { toNumber } from '../common/utils/decimal.utils';
 
 @Injectable()
 export class PublicService {
@@ -12,11 +14,11 @@ export class PublicService {
   ) {}
 
   async findAll(queryDto: QueryPublicItemsDto) {
-    const page = queryDto.page || 1;
-    const pageSize = queryDto.page_size || 20;
+    const page = queryDto.page ?? 1;
+    const pageSize = Math.min(queryDto.page_size ?? 20, 100);
     const skip = (page - 1) * pageSize;
 
-    const where: any = {
+    const where: Prisma.ItemWhereInput = {
       deleted_at: null,
       is_public: true,
     };
@@ -25,9 +27,11 @@ export class PublicService {
       where.status = queryDto.status;
     }
 
-    if (queryDto.q) {
+    const normalizedQuery = queryDto.q?.trim();
+    if (normalizedQuery) {
       where.name = {
-        contains: queryDto.q,
+        contains: normalizedQuery,
+        mode: 'insensitive',
       };
     }
 
@@ -44,10 +48,19 @@ export class PublicService {
     }
 
     // Build orderBy
-    const sortBy = queryDto.sort_by || 'created_at';
-    const sortOrder = queryDto.sort_order || 'desc';
-    const orderBy: any = {};
-    orderBy[sortBy] = sortOrder;
+    const sortBy: 'name' | 'price' | 'created_at' = queryDto.sort_by ?? 'created_at';
+    const sortOrder: Prisma.SortOrder = queryDto.sort_order ?? 'desc';
+
+    let primaryOrderBy: Prisma.ItemOrderByWithRelationInput;
+    if (sortBy === 'name') {
+      primaryOrderBy = { name: sortOrder };
+    } else if (sortBy === 'price') {
+      primaryOrderBy = { price: sortOrder };
+    } else {
+      primaryOrderBy = { created_at: sortOrder };
+    }
+
+    const orderBy: Prisma.ItemOrderByWithRelationInput[] = [primaryOrderBy, { id: 'desc' }];
 
     const [items, total] = await Promise.all([
       this.prisma.item.findMany({
@@ -57,19 +70,29 @@ export class PublicService {
         orderBy,
         include: {
           item_images: {
-            where: { is_cover: true },
+            orderBy: [{ is_cover: 'desc' }, { display_order: 'asc' }],
             take: 1,
           },
           spin_sets: {
             where: { is_default: true },
             take: 1,
+            include: {
+              frames: {
+                orderBy: { frame_index: 'asc' },
+                take: 1,
+              },
+            },
           },
         },
       }),
       this.prisma.item.count({ where }),
     ]);
 
-    const itemsWithMeta = items.map((item: any) => ({
+    const itemsWithMeta = items.map((item) => {
+      const coverImage = item.item_images[0] ?? null;
+      const defaultSpinSet = item.spin_sets[0] ?? null;
+
+      return {
       id: item.id,
       name: item.name,
       description: item.description,
@@ -78,17 +101,18 @@ export class PublicService {
       car_brand: item.car_brand || null,
       model_brand: item.model_brand || null,
       condition: item.condition || null,
-      price: item.price != null ? (typeof item.price.toNumber === 'function' ? item.price.toNumber() : Number(item.price)) : null,
-      original_price: item.original_price != null ? (typeof item.original_price.toNumber === 'function' ? item.original_price.toNumber() : Number(item.original_price)) : null,
+      price: toNumber(item.price),
+      original_price: toNumber(item.original_price),
       status: item.status,
       is_public: item.is_public,
-      cover_image_url: item.item_images[0]
-        ? this.storage.getFileUrl(item.item_images[0].file_path)
+      cover_image_url: coverImage
+        ? this.storage.getFileUrl(coverImage.file_path)
         : null,
-      has_spinner: item.spin_sets.length > 0,
+      has_spinner: Boolean(defaultSpinSet && defaultSpinSet.frames.length > 0),
       created_at: item.created_at,
       updated_at: item.updated_at,
-    }));
+      };
+    });
 
     return {
       items: itemsWithMeta,
@@ -131,14 +155,15 @@ export class PublicService {
     const { item_images, spin_sets, ...itemData } = item;
 
     const defaultSpinSet = spin_sets[0] || null;
-
-    const itemDataAny = itemData as any;
+    const normalizedFrames = (defaultSpinSet?.frames ?? [])
+      .filter((frame) => Boolean(frame.file_path))
+      .sort((a, b) => a.frame_index - b.frame_index);
 
     return {
       item: {
         ...itemData,
-        price: itemDataAny.price != null ? (typeof itemDataAny.price.toNumber === 'function' ? itemDataAny.price.toNumber() : Number(itemDataAny.price)) : null,
-        original_price: itemDataAny.original_price != null ? (typeof itemDataAny.original_price.toNumber === 'function' ? itemDataAny.original_price.toNumber() : Number(itemDataAny.original_price)) : null,
+        price: toNumber(itemData.price),
+        original_price: toNumber(itemData.original_price),
       },
       images: item_images.map((img) => ({
         id: img.id,
@@ -157,7 +182,7 @@ export class PublicService {
             item_id: defaultSpinSet.item_id,
             label: defaultSpinSet.label,
             is_default: defaultSpinSet.is_default,
-            frames: defaultSpinSet.frames.map((frame) => ({
+            frames: normalizedFrames.map((frame) => ({
               id: frame.id,
               spin_set_id: frame.spin_set_id,
               frame_index: frame.frame_index,

@@ -90,10 +90,10 @@ describe('PublicService', () => {
       prisma.item.findMany.mockResolvedValue([]);
       prisma.item.count.mockResolvedValue(0);
 
-      await service.findAll({ q: 'civic' });
+      await service.findAll({ q: '  civic ' });
 
       const findManyCall = prisma.item.findMany.mock.calls[0][0];
-      expect(findManyCall.where.name).toEqual({ contains: 'civic' });
+      expect(findManyCall.where.name).toEqual({ contains: 'civic', mode: 'insensitive' });
     });
 
     it('should support custom sorting', async () => {
@@ -103,7 +103,7 @@ describe('PublicService', () => {
       await service.findAll({ sort_by: 'name', sort_order: 'asc' });
 
       const findManyCall = prisma.item.findMany.mock.calls[0][0];
-      expect(findManyCall.orderBy).toEqual({ name: 'asc' });
+      expect(findManyCall.orderBy).toEqual([{ name: 'asc' }, { id: 'desc' }]);
     });
 
     it('should always filter by is_public=true and deleted_at=null', async () => {
@@ -115,6 +115,32 @@ describe('PublicService', () => {
       const findManyCall = prisma.item.findMany.mock.calls[0][0];
       expect(findManyCall.where.is_public).toBe(true);
       expect(findManyCall.where.deleted_at).toBeNull();
+    });
+
+    it('should clamp page_size to 100 and calculate skip/take correctly', async () => {
+      prisma.item.findMany.mockResolvedValue([]);
+      prisma.item.count.mockResolvedValue(0);
+
+      await service.findAll({ page: 2, page_size: 999 });
+
+      const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.skip).toBe(100);
+      expect(findManyCall.take).toBe(100);
+    });
+
+    it('should expose has_spinner=true only when default spin set has frames', async () => {
+      prisma.item.findMany.mockResolvedValue([
+        {
+          ...mockPublicItem,
+          item_images: [{ file_path: 'images/cover.jpg', is_cover: true, display_order: 0 }],
+          spin_sets: [{ id: 'spin-1', frames: [] }],
+        },
+      ]);
+      prisma.item.count.mockResolvedValue(1);
+
+      const result = await service.findAll({});
+
+      expect(result.items[0].has_spinner).toBe(false);
     });
   });
 
@@ -172,6 +198,44 @@ describe('PublicService', () => {
       prisma.item.findFirst.mockResolvedValue(null);
 
       await expect(service.findOne('nonexistent')).rejects.toThrow(AppException);
+    });
+
+    it('should normalize spinner frames by frame_index', async () => {
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockPublicItem,
+        spin_sets: [
+          {
+            id: 'spin-1',
+            item_id: 'item-1',
+            label: 'Default',
+            is_default: true,
+            created_at: new Date(),
+            updated_at: new Date(),
+            frames: [
+              {
+                id: 'f-2',
+                spin_set_id: 'spin-1',
+                frame_index: 2,
+                file_path: 'spinner/2.jpg',
+                thumbnail_path: null,
+                created_at: new Date(),
+              },
+              {
+                id: 'f-1',
+                spin_set_id: 'spin-1',
+                frame_index: 1,
+                file_path: 'spinner/1.jpg',
+                thumbnail_path: null,
+                created_at: new Date(),
+              },
+            ],
+          },
+        ],
+      });
+
+      const result = await service.findOne('item-1');
+
+      expect(result.spinner?.frames.map((f) => f.frame_index)).toEqual([1, 2]);
     });
 
     it('should return null spinner when no default spin set', async () => {

@@ -28,16 +28,8 @@ export const PublicItemDetailPage = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['public-item', id],
     queryFn: async () => {
-      try {
-        const response = await apiClient.get(`/public/items/${id}`);
-        // apiClient interceptor returns response.data, so response = {ok: true, data: {item, images, spinner}, message: ''}
-        // We need to return response.data which is {item, images, spinner}
-        const result = response.data || response;
-        return result;
-      } catch (err) {
-        console.error('[PublicItemDetailPage] Error fetching item:', err);
-        throw err;
-      }
+      const response = await apiClient.get(`/public/items/${id}`);
+      return response.data || response;
     },
     enabled: !!id,
   });
@@ -45,6 +37,13 @@ export const PublicItemDetailPage = () => {
   // Response structure: {item, images, spinner} (already unwrapped by apiClient)
   const { item, images: imagesData, spinner } = data || {};
   const images = useMemo(() => (imagesData || []) as ItemImage[], [imagesData]);
+  const spinnerFrames = useMemo(
+    () =>
+      (spinner?.frames || [])
+        .filter((frame: SpinFrame) => Boolean(frame?.image_url))
+        .sort((a: SpinFrame, b: SpinFrame) => a.frame_index - b.frame_index),
+    [spinner],
+  );
 
   if (isLoading) return <div style={{ padding: '40px', textAlign: 'center' }}>Đang tải...</div>;
   if (error) {
@@ -70,7 +69,7 @@ export const PublicItemDetailPage = () => {
     );
   }
 
-  const hasSpinner = spinner && spinner.frames && spinner.frames.length > 0;
+  const hasSpinner = spinnerFrames.length > 0;
 
   return (
     <div style={{ padding: '40px 20px', maxWidth: '1200px', margin: '0 auto' }}>
@@ -229,7 +228,7 @@ export const PublicItemDetailPage = () => {
           </div>
 
           {/* Price Section */}
-          {(item.price || item.original_price) && (
+          {(item.price != null || item.original_price != null) && (
             <div style={{
               backgroundColor: '#fff',
               padding: '24px',
@@ -248,7 +247,7 @@ export const PublicItemDetailPage = () => {
               </h2>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {item.original_price && (
+                {item.original_price != null && (
                   <div>
                     <div style={{ fontSize: '14px', color: '#999', marginBottom: '4px' }}>Giá gốc:</div>
                     <div style={{ 
@@ -261,7 +260,7 @@ export const PublicItemDetailPage = () => {
                     </div>
                   </div>
                 )}
-                {item.price && (
+                {item.price != null && (
                   <div>
                     <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>Giá bán:</div>
                     <div style={{ 
@@ -271,7 +270,7 @@ export const PublicItemDetailPage = () => {
                     }}>
                       {item.price.toLocaleString('vi-VN')} đ
                     </div>
-                    {item.original_price && item.original_price > item.price && (
+                    {item.original_price != null && item.original_price > item.price && (
                       <div style={{
                         marginTop: '8px',
                         padding: '6px 12px',
@@ -319,7 +318,7 @@ export const PublicItemDetailPage = () => {
                 borderRadius: '12px',
               }}>
                 <Spinner360
-                  frames={spinner.frames.map((f: SpinFrame) => ({
+                  frames={spinnerFrames.map((f: SpinFrame) => ({
                     id: f.id,
                     image_url: f.image_url,
                     thumbnail_url: f.thumbnail_url ?? undefined,
@@ -384,7 +383,32 @@ export const PublicItemDetailPage = () => {
                 </div>
               )}
             </div>
-          ) : null}
+              ) : null}
+          {!hasSpinner && images.length === 0 && (
+            <div
+              style={{
+                backgroundColor: '#fff',
+                padding: '24px',
+                borderRadius: '16px',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                border: '1px solid #f1f5f9',
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: '20px',
+                  fontWeight: '600',
+                  marginBottom: '12px',
+                  color: '#1a1a1a',
+                }}
+              >
+                Hình ảnh sản phẩm
+              </h2>
+              <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.6' }}>
+                Sản phẩm hiện chưa có ảnh hiển thị. Vui lòng quay lại sau.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -418,7 +442,9 @@ const RelatedItemsSection = ({
       
       const params = new URLSearchParams({
         page_size: '6',
-        car_brand: carBrand
+        sort_by: 'created_at',
+        sort_order: 'desc',
+        car_brand: carBrand,
       });
       const response = await apiClient.get(`/public/items?${params.toString()}`);
       return response.data || response;
@@ -434,7 +460,9 @@ const RelatedItemsSection = ({
       
       const params = new URLSearchParams({
         page_size: '6',
-        model_brand: modelBrand
+        sort_by: 'created_at',
+        sort_order: 'desc',
+        model_brand: modelBrand,
       });
       const response = await apiClient.get(`/public/items?${params.toString()}`);
       return response.data || response;
