@@ -1,19 +1,99 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { ItemCard } from '../components/catalog/ItemCard';
 import { CatalogFilters } from '../components/catalog/CatalogFilters';
 import { CatalogSort } from '../components/catalog/CatalogSort';
 import { InfiniteScrollTrigger } from '../components/catalog/InfiniteScrollTrigger';
 import type { PublicItem } from '../types/item.types';
+import { useDebounce } from '../hooks/useDebounce';
 
 export const PublicCatalogPage = () => {
-  const [search, setSearch] = useState('');
-  const [carBrand, setCarBrand] = useState<string | null>(null);
-  const [modelBrand, setModelBrand] = useState<string | null>(null);
-  const [condition, setCondition] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'name' | 'price' | 'created_at'>('created_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isSyncingFromUrl = useRef(false);
+
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
+  const [carBrand, setCarBrand] = useState<string | null>(() => searchParams.get('car_brand'));
+  const [modelBrand, setModelBrand] = useState<string | null>(() => searchParams.get('model_brand'));
+  const [condition, setCondition] = useState<string | null>(() => searchParams.get('condition'));
+  const [sortBy, setSortBy] = useState<'name' | 'price' | 'created_at'>(() => {
+    const initial = searchParams.get('sort_by');
+    return initial === 'name' || initial === 'price' || initial === 'created_at'
+      ? initial
+      : 'created_at';
+  });
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => {
+    const initial = searchParams.get('sort_order');
+    return initial === 'asc' || initial === 'desc' ? initial : 'desc';
+  });
+  const debouncedSearch = useDebounce(search, 300);
+
+  useEffect(() => {
+    const nextSearch = searchParams.get('q') ?? '';
+    const nextCarBrand = searchParams.get('car_brand');
+    const nextModelBrand = searchParams.get('model_brand');
+    const nextCondition = searchParams.get('condition');
+    const rawSortBy = searchParams.get('sort_by');
+    const rawSortOrder = searchParams.get('sort_order');
+    const nextSortBy: 'name' | 'price' | 'created_at' =
+      rawSortBy === 'name' || rawSortBy === 'price' || rawSortBy === 'created_at'
+        ? rawSortBy
+        : 'created_at';
+    const nextSortOrder: 'asc' | 'desc' = rawSortOrder === 'asc' || rawSortOrder === 'desc'
+      ? rawSortOrder
+      : 'desc';
+
+    const hasDiff =
+      search !== nextSearch ||
+      carBrand !== nextCarBrand ||
+      modelBrand !== nextModelBrand ||
+      condition !== nextCondition ||
+      sortBy !== nextSortBy ||
+      sortOrder !== nextSortOrder;
+
+    if (!hasDiff) {
+      return;
+    }
+
+    isSyncingFromUrl.current = true;
+    let disposed = false;
+
+    queueMicrotask(() => {
+      if (disposed) {
+        return;
+      }
+
+      setSearch(nextSearch);
+      setCarBrand(nextCarBrand);
+      setModelBrand(nextModelBrand);
+      setCondition(nextCondition);
+      setSortBy(nextSortBy);
+      setSortOrder(nextSortOrder);
+    });
+
+    return () => {
+      disposed = true;
+    };
+  }, [searchParams, search, carBrand, modelBrand, condition, sortBy, sortOrder]);
+
+  useEffect(() => {
+    if (isSyncingFromUrl.current) {
+      isSyncingFromUrl.current = false;
+      return;
+    }
+
+    const params = new URLSearchParams();
+    if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+    if (carBrand) params.set('car_brand', carBrand);
+    if (modelBrand) params.set('model_brand', modelBrand);
+    if (condition) params.set('condition', condition);
+    if (sortBy !== 'created_at') params.set('sort_by', sortBy);
+    if (sortOrder !== 'desc') params.set('sort_order', sortOrder);
+    if (params.toString() !== searchParams.toString()) {
+      setSearchParams(params, { replace: true });
+    }
+  }, [debouncedSearch, carBrand, modelBrand, condition, sortBy, sortOrder, searchParams, setSearchParams]);
 
   const {
     data,
@@ -23,13 +103,13 @@ export const PublicCatalogPage = () => {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['public-items', search, carBrand, modelBrand, condition, sortBy, sortOrder],
+    queryKey: ['public-items', debouncedSearch, carBrand, modelBrand, condition, sortBy, sortOrder],
     queryFn: async ({ pageParam = 1 }) => {
       const params = new URLSearchParams({
         page: pageParam.toString(),
         page_size: '20',
       });
-      if (search) params.append('q', search);
+      if (debouncedSearch.trim()) params.append('q', debouncedSearch.trim());
       if (carBrand) params.append('car_brand', carBrand);
       if (modelBrand) params.append('model_brand', modelBrand);
       if (condition) params.append('condition', condition);

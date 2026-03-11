@@ -47,6 +47,9 @@ export const ItemCard = ({ item, index }: ItemCardProps) => {
             src={item.cover_image_url || '/placeholder-item.svg'}
             alt={item.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={(event) => {
+              event.currentTarget.src = '/placeholder-item.svg';
+            }}
           />
           {item.has_spinner && (
             <span className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
@@ -66,7 +69,7 @@ export const ItemCard = ({ item, index }: ItemCardProps) => {
               </span>
             )}
           </div>
-          {item.price && (
+          {item.price != null && (
             <div className="mt-2">
               {hasDiscount && item.original_price && (
                 <div className="flex items-center gap-2 mb-1">

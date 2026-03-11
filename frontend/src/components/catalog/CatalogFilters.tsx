@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
-import type { FilterItem } from '../../types/item.types';
+import type { CategoryItem, ApiResponse } from '../../types/category';
 
 interface CatalogFiltersProps {
   carBrand: string | null;
@@ -20,33 +20,40 @@ export const CatalogFilters = ({
   onModelBrandChange,
   onConditionChange,
 }: CatalogFiltersProps) => {
-  // Fetch available filter values (first page only, enough for filter options)
-  const { data } = useQuery({
-    queryKey: ['public-items-filters'],
+  const { data: carBrandsData } = useQuery({
+    queryKey: ['catalog-filters', 'car_brand'],
     queryFn: async () => {
-      const response = await apiClient.get('/public/items?page=1&page_size=100');
+      const response = await apiClient.get('/categories?type=car_brand') as ApiResponse<{ categories: CategoryItem[] }>;
       return response.data;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
-  const items = useMemo(() => {
-    return data?.items || [];
-  }, [data]);
+  const { data: modelBrandsData } = useQuery({
+    queryKey: ['catalog-filters', 'model_brand'],
+    queryFn: async () => {
+      const response = await apiClient.get(
+        '/categories?type=model_brand',
+      ) as ApiResponse<{ categories: CategoryItem[] }>;
+      return response.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
-  // Extract unique values
   const carBrands = useMemo(
-    () =>
-      Array.from(new Set(items.map((item: FilterItem) => item.car_brand).filter(Boolean))).sort() as
-        string[],
-    [items]
+    () => (carBrandsData?.categories ?? [])
+      .filter((category) => category.is_active)
+      .map((category) => category.name)
+      .sort((a, b) => a.localeCompare(b)),
+    [carBrandsData],
   );
 
   const modelBrands = useMemo(
-    () =>
-      Array.from(new Set(items.map((item: FilterItem) => item.model_brand).filter(Boolean))).sort() as
-        string[],
-    [items]
+    () => (modelBrandsData?.categories ?? [])
+      .filter((category) => category.is_active)
+      .map((category) => category.name)
+      .sort((a, b) => a.localeCompare(b)),
+    [modelBrandsData],
   );
 
   const handleCarBrandClick = (brand: string) => {
