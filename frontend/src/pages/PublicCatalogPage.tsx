@@ -1,99 +1,70 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { ItemCard } from '../components/catalog/ItemCard';
+import { CatalogSearchInput } from '../components/catalog/CatalogSearchInput';
 import { CatalogFilters } from '../components/catalog/CatalogFilters';
 import { CatalogSort } from '../components/catalog/CatalogSort';
 import { InfiniteScrollTrigger } from '../components/catalog/InfiniteScrollTrigger';
 import type { PublicItem } from '../types/item.types';
 import { useDebounce } from '../hooks/useDebounce';
+import {
+  buildCatalogSearchParams,
+  parseCatalogUrlState,
+  type CatalogSortBy,
+  type CatalogSortOrder,
+} from './publicCatalogUrlState';
 
 export const PublicCatalogPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const isSyncingFromUrl = useRef(false);
+  const urlState = useMemo(() => parseCatalogUrlState(searchParams), [searchParams]);
+  const [searchInput, setSearchInput] = useState(() => urlState.search);
+  const debouncedSearch = useDebounce(searchInput, 300);
 
-  const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
-  const [carBrand, setCarBrand] = useState<string | null>(() => searchParams.get('car_brand'));
-  const [modelBrand, setModelBrand] = useState<string | null>(() => searchParams.get('model_brand'));
-  const [condition, setCondition] = useState<string | null>(() => searchParams.get('condition'));
-  const [sortBy, setSortBy] = useState<'name' | 'price' | 'created_at'>(() => {
-    const initial = searchParams.get('sort_by');
-    return initial === 'name' || initial === 'price' || initial === 'created_at'
-      ? initial
-      : 'created_at';
-  });
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(() => {
-    const initial = searchParams.get('sort_order');
-    return initial === 'asc' || initial === 'desc' ? initial : 'desc';
-  });
-  const debouncedSearch = useDebounce(search, 300);
+  const commitUrlState = useCallback(
+    (
+      updater: (state: ReturnType<typeof parseCatalogUrlState>) => ReturnType<typeof parseCatalogUrlState>,
+    ) => {
+      setSearchParams((currentSearchParams) => {
+        const currentState = parseCatalogUrlState(currentSearchParams);
+        const nextState = updater(currentState);
+        const nextParams = buildCatalogSearchParams(nextState);
+        return nextParams.toString() === currentSearchParams.toString()
+          ? currentSearchParams
+          : nextParams;
+      }, { replace: true });
+    },
+    [setSearchParams],
+  );
 
-  useEffect(() => {
-    const nextSearch = searchParams.get('q') ?? '';
-    const nextCarBrand = searchParams.get('car_brand');
-    const nextModelBrand = searchParams.get('model_brand');
-    const nextCondition = searchParams.get('condition');
-    const rawSortBy = searchParams.get('sort_by');
-    const rawSortOrder = searchParams.get('sort_order');
-    const nextSortBy: 'name' | 'price' | 'created_at' =
-      rawSortBy === 'name' || rawSortBy === 'price' || rawSortBy === 'created_at'
-        ? rawSortBy
-        : 'created_at';
-    const nextSortOrder: 'asc' | 'desc' = rawSortOrder === 'asc' || rawSortOrder === 'desc'
-      ? rawSortOrder
-      : 'desc';
-
-    const hasDiff =
-      search !== nextSearch ||
-      carBrand !== nextCarBrand ||
-      modelBrand !== nextModelBrand ||
-      condition !== nextCondition ||
-      sortBy !== nextSortBy ||
-      sortOrder !== nextSortOrder;
-
-    if (!hasDiff) {
-      return;
-    }
-
-    isSyncingFromUrl.current = true;
-    let disposed = false;
-
-    queueMicrotask(() => {
-      if (disposed) {
-        return;
-      }
-
-      setSearch(nextSearch);
-      setCarBrand(nextCarBrand);
-      setModelBrand(nextModelBrand);
-      setCondition(nextCondition);
-      setSortBy(nextSortBy);
-      setSortOrder(nextSortOrder);
+  const updateSearchInUrl = useCallback((nextSearch: string) => {
+    commitUrlState((currentState) => {
+      return {
+        ...currentState,
+        search: nextSearch,
+      };
     });
-
-    return () => {
-      disposed = true;
-    };
-  }, [searchParams, search, carBrand, modelBrand, condition, sortBy, sortOrder]);
+  }, [commitUrlState]);
 
   useEffect(() => {
-    if (isSyncingFromUrl.current) {
-      isSyncingFromUrl.current = false;
-      return;
-    }
+    updateSearchInUrl(debouncedSearch);
+  }, [debouncedSearch, updateSearchInUrl]);
 
-    const params = new URLSearchParams();
-    if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
-    if (carBrand) params.set('car_brand', carBrand);
-    if (modelBrand) params.set('model_brand', modelBrand);
-    if (condition) params.set('condition', condition);
-    if (sortBy !== 'created_at') params.set('sort_by', sortBy);
-    if (sortOrder !== 'desc') params.set('sort_order', sortOrder);
-    if (params.toString() !== searchParams.toString()) {
-      setSearchParams(params, { replace: true });
-    }
-  }, [debouncedSearch, carBrand, modelBrand, condition, sortBy, sortOrder, searchParams, setSearchParams]);
+  const updateUrlState = useCallback((
+    patch: Partial<{
+      carBrand: string | null;
+      modelBrand: string | null;
+      condition: 'new' | 'old' | null;
+      sortBy: CatalogSortBy;
+      sortOrder: CatalogSortOrder;
+    }>,
+  ) => {
+    commitUrlState((currentState) => ({
+      ...currentState,
+      ...patch,
+    }));
+  }, [commitUrlState]);
 
   const {
     data,
@@ -103,18 +74,26 @@ export const PublicCatalogPage = () => {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['public-items', debouncedSearch, carBrand, modelBrand, condition, sortBy, sortOrder],
+    queryKey: [
+      'public-items',
+      urlState.search,
+      urlState.carBrand,
+      urlState.modelBrand,
+      urlState.condition,
+      urlState.sortBy,
+      urlState.sortOrder,
+    ],
     queryFn: async ({ pageParam = 1 }) => {
       const params = new URLSearchParams({
         page: pageParam.toString(),
         page_size: '20',
       });
-      if (debouncedSearch.trim()) params.append('q', debouncedSearch.trim());
-      if (carBrand) params.append('car_brand', carBrand);
-      if (modelBrand) params.append('model_brand', modelBrand);
-      if (condition) params.append('condition', condition);
-      if (sortBy) params.append('sort_by', sortBy);
-      if (sortOrder) params.append('sort_order', sortOrder);
+      if (urlState.search) params.append('q', urlState.search);
+      if (urlState.carBrand) params.append('car_brand', urlState.carBrand);
+      if (urlState.modelBrand) params.append('model_brand', urlState.modelBrand);
+      if (urlState.condition) params.append('condition', urlState.condition);
+      params.append('sort_by', urlState.sortBy);
+      params.append('sort_order', urlState.sortOrder);
 
       const response = await apiClient.get(`/public/items?${params.toString()}`);
       return response.data;
@@ -133,9 +112,14 @@ export const PublicCatalogPage = () => {
     return data?.pages.flatMap((page) => page.items) || [];
   }, [data]);
 
-  const handleSortChange = (newSortBy: 'name' | 'price' | 'created_at', newSortOrder: 'asc' | 'desc') => {
-    setSortBy(newSortBy);
-    setSortOrder(newSortOrder);
+  const handleSortChange = (
+    newSortBy: CatalogSortBy,
+    newSortOrder: CatalogSortOrder,
+  ) => {
+    updateUrlState({
+      sortBy: newSortBy,
+      sortOrder: newSortOrder,
+    });
   };
 
   if (error) {
@@ -156,27 +140,28 @@ export const PublicCatalogPage = () => {
       <div className="max-w-7xl mx-auto">
         {/* Search Bar */}
         <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Tìm kiếm theo tên..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          <CatalogSearchInput
+            value={searchInput}
+            onChange={setSearchInput}
           />
         </div>
 
         {/* Filters */}
         <CatalogFilters
-          carBrand={carBrand}
-          modelBrand={modelBrand}
-          condition={condition}
-          onCarBrandChange={setCarBrand}
-          onModelBrandChange={setModelBrand}
-          onConditionChange={setCondition}
+          carBrand={urlState.carBrand}
+          modelBrand={urlState.modelBrand}
+          condition={urlState.condition}
+          onCarBrandChange={(nextCarBrand) => updateUrlState({ carBrand: nextCarBrand })}
+          onModelBrandChange={(nextModelBrand) => updateUrlState({ modelBrand: nextModelBrand })}
+          onConditionChange={(nextCondition) => updateUrlState({ condition: nextCondition })}
         />
 
         {/* Sort */}
-        <CatalogSort sortBy={sortBy} sortOrder={sortOrder} onSortChange={handleSortChange} />
+        <CatalogSort
+          sortBy={urlState.sortBy}
+          sortOrder={urlState.sortOrder}
+          onSortChange={handleSortChange}
+        />
 
         {/* Loading State */}
         {isLoading && items.length === 0 && (
@@ -189,7 +174,7 @@ export const PublicCatalogPage = () => {
         {items.length === 0 && !isLoading && (
           <div className="text-center py-12">
             <p className="text-gray-600 text-lg">Không tìm thấy sản phẩm nào.</p>
-            {(search || carBrand || modelBrand || condition) && (
+            {(urlState.search || urlState.carBrand || urlState.modelBrand || urlState.condition) && (
               <p className="text-gray-500 mt-2">Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm.</p>
             )}
           </div>

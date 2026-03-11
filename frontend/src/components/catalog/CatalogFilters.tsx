@@ -1,15 +1,15 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
-import type { CategoryItem, ApiResponse } from '../../types/category';
+import type { CategoryItem } from '../../types/category';
 
 interface CatalogFiltersProps {
   carBrand: string | null;
   modelBrand: string | null;
-  condition: string | null;
+  condition: 'new' | 'old' | null;
   onCarBrandChange: (brand: string | null) => void;
   onModelBrandChange: (brand: string | null) => void;
-  onConditionChange: (condition: string | null) => void;
+  onConditionChange: (condition: 'new' | 'old' | null) => void;
 }
 
 export const CatalogFilters = ({
@@ -20,40 +20,33 @@ export const CatalogFilters = ({
   onModelBrandChange,
   onConditionChange,
 }: CatalogFiltersProps) => {
-  const { data: carBrandsData } = useQuery({
-    queryKey: ['catalog-filters', 'car_brand'],
+  const {
+    data: categoriesData,
+    isLoading: isCategoriesLoading,
+    isError: isCategoriesError,
+  } = useQuery<{ categories: CategoryItem[] }>({
+    queryKey: ['catalog-filters', 'all'],
     queryFn: async () => {
-      const response = await apiClient.get('/categories?type=car_brand') as ApiResponse<{ categories: CategoryItem[] }>;
-      return response.data;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: modelBrandsData } = useQuery({
-    queryKey: ['catalog-filters', 'model_brand'],
-    queryFn: async () => {
-      const response = await apiClient.get(
-        '/categories?type=model_brand',
-      ) as ApiResponse<{ categories: CategoryItem[] }>;
+      const response = await apiClient.get('/categories?is_active=true');
       return response.data;
     },
     staleTime: 5 * 60 * 1000,
   });
 
   const carBrands = useMemo(
-    () => (carBrandsData?.categories ?? [])
-      .filter((category) => category.is_active)
+    () => (categoriesData?.categories ?? [])
+      .filter((category) => category.type === 'car_brand')
       .map((category) => category.name)
       .sort((a, b) => a.localeCompare(b)),
-    [carBrandsData],
+    [categoriesData],
   );
 
   const modelBrands = useMemo(
-    () => (modelBrandsData?.categories ?? [])
-      .filter((category) => category.is_active)
+    () => (categoriesData?.categories ?? [])
+      .filter((category) => category.type === 'model_brand')
       .map((category) => category.name)
       .sort((a, b) => a.localeCompare(b)),
-    [modelBrandsData],
+    [categoriesData],
   );
 
   const handleCarBrandClick = (brand: string) => {
@@ -64,13 +57,22 @@ export const CatalogFilters = ({
     onModelBrandChange(modelBrand === brand ? null : brand);
   };
 
-  const handleConditionClick = (cond: string) => {
+  const handleConditionClick = (cond: 'new' | 'old') => {
     onConditionChange(condition === cond ? null : cond);
   };
 
   return (
     <div className="space-y-6 mb-6">
+      {isCategoriesError && (
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Không thể tải bộ lọc lúc này.
+        </div>
+      )}
+
       {/* Car Brand Filters */}
+      {isCategoriesLoading && (
+        <div className="text-sm text-gray-500">Đang tải bộ lọc...</div>
+      )}
       {carBrands.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Hãng xe</h3>
@@ -143,4 +145,3 @@ export const CatalogFilters = ({
     </div>
   );
 };
-
