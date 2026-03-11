@@ -29,7 +29,7 @@ export const PublicItemDetailPage = () => {
     queryKey: ['public-item', id],
     queryFn: async () => {
       const response = await apiClient.get(`/public/items/${id}`);
-      return response.data || response;
+      return response.data;
     },
     enabled: !!id,
   });
@@ -40,8 +40,7 @@ export const PublicItemDetailPage = () => {
   const spinnerFrames = useMemo(
     () =>
       (spinner?.frames || [])
-        .filter((frame: SpinFrame) => Boolean(frame?.image_url))
-        .sort((a: SpinFrame, b: SpinFrame) => a.frame_index - b.frame_index),
+        .filter((frame: SpinFrame) => Boolean(frame?.image_url)),
     [spinner],
   );
 
@@ -434,8 +433,11 @@ const RelatedItemsSection = ({
   carBrand?: string | null; 
   modelBrand?: string | null; 
 }) => {
+  const shouldQueryCar = Boolean(currentItemId && carBrand);
+  const shouldQueryModel = Boolean(currentItemId && modelBrand);
+
   // Query 1: Items with same Car Brand
-  const { data: carData, isLoading: carLoading } = useQuery({
+  const { data: carData, isLoading: carLoading, isFetched: carFetched } = useQuery({
     queryKey: ['related-items-car', currentItemId, carBrand],
     queryFn: async () => {
       if (!carBrand) return { items: [], pagination: { total: 0 } };
@@ -447,13 +449,13 @@ const RelatedItemsSection = ({
         car_brand: carBrand,
       });
       const response = await apiClient.get(`/public/items?${params.toString()}`);
-      return response.data || response;
+      return response.data;
     },
-    enabled: !!currentItemId && !!carBrand,
+    enabled: shouldQueryCar,
   });
 
   // Query 2: Items with same Model Brand
-  const { data: modelData, isLoading: modelLoading } = useQuery({
+  const { data: modelData, isLoading: modelLoading, isFetched: modelFetched } = useQuery({
     queryKey: ['related-items-model', currentItemId, modelBrand],
     queryFn: async () => {
       if (!modelBrand) return { items: [], pagination: { total: 0 } };
@@ -465,10 +467,30 @@ const RelatedItemsSection = ({
         model_brand: modelBrand,
       });
       const response = await apiClient.get(`/public/items?${params.toString()}`);
-      return response.data || response;
+      return response.data;
     },
-    enabled: !!currentItemId && !!modelBrand,
+    enabled: shouldQueryModel,
   });
+
+  const uniqueSeedCount = useMemo(() => {
+    const unique = new Set<string>();
+    const addItems = (items: RelatedItem[]) => {
+      items.forEach((item) => {
+        if (item.id !== currentItemId) {
+          unique.add(item.id);
+        }
+      });
+    };
+
+    addItems(carData?.items || []);
+    addItems(modelData?.items || []);
+
+    return unique.size;
+  }, [carData, modelData, currentItemId]);
+
+  const carQuerySettled = !shouldQueryCar || carFetched;
+  const modelQuerySettled = !shouldQueryModel || modelFetched;
+  const readyForFallbackQuery = carQuerySettled && modelQuerySettled;
 
   // Query 3: Fallback to recent items
   const { data: recentData, isLoading: recentLoading } = useQuery({
@@ -480,9 +502,9 @@ const RelatedItemsSection = ({
         sort_order: 'desc',
       });
       const response = await apiClient.get(`/public/items?${params.toString()}`);
-      return response.data || response;
+      return response.data;
     },
-    enabled: !!currentItemId,
+    enabled: !!currentItemId && readyForFallbackQuery && uniqueSeedCount < 5,
   });
 
   const finalItems = useMemo(() => {

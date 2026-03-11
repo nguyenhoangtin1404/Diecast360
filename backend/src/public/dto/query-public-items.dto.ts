@@ -1,4 +1,4 @@
-import { IsOptional, IsInt, Min, IsString, IsIn, Max } from 'class-validator';
+import { IsOptional, IsInt, Min, IsString, IsIn, Max, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QueryPublicItemsDto {
@@ -21,14 +21,17 @@ export class QueryPublicItemsDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   q?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   car_brand?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   model_brand?: string;
 
   @IsOptional()
