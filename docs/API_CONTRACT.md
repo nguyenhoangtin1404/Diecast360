@@ -17,7 +17,8 @@
 - Upload: `multipart/form-data`, field file là `file` (ảnh thường) hoặc `frame` (ảnh spinner). Server dùng Sharp tạo thumbnail.
 
 ## Data shape
-- `Item`: `{ id, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, status, is_public, fb_post_content, cover_image_url, created_at, updated_at, deleted_at? }`.
+- `Item`: `{ id, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, status, is_public, fb_post_content, cover_image_url, fb_post_url?, fb_posted_at?, fb_posts_count?, created_at, updated_at, deleted_at? }`.
+- `FacebookPost`: `{ id, item_id, post_url, content, posted_at, created_at }`.
 - `ItemImage`: `{ id, item_id, url, thumbnail_url, is_cover, display_order, created_at }`.
 - `SpinFrame`: `{ id, spin_set_id, frame_index, image_url, thumbnail_url, created_at }`.
 - `SpinSet`: `{ id, item_id, label, is_default, frames: SpinFrame[], created_at, updated_at }`.
@@ -44,8 +45,14 @@
 
 ## Items (admin)
 ### GET /api/v1/items
-- Query: `page` (default 1), `page_size` (default 20), `status` (optional), `is_public` (optional), `q` (search theo tên).
-- Response 200: `data: { items: Item[], pagination }` (mỗi item gồm cover_url + has_default_spin_set boolean).
+- Query: `page` (default 1), `page_size` (default 20), `status` (optional), `is_public` (optional), `q` (search theo tên), `car_brand` (optional), `model_brand` (optional), `condition` (optional), `fb_status=posted|not_posted` (optional).
+- Response 200: `data: { items: Item[], pagination }`.
+- Admin item list trả thêm:
+  - `cover_image_url`
+  - `has_default_spin_set`
+  - `fb_post_url`: link Facebook mới nhất của item hoặc `null`
+  - `fb_posted_at`: thời điểm post Facebook mới nhất hoặc `null`
+  - `fb_posts_count`: tổng số Facebook post đã lưu cho item
 
 ### POST /api/v1/items
 - Body JSON (snake_case):
@@ -63,13 +70,24 @@
 - Errors: `VALIDATION_ERROR (422)`.
 
 ### GET /api/v1/items/:id
-- Response 200: `data: { item, images: ItemImage[], spin_sets: SpinSet[] }` (frames sắp xếp theo `frame_index`).
+- Response 200: `data: { item, images: ItemImage[], spin_sets: SpinSet[], facebook_posts: FacebookPost[] }` (frames sắp xếp theo `frame_index`, `facebook_posts` sắp xếp mới nhất trước).
 - Errors: `NOT_FOUND (404)`.
 
 ### PATCH /api/v1/items/:id
-- Body JSON: các field cho phép cập nhật `name/description/scale/brand/status/is_public`.
+- Body JSON: các field cho phép cập nhật `name/description/scale/brand/car_brand/model_brand/condition/price/original_price/status/is_public/fb_post_content`.
 - Response 200: `data: { item }`.
 - Errors: `VALIDATION_ERROR (422)`, `NOT_FOUND (404)`.
+
+### POST /api/v1/items/:id/facebook-posts
+- Body JSON: `{ "post_url": "https://facebook.com/...", "content": "string (optional)" }`.
+- `content` là snapshot caption tại thời điểm lưu link; nếu omitted server có thể fallback sang `item.fb_post_content`.
+- Response 201: `data: { post: FacebookPost }`.
+- Errors: `VALIDATION_ERROR (422)`, `NOT_FOUND (404)`.
+
+### DELETE /api/v1/items/:id/facebook-posts/:postId
+- Xóa 1 Facebook post record khỏi lịch sử item.
+- Response 200: `data: {}`.
+- Errors: `NOT_FOUND (404)`.
 
 ### DELETE /api/v1/items/:id
 - Soft delete item.
@@ -131,7 +149,17 @@
 ## AI (admin)
 ### POST /api/v1/items/:id/ai-description
 - Body JSON: `{ "custom_instructions": "string (optional)" }`.
-- Response 200: `data: { description }` (AI-generated description cho item).
+- Response 200:
+  ```json
+  {
+    "short_description": "...",
+    "long_description": "...",
+    "bullet_specs": ["..."],
+    "meta_title": "...",
+    "meta_description": "..."
+  }
+  ```
+- Lưu ý: payload trên sẽ nằm trong envelope chuẩn `data: { ... }`.
 
 ### POST /api/v1/items/:id/fb-post
 - Body JSON: `{ "custom_instructions": "string (optional)" }`.
@@ -141,6 +169,7 @@
 - Content-Type: multipart/form-data, field `images` (1+ file ảnh, max 10MB, jpeg/png/webp).
 - Response 200: `data: { draftId, aiJson, confidence, images }`.
 - AI phân tích ảnh sản phẩm, tạo draft item với confidence scores.
+- Nếu lưu file draft thành công nhưng tạo DB record thất bại, server phải cleanup các file draft đã ghi để tránh orphaned storage state.
 
 ## Public
 ### GET /api/v1/public/items

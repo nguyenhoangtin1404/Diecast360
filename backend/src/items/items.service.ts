@@ -648,7 +648,7 @@ Condition: ${item.condition || ''}`;
       data: {
         item_id: itemId,
         post_url: dto.post_url,
-        content: dto.content || null,
+        content: dto.content ?? item.fb_post_content ?? null,
       },
     });
 

@@ -13,11 +13,7 @@ export class AiController {
     @Param('id') id: string,
     @Body() dto: GenerateAiDescriptionDto,
   ) {
-    const result = await this.aiService.generateItemDescription(id, dto.custom_instructions);
-    return {
-      ok: true,
-      data: result,
-    };
+    return this.aiService.generateItemDescription(id, dto.custom_instructions);
   }
 
   @Post(':id/fb-post')
@@ -25,10 +21,6 @@ export class AiController {
     @Param('id') id: string,
     @Body() dto: GenerateFbPostDto,
   ) {
-    const result = await this.aiService.generateFacebookPost(id, dto.custom_instructions);
-    return {
-      ok: true,
-      data: result,
-    };
+    return this.aiService.generateFacebookPost(id, dto.custom_instructions);
   }
 }

@@ -131,7 +131,13 @@ describe('ItemDetailPage main flows', () => {
     h.mockInvalidateQueries.mockReset();
     h.mockShowToast.mockReset();
     h.uploadFile.mockReset();
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: vi.fn(async () => undefined),
+      },
+    });
     vi.stubGlobal('confirm', vi.fn(() => true));
+    vi.stubGlobal('open', vi.fn());
   });
 
   afterEach(() => {
@@ -217,6 +223,74 @@ describe('ItemDetailPage main flows', () => {
 
     const fileInput = screen.getByTestId('spinner-frame-upload') as HTMLInputElement;
     expect(fileInput.disabled).toBe(true);
+  });
+
+  it('uses flattened fb-post response shape and fills the caption textarea', async () => {
+    h.search = 'step=4';
+    h.apiClient.post.mockResolvedValueOnce({
+      data: {
+        content: 'Caption from AI',
+      },
+    });
+
+    render(<ItemDetailPage />);
+    fireEvent.click(screen.getByRole('button', { name: /Tạo bài FB bằng AI/i }));
+
+    await waitFor(() => {
+      expect(
+        (screen.getByPlaceholderText(/Nội dung bài FB sẽ hiển thị ở đây/i) as HTMLTextAreaElement).value,
+      ).toBe('Caption from AI');
+    });
+  });
+
+  it('invalidates items, fb-posts, and item detail when saving fb post content', async () => {
+    h.search = 'step=4';
+    render(<ItemDetailPage />);
+
+    const textarea = screen.getByPlaceholderText(/Nội dung bài FB sẽ hiển thị ở đây/i);
+    fireEvent.change(textarea, { target: { value: 'Saved caption' } });
+    fireEvent.click(screen.getByRole('button', { name: /Lưu nội dung/i }));
+
+    await waitFor(() => {
+      expect(h.apiClient.patch).toHaveBeenCalledWith('/items/1', { fb_post_content: 'Saved caption' });
+    });
+    expect(h.mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['items'] });
+    expect(h.mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['fb-posts'] });
+    expect(h.mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['item', '1'] });
+  });
+
+  it('stores current caption snapshot when adding a facebook post link', async () => {
+    h.search = 'step=4';
+    h.apiClient.post.mockResolvedValueOnce({
+      data: {
+        post: {
+          id: 'post-1',
+          item_id: '1',
+          post_url: 'https://facebook.com/post-1',
+          content: 'Caption snapshot',
+          posted_at: '2026-01-01T00:00:00.000Z',
+          created_at: '2026-01-01T00:00:00.000Z',
+        },
+      },
+    });
+
+    render(<ItemDetailPage />);
+
+    fireEvent.change(screen.getByPlaceholderText(/Nội dung bài FB sẽ hiển thị ở đây/i), {
+      target: { value: 'Caption snapshot' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('https://www.facebook.com/...'), {
+      target: { value: 'https://facebook.com/post-1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Thêm link FB/i }));
+
+    await waitFor(() => {
+      expect(h.apiClient.post).toHaveBeenCalledWith('/items/1/facebook-posts', {
+        post_url: 'https://facebook.com/post-1',
+        content: 'Caption snapshot',
+      });
+    });
+    expect(h.mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['fb-posts'] });
   });
 
   it('uploads multiple images and invalidates item query after each upload', async () => {
