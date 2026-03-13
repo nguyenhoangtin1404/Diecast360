@@ -2,6 +2,7 @@
 phase: "03"
 name: "public-experience"
 created: 2026-03-04
+updated: 2026-03-10
 ---
 
 # Phase 3: public-experience — Context

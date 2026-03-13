@@ -2,6 +2,7 @@
 phase: "02"
 name: "media-pipeline"
 created: 2026-03-04
+updated: 2026-03-10
 ---
 
 # Phase 2: media-pipeline — Context
