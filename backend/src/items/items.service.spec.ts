@@ -473,6 +473,21 @@ describe('ItemsService', () => {
       expect(updateCall.data.name).toBeUndefined();
     });
 
+    it('should persist fb_post_content when provided', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      prisma.item.update.mockResolvedValue({ ...mockItem, fb_post_content: 'Post content from AI' });
+
+      const result = await service.update('item-123', { fb_post_content: 'Post content from AI' });
+
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: expect.objectContaining({
+          fb_post_content: 'Post content from AI',
+        }),
+      });
+      expect(result.item.fb_post_content).toBe('Post content from AI');
+    });
+
     it('should allow unrelated updates without re-validating unchanged category metadata', async () => {
       prisma.item.findFirst.mockResolvedValue({
         ...mockItem,
@@ -552,6 +567,60 @@ describe('ItemsService', () => {
       ).rejects.toThrow(AppException);
     });
 
+    it('should persist optional post content when creating facebook post', async () => {
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        _count: { facebook_posts: 0 },
+      });
+
+      prisma.facebookPost.create.mockResolvedValue({
+        id: 'post-2',
+        item_id: 'item-123',
+        post_url: 'https://fb.com/post2',
+        content: 'Caption saved',
+      });
+
+      await service.addFacebookPost('item-123', {
+        post_url: 'https://fb.com/post2',
+        content: 'Caption saved',
+      });
+
+      expect(prisma.facebookPost.create).toHaveBeenCalledWith({
+        data: {
+          item_id: 'item-123',
+          post_url: 'https://fb.com/post2',
+          content: 'Caption saved',
+        },
+      });
+    });
+
+    it('should fallback to item fb_post_content when post content is omitted', async () => {
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        fb_post_content: 'Saved caption',
+        _count: { facebook_posts: 0 },
+      });
+
+      prisma.facebookPost.create.mockResolvedValue({
+        id: 'post-3',
+        item_id: 'item-123',
+        post_url: 'https://fb.com/post3',
+        content: 'Saved caption',
+      });
+
+      await service.addFacebookPost('item-123', {
+        post_url: 'https://fb.com/post3',
+      });
+
+      expect(prisma.facebookPost.create).toHaveBeenCalledWith({
+        data: {
+          item_id: 'item-123',
+          post_url: 'https://fb.com/post3',
+          content: 'Saved caption',
+        },
+      });
+    });
+
     it('should throw when limit of 50 posts is reached', async () => {
       prisma.item.findFirst.mockResolvedValue({
         ...mockItem,
@@ -584,6 +653,10 @@ describe('ItemsService', () => {
       await expect(
         service.removeFacebookPost('item-123', 'nonexistent'),
       ).rejects.toThrow(AppException);
+
+      expect(prisma.facebookPost.findFirst).toHaveBeenCalledWith({
+        where: { id: 'nonexistent', item_id: 'item-123' },
+      });
     });
   });
 

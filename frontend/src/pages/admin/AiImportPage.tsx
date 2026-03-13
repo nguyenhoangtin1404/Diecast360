@@ -20,6 +20,17 @@ interface AiDraftResponse {
   images: string[];
 }
 
+interface CreateItemResponse {
+  item: {
+    id: string;
+  };
+  warning?: {
+    code: string;
+    message: string;
+    failedImages?: string[];
+  };
+}
+
 export const AiImportPage = () => {
   const navigate = useNavigate();
   const [uploading, setUploading] = useState(false);
@@ -87,10 +98,16 @@ export const AiImportPage = () => {
     if (!draft) return;
     try {
         setUploading(true);
-        await apiClient.post('/items', {
+        const response = await apiClient.post('/items', {
             ...formData,
             draft_id: draft.draftId
-        });
+        }) as { data: CreateItemResponse };
+        const result = response.data;
+        if (result.warning) {
+          alert(`Sản phẩm đã được tạo nhưng còn ảnh draft chưa import hết: ${result.warning.message}`);
+          navigate(`/admin/items/${result.item.id}`);
+          return;
+        }
         navigate('/admin/items');
     } catch (err) {
         console.error('Save failed', err);

@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { AiService } from './ai.service';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { AppException } from '../common/exceptions/http-exception.filter';
+import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import OpenAI from 'openai';
 
 // Mock OpenAI module
@@ -157,6 +157,24 @@ describe('AiService', () => {
       await expect(service.generateItemDescription('item-1')).rejects.toThrow(AppException);
     });
 
+    it('should throw when bullet_specs only contain empty entries', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      mockCreate.mockResolvedValueOnce({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              ...descriptionResponse,
+              bullet_specs: ['', '   '],
+            }),
+          },
+        }],
+      });
+
+      await expect(service.generateItemDescription('item-1')).rejects.toMatchObject({
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      });
+    });
+
     it('should throw when AI returns no content', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       mockCreate.mockResolvedValueOnce({
@@ -166,11 +184,31 @@ describe('AiService', () => {
       await expect(service.generateItemDescription('item-1')).rejects.toThrow(AppException);
     });
 
+    it('should throw when AI returns malformed JSON', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      mockCreate.mockResolvedValueOnce({
+        choices: [{ message: { content: '{not-json}' } }],
+      });
+
+      await expect(service.generateItemDescription('item-1')).rejects.toMatchObject({
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      });
+    });
+
     it('should wrap OpenAI API errors as AppException', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       mockCreate.mockRejectedValueOnce(new Error('API rate limit'));
 
       await expect(service.generateItemDescription('item-1')).rejects.toThrow(AppException);
+    });
+
+    it('should map OpenAI 429 errors to RATE_LIMIT_EXCEEDED', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      mockCreate.mockRejectedValueOnce({ status: 429, message: 'Too many requests' });
+
+      await expect(service.generateItemDescription('item-1')).rejects.toMatchObject({
+        errorCode: ErrorCode.RATE_LIMIT_EXCEEDED,
+      });
     });
   });
 
@@ -216,6 +254,17 @@ describe('AiService', () => {
       mockCreate.mockRejectedValueOnce(new Error('Timeout'));
 
       await expect(service.generateFacebookPost('item-1')).rejects.toThrow(AppException);
+    });
+
+    it('should trim whitespace from generated Facebook post content', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      mockCreate.mockResolvedValueOnce({
+        choices: [{ message: { content: '  caption with spaces  ' } }],
+      });
+
+      await expect(service.generateFacebookPost('item-1')).resolves.toEqual({
+        content: 'caption with spaces',
+      });
     });
   });
 
@@ -280,10 +329,28 @@ describe('AiService', () => {
       await expect(service.analyzeImages([Buffer.from('img')])).rejects.toThrow(AppException);
     });
 
+    it('should throw when AI returns malformed analysis JSON', async () => {
+      mockCreate.mockResolvedValueOnce({
+        choices: [{ message: { content: '```json not valid ```' } }],
+      });
+
+      await expect(service.analyzeImages([Buffer.from('img')])).rejects.toMatchObject({
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      });
+    });
+
     it('should wrap OpenAI errors as AppException', async () => {
       mockCreate.mockRejectedValueOnce(new Error('Vision model unavailable'));
 
       await expect(service.analyzeImages([Buffer.from('img')])).rejects.toThrow(AppException);
+    });
+
+    it('should map OpenAI 4xx errors to VALIDATION_ERROR for analyzeImages', async () => {
+      mockCreate.mockRejectedValueOnce({ status: 400, message: 'Invalid image payload' });
+
+      await expect(service.analyzeImages([Buffer.from('img')])).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+      });
     });
 
     it('should throw VALIDATION_ERROR when API key is missing', async () => {

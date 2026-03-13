@@ -152,10 +152,7 @@ export const ItemDetailPage = () => {
     queryKey: ['item', id],
     queryFn: async () => {
       const response = await apiClient.get(`/items/${id}`);
-      // Response structure: {ok: true, data: {item: {...}, images: [...], spin_sets: [...]}, message: ''}
-      // apiClient interceptor returns response.data, so response = {ok: true, data: {...}, message: ''}
-      // We need to return response.data which is {item: {...}, images: [...], spin_sets: [...]}
-      return response.data || response;
+      return response.data;
     },
     enabled: !!id && id !== 'new',
   });
@@ -594,9 +591,7 @@ export const ItemDetailPage = () => {
     setIsGeneratingAi(true);
     try {
       const response = await apiClient.post(`/items/${id}/ai-description`, {});
-      // API returns { ok: true, data: { ... } }
-      // Axios returns { data: { ok: true, data: { ... } } }
-      const result = response.data?.data; 
+      const result = response.data;
       
       if (!result) throw new Error('No data received');
       
@@ -733,7 +728,7 @@ export const ItemDetailPage = () => {
     let missingSpin360 = !spinSets.some((set) => (set.frames?.length || 0) > 0);
     try {
       const response = await apiClient.get(`/items/${id}`);
-      const latest = response.data || response;
+      const latest = response.data;
       const latestImages = (latest.images || []) as ItemImage[];
       const latestSpinSets = (latest.spin_sets || []) as SpinSet[];
       missingImages = latestImages.length === 0;
@@ -2248,6 +2243,7 @@ export const ItemDetailPage = () => {
                             setFacebookPosts(prev => prev.filter(p => p.id !== post.id));
                             showToast('Đã xóa bài FB!');
                             queryClient.invalidateQueries({ queryKey: ['items'] });
+                            queryClient.invalidateQueries({ queryKey: ['fb-posts'] });
                             queryClient.invalidateQueries({ queryKey: ['item', id] });
                           } catch {
                             alert('Không thể xóa. Vui lòng thử lại.');
@@ -2306,7 +2302,7 @@ export const ItemDetailPage = () => {
                 const response = await apiClient.post(`/items/${id}/fb-post`, {
                   custom_instructions: fbPostInstructions || undefined
                 });
-                setFbPostContent(response.data?.data?.content || '');
+                setFbPostContent(response.data?.content || '');
               } catch (error) {
                 console.error('Error generating FB post:', error);
                 alert('Có lỗi khi tạo bài FB. Vui lòng thử lại.');
@@ -2412,7 +2408,7 @@ export const ItemDetailPage = () => {
                 cursor: 'pointer',
               }}
             >
-              🔗 Copy Link
+              🔗 Copy Link SP
             </button>
             <button
               onClick={async () => {
@@ -2422,6 +2418,8 @@ export const ItemDetailPage = () => {
                 }
                 try {
                   await apiClient.patch(`/items/${id}`, { fb_post_content: fbPostContent });
+                  queryClient.invalidateQueries({ queryKey: ['items'] });
+                  queryClient.invalidateQueries({ queryKey: ['fb-posts'] });
                   queryClient.invalidateQueries({ queryKey: ['item', id] });
                   showToast('Đã lưu nội dung!');
                 } catch (error) {
@@ -2453,6 +2451,9 @@ export const ItemDetailPage = () => {
                   await navigator.clipboard.writeText(fbPostContent);
                   // Save content to DB
                   await apiClient.patch(`/items/${id}`, { fb_post_content: fbPostContent });
+                  queryClient.invalidateQueries({ queryKey: ['items'] });
+                  queryClient.invalidateQueries({ queryKey: ['fb-posts'] });
+                  queryClient.invalidateQueries({ queryKey: ['item', id] });
                   // Open Facebook in new tab
                   window.open('https://www.facebook.com/', '_blank');
                   showToast('✅ Đã copy nội dung! Hãy paste và đăng trên Facebook.', '#1877F2', 4000);
@@ -2525,14 +2526,16 @@ export const ItemDetailPage = () => {
                   try {
                     const response = await apiClient.post(`/items/${id}/facebook-posts`, {
                       post_url: newFbLinkInput,
+                      content: fbPostContent || undefined,
                     });
-                    const responseData = (response.data ?? response) as { post?: FacebookPost };
+                    const responseData = response.data as { post?: FacebookPost };
                     const newPost = responseData.post;
                     if (newPost) {
                       setFacebookPosts(prev => [newPost, ...prev]);
                     }
                     setNewFbLinkInput('');
                     queryClient.invalidateQueries({ queryKey: ['items'] });
+                    queryClient.invalidateQueries({ queryKey: ['fb-posts'] });
                     queryClient.invalidateQueries({ queryKey: ['item', id] });
                     showToast('✅ Đã lưu link bài Facebook!');
                   } catch (error) {

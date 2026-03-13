@@ -26,11 +26,7 @@ export class AiService {
   }
 
   async generateItemDescription(itemId: string, customInstructions?: string): Promise<AiDescriptionResponseDto> {
-    // Check if API key is configured
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    if (!apiKey) {
-      throw new AppException(ErrorCode.VALIDATION_ERROR, 'OpenAI API key not configured');
-    }
+    this.ensureApiKeyConfigured();
 
     // Fetch item data
     const item = await this.prisma.item.findFirst({
@@ -81,34 +77,18 @@ Trả về JSON với format sau (KHÔNG có markdown code block):
         response_format: { type: 'json_object' },
       });
 
-      const content = completion.choices[0]?.message?.content;
-      if (!content) {
-        throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI did not return content');
-      }
-
-      const parsed = JSON.parse(content) as AiDescriptionResponseDto;
-      
-      // Validate response structure
-      if (!parsed.short_description || !parsed.long_description || !parsed.bullet_specs || !parsed.meta_title || !parsed.meta_description) {
-        throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI returned incomplete content');
-      }
-
-      return parsed;
+      return this.parseDescriptionResponse(completion.choices[0]?.message?.content);
     } catch (error) {
       if (error instanceof AppException) {
         throw error;
       }
       console.error('OpenAI API error:', error);
-      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'Failed to generate AI description');
+      throw this.mapProviderError(error, 'Failed to generate AI description');
     }
   }
 
   async generateFacebookPost(itemId: string, customInstructions?: string): Promise<{ content: string }> {
-    // Check if API key is configured
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    if (!apiKey) {
-      throw new AppException(ErrorCode.VALIDATION_ERROR, 'OpenAI API key not configured');
-    }
+    this.ensureApiKeyConfigured();
 
     // Fetch item data
     const item = await this.prisma.item.findFirst({
@@ -159,18 +139,13 @@ Cấu trúc bài viết:
         temperature: 0.8,
       });
 
-      const content = completion.choices[0]?.message?.content;
-      if (!content) {
-        throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI did not return content');
-      }
-
-      return { content };
+      return this.parseFacebookPostResponse(completion.choices[0]?.message?.content);
     } catch (error) {
       if (error instanceof AppException) {
         throw error;
       }
       console.error('OpenAI API error:', error);
-      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'Failed to generate Facebook post');
+      throw this.mapProviderError(error, 'Failed to generate Facebook post');
     }
   }
 
@@ -250,10 +225,7 @@ Cấu trúc bài viết:
 
 
   async analyzeImages(imageBuffers: Buffer[]): Promise<import('../items/dto/ai-draft.dto').AiAnalysisResult> {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    if (!apiKey) {
-      throw new AppException(ErrorCode.VALIDATION_ERROR, 'OpenAI API key not configured');
-    }
+    this.ensureApiKeyConfigured();
 
     const model = this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
 
@@ -310,17 +282,131 @@ Cấu trúc bài viết:
         response_format: { type: 'json_object' },
       });
 
-      const content = completion.choices[0]?.message?.content;
-      if (!content) {
-        throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI did not return content');
-      }
-
-      const result = JSON.parse(content);
-      return result;
+      return this.parseImageAnalysisResponse(completion.choices[0]?.message?.content);
 
     } catch (error) {
+      if (error instanceof AppException) {
+        throw error;
+      }
       console.error('OpenAI Vision Error:', error);
-      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'Failed to analyze images');
+      throw this.mapProviderError(error, 'Failed to analyze images');
     }
+  }
+
+  private ensureApiKeyConfigured() {
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    if (!apiKey) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'OpenAI API key not configured');
+    }
+  }
+
+  private parseDescriptionResponse(content: string | null | undefined): AiDescriptionResponseDto {
+    const parsed = this.parseJsonObject(content, 'AI did not return a valid description payload') as Partial<AiDescriptionResponseDto>;
+    const normalizedBulletSpecs = Array.isArray(parsed.bullet_specs)
+      ? parsed.bullet_specs.filter((spec): spec is string => typeof spec === 'string' && spec.trim().length > 0)
+      : [];
+
+    if (
+      !parsed.short_description ||
+      !parsed.long_description ||
+      normalizedBulletSpecs.length === 0 ||
+      !parsed.meta_title ||
+      !parsed.meta_description
+    ) {
+      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI returned incomplete content');
+    }
+
+    return {
+      short_description: parsed.short_description,
+      long_description: parsed.long_description,
+      bullet_specs: normalizedBulletSpecs,
+      meta_title: parsed.meta_title,
+      meta_description: parsed.meta_description,
+    };
+  }
+
+  private parseFacebookPostResponse(content: string | null | undefined): { content: string } {
+    if (!content || !content.trim()) {
+      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI did not return content');
+    }
+
+    return { content: content.trim() };
+  }
+
+  private parseImageAnalysisResponse(content: string | null | undefined): import('../items/dto/ai-draft.dto').AiAnalysisResult {
+    const parsed = this.parseJsonObject(content, 'AI did not return a valid image analysis payload') as {
+      aiJson?: Record<string, unknown>;
+      confidence?: Record<string, unknown>;
+      extracted_text?: unknown;
+    };
+
+    if (!parsed.aiJson || typeof parsed.aiJson !== 'object') {
+      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI returned incomplete image analysis');
+    }
+
+    return {
+      aiJson: parsed.aiJson as import('../items/dto/ai-draft.dto').AiAnalysisResult['aiJson'],
+      confidence: this.normalizeConfidenceMap(parsed.confidence),
+      extracted_text: typeof parsed.extracted_text === 'string' ? parsed.extracted_text : '',
+    };
+  }
+
+  private parseJsonObject(content: string | null | undefined, malformedMessage: string): Record<string, unknown> {
+    if (!content || !content.trim()) {
+      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI did not return content');
+    }
+
+    const normalized = content
+      .trim()
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/, '')
+      .trim();
+
+    try {
+      const parsed = JSON.parse(normalized) as unknown;
+      if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+        throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, malformedMessage);
+      }
+      return parsed as Record<string, unknown>;
+    } catch (error) {
+      if (error instanceof AppException) {
+        throw error;
+      }
+      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, malformedMessage);
+    }
+  }
+
+  private normalizeConfidenceMap(confidence: Record<string, unknown> | undefined): Record<string, number> {
+    if (!confidence || typeof confidence !== 'object') {
+      return {};
+    }
+
+    return Object.entries(confidence).reduce<Record<string, number>>((acc, [key, value]) => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+  }
+
+  private mapProviderError(error: unknown, fallbackMessage: string): AppException {
+    const providerError = error as { status?: number; message?: string } | undefined;
+
+    if (providerError?.status === 429) {
+      return new AppException(
+        ErrorCode.RATE_LIMIT_EXCEEDED,
+        'AI rate limit exceeded. Please try again later.',
+      );
+    }
+
+    if (providerError?.status && providerError.status >= 400 && providerError.status < 500) {
+      return new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        providerError.message || 'Invalid request to AI provider',
+      );
+    }
+
+    return new AppException(ErrorCode.INTERNAL_SERVER_ERROR, fallbackMessage);
   }
 }

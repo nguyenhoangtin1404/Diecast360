@@ -24,7 +24,7 @@ export const FacebookPostsPage = () => {
       if (fbFilter !== 'all') params.set('fb_status', fbFilter);
       if (debouncedSearch) params.set('q', debouncedSearch);
       const response = await apiClient.get(`/items?${params.toString()}`);
-      return response.data || response;
+      return response.data;
     },
   });
 
