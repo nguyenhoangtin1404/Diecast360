@@ -23,9 +23,9 @@
 
 ### AI and Social
 
-- [ ] **AISO-01**: User can generate SEO-friendly product description from item data.
-- [ ] **AISO-02**: User can generate Facebook-ready caption and copy post link.
-- [ ] **AISO-03**: User can auto-create draft item data from uploaded image analysis.
+- [x] **AISO-01**: User can generate SEO-friendly product description from item data.
+- [x] **AISO-02**: User can generate Facebook-ready caption and copy post link.
+- [x] **AISO-03**: User can auto-create draft item data from uploaded image analysis.
 
 ### Platform Hardening
 
@@ -71,9 +71,9 @@
 | MEDI-03 | Phase 3 | Pending |
 | PBLC-01 | Phase 3 | Pending |
 | PBLC-02 | Phase 3 | Pending |
-| AISO-01 | Phase 4 | Pending |
-| AISO-02 | Phase 4 | Pending |
-| AISO-03 | Phase 4 | Pending |
+| AISO-01 | Phase 4 | Complete (2026-03-13) |
+| AISO-02 | Phase 4 | Complete (2026-03-13) |
+| AISO-03 | Phase 4 | Complete (2026-03-13) |
 | PLAT-01 | Phase 5 | Pending |
 | PLAT-02 | Phase 5 | Pending |
 | PLAT-03 | Phase 5 | Pending |
@@ -96,5 +96,5 @@
 
 ---
 *Requirements defined: 2026-03-04*
-*Last updated: 2026-03-05 after Phase 1 execution*
+*Last updated: 2026-03-13 after Phase 4 execution*
 

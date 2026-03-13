@@ -4,6 +4,7 @@ import { ArrowLeft, Upload, Loader2, Check, AlertCircle } from 'lucide-react';
 import { isAxiosError } from 'axios';
 import { apiClient, uploadFile } from '../../api/client';
 import type { ItemFormData, ApiErrorResponse } from '../../types/item.types';
+import { showToast } from '../../utils/toast';
 
 interface AiDraftResponse {
   draftId: string;
@@ -29,6 +30,12 @@ interface CreateItemResponse {
     message: string;
     failedImages?: string[];
   };
+}
+
+interface ApiEnvelope<T> {
+  ok: boolean;
+  data: T;
+  message?: string;
 }
 
 export const AiImportPage = () => {
@@ -98,13 +105,20 @@ export const AiImportPage = () => {
     if (!draft) return;
     try {
         setUploading(true);
-        const response = await apiClient.post('/items', {
+        const response = await apiClient.post<
+          ApiEnvelope<CreateItemResponse>,
+          ApiEnvelope<CreateItemResponse>
+        >('/items', {
             ...formData,
             draft_id: draft.draftId
-        }) as { data: CreateItemResponse };
+        });
         const result = response.data;
         if (result.warning) {
-          alert(`Sản phẩm đã được tạo nhưng còn ảnh draft chưa import hết: ${result.warning.message}`);
+          showToast(
+            `Sản phẩm đã được tạo nhưng còn ảnh draft chưa import hết: ${result.warning.message}`,
+            '#f59e0b',
+            4000,
+          );
           navigate(`/admin/items/${result.item.id}`);
           return;
         }

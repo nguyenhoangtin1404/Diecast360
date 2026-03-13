@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 4 - AI and Social Selling
+**Current focus:** Phase 5 - Production and Integrations
 
 ## Current Position
 
-Phase: 4 of 13 (AI and Social Selling)
+Phase: 5 of 13 (Production and Integrations)
 Plan: 0 of 1 in current phase
-Status: Ready to execute
-Last activity: 2026-03-10 - Completed Phase 3 plan 03-01 and verification
+Status: Ready for Phase 5 planning
+Last activity: 2026-03-13 - Completed Phase 4 plan 04-01 and verification
 
-Progress: [###-------] 23%
+Progress: [####------] 31%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: 1 session
-- Total execution time: 3.0 hours
+- Total execution time: 4.0 hours
 
 ## Accumulated Context
 
@@ -35,6 +35,9 @@ Progress: [###-------] 23%
 - Added phase-2 verification coverage for backend media services, frontend spinner/media checks, and CI backend unit tests.
 - Public catalog query/filter/sort state is URL-synchronized for deterministic browsing behavior.
 - Public detail media rendering now has explicit spinner/gallery/empty fallback branches.
+- Hardened AI description/Facebook caption generation with contract-safe parsing and provider-error normalization.
+- Added AI draft import cleanup guarantees plus warning surfacing for partial media import.
+- Completed manual Facebook selling workflow with caption snapshotting, copy actions, and cross-page state coherence.
 
 ### Pending Todos
 
@@ -46,7 +49,7 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-10 14:35
-Stopped at: Phase 3 completed, next is Phase 4 planning/execution
-Resume file: .planning/phases/03-public-experience/03-VERIFICATION.md
+Last session: 2026-03-13 11:30
+Stopped at: Phase 4 completed, next is Phase 5 planning
+Resume file: .planning/phases/04-ai-and-social-selling/04-VERIFICATION.md
 

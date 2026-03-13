@@ -336,7 +336,7 @@ Cấu trúc bài viết:
   private parseImageAnalysisResponse(content: string | null | undefined): import('../items/dto/ai-draft.dto').AiAnalysisResult {
     const parsed = this.parseJsonObject(content, 'AI did not return a valid image analysis payload') as {
       aiJson?: Record<string, unknown>;
-      confidence?: Record<string, unknown>;
+      confidence?: unknown;
       extracted_text?: unknown;
     };
 
@@ -344,9 +344,17 @@ Cấu trúc bài viết:
       throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI returned incomplete image analysis');
     }
 
+    if (parsed.confidence !== undefined && (!parsed.confidence || typeof parsed.confidence !== 'object' || Array.isArray(parsed.confidence))) {
+      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI returned malformed image analysis confidence');
+    }
+
+    if (parsed.extracted_text !== undefined && typeof parsed.extracted_text !== 'string') {
+      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI returned malformed extracted text');
+    }
+
     return {
       aiJson: parsed.aiJson as import('../items/dto/ai-draft.dto').AiAnalysisResult['aiJson'],
-      confidence: this.normalizeConfidenceMap(parsed.confidence),
+      confidence: this.normalizeConfidenceMap(parsed.confidence as Record<string, unknown> | undefined),
       extracted_text: typeof parsed.extracted_text === 'string' ? parsed.extracted_text : '',
     };
   }
@@ -356,12 +364,9 @@ Cấu trúc bài viết:
       throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI did not return content');
     }
 
-    const normalized = content
-      .trim()
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/\s*```$/, '')
-      .trim();
+    const trimmed = content.trim();
+    const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```/i);
+    const normalized = (fencedMatch?.[1] ?? trimmed).trim();
 
     try {
       const parsed = JSON.parse(normalized) as unknown;
@@ -391,7 +396,7 @@ Cấu trúc bài viết:
   }
 
   private mapProviderError(error: unknown, fallbackMessage: string): AppException {
-    const providerError = error as { status?: number; message?: string } | undefined;
+    const providerError = this.getProviderError(error);
 
     if (providerError?.status === 429) {
       return new AppException(
@@ -403,10 +408,23 @@ Cấu trúc bài viết:
     if (providerError?.status && providerError.status >= 400 && providerError.status < 500) {
       return new AppException(
         ErrorCode.VALIDATION_ERROR,
-        providerError.message || 'Invalid request to AI provider',
+        'Invalid AI request. Please review the input and try again.',
       );
     }
 
     return new AppException(ErrorCode.INTERNAL_SERVER_ERROR, fallbackMessage);
+  }
+
+  private getProviderError(error: unknown): { status?: number; message?: string } {
+    if (!error || typeof error !== 'object') {
+      return {};
+    }
+
+    const candidate = error as Record<string, unknown>;
+
+    return {
+      status: typeof candidate.status === 'number' ? candidate.status : undefined,
+      message: typeof candidate.message === 'string' ? candidate.message : undefined,
+    };
   }
 }
