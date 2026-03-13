@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AiDraftController } from './ai-draft.controller';
 import { AiService } from '../ai/ai.service';
@@ -59,6 +59,7 @@ describe('AiDraftController', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   it('should create a draft after analyzing and saving images', async () => {
@@ -96,6 +97,16 @@ describe('AiDraftController', () => {
     await expect(controller.createDraft([])).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('should propagate analysis errors without saving or cleaning up files', async () => {
+    aiService.analyzeImages.mockRejectedValueOnce(new Error('analysis failed'));
+
+    await expect(controller.createDraft([buildFile('box.jpg')])).rejects.toThrow('analysis failed');
+
+    expect(storage.saveFile).not.toHaveBeenCalled();
+    expect(storage.deleteFile).not.toHaveBeenCalled();
+    expect(prisma.aiItemDraft.create).not.toHaveBeenCalled();
+  });
+
   it('should clean up saved files when draft persistence fails', async () => {
     storage.saveFile
       .mockResolvedValueOnce('drafts/box.jpg')
@@ -126,15 +137,14 @@ describe('AiDraftController', () => {
   });
 
   it('should log cleanup failures while still rethrowing the original error', async () => {
-    const logger = (controller as unknown as { logger: { error: jest.Mock } }).logger;
-    jest.spyOn(logger, 'error').mockImplementation();
+    const loggerErrorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     storage.saveFile.mockResolvedValueOnce('drafts/box.jpg');
     prisma.aiItemDraft.create.mockRejectedValueOnce(new Error('db write failed'));
     storage.deleteFile.mockRejectedValueOnce(new Error('cleanup failed'));
 
     await expect(controller.createDraft([buildFile('box.jpg')])).rejects.toThrow('db write failed');
 
-    expect(logger.error).toHaveBeenCalledWith(
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('Failed to cleanup draft file "drafts/box.jpg"'),
     );
   });

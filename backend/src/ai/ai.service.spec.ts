@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { AiService } from './ai.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
-import OpenAI from 'openai';
 
 // Mock OpenAI module
 const mockCreate = jest.fn();
@@ -210,6 +209,16 @@ describe('AiService', () => {
         errorCode: ErrorCode.RATE_LIMIT_EXCEEDED,
       });
     });
+
+    it('should fallback to generic description failure when provider error is null', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      mockCreate.mockRejectedValueOnce(null);
+
+      await expect(service.generateItemDescription('item-1')).rejects.toMatchObject({
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+        message: 'Failed to generate AI description',
+      });
+    });
   });
 
   // ============================================================
@@ -264,6 +273,16 @@ describe('AiService', () => {
 
       await expect(service.generateFacebookPost('item-1')).resolves.toEqual({
         content: 'caption with spaces',
+      });
+    });
+
+    it('should fallback to generic facebook failure when provider error is a string', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      mockCreate.mockRejectedValueOnce('Timeout from upstream');
+
+      await expect(service.generateFacebookPost('item-1')).rejects.toMatchObject({
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+        message: 'Failed to generate Facebook post',
       });
     });
   });
@@ -339,6 +358,60 @@ describe('AiService', () => {
       });
     });
 
+    it('should throw when AI returns malformed confidence payload', async () => {
+      mockCreate.mockResolvedValueOnce({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              ...analysisResult,
+              confidence: 'high',
+            }),
+          },
+        }],
+      });
+
+      await expect(service.analyzeImages([Buffer.from('img')])).rejects.toMatchObject({
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+        message: 'AI returned malformed image analysis confidence',
+      });
+    });
+
+    it('should throw when AI returns malformed extracted_text payload', async () => {
+      mockCreate.mockResolvedValueOnce({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              ...analysisResult,
+              extracted_text: { raw: 'Hot Wheels Nissan GT-R' },
+            }),
+          },
+        }],
+      });
+
+      await expect(service.analyzeImages([Buffer.from('img')])).rejects.toMatchObject({
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+        message: 'AI returned malformed extracted text',
+      });
+    });
+
+    it('should parse fenced JSON even when provider appends trailing text after the block', async () => {
+      mockCreate.mockResolvedValueOnce({
+        choices: [{
+          message: {
+            content: `\`\`\`json
+${JSON.stringify(analysisResult)}
+\`\`\`
+some trailing note`,
+          },
+        }],
+      });
+
+      await expect(service.analyzeImages([Buffer.from('img')])).resolves.toMatchObject({
+        aiJson: analysisResult.aiJson,
+        extracted_text: analysisResult.extracted_text,
+      });
+    });
+
     it('should wrap OpenAI errors as AppException', async () => {
       mockCreate.mockRejectedValueOnce(new Error('Vision model unavailable'));
 
@@ -350,6 +423,28 @@ describe('AiService', () => {
 
       await expect(service.analyzeImages([Buffer.from('img')])).rejects.toMatchObject({
         errorCode: ErrorCode.VALIDATION_ERROR,
+        message: 'Invalid AI request. Please review the input and try again.',
+      });
+    });
+
+    it('should not expose raw provider 4xx messages to clients', async () => {
+      mockCreate.mockRejectedValueOnce({
+        status: 400,
+        message: 'Provider internal detail: model=gpt-4o-mini request_id=req_123',
+      });
+
+      await expect(service.analyzeImages([Buffer.from('img')])).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+        message: 'Invalid AI request. Please review the input and try again.',
+      });
+    });
+
+    it('should fallback to generic analyze failure when provider status is 500', async () => {
+      mockCreate.mockRejectedValueOnce({ status: 500, message: 'Server exploded' });
+
+      await expect(service.analyzeImages([Buffer.from('img')])).rejects.toMatchObject({
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+        message: 'Failed to analyze images',
       });
     });
 

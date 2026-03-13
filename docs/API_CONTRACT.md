@@ -82,11 +82,43 @@
 - Body JSON: `{ "post_url": "https://facebook.com/...", "content": "string (optional)" }`.
 - `content` là snapshot caption tại thời điểm lưu link; nếu omitted server có thể fallback sang `item.fb_post_content`.
 - Response 201: `data: { post: FacebookPost }`.
+- Example request:
+  ```json
+  {
+    "post_url": "https://www.facebook.com/share/p/abc123",
+    "content": "🔥 MiniGT Skyline R34 cực đẹp, full box, còn hàng!"
+  }
+  ```
+- Example response:
+  ```json
+  {
+    "ok": true,
+    "data": {
+      "post": {
+        "id": "fb-post-1",
+        "item_id": "item-123",
+        "post_url": "https://www.facebook.com/share/p/abc123",
+        "content": "🔥 MiniGT Skyline R34 cực đẹp, full box, còn hàng!",
+        "posted_at": "2026-03-13T10:20:30.000Z",
+        "created_at": "2026-03-13T10:20:30.000Z"
+      }
+    },
+    "message": ""
+  }
+  ```
 - Errors: `VALIDATION_ERROR (422)`, `NOT_FOUND (404)`.
 
 ### DELETE /api/v1/items/:id/facebook-posts/:postId
 - Xóa 1 Facebook post record khỏi lịch sử item.
 - Response 200: `data: {}`.
+- Example response:
+  ```json
+  {
+    "ok": true,
+    "data": {},
+    "message": ""
+  }
+  ```
 - Errors: `NOT_FOUND (404)`.
 
 ### DELETE /api/v1/items/:id
@@ -160,16 +192,103 @@
   }
   ```
 - Lưu ý: payload trên sẽ nằm trong envelope chuẩn `data: { ... }`.
+- Example request:
+  ```json
+  {
+    "custom_instructions": "Nhấn mạnh tình trạng mới và độ hiếm cho collector."
+  }
+  ```
+- Example response:
+  ```json
+  {
+    "ok": true,
+    "data": {
+      "short_description": "MiniGT Skyline R34 bản collector, tình trạng mới, hộp đẹp, phù hợp trưng bày.",
+      "long_description": "Mẫu MiniGT Skyline R34 dành cho người chơi diecast đang tìm một bản sưu tầm đẹp mắt, tình trạng mới...",
+      "bullet_specs": [
+        "Brand: MiniGT",
+        "Model: Skyline R34",
+        "Scale: 1:64"
+      ],
+      "meta_title": "MiniGT Skyline R34 1:64 cho collector",
+      "meta_description": "MiniGT Skyline R34 tỷ lệ 1:64, tình trạng mới, phù hợp sưu tầm và trưng bày."
+    },
+    "message": ""
+  }
+  ```
+- Errors:
+  - `NOT_FOUND (404)`: item không tồn tại.
+  - `VALIDATION_ERROR (422)`: API key AI thiếu hoặc request gửi tới provider không hợp lệ.
+  - `RATE_LIMIT_EXCEEDED (429)`: vượt giới hạn gọi AI provider.
+  - `INTERNAL_SERVER_ERROR (500)`: provider lỗi hoặc trả về payload không parse/validate được.
 
 ### POST /api/v1/items/:id/fb-post
 - Body JSON: `{ "custom_instructions": "string (optional)" }`.
 - Response 200: `data: { content }` (AI-generated Facebook post cho item).
+- Example request:
+  ```json
+  {
+    "custom_instructions": "Viết ngắn gọn, giọng casual, có CTA inbox."
+  }
+  ```
+- Example response:
+  ```json
+  {
+    "ok": true,
+    "data": {
+      "content": "🔥 MiniGT Skyline R34 mới về, form đẹp, hộp đẹp, cực hợp anh em collector. Inbox để chốt nhanh! #diecast #mohinh #collector"
+    },
+    "message": ""
+  }
+  ```
+- Errors:
+  - `NOT_FOUND (404)`: item không tồn tại.
+  - `VALIDATION_ERROR (422)`: API key AI thiếu hoặc request gửi tới provider không hợp lệ.
+  - `RATE_LIMIT_EXCEEDED (429)`: vượt giới hạn gọi AI provider.
+  - `INTERNAL_SERVER_ERROR (500)`: provider lỗi hoặc không trả nội dung usable.
 
 ### POST /api/v1/items/ai-draft
 - Content-Type: multipart/form-data, field `images` (1+ file ảnh, max 10MB, jpeg/png/webp).
 - Response 200: `data: { draftId, aiJson, confidence, images }`.
 - AI phân tích ảnh sản phẩm, tạo draft item với confidence scores.
 - Nếu lưu file draft thành công nhưng tạo DB record thất bại, server phải cleanup các file draft đã ghi để tránh orphaned storage state.
+- Example request:
+  - `multipart/form-data`
+  - field `images`: `box.jpg`, `bottom.jpg`, `overview.jpg`
+- Example response:
+  ```json
+  {
+    "ok": true,
+    "data": {
+      "draftId": "draft-123",
+      "aiJson": {
+        "brand": "MiniGT",
+        "car_brand": "Nissan",
+        "model_brand": "Skyline R34",
+        "scale": "1:64",
+        "color": "Blue",
+        "product_code": "MGT-009"
+      },
+      "confidence": {
+        "brand": 0.94,
+        "model_brand": 0.89,
+        "scale": 0.73
+      },
+      "images": [
+        "https://cdn.example.com/uploads/drafts/img1.jpg",
+        "https://cdn.example.com/uploads/drafts/img2.jpg",
+        "https://cdn.example.com/uploads/drafts/img3.jpg"
+      ]
+    },
+    "message": ""
+  }
+  ```
+- Errors:
+  - `VALIDATION_ERROR (422)`: API key AI thiếu hoặc provider request không hợp lệ.
+  - `RATE_LIMIT_EXCEEDED (429)`: vượt giới hạn gọi AI provider.
+  - `UPLOAD_INVALID_TYPE (400)`: file không đúng định dạng hỗ trợ.
+  - `UPLOAD_TOO_LARGE (413)`: file vượt giới hạn kích thước.
+  - `INTERNAL_SERVER_ERROR (500)`: provider trả payload lỗi, storage lỗi, hoặc draft persistence lỗi.
 
 ## Public
 ### GET /api/v1/public/items

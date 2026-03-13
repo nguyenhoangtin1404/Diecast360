@@ -47,7 +47,7 @@ Current work is focused on production-readiness and Facebook workflow automation
 |----------|-----------|---------|
 | Use Prisma with PostgreSQL as canonical data layer | Existing migrations and docs already standardized | ✓ Good |
 | Keep storage abstraction for upload backend | Enables local now and object storage later | ✓ Good |
-| Keep social flow centered on Facebook posting UX | Matches target seller workflow | - Pending |
+| Keep social flow centered on Facebook posting UX | Matches target seller workflow | ✓ Good |
 
 ---
-*Last updated: 2026-03-04 after gsd initialization*
+*Last updated: 2026-03-13 after Phase 4 execution*

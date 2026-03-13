@@ -645,6 +645,12 @@ describe('ItemsService', () => {
       const result = await service.removeFacebookPost('item-123', 'post-1');
 
       expect(result).toEqual({});
+      expect(prisma.facebookPost.findFirst).toHaveBeenCalledWith({
+        where: { id: 'post-1', item_id: 'item-123' },
+      });
+      expect(prisma.facebookPost.delete).toHaveBeenCalledWith({
+        where: { id: 'post-1' },
+      });
     });
 
     it('should throw NOT_FOUND when post does not exist', async () => {

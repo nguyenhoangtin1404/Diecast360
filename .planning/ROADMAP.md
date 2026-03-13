@@ -9,7 +9,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 1: Inventory Foundation** - Data model and item lifecycle management.
 - [x] **Phase 2: Media Pipeline** - Image and spinner asset management.
 - [x] **Phase 3: Public Experience** - Public catalog and product viewing workflow.
-- [ ] **Phase 4: AI and Social Selling** - Content generation and seller assist tools.
+- [x] **Phase 4: AI and Social Selling** - Content generation and seller assist tools.
 - [ ] **Phase 5: Production and Integrations** - Docker, CI, and Facebook API baseline.
 - [ ] **Phase 6: Issue #58 - Mobile Responsive UI** - Mobile-first UX hardening for admin/public pages.
 - [ ] **Phase 7: Issue #57 - Quantity and Custom Attributes** - Extend product model with stock quantity and custom metadata.
@@ -56,7 +56,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 04-01: Complete AI-assisted listing and social publishing flow
+- [x] 04-01: Complete AI-assisted listing and social publishing flow
 
 ### Phase 5: Production and Integrations
 **Goal**: Production-ready operations and Facebook API integration baseline.
@@ -216,6 +216,5 @@ Phases not yet executed and pending tasks:
 - Phase 13: `13-01`, `13-02`, `13-03` Extended E2E coverage and quality gates.
 
 Partially executed phases (still pending full completion):
-- Phase 4: `04-01` still pending complete AI-social publishing lifecycle validation.
 - Phase 6: `06-01`, `06-02` still pending full admin/public responsive hardening and smoke checks.
 

@@ -648,6 +648,8 @@ Condition: ${item.condition || ''}`;
       data: {
         item_id: itemId,
         post_url: dto.post_url,
+        // Snapshot the best available caption on post creation so history keeps the
+        // text that was actually used even if item.fb_post_content changes later.
         content: dto.content ?? item.fb_post_content ?? null,
       },
     });
