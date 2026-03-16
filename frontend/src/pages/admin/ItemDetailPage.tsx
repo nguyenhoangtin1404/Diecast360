@@ -139,6 +139,8 @@ export const ItemDetailPage = () => {
   const [facebookPosts, setFacebookPosts] = useState<FacebookPost[]>([]);
   const [newFbLinkInput, setNewFbLinkInput] = useState('');
   const [isSavingFbLink, setIsSavingFbLink] = useState(false);
+  const [isPublishingToFb, setIsPublishingToFb] = useState(false);
+  const [publishFbMessage, setPublishFbMessage] = useState<string | null>(null);
   const socialSellingRef = useRef<HTMLDivElement>(null);
   const stepNavInFlightRef = useRef(false);
   const [searchParams] = useSearchParams();
@@ -2477,7 +2479,74 @@ export const ItemDetailPage = () => {
             >
               📤 Đăng lên Facebook
             </button>
+            <button
+              onClick={async () => {
+                if (!fbPostContent) {
+                  alert('Chưa có nội dung! Tạo bài FB trước khi publish.');
+                  return;
+                }
+                if (!window.confirm('Bạn có chắc muốn publish bài này lên Facebook Page? Hành động này không thể hoàn tác.')) {
+                  return;
+                }
+                setIsPublishingToFb(true);
+                setPublishFbMessage(null);
+                try {
+                  // Publish to Facebook via Graph API (content sent in body)
+                  const response = await apiClient.post(`/items/${id}/facebook-posts/publish`, {
+                    content: fbPostContent,
+                  });
+                  const responseData = response.data as { post?: FacebookPost };
+                  const newPost = responseData.post;
+                  if (newPost) {
+                    setFacebookPosts(prev => [newPost, ...prev]);
+                  }
+                  queryClient.invalidateQueries({ queryKey: ['items'] });
+                  queryClient.invalidateQueries({ queryKey: ['fb-posts'] });
+                  queryClient.invalidateQueries({ queryKey: ['item', id] });
+                  setPublishFbMessage('✅ Đã đăng thành công lên Facebook!');
+                  showToast('✅ Đã publish lên Facebook!', '#28a745', 4000);
+                } catch (error) {
+                  console.error('Error publishing to FB:', error);
+                  const err = error as { response?: { data?: { message?: string } } };
+                  const msg = err?.response?.data?.message || 'Không thể publish. Vui lòng thử lại.';
+                  setPublishFbMessage(`❌ ${msg}`);
+                } finally {
+                  setIsPublishingToFb(false);
+                }
+              }}
+              disabled={isPublishingToFb || !fbPostContent}
+              style={{
+                padding: '10px 20px',
+                background: isPublishingToFb || !fbPostContent ? '#ccc' : '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: isPublishingToFb || !fbPostContent ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              {isPublishingToFb ? '⏳ Đang publish...' : '🚀 Publish lên Facebook'}
+            </button>
           </div>
+
+          {/* Publish Status Message */}
+          {publishFbMessage && (
+            <div style={{
+              padding: '10px 16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              marginBottom: '16px',
+              background: publishFbMessage.startsWith('✅') ? '#d4edda' : '#f8d7da',
+              color: publishFbMessage.startsWith('✅') ? '#155724' : '#721c24',
+              border: `1px solid ${publishFbMessage.startsWith('✅') ? '#c3e6cb' : '#f5c6cb'}`,
+            }}>
+              {publishFbMessage}
+            </div>
+          )}
 
           {/* Save FB Post Link Section */}
           <div style={{
