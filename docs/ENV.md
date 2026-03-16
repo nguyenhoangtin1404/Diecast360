@@ -28,6 +28,8 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 | COOKIE_SECRET | Secret ký cookies | random 32+ chars | Bắt buộc, đổi trong production |
 | COOKIE_SECURE | Chỉ gửi cookies qua HTTPS | `false` (dev) / `true` (prod) | Bật khi deploy HTTPS |
 | COOKIE_SAME_SITE | SameSite attribute cho cookies | `lax` (dev) / `strict` (prod) | Chống CSRF |
+| FACEBOOK_PAGE_ID | Facebook Page ID cho publish | `123456789` | Tùy chọn (bắt buộc cho FB publish) |
+| FACEBOOK_PAGE_ACCESS_TOKEN | Long-lived Page Access Token | `EAA...` | Tùy chọn (bắt buộc cho FB publish) |
 
 ## DATABASE_URL / DIRECT_URL Format
 

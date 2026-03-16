@@ -10,7 +10,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 2: Media Pipeline** - Image and spinner asset management.
 - [x] **Phase 3: Public Experience** - Public catalog and product viewing workflow.
 - [x] **Phase 4: AI and Social Selling** - Content generation and seller assist tools.
-- [ ] **Phase 5: Production and Integrations** - Docker, CI, and Facebook API baseline.
+- [x] **Phase 5: Production and Integrations** - Docker, CI, and Facebook API baseline.
 - [ ] **Phase 6: Issue #58 - Mobile Responsive UI** - Mobile-first UX hardening for admin/public pages.
 - [ ] **Phase 7: Issue #57 - Quantity and Custom Attributes** - Extend product model with stock quantity and custom metadata.
 - [ ] **Phase 8: Issue #46 - Advanced Inventory Management** - Transaction-based inventory and stock audit trail.
@@ -65,7 +65,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 05-01: Ship production hardening and Facebook integration baseline
+- [x] 05-01: Ship production hardening and Facebook integration baseline
 
 ### Phase 6: Issue #58 - Mobile Responsive UI
 **Goal**: Complete mobile-first responsive UX for admin/public core screens.
@@ -159,8 +159,8 @@ Plans:
 | 1. Inventory Foundation | 1/1 | Complete | 2026-03-05 |
 | 2. Media Pipeline | 1/1 | Complete | 2026-03-10 |
 | 3. Public Experience | 1/1 | Complete | 2026-03-10 |
-| 4. AI and Social Selling | 0/1 | In progress (partial) | Step 4 "Hoàn tất" flow and guardrails implemented |
-| 5. Production and Integrations | 0/1 | Not started | - |
+| 4. AI and Social Selling | 1/1 | Complete | 2026-03-13 |
+| 5. Production and Integrations | 1/1 | Complete | 2026-03-16 |
 | 6. Issue #58 - Mobile Responsive UI | 0/2 | In progress (partial) | Mobile stepper UX and navigation controls improved |
 | 7. Issue #57 - Quantity and Custom Attributes | 0/3 | Not started | - |
 | 8. Issue #46 - Advanced Inventory Management | 0/3 | Not started | - |
@@ -203,10 +203,19 @@ Completed in codebase for Phase 3:
 - Added public service regression tests for filtering, paging, and spinner frame normalization.
 - Stabilized catalog URL query state (filters/sort/search) and public item media fallback behavior.
 
+## Execution Update (2026-03-16, Phase 5)
+
+Completed in codebase for Phase 5:
+- Finalized Docker Compose stack: healthchecks, safe env defaults, source volume mounts, frontend dev stage.
+- CI hardened: backend test env stubs for Prisma, Playwright OS deps on cache-hit.
+- Facebook Graph API integration: dedicated `integrations/facebook/` module with config validation, Graph API wrapper, error mapping.
+- New `POST /items/:id/facebook-posts/publish` endpoint with rate limiting and confirmation dialog in admin UX.
+- Documentation updated: API_CONTRACT.md, ERROR_HANDLING.md, ENV.md.
+- All tests passed (256 backend tests, 0 lint errors, clean frontend build).
+
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet executed and pending tasks:
-- Phase 5: `05-01` Ship production hardening and Facebook integration baseline.
 - Phase 7: `07-01`, `07-02`, `07-03` Quantity/custom-attributes schema, API, admin UI.
 - Phase 8: `08-01`, `08-02`, `08-03` Advanced inventory transactions and audit trail.
 - Phase 9: `09-01`, `09-02`, `09-03` Pre-order domain + API + admin flow.
@@ -217,4 +226,3 @@ Phases not yet executed and pending tasks:
 
 Partially executed phases (still pending full completion):
 - Phase 6: `06-01`, `06-02` still pending full admin/public responsive hardening and smoke checks.
-
