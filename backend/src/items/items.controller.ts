@@ -21,6 +21,7 @@ import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { QueryItemsDto } from './dto/query-items.dto';
 import { CreateFacebookPostDto } from './dto/create-facebook-post.dto';
+import { PublishFacebookPostDto } from './dto/publish-facebook-post.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('items')
@@ -80,7 +81,18 @@ export class ItemsController {
     return this.itemsService.remove(id);
   }
 
+  @Post(':id/facebook-posts/publish')
+  @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  publishFacebookPost(
+    @Param('id') id: string,
+    @Body() dto: PublishFacebookPostDto,
+  ) {
+    return this.itemsService.publishFacebookPost(id, dto);
+  }
+
   @Post(':id/facebook-posts')
+  @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { ttl: 60000, limit: 10 } })
   addFacebookPost(
     @Param('id') id: string,

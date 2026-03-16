@@ -667,6 +667,145 @@ describe('ItemsService', () => {
   });
 
   // ============================================================
+  // publishFacebookPost
+  // ============================================================
+  describe('publishFacebookPost', () => {
+    it('should publish to Facebook and persist post', async () => {
+      const mockFacebookGraph = {
+        publishPost: jest.fn().mockResolvedValue({
+          postId: 'page_post123',
+          postUrl: 'https://www.facebook.com/page_post123',
+        }),
+      };
+      Object.defineProperty(service, 'facebookGraph', {
+        value: mockFacebookGraph,
+        writable: true,
+      });
+
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        fb_post_content: 'Saved caption',
+        _count: { facebook_posts: 0 },
+      });
+
+      const mockPost = {
+        id: 'pub-post-1',
+        item_id: 'item-123',
+        post_url: 'https://www.facebook.com/page_post123',
+        content: 'Custom content',
+      };
+      prisma.facebookPost.create.mockResolvedValue(mockPost);
+
+      const result = await service.publishFacebookPost('item-123', { content: 'Custom content' });
+
+      expect(result.post.id).toBe('pub-post-1');
+      expect(mockFacebookGraph.publishPost).toHaveBeenCalledWith('Custom content');
+      expect(prisma.facebookPost.create).toHaveBeenCalledWith({
+        data: {
+          item_id: 'item-123',
+          post_url: 'https://www.facebook.com/page_post123',
+          content: 'Custom content',
+        },
+      });
+    });
+
+    it('should fallback to item.fb_post_content when content is omitted', async () => {
+      const mockFacebookGraph = {
+        publishPost: jest.fn().mockResolvedValue({
+          postId: 'page_post456',
+          postUrl: 'https://www.facebook.com/page_post456',
+        }),
+      };
+      Object.defineProperty(service, 'facebookGraph', {
+        value: mockFacebookGraph,
+        writable: true,
+      });
+
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        fb_post_content: 'Fallback caption',
+        _count: { facebook_posts: 0 },
+      });
+
+      prisma.facebookPost.create.mockResolvedValue({
+        id: 'pub-post-2',
+        item_id: 'item-123',
+        post_url: 'https://www.facebook.com/page_post456',
+        content: 'Fallback caption',
+      });
+
+      await service.publishFacebookPost('item-123', {});
+
+      expect(mockFacebookGraph.publishPost).toHaveBeenCalledWith('Fallback caption');
+    });
+
+    it('should throw NOT_FOUND when item does not exist', async () => {
+      const mockFacebookGraph = { publishPost: jest.fn() };
+      Object.defineProperty(service, 'facebookGraph', {
+        value: mockFacebookGraph,
+        writable: true,
+      });
+
+      prisma.item.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.publishFacebookPost('nonexistent'),
+      ).rejects.toThrow(AppException);
+    });
+
+    it('should throw VALIDATION_ERROR when no content available', async () => {
+      const mockFacebookGraph = { publishPost: jest.fn() };
+      Object.defineProperty(service, 'facebookGraph', {
+        value: mockFacebookGraph,
+        writable: true,
+      });
+
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        fb_post_content: null,
+        _count: { facebook_posts: 0 },
+      });
+
+      await expect(
+        service.publishFacebookPost('item-123'),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+      });
+    });
+
+    it('should throw VALIDATION_ERROR when facebookGraph is not configured', async () => {
+      Object.defineProperty(service, 'facebookGraph', {
+        value: undefined,
+        writable: true,
+      });
+
+      await expect(
+        service.publishFacebookPost('item-123', { content: 'Test' }),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+      });
+    });
+
+    it('should throw when post limit of 50 is reached', async () => {
+      const mockFacebookGraph = { publishPost: jest.fn() };
+      Object.defineProperty(service, 'facebookGraph', {
+        value: mockFacebookGraph,
+        writable: true,
+      });
+
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        fb_post_content: 'Some content',
+        _count: { facebook_posts: 50 },
+      });
+
+      await expect(
+        service.publishFacebookPost('item-123', { content: 'Test' }),
+      ).rejects.toThrow(AppException);
+    });
+  });
+
+  // ============================================================
   // syncVectorStore & queue
   // ============================================================
   describe('syncVectorStore', () => {

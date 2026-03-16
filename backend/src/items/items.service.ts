@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { Prisma, ItemStatus } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { IStorageService } from '../storage/storage.interface';
@@ -10,6 +10,8 @@ import { EmbeddingService, EmbeddingUnavailableError } from '../ai/embedding.ser
 import { QueryItemsDto } from './dto/query-items.dto';
 import type { VectorSyncItem, ItemWithCoverImage, CsvFieldValue } from '../common/types/item.types';
 import { toNumber } from '../common/utils/decimal.utils';
+import { FacebookGraphService } from '../integrations/facebook/facebook-graph.service';
+import { PublishFacebookPostDto } from './dto/publish-facebook-post.dto';
 
 const ALLOWED_STATUS_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
   con_hang: ['con_hang', 'giu_cho', 'da_ban'],
@@ -27,6 +29,7 @@ export class ItemsService {
     @Inject('IStorageService') private storage: IStorageService,
     private vectorStore: VectorStoreService,
     private embeddingService: EmbeddingService,
+    @Optional() private facebookGraph?: FacebookGraphService,
   ) {}
 
   async syncVectorStore(item: VectorSyncItem) {
@@ -670,6 +673,55 @@ Condition: ${item.condition || ''}`;
     });
 
     return {};
+  }
+
+  async publishFacebookPost(itemId: string, dto?: PublishFacebookPostDto) {
+    if (!this.facebookGraph) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Facebook integration chưa được cấu hình. Set FACEBOOK_PAGE_ID và FACEBOOK_PAGE_ACCESS_TOKEN.',
+      );
+    }
+
+    const item = await this.prisma.item.findFirst({
+      where: { id: itemId, deleted_at: null },
+      include: { _count: { select: { facebook_posts: true } } },
+    });
+
+    if (!item) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
+    }
+
+    if (item._count.facebook_posts >= 50) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Đã đạt giới hạn 50 bài FB cho sản phẩm này');
+    }
+
+    // Resolve caption: explicit override > item's saved content
+    const caption = dto?.content || item.fb_post_content || '';
+    if (!caption.trim()) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Không có nội dung để đăng. Tạo nội dung FB trước khi publish.',
+      );
+    }
+
+    // Call Facebook Graph API
+    const result = await this.facebookGraph.publishPost(caption);
+
+    // Persist the published post as a normal facebook_post record
+    const post = await this.prisma.facebookPost.create({
+      data: {
+        item_id: itemId,
+        post_url: result.postUrl,
+        content: caption,
+      },
+    });
+
+    this.logger.log(
+      `Published Facebook post for item ${itemId}: ${result.postUrl}`,
+    );
+
+    return { post };
   }
 
   private validateStatusTransition(current: ItemStatus, next: ItemStatus) {
