@@ -1,3 +1,10 @@
+# Development stage (source mounted via docker-compose volumes)
+FROM node:20-alpine AS development
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+CMD ["npm", "run", "dev", "--", "--host"]
+
 # Build stage
 FROM node:20-alpine AS build
 WORKDIR /app

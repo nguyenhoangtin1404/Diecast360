@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: diecast360
       POSTGRES_USER: postgres
@@ -19,21 +20,27 @@ services:
     build:
       context: ./backend
       target: development
+    restart: unless-stopped
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/diecast360
       - DIRECT_URL=postgresql://postgres:postgres@db:5432/diecast360
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
-      - REFRESH_TOKEN_EXPIRES_IN=${REFRESH_TOKEN_EXPIRES_IN}
-      - UPLOAD_DIR=${UPLOAD_DIR}
-      - FRONTEND_URL=${FRONTEND_URL}
+      - JWT_SECRET=${JWT_SECRET:-super-secret-jwt-key}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
+      - REFRESH_TOKEN_EXPIRES_IN=${REFRESH_TOKEN_EXPIRES_IN:-7d}
+      - UPLOAD_DIR=${UPLOAD_DIR:-./uploads}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
       - PORT=${PORT:-3000}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_MODEL=${OPENAI_MODEL}
-      - PINECONE_API_KEY=${PINECONE_API_KEY}
-      - PINECONE_INDEX=${PINECONE_INDEX}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - PINECONE_API_KEY=${PINECONE_API_KEY:-}
+      - PINECONE_INDEX=${PINECONE_INDEX:-diecast360}
+      - COOKIE_SECRET=${COOKIE_SECRET:-change-me-to-random-32-char-string}
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      - COOKIE_SAME_SITE=${COOKIE_SAME_SITE:-lax}
+      - FACEBOOK_PAGE_ID=${FACEBOOK_PAGE_ID:-}
+      - FACEBOOK_PAGE_ACCESS_TOKEN=${FACEBOOK_PAGE_ACCESS_TOKEN:-}
     volumes:
       - ./backend:/usr/src/app
       - /usr/src/app/node_modules
@@ -41,20 +48,29 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/v1').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     command: npm run start:dev
 
   frontend:
     build:
       context: ./frontend
-      target: build
-      args:
-        - VITE_API_URL=${VITE_API_URL:-http://localhost:3000/api/v1}
+      target: development
+    restart: unless-stopped
     ports:
-      - "5173:80"
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:3000/api/v1}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       - backend
     command: npm run dev -- --host
 
 volumes:
   pgdata:
-  uploads:
