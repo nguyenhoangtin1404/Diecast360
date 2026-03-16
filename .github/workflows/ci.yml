@@ -53,6 +53,9 @@ jobs:
 
       - name: 🧪 Run backend unit tests
         run: npx jest --runInBand
+        env:
+          DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/diecast360'
+          DIRECT_URL: 'postgresql://postgres:postgres@localhost:5432/diecast360'
 
       - name: 📊 Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -110,6 +113,10 @@ jobs:
       - name: 📥 Install Playwright browsers (cache miss)
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
+
+      - name: 📥 Install Playwright OS deps (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps
 
       - name: 🧭 Run Playwright E2E tests
         run: npm run test:e2e
