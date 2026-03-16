@@ -21,8 +21,10 @@ interface GraphApiSuccessResponse {
   id?: string;
 }
 
-const GRAPH_API_VERSION = 'v21.0';
-const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
+/** Timeout for Graph API calls in milliseconds. */
+const GRAPH_API_TIMEOUT_MS = 10_000;
+
+const GRAPH_API_BASE = 'https://graph.facebook.com';
 
 @Injectable()
 export class FacebookGraphService {
@@ -37,9 +39,18 @@ export class FacebookGraphService {
    * Returns the created post ID and constructed post URL.
    */
   async publishPost(message: string): Promise<FacebookPublishResult> {
-    const { pageId, pageAccessToken } = this.fbConfig.getConfig();
+    const { pageId, pageAccessToken, graphApiVersion } =
+      this.fbConfig.getConfig();
 
-    const url = `${GRAPH_API_BASE}/${pageId}/feed`;
+    const url = `${GRAPH_API_BASE}/${graphApiVersion}/${pageId}/feed`;
+
+    // Abort controller gives us a deterministic timeout so the request
+    // does not hang indefinitely if Facebook is slow or unresponsive.
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(
+      () => abortController.abort(),
+      GRAPH_API_TIMEOUT_MS,
+    );
 
     let response: Response;
     try {
@@ -53,21 +64,41 @@ export class FacebookGraphService {
           message,
           access_token: pageAccessToken,
         }),
+        signal: abortController.signal,
       });
     } catch (error) {
+      const isTimeout = (error as Error).name === 'AbortError';
       this.logger.error(
-        'Facebook Graph API network error',
+        isTimeout
+          ? 'Facebook Graph API request timed out'
+          : 'Facebook Graph API network error',
         (error as Error).stack,
       );
       throw new AppException(
         ErrorCode.FACEBOOK_PUBLISH_ERROR,
-        'Không thể kết nối tới Facebook. Vui lòng thử lại sau.',
+        isTimeout
+          ? 'Facebook API không phản hồi trong thời gian quy định. Vui lòng thử lại.'
+          : 'Không thể kết nối tới Facebook. Vui lòng thử lại sau.',
       );
+    } finally {
+      clearTimeout(timeoutId);
     }
 
-    const body = (await response.json()) as
-      | GraphApiSuccessResponse
-      | GraphApiErrorResponse;
+    // Guard against non-JSON responses (e.g. Facebook 503 HTML error pages).
+    let body: GraphApiSuccessResponse | GraphApiErrorResponse;
+    try {
+      body = (await response.json()) as
+        | GraphApiSuccessResponse
+        | GraphApiErrorResponse;
+    } catch {
+      this.logger.error(
+        `Facebook Graph API returned non-JSON response: status=${response.status}`,
+      );
+      throw new AppException(
+        ErrorCode.FACEBOOK_PUBLISH_ERROR,
+        'Facebook trả về response không hợp lệ.',
+      );
+    }
 
     if (!response.ok) {
       this.handleGraphApiError(body as GraphApiErrorResponse);

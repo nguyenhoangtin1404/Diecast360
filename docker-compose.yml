@@ -26,6 +26,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/diecast360
       - DIRECT_URL=postgresql://postgres:postgres@db:5432/diecast360
+      # ⚠️  LOCAL DEV ONLY — never use these defaults in production!
+      # Set real secrets in your .env file before running in any shared/staging/prod environment.
       - JWT_SECRET=${JWT_SECRET:-super-secret-jwt-key}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
       - REFRESH_TOKEN_EXPIRES_IN=${REFRESH_TOKEN_EXPIRES_IN:-7d}
