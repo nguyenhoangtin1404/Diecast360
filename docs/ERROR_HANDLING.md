@@ -17,6 +17,9 @@
 | UPLOAD_TOO_LARGE | 413 | File vượt `MAX_UPLOAD_MB`. |
 | SPIN_FRAME_INDEX_CONFLICT | 409 | `frame_index` trùng hoặc bỏ số (vi phạm unique và tính liên tục). |
 | INTERNAL_SERVER_ERROR | 500 | Lỗi ngoài dự kiến, không lộ stacktrace ra client. |
+| FACEBOOK_AUTH_ERROR | 401 | Facebook Access Token không hợp lệ hoặc đã hết hạn. |
+| FACEBOOK_PERMISSION_ERROR | 403 | Token không có quyền publish lên Facebook Page. |
+| FACEBOOK_PUBLISH_ERROR | 502 | Facebook Graph API trả về lỗi không xác định. |
 
 ## Nguyên tắc xử lý lỗi
 - Luôn trả code chuẩn + message ngắn gọn, không lộ thông tin nhạy cảm.

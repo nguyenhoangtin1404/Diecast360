@@ -108,6 +108,42 @@
   ```
 - Errors: `VALIDATION_ERROR (422)`, `NOT_FOUND (404)`.
 
+### POST /api/v1/items/:id/facebook-posts/publish
+- Tự động đăng bài lên Facebook Page qua Graph API.
+- Body JSON: `{ "content": "string (optional)" }`.
+- Nếu `content` omitted, sử dụng `item.fb_post_content` làm caption.
+- Response 201: `data: { post: FacebookPost }`.
+- Example request:
+  ```json
+  {
+    "content": "🔥 MiniGT Skyline R34 mới về, form đẹp!"
+  }
+  ```
+- Example response:
+  ```json
+  {
+    "ok": true,
+    "data": {
+      "post": {
+        "id": "fb-post-auto-1",
+        "item_id": "item-123",
+        "post_url": "https://www.facebook.com/123456789_987654321",
+        "content": "🔥 MiniGT Skyline R34 mới về, form đẹp!",
+        "posted_at": "2026-03-16T10:00:00.000Z",
+        "created_at": "2026-03-16T10:00:00.000Z"
+      }
+    },
+    "message": ""
+  }
+  ```
+- Errors:
+  - `NOT_FOUND (404)`: item không tồn tại.
+  - `VALIDATION_ERROR (422)`: chưa có nội dung hoặc chưa cấu hình Facebook.
+  - `FACEBOOK_AUTH_ERROR (401)`: token không hợp lệ hoặc đã hết hạn.
+  - `FACEBOOK_PERMISSION_ERROR (403)`: token không có quyền publish.
+  - `RATE_LIMIT_EXCEEDED (429)`: vượt giới hạn gọi Facebook API.
+  - `FACEBOOK_PUBLISH_ERROR (502)`: lỗi không xác định từ Facebook.
+
 ### DELETE /api/v1/items/:id/facebook-posts/:postId
 - Xóa 1 Facebook post record khỏi lịch sử item.
 - Response 200: `data: {}`.

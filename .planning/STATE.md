@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 5 - Production and Integrations
+**Current focus:** Phase 6 - Mobile Responsive UI
 
 ## Current Position
 
-Phase: 5 of 13 (Production and Integrations)
-Plan: 0 of 1 in current phase
-Status: Ready for Phase 5 planning
-Last activity: 2026-03-13 - Completed Phase 4 plan 04-01 and verification
+Phase: 6 of 13 (Mobile Responsive UI)
+Plan: 0 of 2 in current phase
+Status: Ready for Phase 6 planning
+Last activity: 2026-03-16 - Completed Phase 5 plan 05-01 (Production Hardening + Facebook Graph API)
 
-Progress: [####------] 31%
+Progress: [#####-----] 38%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: 1 session
-- Total execution time: 4.0 hours
+- Total execution time: 5.5 hours
 
 ## Accumulated Context
 
@@ -38,6 +38,7 @@ Progress: [####------] 31%
 - Hardened AI description/Facebook caption generation with contract-safe parsing and provider-error normalization.
 - Added AI draft import cleanup guarantees plus warning surfacing for partial media import.
 - Completed manual Facebook selling workflow with caption snapshotting, copy actions, and cross-page state coherence.
+- Production-hardened Docker stack, CI pipeline, and Facebook Graph API integration with error mapping and admin publish UX.
 
 ### Pending Todos
 
@@ -49,7 +50,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-13 11:30
-Stopped at: Phase 4 completed, next is Phase 5 planning
-Resume file: .planning/phases/04-ai-and-social-selling/04-VERIFICATION.md
-
+Last session: 2026-03-16 09:45
+Stopped at: Phase 5 completed, next is Phase 6 planning
+Resume file: .planning/phases/05-production-and-integrations/05-01-PLAN.md

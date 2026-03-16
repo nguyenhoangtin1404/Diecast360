@@ -29,9 +29,9 @@
 
 ### Platform Hardening
 
-- [ ] **PLAT-01**: Project can run via Docker Compose including database service.
-- [ ] **PLAT-02**: CI pipeline runs lint, test, and build for backend and frontend.
-- [ ] **PLAT-03**: Admin can post to Facebook via Graph API and capture posting result.
+- [x] **PLAT-01**: Project can run via Docker Compose including database service.
+- [x] **PLAT-02**: CI pipeline runs lint, test, and build for backend and frontend.
+- [x] **PLAT-03**: Admin can post to Facebook via Graph API and capture posting result.
 
 ## v2 Requirements
 
@@ -74,9 +74,9 @@
 | AISO-01 | Phase 4 | Complete (2026-03-13) |
 | AISO-02 | Phase 4 | Complete (2026-03-13) |
 | AISO-03 | Phase 4 | Complete (2026-03-13) |
-| PLAT-01 | Phase 5 | Pending |
-| PLAT-02 | Phase 5 | Pending |
-| PLAT-03 | Phase 5 | Pending |
+| PLAT-01 | Phase 5 | Complete (2026-03-16) |
+| PLAT-02 | Phase 5 | Complete (2026-03-16) |
+| PLAT-03 | Phase 5 | Complete (2026-03-16) |
 | RESP-01 | Phase 6 | Pending |
 | ATTR-01 | Phase 7 | Pending |
 | ATTR-02 | Phase 7 | Pending |
@@ -96,5 +96,4 @@
 
 ---
 *Requirements defined: 2026-03-04*
-*Last updated: 2026-03-13 after Phase 4 execution*
-
+*Last updated: 2026-03-16 after Phase 5 execution*
