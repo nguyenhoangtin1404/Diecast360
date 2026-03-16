@@ -677,8 +677,10 @@ Condition: ${item.condition || ''}`;
 
   async publishFacebookPost(itemId: string, dto?: PublishFacebookPostDto) {
     if (!this.facebookGraph) {
+      // @Optional() injection means FacebookModule is not imported —
+      // this is a server configuration issue, not a client input error.
       throw new AppException(
-        ErrorCode.VALIDATION_ERROR,
+        ErrorCode.FACEBOOK_AUTH_ERROR,
         'Facebook integration chưa được cấu hình. Set FACEBOOK_PAGE_ID và FACEBOOK_PAGE_ACCESS_TOKEN.',
       );
     }
@@ -696,9 +698,11 @@ Condition: ${item.condition || ''}`;
       throw new AppException(ErrorCode.VALIDATION_ERROR, 'Đã đạt giới hạn 50 bài FB cho sản phẩm này');
     }
 
-    // Resolve caption: explicit override > item's saved content
-    const caption = dto?.content || item.fb_post_content || '';
-    if (!caption.trim()) {
+    // Resolve caption: explicit override ?? item's saved content.
+    // Using ?? (nullish coalescing) so an explicit empty string from client
+    // propagates correctly and triggers the empty-content guard below.
+    const caption = (dto?.content ?? item.fb_post_content ?? '').trim();
+    if (!caption) {
       throw new AppException(
         ErrorCode.VALIDATION_ERROR,
         'Không có nội dung để đăng. Tạo nội dung FB trước khi publish.',
@@ -708,14 +712,28 @@ Condition: ${item.condition || ''}`;
     // Call Facebook Graph API
     const result = await this.facebookGraph.publishPost(caption);
 
-    // Persist the published post as a normal facebook_post record
-    const post = await this.prisma.facebookPost.create({
-      data: {
-        item_id: itemId,
-        post_url: result.postUrl,
-        content: caption,
-      },
-    });
+    // Persist the published post as a normal facebook_post record.
+    // Note: We cannot rollback the Graph API call if DB write fails,
+    // so we log a warning with the post URL for manual recovery.
+    let post: Awaited<ReturnType<typeof this.prisma.facebookPost.create>>;
+    try {
+      post = await this.prisma.facebookPost.create({
+        data: {
+          item_id: itemId,
+          post_url: result.postUrl,
+          content: caption,
+        },
+      });
+    } catch (dbError) {
+      this.logger.warn(
+        `Facebook post published but DB record creation failed for item ${itemId}. ` +
+          `Post URL: ${result.postUrl}. Error: ${(dbError as Error).message}`,
+      );
+      throw new AppException(
+        ErrorCode.FACEBOOK_PUBLISH_ERROR,
+        `Bài đã được đăng lên Facebook (${result.postUrl}) nhưng lưu vào hệ thống thất bại. Vui lòng thêm link thủ công.`,
+      );
+    }
 
     this.logger.log(
       `Published Facebook post for item ${itemId}: ${result.postUrl}`,

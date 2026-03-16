@@ -6,6 +6,8 @@ import { ErrorCode } from '../../common/constants/error-codes';
 export interface FacebookConfig {
   pageId: string;
   pageAccessToken: string;
+  /** Graph API version, e.g. "v21.0". Override via FACEBOOK_GRAPH_API_VERSION env var. */
+  graphApiVersion: string;
 }
 
 @Injectable()
@@ -45,6 +47,11 @@ export class FacebookConfigService {
       );
     }
 
-    return { pageId, pageAccessToken };
+    const graphApiVersion = this.config.get<string>(
+      'FACEBOOK_GRAPH_API_VERSION',
+      'v21.0',
+    );
+
+    return { pageId, pageAccessToken, graphApiVersion };
   }
 }

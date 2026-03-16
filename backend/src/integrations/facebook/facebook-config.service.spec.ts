@@ -82,7 +82,21 @@ describe('FacebookConfigService', () => {
       const config = service.getConfig();
       expect(config.pageId).toBe('page-123');
       expect(config.pageAccessToken).toBe('token-abc');
+      expect(config.graphApiVersion).toBe('v21.0'); // default
     });
+
+    it('should use custom graphApiVersion when FACEBOOK_GRAPH_API_VERSION is set', () => {
+      configService.get.mockImplementation((key: string, defaultVal: string) => {
+        if (key === 'FACEBOOK_PAGE_ID') return 'page-123';
+        if (key === 'FACEBOOK_PAGE_ACCESS_TOKEN') return 'token-abc';
+        if (key === 'FACEBOOK_GRAPH_API_VERSION') return 'v22.0';
+        return defaultVal;
+      });
+
+      const config = service.getConfig();
+      expect(config.graphApiVersion).toBe('v22.0');
+    });
+
 
     it('should throw AppException when config is missing', () => {
       configService.get.mockImplementation((_key: string, defaultVal: string) => defaultVal);

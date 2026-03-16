@@ -18,6 +18,7 @@ describe('FacebookGraphService', () => {
   const mockConfig = {
     pageId: 'page-123',
     pageAccessToken: 'test-token',
+    graphApiVersion: 'v21.0',
   };
 
   beforeEach(async () => {
@@ -74,8 +75,31 @@ describe('FacebookGraphService', () => {
             message: 'Hello Facebook!',
             access_token: 'test-token',
           }),
+          signal: expect.any(AbortSignal),
         }),
       );
+    });
+
+    it('should throw FACEBOOK_PUBLISH_ERROR on request timeout', async () => {
+      const abortError = new Error('The operation was aborted');
+      abortError.name = 'AbortError';
+      mockFetch.mockRejectedValue(abortError);
+
+      await expect(service.publishPost('Test')).rejects.toMatchObject({
+        errorCode: ErrorCode.FACEBOOK_PUBLISH_ERROR,
+      });
+    });
+
+    it('should throw FACEBOOK_PUBLISH_ERROR when Facebook returns non-JSON (e.g. HTML error page)', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 503,
+        json: async () => { throw new SyntaxError('Unexpected token < in JSON'); },
+      });
+
+      await expect(service.publishPost('Test')).rejects.toMatchObject({
+        errorCode: ErrorCode.FACEBOOK_PUBLISH_ERROR,
+      });
     });
 
     it('should throw FACEBOOK_AUTH_ERROR for code 190', async () => {

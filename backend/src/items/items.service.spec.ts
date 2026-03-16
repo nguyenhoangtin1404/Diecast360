@@ -773,7 +773,7 @@ describe('ItemsService', () => {
       });
     });
 
-    it('should throw VALIDATION_ERROR when facebookGraph is not configured', async () => {
+    it('should throw FACEBOOK_AUTH_ERROR when facebookGraph is not configured', async () => {
       Object.defineProperty(service, 'facebookGraph', {
         value: undefined,
         writable: true,
@@ -782,7 +782,7 @@ describe('ItemsService', () => {
       await expect(
         service.publishFacebookPost('item-123', { content: 'Test' }),
       ).rejects.toMatchObject({
-        errorCode: ErrorCode.VALIDATION_ERROR,
+        errorCode: ErrorCode.FACEBOOK_AUTH_ERROR,
       });
     });
 
@@ -802,6 +802,35 @@ describe('ItemsService', () => {
       await expect(
         service.publishFacebookPost('item-123', { content: 'Test' }),
       ).rejects.toThrow(AppException);
+    });
+
+    it('should throw FACEBOOK_PUBLISH_ERROR and warn when Graph API published but DB create fails', async () => {
+      const mockFacebookGraph = {
+        publishPost: jest.fn().mockResolvedValue({
+          postId: 'page_postXYZ',
+          postUrl: 'https://www.facebook.com/page_postXYZ',
+        }),
+      };
+      Object.defineProperty(service, 'facebookGraph', {
+        value: mockFacebookGraph,
+        writable: true,
+      });
+
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        fb_post_content: 'DB fail test',
+        _count: { facebook_posts: 0 },
+      });
+      prisma.facebookPost.create.mockRejectedValue(new Error('DB connection lost'));
+
+      await expect(
+        service.publishFacebookPost('item-123', { content: 'DB fail test' }),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.FACEBOOK_PUBLISH_ERROR,
+      });
+
+      // Graph API must have been called even though DB failed
+      expect(mockFacebookGraph.publishPost).toHaveBeenCalledWith('DB fail test');
     });
   });
 
