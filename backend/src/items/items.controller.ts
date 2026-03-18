@@ -81,6 +81,10 @@ export class ItemsController {
     return this.itemsService.remove(id);
   }
 
+  // NOTE: This route must appear BEFORE `@Post(':id/facebook-posts')` below.
+  // NestJS resolves routes in declaration order — "/publish" is a literal segment
+  // and would be ambiguous against a future ":postId" dynamic segment if ordering
+  // were reversed. Keep these two routes adjacent and in this order.
   @Post(':id/facebook-posts/publish')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { ttl: 60000, limit: 5 } })

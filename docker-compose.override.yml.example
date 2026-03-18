@@ -1,0 +1,17 @@
+# docker-compose.override.yml.example
+#
+# This file provides WEAK placeholder secrets for LOCAL DEVELOPMENT ONLY.
+# Do NOT use these values in any shared, staging, or production environment.
+#
+# Usage:
+#   cp docker-compose.override.yml.example docker-compose.override.yml
+#   docker compose up
+#
+# docker-compose.override.yml is git-ignored, so your local secrets won't
+# accidentally be committed. See docs/ENV.md for full variable documentation.
+
+services:
+  backend:
+    environment:
+      - JWT_SECRET=local-dev-jwt-secret-change-me
+      - COOKIE_SECRET=local-dev-cookie-secret-change-me-32c

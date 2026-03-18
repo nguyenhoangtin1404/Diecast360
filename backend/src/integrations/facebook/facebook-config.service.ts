@@ -21,8 +21,8 @@ export class FacebookConfigService {
    * Returns true when both FACEBOOK_PAGE_ID and FACEBOOK_PAGE_ACCESS_TOKEN are non-empty.
    */
   isConfigured(): boolean {
-    const pageId = this.config.get<string>('FACEBOOK_PAGE_ID', '');
-    const token = this.config.get<string>('FACEBOOK_PAGE_ACCESS_TOKEN', '');
+    const pageId = this.config.get<string>('FACEBOOK_PAGE_ID', '').trim();
+    const token = this.config.get<string>('FACEBOOK_PAGE_ACCESS_TOKEN', '').trim();
     return !!(pageId && token);
   }
 
@@ -31,11 +31,10 @@ export class FacebookConfigService {
    * Validation happens at request time — not at startup — because FB publish is optional.
    */
   getConfig(): FacebookConfig {
-    const pageId = this.config.get<string>('FACEBOOK_PAGE_ID', '');
-    const pageAccessToken = this.config.get<string>(
-      'FACEBOOK_PAGE_ACCESS_TOKEN',
-      '',
-    );
+    const pageId = this.config.get<string>('FACEBOOK_PAGE_ID', '').trim();
+    const pageAccessToken = this.config
+      .get<string>('FACEBOOK_PAGE_ACCESS_TOKEN', '')
+      .trim();
 
     if (!pageId || !pageAccessToken) {
       this.logger.warn(
