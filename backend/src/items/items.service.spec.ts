@@ -6,6 +6,8 @@ import { EmbeddingService, EmbeddingUnavailableError } from '../ai/embedding.ser
 import { ErrorCode } from '../common/constants/error-codes';
 import { AppException } from '../common/exceptions/http-exception.filter';
 import { ItemStatus } from '../generated/prisma/client';
+import { FacebookGraphService } from '../integrations/facebook/facebook-graph.service';
+import { FacebookConfigService } from '../integrations/facebook/facebook-config.service';
 
 
 describe('ItemsService', () => {
@@ -34,6 +36,8 @@ describe('ItemsService', () => {
     getEmbedding: jest.Mock;
   };
   let loggerErrorSpy: jest.SpyInstance;
+  let mockFacebookGraph: { publishPost: jest.Mock };
+  let mockFbConfig: { isConfigured: jest.Mock };
 
   const mockItem = {
     id: 'item-123',
@@ -104,6 +108,19 @@ describe('ItemsService', () => {
       $transaction: jest.fn(async (fn: (prisma: unknown) => Promise<unknown>) => fn(prisma)),
     };
 
+    mockFacebookGraph = {
+      publishPost: jest.fn().mockResolvedValue({
+        postId: 'page_post123',
+        postUrl: 'https://www.facebook.com/page_post123',
+      }),
+    };
+
+    mockFbConfig = {
+      // Default: Facebook IS configured. Individual tests that need to test
+      // the unconfigured path override this value.
+      isConfigured: jest.fn().mockReturnValue(true),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ItemsService,
@@ -111,6 +128,8 @@ describe('ItemsService', () => {
         { provide: 'IStorageService', useValue: storage },
         { provide: VectorStoreService, useValue: vectorStore },
         { provide: EmbeddingService, useValue: embeddingService },
+        { provide: FacebookGraphService, useValue: mockFacebookGraph },
+        { provide: FacebookConfigService, useValue: mockFbConfig },
       ],
     }).compile();
 
@@ -671,22 +690,24 @@ describe('ItemsService', () => {
   // ============================================================
   describe('publishFacebookPost', () => {
     it('should publish to Facebook and persist post', async () => {
-      const mockFacebookGraph = {
-        publishPost: jest.fn().mockResolvedValue({
-          postId: 'page_post123',
-          postUrl: 'https://www.facebook.com/page_post123',
-        }),
-      };
-      Object.defineProperty(service, 'facebookGraph', {
-        value: mockFacebookGraph,
-        writable: true,
+      mockFacebookGraph.publishPost.mockResolvedValue({
+        postId: 'page_post123',
+        postUrl: 'https://www.facebook.com/page_post123',
       });
 
-      prisma.item.findFirst.mockResolvedValue({
-        ...mockItem,
-        fb_post_content: 'Saved caption',
-        _count: { facebook_posts: 0 },
-      });
+      prisma.item.findFirst
+        // First call: initial limit check
+        .mockResolvedValueOnce({
+          ...mockItem,
+          fb_post_content: 'Saved caption',
+          _count: { facebook_posts: 0 },
+        })
+        // Second call: re-check inside $transaction
+        .mockResolvedValueOnce({
+          ...mockItem,
+          fb_post_content: 'Saved caption',
+          _count: { facebook_posts: 0 },
+        });
 
       const mockPost = {
         id: 'pub-post-1',
@@ -710,22 +731,22 @@ describe('ItemsService', () => {
     });
 
     it('should fallback to item.fb_post_content when content is omitted', async () => {
-      const mockFacebookGraph = {
-        publishPost: jest.fn().mockResolvedValue({
-          postId: 'page_post456',
-          postUrl: 'https://www.facebook.com/page_post456',
-        }),
-      };
-      Object.defineProperty(service, 'facebookGraph', {
-        value: mockFacebookGraph,
-        writable: true,
+      mockFacebookGraph.publishPost.mockResolvedValue({
+        postId: 'page_post456',
+        postUrl: 'https://www.facebook.com/page_post456',
       });
 
-      prisma.item.findFirst.mockResolvedValue({
-        ...mockItem,
-        fb_post_content: 'Fallback caption',
-        _count: { facebook_posts: 0 },
-      });
+      prisma.item.findFirst
+        .mockResolvedValueOnce({
+          ...mockItem,
+          fb_post_content: 'Fallback caption',
+          _count: { facebook_posts: 0 },
+        })
+        .mockResolvedValueOnce({
+          ...mockItem,
+          fb_post_content: 'Fallback caption',
+          _count: { facebook_posts: 0 },
+        });
 
       prisma.facebookPost.create.mockResolvedValue({
         id: 'pub-post-2',
@@ -740,12 +761,6 @@ describe('ItemsService', () => {
     });
 
     it('should throw NOT_FOUND when item does not exist', async () => {
-      const mockFacebookGraph = { publishPost: jest.fn() };
-      Object.defineProperty(service, 'facebookGraph', {
-        value: mockFacebookGraph,
-        writable: true,
-      });
-
       prisma.item.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -754,12 +769,6 @@ describe('ItemsService', () => {
     });
 
     it('should throw VALIDATION_ERROR when no content available', async () => {
-      const mockFacebookGraph = { publishPost: jest.fn() };
-      Object.defineProperty(service, 'facebookGraph', {
-        value: mockFacebookGraph,
-        writable: true,
-      });
-
       prisma.item.findFirst.mockResolvedValue({
         ...mockItem,
         fb_post_content: null,
@@ -773,26 +782,21 @@ describe('ItemsService', () => {
       });
     });
 
-    it('should throw FACEBOOK_AUTH_ERROR when facebookGraph is not configured', async () => {
-      Object.defineProperty(service, 'facebookGraph', {
-        value: undefined,
-        writable: true,
-      });
+    it('should throw INTERNAL_SERVER_ERROR when Facebook is not configured', async () => {
+      mockFbConfig.isConfigured.mockReturnValueOnce(false);
 
       await expect(
         service.publishFacebookPost('item-123', { content: 'Test' }),
       ).rejects.toMatchObject({
-        errorCode: ErrorCode.FACEBOOK_AUTH_ERROR,
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
       });
+
+      // Should not touch the DB or Graph API when unconfigured
+      expect(prisma.item.findFirst).not.toHaveBeenCalled();
+      expect(mockFacebookGraph.publishPost).not.toHaveBeenCalled();
     });
 
     it('should throw when post limit of 50 is reached', async () => {
-      const mockFacebookGraph = { publishPost: jest.fn() };
-      Object.defineProperty(service, 'facebookGraph', {
-        value: mockFacebookGraph,
-        writable: true,
-      });
-
       prisma.item.findFirst.mockResolvedValue({
         ...mockItem,
         fb_post_content: 'Some content',
@@ -805,22 +809,22 @@ describe('ItemsService', () => {
     });
 
     it('should throw FACEBOOK_PUBLISH_ERROR and warn when Graph API published but DB create fails', async () => {
-      const mockFacebookGraph = {
-        publishPost: jest.fn().mockResolvedValue({
-          postId: 'page_postXYZ',
-          postUrl: 'https://www.facebook.com/page_postXYZ',
-        }),
-      };
-      Object.defineProperty(service, 'facebookGraph', {
-        value: mockFacebookGraph,
-        writable: true,
+      mockFacebookGraph.publishPost.mockResolvedValue({
+        postId: 'page_postXYZ',
+        postUrl: 'https://www.facebook.com/page_postXYZ',
       });
 
-      prisma.item.findFirst.mockResolvedValue({
-        ...mockItem,
-        fb_post_content: 'DB fail test',
-        _count: { facebook_posts: 0 },
-      });
+      prisma.item.findFirst
+        .mockResolvedValueOnce({
+          ...mockItem,
+          fb_post_content: 'DB fail test',
+          _count: { facebook_posts: 0 },
+        })
+        .mockResolvedValueOnce({
+          ...mockItem,
+          fb_post_content: 'DB fail test',
+          _count: { facebook_posts: 0 },
+        });
       prisma.facebookPost.create.mockRejectedValue(new Error('DB connection lost'));
 
       await expect(
@@ -831,6 +835,44 @@ describe('ItemsService', () => {
 
       // Graph API must have been called even though DB failed
       expect(mockFacebookGraph.publishPost).toHaveBeenCalledWith('DB fail test');
+    });
+
+    it('should throw VALIDATION_ERROR (not publish to FB) when re-check inside transaction detects limit reached', async () => {
+      // Simulates the TOCTOU race condition scenario:
+      // - Initial check sees count=49 (passes)
+      // - Graph API is called and succeeds
+      // - Re-check inside transaction sees count=50 (concurrent request got there first)
+      // Expected: throws VALIDATION_ERROR, does NOT persist a phantom post record
+      mockFacebookGraph.publishPost.mockResolvedValue({
+        postId: 'page_postRace',
+        postUrl: 'https://www.facebook.com/page_postRace',
+      });
+
+      prisma.item.findFirst
+        // Initial count check: 49 posts (passes the first guard)
+        .mockResolvedValueOnce({
+          ...mockItem,
+          fb_post_content: 'Race caption',
+          _count: { facebook_posts: 49 },
+        })
+        // Re-check inside $transaction: 50 posts (concurrent request won the race)
+        .mockResolvedValueOnce({
+          ...mockItem,
+          fb_post_content: 'Race caption',
+          _count: { facebook_posts: 50 },
+        });
+
+      await expect(
+        service.publishFacebookPost('item-123', { content: 'Race caption' }),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+      });
+
+      // The Graph API was called (side effect already happened — this is the
+      // known limitation of the approach; the post exists on FB but not in DB).
+      expect(mockFacebookGraph.publishPost).toHaveBeenCalledWith('Race caption');
+      // But the DB record was NOT created
+      expect(prisma.facebookPost.create).not.toHaveBeenCalled();
     });
   });
 

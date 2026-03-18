@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { Prisma, ItemStatus } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { IStorageService } from '../storage/storage.interface';
@@ -11,6 +11,7 @@ import { QueryItemsDto } from './dto/query-items.dto';
 import type { VectorSyncItem, ItemWithCoverImage, CsvFieldValue } from '../common/types/item.types';
 import { toNumber } from '../common/utils/decimal.utils';
 import { FacebookGraphService } from '../integrations/facebook/facebook-graph.service';
+import { FacebookConfigService } from '../integrations/facebook/facebook-config.service';
 import { PublishFacebookPostDto } from './dto/publish-facebook-post.dto';
 
 const ALLOWED_STATUS_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
@@ -29,7 +30,11 @@ export class ItemsService {
     @Inject('IStorageService') private storage: IStorageService,
     private vectorStore: VectorStoreService,
     private embeddingService: EmbeddingService,
-    @Optional() private facebookGraph?: FacebookGraphService,
+    // FacebookModule is always imported in ItemsModule, so these services are
+    // always available. @Optional() was removed — use fbConfig.isConfigured()
+    // to detect whether the feature is enabled instead of null-checking the service.
+    private facebookGraph: FacebookGraphService,
+    private fbConfig: FacebookConfigService,
   ) {}
 
   async syncVectorStore(item: VectorSyncItem) {
@@ -675,12 +680,29 @@ Condition: ${item.condition || ''}`;
     return {};
   }
 
+  /**
+   * Publish a new post to Facebook for the given item.
+   *
+   * @param itemId - ID of the item to publish
+   * @param dto    - Optional override for caption; falls back to item.fb_post_content
+   *
+   * NOTE (architecture): This method will be extracted to a dedicated
+   * FacebookPostsService once the feature stabilises — see TODO in SRP tracking.
+   * TODO: Extract to FacebookPostsService (see code-review finding #7)
+   *
+   * NOTE (race condition): There is a theoretical TOCTOU window between the
+   * initial count check and the DB write. The transactional re-check below
+   * significantly reduces the risk, but a 100% atomic fix would require
+   * SELECT FOR UPDATE (raw SQL). Given the 5 req/min throttle per user this
+   * risk is accepted as low-impact.
+   */
   async publishFacebookPost(itemId: string, dto?: PublishFacebookPostDto) {
-    if (!this.facebookGraph) {
-      // @Optional() injection means FacebookModule is not imported —
-      // this is a server configuration issue, not a client input error.
+    // Use isConfigured() from FacebookConfigService rather than null-checking
+    // the injected service — the service is always present because FacebookModule
+    // is always imported. This is a server misconfiguration, not a bad token.
+    if (!this.fbConfig.isConfigured()) {
       throw new AppException(
-        ErrorCode.FACEBOOK_AUTH_ERROR,
+        ErrorCode.INTERNAL_SERVER_ERROR,
         'Facebook integration chưa được cấu hình. Set FACEBOOK_PAGE_ID và FACEBOOK_PAGE_ACCESS_TOKEN.',
       );
     }
@@ -709,22 +731,37 @@ Condition: ${item.condition || ''}`;
       );
     }
 
-    // Call Facebook Graph API
+    // Call Facebook Graph API — this side effect cannot be rolled back if the
+    // subsequent DB write fails. See the warn log below for recovery details.
     const result = await this.facebookGraph.publishPost(caption);
 
-    // Persist the published post as a normal facebook_post record.
-    // Note: We cannot rollback the Graph API call if DB write fails,
-    // so we log a warning with the post URL for manual recovery.
+    // Wrap the DB write in a transaction with a re-check of the post count to
+    // reduce the TOCTOU race window (two concurrent requests both passing the
+    // initial check at count=49 would both call the Graph API, creating 51 posts).
+    // The re-check here prevents both from persisting a record beyond the limit.
     let post: Awaited<ReturnType<typeof this.prisma.facebookPost.create>>;
     try {
-      post = await this.prisma.facebookPost.create({
-        data: {
-          item_id: itemId,
-          post_url: result.postUrl,
-          content: caption,
-        },
+      post = await this.prisma.$transaction(async (tx) => {
+        const freshItem = await tx.item.findFirst({
+          where: { id: itemId, deleted_at: null },
+          include: { _count: { select: { facebook_posts: true } } },
+        });
+        if (!freshItem || freshItem._count.facebook_posts >= 50) {
+          throw new AppException(
+            ErrorCode.VALIDATION_ERROR,
+            'Đã đạt giới hạn 50 bài FB cho sản phẩm này',
+          );
+        }
+        return tx.facebookPost.create({
+          data: {
+            item_id: itemId,
+            post_url: result.postUrl,
+            content: caption,
+          },
+        });
       });
     } catch (dbError) {
+      if (dbError instanceof AppException) throw dbError;
       this.logger.warn(
         `Facebook post published but DB record creation failed for item ${itemId}. ` +
           `Post URL: ${result.postUrl}. Error: ${(dbError as Error).message}`,

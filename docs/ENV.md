@@ -58,3 +58,12 @@ Lưu ý:
 - Khi chuyển đổi database, cần chạy lại migration và có thể cần migrate data.
 - Không chỉnh sửa migration đã apply. Nếu cần thay đổi schema, tạo migration mới.
 - Nếu phát hiện môi trường đã apply checksum migration cũ, cần revert migration về đúng blob đã apply trước khi deploy tiếp.
+
+## Yêu cầu HTTPS cho Production
+
+> **Quan trọng:** Khi deploy lên production, bắt buộc phải bật HTTPS trước ingress/reverse proxy:
+>
+> - `COOKIE_SECURE=true` — cookie auth chỉ gửi qua HTTPS, ngăn chặn session hijacking.
+> - `FACEBOOK_PAGE_ACCESS_TOKEN` được gửi trong **request body** đến Graph API (không phải URL param) để tránh token bị ghi vào access log của server. Tuy nhiên reverse proxy (Nginx, Caddy...) mặc định không log request body — cần đảm bảo config log không bật `$request_body`. HTTPS ngăn body bị sniff trên đường truyền.
+> - Thiếu HTTPS trong production là lỗ hổng bảo mật nghiêm trọng.
+

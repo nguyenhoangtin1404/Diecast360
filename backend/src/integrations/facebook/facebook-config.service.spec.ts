@@ -69,6 +69,26 @@ describe('FacebookConfigService', () => {
 
       expect(service.isConfigured()).toBe(false);
     });
+
+    it('should return false when FACEBOOK_PAGE_ID is whitespace-only', () => {
+      configService.get.mockImplementation((key: string, defaultVal: string) => {
+        if (key === 'FACEBOOK_PAGE_ID') return '   ';
+        if (key === 'FACEBOOK_PAGE_ACCESS_TOKEN') return 'token-abc';
+        return defaultVal;
+      });
+
+      expect(service.isConfigured()).toBe(false);
+    });
+
+    it('should return false when FACEBOOK_PAGE_ACCESS_TOKEN is whitespace-only', () => {
+      configService.get.mockImplementation((key: string, defaultVal: string) => {
+        if (key === 'FACEBOOK_PAGE_ID') return 'page-123';
+        if (key === 'FACEBOOK_PAGE_ACCESS_TOKEN') return '\t\n';
+        return defaultVal;
+      });
+
+      expect(service.isConfigured()).toBe(false);
+    });
   });
 
   describe('getConfig', () => {
@@ -100,6 +120,16 @@ describe('FacebookConfigService', () => {
 
     it('should throw AppException when config is missing', () => {
       configService.get.mockImplementation((_key: string, defaultVal: string) => defaultVal);
+
+      expect(() => service.getConfig()).toThrow('Facebook integration');
+    });
+
+    it('should throw AppException when FACEBOOK_PAGE_ID is whitespace-only', () => {
+      configService.get.mockImplementation((key: string, defaultVal: string) => {
+        if (key === 'FACEBOOK_PAGE_ID') return '   ';
+        if (key === 'FACEBOOK_PAGE_ACCESS_TOKEN') return 'token-abc';
+        return defaultVal;
+      });
 
       expect(() => service.getConfig()).toThrow('Facebook integration');
     });

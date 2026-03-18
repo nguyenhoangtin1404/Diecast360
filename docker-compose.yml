@@ -26,9 +26,10 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/diecast360
       - DIRECT_URL=postgresql://postgres:postgres@db:5432/diecast360
-      # ⚠️  LOCAL DEV ONLY — never use these defaults in production!
-      # Set real secrets in your .env file before running in any shared/staging/prod environment.
-      - JWT_SECRET=${JWT_SECRET:-super-secret-jwt-key}
+      # Secrets have NO defaults — must be set in .env (copy from .env.example).
+      # For local dev with weak placeholder values, copy docker-compose.override.yml.example
+      # to docker-compose.override.yml and run `docker compose up` as normal.
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required. Copy .env.example to .env and set a strong secret.}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
       - REFRESH_TOKEN_EXPIRES_IN=${REFRESH_TOKEN_EXPIRES_IN:-7d}
       - UPLOAD_DIR=${UPLOAD_DIR:-./uploads}
@@ -38,7 +39,7 @@ services:
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
       - PINECONE_API_KEY=${PINECONE_API_KEY:-}
       - PINECONE_INDEX=${PINECONE_INDEX:-diecast360}
-      - COOKIE_SECRET=${COOKIE_SECRET:-change-me-to-random-32-char-string}
+      - COOKIE_SECRET=${COOKIE_SECRET:?COOKIE_SECRET is required. Copy .env.example to .env and set a random 32+ char string.}
       - COOKIE_SECURE=${COOKIE_SECURE:-false}
       - COOKIE_SAME_SITE=${COOKIE_SAME_SITE:-lax}
       - FACEBOOK_PAGE_ID=${FACEBOOK_PAGE_ID:-}
@@ -51,7 +52,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/v1').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:${PORT:-3000}/api/v1').then(r=>r.ok||process.exit(1)).catch(()=>process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 5
