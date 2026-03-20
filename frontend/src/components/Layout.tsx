@@ -1,6 +1,18 @@
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, ShoppingBag, Phone, LogIn, LogOut, User as UserIcon, Tags } from 'lucide-react';
+import {
+  Home,
+  LogIn,
+  LogOut,
+  Menu,
+  Phone,
+  ShoppingBag,
+  Tags,
+  User as UserIcon,
+  X,
+} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,11 +23,54 @@ export const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const isAdmin = location.pathname.startsWith('/admin');
+  const isMobile = useIsMobile();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setIsMenuOpen(false);
+    }
+  }, [isMobile]);
 
   const handleLogout = async () => {
     await logout();
     navigate('/admin/login');
   };
+
+  const linkBaseStyle = (active = false) => ({
+    padding: isMobile ? '12px 14px' : '10px 16px',
+    borderRadius: '10px',
+    textDecoration: 'none',
+    color: 'white',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '14px',
+    fontWeight: '500',
+    transition: 'all 0.2s',
+    backgroundColor: active ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
+    minHeight: isMobile ? '44px' : undefined,
+  });
+
+  const navContainerStyle = isMobile
+    ? {
+        display: isMenuOpen ? 'flex' : 'none',
+        flexDirection: 'column' as const,
+        alignItems: 'stretch',
+        gap: '10px',
+        marginTop: '16px',
+        paddingTop: '16px',
+        borderTop: '1px solid rgba(255,255,255,0.12)',
+      }
+    : {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+      };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -33,50 +88,69 @@ export const Layout = ({ children }: LayoutProps) => {
           maxWidth: '1400px',
           margin: '0 auto',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          flexDirection: 'column',
         }}>
-          {/* Logo */}
-          <Link to="/" style={{ textDecoration: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '48px',
-              height: '48px',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              borderRadius: '12px',
+          <div
+            style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 'bold',
-              fontSize: '20px',
-              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
-            }}>
-              360°
-            </div>
-            <div>
-              <div style={{ fontSize: '20px', fontWeight: '700', lineHeight: '1.2' }}>Diecast360</div>
-              <div style={{ fontSize: '12px', opacity: 0.8, fontWeight: '400' }}>Mô hình xe thu nhỏ</div>
-            </div>
-          </Link>
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <Link to="/" style={{ textDecoration: 'none', color: 'white', display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 'bold',
+                fontSize: '20px',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                flexShrink: 0,
+              }}>
+                360°
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: '700', lineHeight: '1.2' }}>Diecast360</div>
+                <div style={{ fontSize: '12px', opacity: 0.8, fontWeight: '400', whiteSpace: isMobile ? 'normal' : 'nowrap' }}>Mô hình xe thu nhỏ</div>
+              </div>
+            </Link>
 
-          {/* Navigation */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {isMobile && (
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen((value) => !value)}
+                aria-label={isMenuOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng'}
+                aria-expanded={isMenuOpen}
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(255,255,255,0.16)',
+                  background: 'rgba(255,255,255,0.08)',
+                  color: 'white',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+            )}
+          </div>
+
+          <nav style={navContainerStyle}>
             {!isAdmin ? (
               <>
                 <Link
                   to="/"
-                  style={{
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    textDecoration: 'none',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    transition: 'all 0.2s',
-                    backgroundColor: location.pathname === '/' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-                  }}
+                  style={linkBaseStyle(location.pathname === '/')}
                   onMouseEnter={(e) => {
                     if (location.pathname !== '/') {
                       e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
@@ -93,19 +167,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 </Link>
                 <Link
                   to="/contact"
-                  style={{
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    textDecoration: 'none',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    transition: 'all 0.2s',
-                    backgroundColor: location.pathname === '/contact' ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-                  }}
+                  style={linkBaseStyle(location.pathname === '/contact')}
                   onMouseEnter={(e) => {
                     if (location.pathname !== '/contact') {
                       e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
@@ -122,19 +184,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 </Link>
                 <Link
                   to="/admin/items"
-                  style={{
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    textDecoration: 'none',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    transition: 'all 0.2s',
-                    backgroundColor: 'transparent',
-                  }}
+                  style={linkBaseStyle(false)}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                   }}
@@ -151,19 +201,7 @@ export const Layout = ({ children }: LayoutProps) => {
 
               <Link
                   to="/"
-                  style={{
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    textDecoration: 'none',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    transition: 'all 0.2s',
-                    backgroundColor: 'transparent',
-                  }}
+                  style={linkBaseStyle(false)}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
                   }}
@@ -176,19 +214,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 </Link>
                 <Link
                   to="/admin/items"
-                  style={{
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    textDecoration: 'none',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    transition: 'all 0.2s',
-                    backgroundColor: location.pathname.startsWith('/admin/items') ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-                  }}
+                  style={linkBaseStyle(location.pathname.startsWith('/admin/items'))}
                   onMouseEnter={(e) => {
                     if (!location.pathname.startsWith('/admin/items')) {
                       e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
@@ -205,19 +231,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 </Link>
                 <Link
                   to="/admin/categories"
-                  style={{
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    textDecoration: 'none',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    transition: 'all 0.2s',
-                    backgroundColor: location.pathname.startsWith('/admin/categories') ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-                  }}
+                  style={linkBaseStyle(location.pathname.startsWith('/admin/categories'))}
                   onMouseEnter={(e) => {
                     if (!location.pathname.startsWith('/admin/categories')) {
                       e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
@@ -234,19 +248,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 </Link>
                 <Link
                   to="/admin/facebook-posts"
-                  style={{
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    textDecoration: 'none',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    transition: 'all 0.2s',
-                    backgroundColor: location.pathname.startsWith('/admin/facebook-posts') ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-                  }}
+                  style={linkBaseStyle(location.pathname.startsWith('/admin/facebook-posts'))}
                   onMouseEnter={(e) => {
                     if (!location.pathname.startsWith('/admin/facebook-posts')) {
                       e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
@@ -267,7 +269,12 @@ export const Layout = ({ children }: LayoutProps) => {
 
             {user && (
               <>
-                <div style={{ width: '1px', height: '24px', backgroundColor: 'rgba(255,255,255,0.2)', margin: '0 4px' }} />
+                <div style={{
+                  width: isMobile ? '100%' : '1px',
+                  height: isMobile ? '1px' : '24px',
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  margin: isMobile ? '2px 0' : '0 4px',
+                }} />
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -275,15 +282,16 @@ export const Layout = ({ children }: LayoutProps) => {
                   color: 'white',
                   fontSize: '14px',
                   fontWeight: '500',
-                  padding: '0 8px',
+                  padding: isMobile ? '4px 0' : '0 8px',
+                  minWidth: 0,
                 }}>
-                  <UserIcon size={18} />
-                  <span>{user.full_name || user.email}</span>
+                  <UserIcon size={18} style={{ flexShrink: 0 }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.full_name || user.email}</span>
                 </div>
                 <button
                   onClick={handleLogout}
                   style={{
-                    padding: '8px',
+                    padding: isMobile ? '12px 14px' : '8px',
                     borderRadius: '8px',
                     border: 'none',
                     backgroundColor: 'transparent',
@@ -291,8 +299,10 @@ export const Layout = ({ children }: LayoutProps) => {
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
+                    justifyContent: isMobile ? 'flex-start' : 'center',
+                    gap: isMobile ? '8px' : 0,
                     transition: 'all 0.2s',
+                    minHeight: isMobile ? '44px' : undefined,
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'rgba(255, 138, 138, 0.1)';
@@ -303,6 +313,7 @@ export const Layout = ({ children }: LayoutProps) => {
                   title="Đăng xuất"
                 >
                   <LogOut size={18} />
+                  {isMobile && <span>Đăng xuất</span>}
                 </button>
               </>
             )}

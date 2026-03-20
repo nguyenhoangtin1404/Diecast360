@@ -34,6 +34,7 @@
 .filterGroup {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .filterBtn {
@@ -67,6 +68,65 @@
 .searchBox {
   position: relative;
   flex: 0 1 300px;
+}
+
+.mobileList {
+  display: grid;
+  gap: 12px;
+}
+
+.mobileCard {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px;
+  background: white;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+}
+
+.mobileCardHeader {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.mobileHeaderText {
+  min-width: 0;
+}
+
+.mobileLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.mobileRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.mobileFbMeta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.historyBadge {
+  font-size: 11px;
+  background: #1877F2;
+  color: white;
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-weight: 600;
 }
 
 .searchIcon {
@@ -299,4 +359,57 @@
   background: #fafafa;
   border-radius: 10px;
   border: 1px dashed #ddd;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 20px 12px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filterGroup {
+    width: 100%;
+  }
+
+  .filterBtn {
+    flex: 1 1 110px;
+    min-height: 40px;
+  }
+
+  .searchBox {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .mobileRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mobileFbMeta {
+    justify-content: flex-start;
+  }
+
+  .actions {
+    justify-content: flex-start;
+  }
+
+  .actionBtn,
+  .actionBtnFb,
+  .pageBtn {
+    min-height: 40px;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
 }

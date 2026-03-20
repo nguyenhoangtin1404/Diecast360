@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/client';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { ExternalLink, Eye, Search } from 'lucide-react';
 import type { AdminItem, Pagination } from '../../types/item.types';
 import { ITEM_STATUS_LABELS } from '../../constants/item';
@@ -10,6 +11,7 @@ import styles from './FacebookPostsPage.module.css';
 
 export const FacebookPostsPage = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [fbFilter, setFbFilter] = useState<'all' | 'posted' | 'not_posted'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -84,6 +86,106 @@ export const FacebookPostsPage = () => {
       ) : items.length === 0 ? (
         <div className={styles.empty}>
           <p>Không có sản phẩm nào.</p>
+        </div>
+      ) : isMobile ? (
+        <div className={styles.mobileList}>
+          {items.map((item) => (
+            <article key={item.id} className={styles.mobileCard}>
+              <div className={styles.mobileCardHeader}>
+                {item.cover_image_url ? (
+                  <img
+                    src={item.cover_image_url}
+                    alt={item.name}
+                    className={styles.thumbnail}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className={styles.noImage}>—</div>
+                )}
+                <div className={styles.mobileHeaderText}>
+                  <span className={styles.mobileLabel}>Sản phẩm</span>
+                  <div className={styles.itemName}>{item.name}</div>
+                  {item.price && (
+                    <div className={styles.itemPrice}>
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price)}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className={styles.mobileRow}>
+                <span className={styles.mobileLabel}>Trạng thái SP</span>
+                <span
+                  className={styles.statusBadge}
+                  style={{ color: ITEM_STATUS_LABELS[item.status]?.color || '#666' }}
+                >
+                  {ITEM_STATUS_LABELS[item.status]?.text || item.status}
+                </span>
+              </div>
+
+              <div className={styles.mobileRow}>
+                <span className={styles.mobileLabel}>Facebook</span>
+                {item.fb_post_url ? (
+                  <div className={styles.mobileFbMeta}>
+                    <a
+                      href={item.fb_post_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.fbLink}
+                    >
+                      <ExternalLink size={14} />
+                      Mở bài FB
+                    </a>
+                    {(item.fb_posts_count ?? 0) > 1 && (
+                      <span className={styles.historyBadge}>
+                        {item.fb_posts_count}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className={styles.notPosted}>Chưa đăng</span>
+                )}
+              </div>
+
+              <div className={styles.mobileRow}>
+                <span className={styles.mobileLabel}>Ngày đăng</span>
+                <span className={styles.dateText}>
+                  {item.fb_posted_at
+                    ? new Date(item.fb_posted_at).toLocaleDateString('vi-VN', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      })
+                    : '—'}
+                </span>
+              </div>
+
+              <div className={styles.actions}>
+                <button
+                  onClick={() => navigate(`/admin/items/${item.id}?section=social-selling`)}
+                  className={styles.actionBtn}
+                  title="Xem & chia sẻ"
+                  aria-label={`Xem và chia sẻ ${item.name}`}
+                >
+                  <Eye size={16} />
+                </button>
+                {item.fb_post_url && (
+                  <a
+                    href={item.fb_post_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.actionBtnFb}
+                    title="Mở Facebook"
+                    aria-label={`Mở Facebook của ${item.name}`}
+                  >
+                    <ExternalLink size={16} />
+                  </a>
+                )}
+              </div>
+            </article>
+          ))}
         </div>
       ) : (
         <div className={styles.tableWrapper}>

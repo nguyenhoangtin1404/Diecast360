@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Tags, Plus, Pencil, ToggleLeft, ToggleRight, Trash2, AlertTriangle } from 'lucide-react';
 import { apiClient } from '../../api/client';
 import type { CategoryItem, ApiError, ApiResponse, CategoryType } from '../../types/category';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import styles from './CategoriesPage.module.css';
 
 interface CategoriesResponse {
@@ -16,6 +17,7 @@ const TYPE_LABELS: Record<CategoryType, string> = {
 
 export const CategoriesPage = () => {
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [activeType, setActiveType] = useState<CategoryType>('car_brand');
 
   // Modal states
@@ -181,6 +183,55 @@ export const CategoriesPage = () => {
       {categories.length === 0 ? (
         <div className={styles.emptyState}>
           Chưa có danh mục nào. Nhấn "Thêm" để tạo mới.
+        </div>
+      ) : isMobile ? (
+        <div className={styles.mobileList}>
+          {categories.map((cat, index) => (
+            <article key={cat.id} className={styles.mobileCard}>
+              <div className={styles.mobileCardHeader}>
+                <div>
+                  <span className={styles.mobileLabel}>Danh mục</span>
+                  <div className={styles.mobileTitle}>{cat.name}</div>
+                </div>
+                <span className={styles.orderNumber}>{index + 1}</span>
+              </div>
+
+              <div className={styles.mobileRow}>
+                <span className={styles.mobileLabel}>Trạng thái</span>
+                <span className={`${styles.activeBadge} ${cat.is_active ? styles.badgeActive : styles.badgeInactive}`}>
+                  {cat.is_active ? '● Hoạt động' : '○ Tắt'}
+                </span>
+              </div>
+
+              <div className={styles.mobileActions}>
+                <button
+                  className={styles.iconButton}
+                  title="Sửa"
+                  onClick={() => openEditModal(cat)}
+                  aria-label={`Sửa ${cat.name}`}
+                >
+                  <Pencil size={16} />
+                </button>
+                <button
+                  className={styles.toggleButton}
+                  title={cat.is_active ? 'Tắt' : 'Bật'}
+                  onClick={() => toggleMutation.mutate(cat.id)}
+                  style={{ color: cat.is_active ? '#28a745' : '#999' }}
+                  aria-label={cat.is_active ? `Tắt ${cat.name}` : `Bật ${cat.name}`}
+                >
+                  {cat.is_active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                </button>
+                <button
+                  className={styles.deleteButton}
+                  title="Xoá"
+                  onClick={() => setDeleteConfirm(cat)}
+                  aria-label={`Xóa ${cat.name}`}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </article>
+          ))}
         </div>
       ) : (
         <table className={styles.table}>

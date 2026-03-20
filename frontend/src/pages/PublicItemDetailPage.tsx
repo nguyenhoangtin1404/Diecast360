@@ -1,12 +1,13 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { apiClient } from '../api/client';
 import { Spinner360 } from '../components/Spinner360/Spinner360';
 import { Gallery } from '../components/Gallery';
 import { ItemCard } from '../components/catalog/ItemCard';
 import { ArrowLeft } from 'lucide-react';
 import type { RelatedItem } from '../types/item.types';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 interface SpinFrame {
   id: string;
@@ -24,6 +25,22 @@ interface ItemImage {
 export const PublicItemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === 'undefined' ? 1280 : window.innerWidth,
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const handleResize = () => {
+      setViewportWidth(window.innerWidth);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['public-item', id],
@@ -69,15 +86,18 @@ export const PublicItemDetailPage = () => {
   }
 
   const hasSpinner = spinnerFrames.length > 0;
+  const pagePadding = isMobile ? '20px 12px 32px' : '40px 20px';
+  const panelPadding = isMobile ? '18px' : '24px';
+  const mobileSpinnerSize = Math.max(220, Math.min(320, viewportWidth - 84));
 
   return (
-    <div style={{ padding: '40px 20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: pagePadding, maxWidth: '1200px', margin: '0 auto' }}>
       {/* Back Button */}
       <div style={{ marginBottom: '24px' }}>
         <button
           onClick={() => navigate(-1)}
           style={{
-            padding: '10px 20px',
+            padding: isMobile ? '12px 16px' : '10px 20px',
             border: '1px solid #ddd',
             borderRadius: '8px',
             background: 'white',
@@ -108,9 +128,9 @@ export const PublicItemDetailPage = () => {
       </div>
 
       {/* Header Section */}
-      <div style={{ marginBottom: '40px' }}>
+      <div style={{ marginBottom: isMobile ? '28px' : '40px' }}>
         <h1 style={{ 
-          fontSize: '36px', 
+          fontSize: isMobile ? '28px' : '36px', 
           fontWeight: '700', 
           color: '#1a1a1a', 
           margin: '0 0 16px 0',
@@ -122,10 +142,10 @@ export const PublicItemDetailPage = () => {
         
         {item.description && (
           <p style={{ 
-            fontSize: '18px', 
+            fontSize: isMobile ? '16px' : '18px', 
             color: '#666', 
             lineHeight: '1.8',
-            margin: '0 0 32px 0',
+            margin: '0 0 24px 0',
           }}>
             {item.description}
           </p>
@@ -135,15 +155,15 @@ export const PublicItemDetailPage = () => {
       {/* Main Content Grid */}
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: '1fr 1fr', 
-        gap: '40px',
-        marginBottom: '40px',
+        gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)', 
+        gap: isMobile ? '20px' : '40px',
+        marginBottom: isMobile ? '28px' : '40px',
       }}>
         {/* Left Column - Product Info */}
         <div>
           <div style={{
             backgroundColor: '#fff',
-            padding: '24px',
+            padding: panelPadding,
             borderRadius: '16px',
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
             marginBottom: '24px',
@@ -161,7 +181,7 @@ export const PublicItemDetailPage = () => {
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* Status */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '15px', color: '#666', fontWeight: '500' }}>Trạng thái:</span>
                 <span style={{
                   padding: '6px 12px',
@@ -177,7 +197,7 @@ export const PublicItemDetailPage = () => {
 
               {/* Car Brand */}
               {item.car_brand && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '15px', color: '#666', fontWeight: '500' }}>Hãng xe:</span>
                   <span style={{ fontSize: '15px', color: '#1a1a1a', fontWeight: '600' }}>{item.car_brand}</span>
                 </div>
@@ -185,7 +205,7 @@ export const PublicItemDetailPage = () => {
 
               {/* Model Brand */}
               {item.model_brand && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '15px', color: '#666', fontWeight: '500' }}>Hãng mô hình:</span>
                   <span style={{ fontSize: '15px', color: '#1a1a1a', fontWeight: '600' }}>{item.model_brand}</span>
                 </div>
@@ -193,7 +213,7 @@ export const PublicItemDetailPage = () => {
 
               {/* Condition */}
               {item.condition && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '15px', color: '#666', fontWeight: '500' }}>Tình trạng:</span>
                   <span style={{
                     padding: '6px 12px',
@@ -210,7 +230,7 @@ export const PublicItemDetailPage = () => {
 
               {/* Scale */}
               {item.scale && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '15px', color: '#666', fontWeight: '500' }}>Tỷ lệ:</span>
                   <span style={{ fontSize: '15px', color: '#1a1a1a', fontWeight: '600' }}>{item.scale}</span>
                 </div>
@@ -218,7 +238,7 @@ export const PublicItemDetailPage = () => {
 
               {/* Brand */}
               {item.brand && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '15px', color: '#666', fontWeight: '500' }}>Thương hiệu:</span>
                   <span style={{ fontSize: '15px', color: '#1a1a1a', fontWeight: '600' }}>{item.brand}</span>
                 </div>
@@ -230,7 +250,7 @@ export const PublicItemDetailPage = () => {
           {(item.price != null || item.original_price != null) && (
             <div style={{
               backgroundColor: '#fff',
-              padding: '24px',
+              padding: panelPadding,
               borderRadius: '16px',
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
             }}>
@@ -263,7 +283,7 @@ export const PublicItemDetailPage = () => {
                   <div>
                     <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>Giá bán:</div>
                     <div style={{ 
-                      fontSize: '32px', 
+                      fontSize: isMobile ? '28px' : '32px', 
                       color: '#007bff', 
                       fontWeight: '700',
                     }}>
@@ -295,7 +315,7 @@ export const PublicItemDetailPage = () => {
           {hasSpinner ? (
             <div style={{
               backgroundColor: '#fff',
-              padding: '24px',
+              padding: panelPadding,
               borderRadius: '16px',
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
             }}>
@@ -312,7 +332,7 @@ export const PublicItemDetailPage = () => {
               <div style={{ 
                 display: 'flex', 
                 justifyContent: 'center',
-                padding: '20px',
+                padding: isMobile ? '12px' : '20px',
                 backgroundColor: '#f9f9f9',
                 borderRadius: '12px',
               }}>
@@ -324,15 +344,15 @@ export const PublicItemDetailPage = () => {
                     frame_index: f.frame_index,
                   }))}
                   autoplay={false}
-                  width={500}
-                  height={500}
+                  width={isMobile ? mobileSpinnerSize : 500}
+                  height={isMobile ? mobileSpinnerSize : 500}
                 />
               </div>
             </div>
           ) : images && images.length > 0 ? (
             <div style={{
               backgroundColor: '#fff',
-              padding: '24px',
+              padding: panelPadding,
               borderRadius: '16px',
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
             }}>
@@ -348,7 +368,7 @@ export const PublicItemDetailPage = () => {
               </h2>
               <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: 'repeat(2, 1fr)', 
+                gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(2, 1fr)', 
                 gap: '12px' 
               }}>
                 {images.slice(0, 4).map((img) => (
@@ -387,7 +407,7 @@ export const PublicItemDetailPage = () => {
             <div
               style={{
                 backgroundColor: '#fff',
-                padding: '24px',
+                padding: panelPadding,
                 borderRadius: '16px',
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                 border: '1px solid #f1f5f9',
@@ -419,6 +439,7 @@ export const PublicItemDetailPage = () => {
         currentItemId={item.id} 
         carBrand={item.car_brand} 
         modelBrand={item.model_brand} 
+        isMobile={isMobile}
       />
     </div>
   );
@@ -427,11 +448,13 @@ export const PublicItemDetailPage = () => {
 const RelatedItemsSection = ({ 
   currentItemId, 
   carBrand, 
-  modelBrand 
+  modelBrand,
+  isMobile,
 }: { 
   currentItemId: string; 
   carBrand?: string | null; 
   modelBrand?: string | null; 
+  isMobile: boolean;
 }) => {
   const shouldQueryCar = Boolean(currentItemId && carBrand);
   const shouldQueryModel = Boolean(currentItemId && modelBrand);
@@ -542,9 +565,9 @@ const RelatedItemsSection = ({
   if (finalItems.length === 0) return null;
 
   return (
-    <div style={{ marginTop: '60px', borderTop: '1px solid #eee', paddingTop: '40px' }}>
+    <div style={{ marginTop: isMobile ? '40px' : '60px', borderTop: '1px solid #eee', paddingTop: isMobile ? '24px' : '40px' }}>
       <h2 style={{ 
-        fontSize: '24px', 
+        fontSize: isMobile ? '22px' : '24px', 
         fontWeight: '700', 
         color: '#1a1a1a', 
         marginBottom: '24px',
@@ -553,8 +576,8 @@ const RelatedItemsSection = ({
       </h2>
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
-        gap: '20px' 
+        gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? '160px' : '200px'}, 1fr))`, 
+        gap: isMobile ? '14px' : '20px' 
       }}>
         {finalItems.map((item: RelatedItem, index: number) => (
           <ItemCard key={item.id} item={item} index={index} />
