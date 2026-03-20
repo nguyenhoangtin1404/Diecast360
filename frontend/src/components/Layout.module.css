@@ -1,0 +1,263 @@
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 16px 24px;
+  background: #1a1a1a;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.headerInner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brandLink {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.brandMark {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.brandCopy {
+  min-width: 0;
+}
+
+.brandTitle {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.brandSubtitle {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.menuButton {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.menuButton:hover,
+.menuButton:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.menuButton:focus-visible,
+.navLink:focus-visible,
+.logoutButton:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  color: #fff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.navLink:hover,
+.navLink:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.navLinkActive {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.navLinkActive:hover,
+.navLinkActive:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.navIconEmoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.navSeparator {
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.userInfo {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.userIcon {
+  flex-shrink: 0;
+}
+
+.userText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logoutButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #ff8a8a;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.logoutButton:hover,
+.logoutButton:focus-visible {
+  background: rgba(255, 138, 138, 0.1);
+}
+
+.logoutLabel {
+  display: none;
+}
+
+.main {
+  flex: 1;
+}
+
+.footer {
+  margin-top: auto;
+  padding: 24px;
+  background: #1a1a1a;
+  color: #fff;
+  text-align: center;
+}
+
+.footerInner {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.footerText {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+  .brandTitle {
+    font-size: 18px;
+  }
+
+  .brandSubtitle {
+    white-space: normal;
+  }
+
+  .menuButton {
+    display: inline-flex;
+  }
+
+  .nav {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .navOpen {
+    display: flex;
+  }
+
+  .navLink {
+    min-height: 44px;
+    padding: 12px 14px;
+  }
+
+  .navSeparator {
+    width: 100%;
+    height: 1px;
+    margin: 2px 0;
+  }
+
+  .userInfo {
+    padding: 4px 0;
+  }
+
+  .logoutButton {
+    min-height: 44px;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 12px 14px;
+  }
+
+  .logoutLabel {
+    display: inline;
+  }
+}
