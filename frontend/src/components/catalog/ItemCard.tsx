@@ -11,10 +11,10 @@ interface ItemCardProps {
     original_price?: number | null;
     condition?: string | null;
   };
-  index: number;
+  index?: number;
 }
 
-export const ItemCard = ({ item, index }: ItemCardProps) => {
+export const ItemCard = ({ item, index = 0 }: ItemCardProps) => {
   const statusText =
     item.status === 'con_hang' ? 'Còn hàng' : item.status === 'giu_cho' ? 'Giữ chỗ' : 'Đã bán';
 

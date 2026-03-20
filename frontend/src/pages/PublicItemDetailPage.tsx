@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { apiClient } from '../api/client';
 import { Spinner360 } from '../components/Spinner360/Spinner360';
 import { Gallery } from '../components/Gallery';
@@ -8,6 +8,7 @@ import { ItemCard } from '../components/catalog/ItemCard';
 import { ArrowLeft } from 'lucide-react';
 import type { RelatedItem } from '../types/item.types';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useViewportWidth } from '../hooks/useViewportWidth';
 
 interface SpinFrame {
   id: string;
@@ -22,25 +23,16 @@ interface ItemImage {
   thumbnail_url?: string | null;
 }
 
+const MOBILE_SPINNER_MIN_SIZE = 220;
+const MOBILE_SPINNER_MAX_SIZE = 320;
+// 84px = page padding + panel breathing room to keep the spinner from touching card edges on phones.
+const MOBILE_SPINNER_HORIZONTAL_PADDING = 84;
+
 export const PublicItemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const [viewportWidth, setViewportWidth] = useState(() =>
-    typeof window === 'undefined' ? 1280 : window.innerWidth,
-  );
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-
-    const handleResize = () => {
-      setViewportWidth(window.innerWidth);
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const viewportWidth = useViewportWidth();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['public-item', id],
@@ -88,7 +80,10 @@ export const PublicItemDetailPage = () => {
   const hasSpinner = spinnerFrames.length > 0;
   const pagePadding = isMobile ? '20px 12px 32px' : '40px 20px';
   const panelPadding = isMobile ? '18px' : '24px';
-  const mobileSpinnerSize = Math.max(220, Math.min(320, viewportWidth - 84));
+  const mobileSpinnerSize = Math.max(
+    MOBILE_SPINNER_MIN_SIZE,
+    Math.min(MOBILE_SPINNER_MAX_SIZE, viewportWidth - MOBILE_SPINNER_HORIZONTAL_PADDING),
+  );
 
   return (
     <div style={{ padding: pagePadding, maxWidth: '1200px', margin: '0 auto' }}>
@@ -438,8 +433,7 @@ export const PublicItemDetailPage = () => {
       <RelatedItemsSection 
         currentItemId={item.id} 
         carBrand={item.car_brand} 
-        modelBrand={item.model_brand} 
-        isMobile={isMobile}
+        modelBrand={item.model_brand}
       />
     </div>
   );
@@ -449,13 +443,12 @@ const RelatedItemsSection = ({
   currentItemId, 
   carBrand, 
   modelBrand,
-  isMobile,
 }: { 
   currentItemId: string; 
   carBrand?: string | null; 
   modelBrand?: string | null; 
-  isMobile: boolean;
 }) => {
+  const isMobile = useIsMobile();
   const shouldQueryCar = Boolean(currentItemId && carBrand);
   const shouldQueryModel = Boolean(currentItemId && modelBrand);
 

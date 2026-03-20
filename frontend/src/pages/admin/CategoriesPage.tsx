@@ -15,6 +15,137 @@ const TYPE_LABELS: Record<CategoryType, string> = {
   model_brand: 'Hãng mô hình',
 };
 
+interface CategoryActionProps {
+  category: CategoryItem;
+  onEdit: (category: CategoryItem) => void;
+  onToggle: (id: string) => void;
+  onDelete: (category: CategoryItem) => void;
+}
+
+interface CategoryListActionProps {
+  onEdit: (category: CategoryItem) => void;
+  onToggle: (id: string) => void;
+  onDelete: (category: CategoryItem) => void;
+}
+
+interface CategoryMobileListProps extends CategoryListActionProps {
+  categories: CategoryItem[];
+}
+
+interface CategoryDesktopTableProps extends CategoryListActionProps {
+  categories: CategoryItem[];
+}
+
+const CategoryActions = ({ category, onEdit, onToggle, onDelete }: CategoryActionProps) => (
+  <>
+    <button
+      className={styles.iconButton}
+      title="Sửa"
+      onClick={() => onEdit(category)}
+      aria-label={`Sửa ${category.name}`}
+    >
+      <Pencil size={16} />
+    </button>
+    <button
+      className={styles.toggleButton}
+      title={category.is_active ? 'Tắt' : 'Bật'}
+      onClick={() => onToggle(category.id)}
+      style={{ color: category.is_active ? '#28a745' : '#999' }}
+      aria-label={category.is_active ? `Tắt ${category.name}` : `Bật ${category.name}`}
+    >
+      {category.is_active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+    </button>
+    <button
+      className={styles.deleteButton}
+      title="Xoá"
+      onClick={() => onDelete(category)}
+      aria-label={`Xóa ${category.name}`}
+    >
+      <Trash2 size={16} />
+    </button>
+  </>
+);
+
+const CategoryMobileList = ({
+  categories,
+  onEdit,
+  onToggle,
+  onDelete,
+}: CategoryMobileListProps) => (
+  <div className={styles.mobileList}>
+    {categories.map((category, index) => (
+      <article key={category.id} className={styles.mobileCard}>
+        <div className={styles.mobileCardHeader}>
+          <div>
+            <span className={styles.mobileLabel}>Danh mục</span>
+            <div className={styles.mobileTitle}>{category.name}</div>
+          </div>
+          <span className={styles.orderNumber}>{index + 1}</span>
+        </div>
+
+        <div className={styles.mobileRow}>
+          <span className={styles.mobileLabel}>Trạng thái</span>
+          <span className={`${styles.activeBadge} ${category.is_active ? styles.badgeActive : styles.badgeInactive}`}>
+            {category.is_active ? '● Hoạt động' : '○ Tắt'}
+          </span>
+        </div>
+
+        <div className={styles.mobileActions}>
+          <CategoryActions
+            category={category}
+            onEdit={onEdit}
+            onToggle={onToggle}
+            onDelete={onDelete}
+          />
+        </div>
+      </article>
+    ))}
+  </div>
+);
+
+const CategoryDesktopTable = ({
+  categories,
+  onEdit,
+  onToggle,
+  onDelete,
+}: CategoryDesktopTableProps) => (
+  <table className={styles.table}>
+    <thead>
+      <tr>
+        <th className={styles.th} style={{ width: '50px' }}>#</th>
+        <th className={styles.th}>Tên</th>
+        <th className={styles.th} style={{ width: '120px' }}>Trạng thái</th>
+        <th className={styles.th} style={{ width: '120px' }}>Thao tác</th>
+      </tr>
+    </thead>
+    <tbody>
+      {categories.map((category, index) => (
+        <tr key={category.id}>
+          <td className={`${styles.td} ${styles.tdCenter}`}>
+            <span className={styles.orderNumber}>{index + 1}</span>
+          </td>
+          <td className={styles.td}>{category.name}</td>
+          <td className={`${styles.td} ${styles.tdCenter}`}>
+            <span className={`${styles.activeBadge} ${category.is_active ? styles.badgeActive : styles.badgeInactive}`}>
+              {category.is_active ? '● Hoạt động' : '○ Tắt'}
+            </span>
+          </td>
+          <td className={`${styles.td} ${styles.tdCenter}`}>
+            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+              <CategoryActions
+                category={category}
+                onEdit={onEdit}
+                onToggle={onToggle}
+                onDelete={onDelete}
+              />
+            </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+);
+
 export const CategoriesPage = () => {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
@@ -165,6 +296,8 @@ export const CategoriesPage = () => {
             key={type}
             className={`${styles.tab} ${activeType === type ? styles.tabActive : ''}`}
             onClick={() => setActiveType(type)}
+            aria-label={`Chuyển sang tab ${label}`}
+            aria-pressed={activeType === type}
           >
             {label}
           </button>
@@ -173,7 +306,11 @@ export const CategoriesPage = () => {
 
       {/* Actions Bar */}
       <div className={styles.actionsBar}>
-        <button className={styles.addButton} onClick={openCreateModal}>
+        <button
+          className={styles.addButton}
+          onClick={openCreateModal}
+          aria-label={`Thêm ${TYPE_LABELS[activeType].toLowerCase()}`}
+        >
           <Plus size={18} />
           Thêm {TYPE_LABELS[activeType].toLowerCase()}
         </button>
@@ -185,106 +322,19 @@ export const CategoriesPage = () => {
           Chưa có danh mục nào. Nhấn "Thêm" để tạo mới.
         </div>
       ) : isMobile ? (
-        <div className={styles.mobileList}>
-          {categories.map((cat, index) => (
-            <article key={cat.id} className={styles.mobileCard}>
-              <div className={styles.mobileCardHeader}>
-                <div>
-                  <span className={styles.mobileLabel}>Danh mục</span>
-                  <div className={styles.mobileTitle}>{cat.name}</div>
-                </div>
-                <span className={styles.orderNumber}>{index + 1}</span>
-              </div>
-
-              <div className={styles.mobileRow}>
-                <span className={styles.mobileLabel}>Trạng thái</span>
-                <span className={`${styles.activeBadge} ${cat.is_active ? styles.badgeActive : styles.badgeInactive}`}>
-                  {cat.is_active ? '● Hoạt động' : '○ Tắt'}
-                </span>
-              </div>
-
-              <div className={styles.mobileActions}>
-                <button
-                  className={styles.iconButton}
-                  title="Sửa"
-                  onClick={() => openEditModal(cat)}
-                  aria-label={`Sửa ${cat.name}`}
-                >
-                  <Pencil size={16} />
-                </button>
-                <button
-                  className={styles.toggleButton}
-                  title={cat.is_active ? 'Tắt' : 'Bật'}
-                  onClick={() => toggleMutation.mutate(cat.id)}
-                  style={{ color: cat.is_active ? '#28a745' : '#999' }}
-                  aria-label={cat.is_active ? `Tắt ${cat.name}` : `Bật ${cat.name}`}
-                >
-                  {cat.is_active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                </button>
-                <button
-                  className={styles.deleteButton}
-                  title="Xoá"
-                  onClick={() => setDeleteConfirm(cat)}
-                  aria-label={`Xóa ${cat.name}`}
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+        <CategoryMobileList
+          categories={categories}
+          onEdit={openEditModal}
+          onToggle={(id) => toggleMutation.mutate(id)}
+          onDelete={setDeleteConfirm}
+        />
       ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th className={styles.th} style={{ width: '50px' }}>#</th>
-              <th className={styles.th}>Tên</th>
-              <th className={styles.th} style={{ width: '120px' }}>Trạng thái</th>
-              <th className={styles.th} style={{ width: '120px' }}>Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {categories.map((cat, index) => (
-              <tr key={cat.id}>
-                <td className={`${styles.td} ${styles.tdCenter}`}>
-                  <span className={styles.orderNumber}>{index + 1}</span>
-                </td>
-                <td className={styles.td}>{cat.name}</td>
-                <td className={`${styles.td} ${styles.tdCenter}`}>
-                  <span className={`${styles.activeBadge} ${cat.is_active ? styles.badgeActive : styles.badgeInactive}`}>
-                    {cat.is_active ? '● Hoạt động' : '○ Tắt'}
-                  </span>
-                </td>
-                <td className={`${styles.td} ${styles.tdCenter}`}>
-                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                    <button
-                      className={styles.iconButton}
-                      title="Sửa"
-                      onClick={() => openEditModal(cat)}
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    <button
-                      className={styles.toggleButton}
-                      title={cat.is_active ? 'Tắt' : 'Bật'}
-                      onClick={() => toggleMutation.mutate(cat.id)}
-                      style={{ color: cat.is_active ? '#28a745' : '#999' }}
-                    >
-                      {cat.is_active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
-                    </button>
-                    <button
-                      className={styles.deleteButton}
-                      title="Xoá"
-                      onClick={() => setDeleteConfirm(cat)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <CategoryDesktopTable
+          categories={categories}
+          onEdit={openEditModal}
+          onToggle={(id) => toggleMutation.mutate(id)}
+          onDelete={setDeleteConfirm}
+        />
       )}
 
       {/* Create/Edit Modal */}
