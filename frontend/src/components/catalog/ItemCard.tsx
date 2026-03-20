@@ -38,10 +38,10 @@ export const ItemCard = ({ item, index }: ItemCardProps) => {
   return (
     <Link
       to={`/items/${item.id}`}
-      className="group relative block opacity-0 animate-fade-in"
+      className="group relative block opacity-0 animate-fade-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      <div className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300 bg-white">
+      <div className="h-full border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-300 bg-white">
         <div className="relative aspect-square overflow-hidden bg-gray-100">
           <img
             src={item.cover_image_url || '/placeholder-item.svg'}
@@ -57,14 +57,14 @@ export const ItemCard = ({ item, index }: ItemCardProps) => {
             </span>
           )}
         </div>
-        <div className="p-4">
-          <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+        <div className="p-4 sm:p-5">
+          <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors text-base leading-6 min-h-[3rem]">
             {item.name}
           </h3>
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between gap-3 text-sm">
             <span className="text-gray-600">{statusText}</span>
             {conditionText && (
-              <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+              <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs whitespace-nowrap">
                 {conditionText}
               </span>
             )}

@@ -1,6 +1,8 @@
 /* Main Container */
 .container {
   padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 /* Header Section */
@@ -51,6 +53,8 @@
   gap: 4px;
   border: 1px solid #e0e0e0;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .tab {
@@ -90,6 +94,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .addButton {
@@ -119,6 +124,58 @@
 .table {
   width: 100%;
   border-collapse: collapse;
+}
+
+.mobileList {
+  display: grid;
+  gap: 12px;
+}
+
+.mobileCard {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px;
+  background: white;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+}
+
+.mobileCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.mobileRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.mobileLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.mobileTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.mobileActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+  align-items: center;
 }
 
 .th {
@@ -429,4 +486,59 @@
 .deleteWarning {
   color: #999;
   font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 16px 12px 20px;
+  }
+
+  .headerContent {
+    align-items: flex-start;
+  }
+
+  .headerTitle {
+    font-size: 24px;
+  }
+
+  .tabBar {
+    display: flex;
+    width: 100%;
+  }
+
+  .tab {
+    flex: 1 1 160px;
+    min-height: 44px;
+  }
+
+  .addButton {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .iconButton,
+  .toggleButton,
+  .deleteButton {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .modalContent {
+    width: calc(100% - 24px);
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .modalActions {
+    flex-direction: column-reverse;
+  }
+
+  .modalBtnCancel,
+  .modalBtnSave,
+  .modalBtnConfirm {
+    width: 100%;
+    justify-content: center;
+  }
 }

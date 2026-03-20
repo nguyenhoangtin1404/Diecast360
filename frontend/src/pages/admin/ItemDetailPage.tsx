@@ -11,6 +11,7 @@ import type { FacebookPost } from '../../types/item.types';
 import { jumpToStepWithAutoSave, navigateStepWithAutoSave, type ProductStep } from './itemStepNavigation';
 import { buildStepUrlAfterCreate, evaluateFinishDecision, shouldBlockEnterSubmit } from './itemWorkflow';
 import { MAX_SPINNER_FRAMES } from '../../constants/spinner';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 // Helper functions for number formatting
 const formatNumber = (value: string): string => {
@@ -145,10 +146,7 @@ export const ItemDetailPage = () => {
   const stepNavInFlightRef = useRef(false);
   const [searchParams] = useSearchParams();
   const [currentStep, setCurrentStep] = useState<ProductStep>(1);
-  const [isMobile] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.innerWidth <= 768;
-  });
+  const isMobile = useIsMobile();
 
   const { data, isLoading } = useQuery({
     queryKey: ['item', id],
@@ -836,11 +834,42 @@ export const ItemDetailPage = () => {
           .product-step-btn {
             padding: 8px 10px;
           }
+          .item-detail-shell {
+            padding: 12px;
+          }
+          .item-detail-header-row {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .item-detail-heading {
+            font-size: 22px;
+          }
+          .item-detail-form,
+          .item-detail-sections {
+            max-width: 100%;
+          }
+          .item-detail-toolbar {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .item-detail-toolbar > * {
+            width: 100%;
+          }
+          .item-detail-actions {
+            position: sticky;
+            bottom: 0;
+            padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+            background: linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 22%);
+          }
+          .item-detail-actions button {
+            flex: 1 1 100%;
+            min-height: 44px;
+          }
         }
       `}</style>
-    <div style={{ padding: isMobile ? '12px' : '20px' }}>
+    <div className="item-detail-shell" style={{ padding: isMobile ? '12px' : '20px' }}>
       <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <div className="item-detail-header-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
           <button
             onClick={() => navigate('/admin/items')}
             style={{
@@ -870,7 +899,7 @@ export const ItemDetailPage = () => {
             <span>Quay lại danh sách</span>
           </button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+        <div className="item-detail-header-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
           <div
             style={{
               width: '48px',
@@ -886,7 +915,7 @@ export const ItemDetailPage = () => {
             {id === 'new' ? <Plus size={24} color="white" /> : <Edit size={24} color="white" />}
           </div>
           <div>
-            <h1 style={{ 
+            <h1 className="item-detail-heading" style={{ 
               margin: 0, 
               fontSize: isMobile ? '22px' : '28px', 
               fontWeight: '700', 
@@ -929,6 +958,7 @@ export const ItemDetailPage = () => {
       <form
         onSubmit={(e) => e.preventDefault()}
         onKeyDown={preventEnterSubmit}
+        className="item-detail-form"
         style={{ maxWidth: '800px', display: currentStep === 1 ? 'block' : 'none' }}
       >
         <div style={{ marginBottom: '16px' }}>
@@ -962,7 +992,7 @@ export const ItemDetailPage = () => {
           />
         </div>
         <div style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+          <div className="item-detail-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
             <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
               Mô tả
             </label>
@@ -1256,6 +1286,8 @@ export const ItemDetailPage = () => {
               padding: '4px',
               gap: '4px',
               border: '1px solid #e0e0e0',
+              flexWrap: 'wrap',
+              width: isMobile ? '100%' : 'auto',
             }}>
               <label 
                 style={{ 
@@ -1272,6 +1304,7 @@ export const ItemDetailPage = () => {
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   minWidth: '80px',
                   userSelect: 'none',
+                  flex: isMobile ? '1 1 120px' : undefined,
                 }}
                 onMouseEnter={(e) => {
                   if (condition !== 'new') {
@@ -1316,6 +1349,7 @@ export const ItemDetailPage = () => {
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   minWidth: '80px',
                   userSelect: 'none',
+                  flex: isMobile ? '1 1 120px' : undefined,
                 }}
                 onMouseEnter={(e) => {
                   if (condition !== 'old') {
@@ -1437,6 +1471,8 @@ export const ItemDetailPage = () => {
             padding: '4px',
             gap: '4px',
             border: '1px solid #e0e0e0',
+            flexWrap: 'wrap',
+            width: isMobile ? '100%' : 'auto',
           }}>
             <label 
               style={{ 
@@ -1453,6 +1489,7 @@ export const ItemDetailPage = () => {
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 minWidth: '70px',
                 userSelect: 'none',
+                flex: isMobile ? '1 1 110px' : undefined,
               }}
               onMouseEnter={(e) => {
                 if (status !== 'con_hang') {
@@ -1485,6 +1522,7 @@ export const ItemDetailPage = () => {
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 minWidth: '70px',
                 userSelect: 'none',
+                flex: isMobile ? '1 1 110px' : undefined,
               }}
               onMouseEnter={(e) => {
                 if (status !== 'giu_cho') {
@@ -1517,6 +1555,7 @@ export const ItemDetailPage = () => {
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 minWidth: '70px',
                 userSelect: 'none',
+                flex: isMobile ? '1 1 110px' : undefined,
               }}
               onMouseEnter={(e) => {
                 if (status !== 'da_ban') {
@@ -1569,7 +1608,7 @@ export const ItemDetailPage = () => {
                 <div style={{ color: '#666', marginBottom: '8px' }}>
                   Đã chọn {selectedFiles.length} ảnh
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px', marginTop: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? '120px' : '150px'}, 1fr))`, gap: '10px', marginTop: '10px' }}>
                   {imagePreviewUrls.map((url, index) => (
                     <div key={index} style={{ border: '1px solid #ddd', padding: '5px', borderRadius: '4px' }}>
                       <img
@@ -1592,7 +1631,7 @@ export const ItemDetailPage = () => {
         </div>
       </form>
       {id !== 'new' && item && (
-        <div style={{ marginTop: '40px', maxWidth: '800px' }}>
+        <div className="item-detail-sections" style={{ marginTop: '40px', maxWidth: '800px' }}>
           <div style={{ display: currentStep === 2 ? 'block' : 'none' }}>
           <h2 style={{ 
             fontSize: '24px', 
@@ -1662,7 +1701,7 @@ export const ItemDetailPage = () => {
             )}
           </div>
           {images.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '15px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? '150px' : '200px'}, 1fr))`, gap: '15px' }}>
               {images.map((img) => (
                 <div key={img.id} style={{ border: img.is_cover ? '2px solid #007bff' : '1px solid #ddd', padding: '10px', borderRadius: '8px', backgroundColor: '#fff' }}>
                   <div style={{ position: 'relative' }}>
@@ -1799,21 +1838,21 @@ export const ItemDetailPage = () => {
               borderRadius: '8px',
               backgroundColor: '#f9f9f9',
             }}>
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
                 <input
                   type="text"
                   placeholder="Tên bộ spinner (tùy chọn)"
                   value={newSpinSetLabel}
                   onChange={(e) => setNewSpinSetLabel(e.target.value)}
                   style={{
-                    flex: 1,
+                    flex: '1 1 220px',
                     padding: '8px 12px',
                     border: '1px solid #ddd',
                     borderRadius: '6px',
                     fontSize: '14px',
                   }}
                 />
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', minHeight: '40px' }}>
                   <input
                     type="checkbox"
                     checked={newSpinSetIsDefault}
@@ -2196,7 +2235,7 @@ export const ItemDetailPage = () => {
                   Đã đăng Facebook ({facebookPosts.length} bài)
                 </span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
                 {facebookPosts.map((post) => (
                   <div key={post.id} style={{
                     display: 'flex',
@@ -2207,6 +2246,7 @@ export const ItemDetailPage = () => {
                     borderRadius: '8px',
                     border: '1px solid #e0e0e0',
                     gap: '8px',
+                    flexWrap: isMobile ? 'wrap' : 'nowrap',
                   }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '12px', color: '#666' }}>
@@ -2219,7 +2259,7 @@ export const ItemDetailPage = () => {
                         {post.post_url}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0, flexWrap: 'wrap' }}>
                       <a
                         href={post.post_url}
                         target="_blank"
@@ -2326,6 +2366,8 @@ export const ItemDetailPage = () => {
               alignItems: 'center',
               gap: '8px',
               marginBottom: '16px',
+              width: isMobile ? '100%' : 'auto',
+              justifyContent: 'center',
             }}
           >
             <Sparkles size={18} />
@@ -2567,14 +2609,14 @@ export const ItemDetailPage = () => {
             <p style={{ fontSize: '13px', color: '#666', margin: '0 0 12px 0' }}>
               Sau khi đăng xong trên Facebook, dán link bài viết vào đây để lưu lại.
             </p>
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <input
                 type="url"
                 value={newFbLinkInput}
                 onChange={(e) => setNewFbLinkInput(e.target.value)}
                 placeholder="https://www.facebook.com/..."
                 style={{
-                  flex: 1,
+                  flex: '1 1 260px',
                   padding: '10px 14px',
                   border: '1px solid #ddd',
                   borderRadius: '8px',
@@ -2635,7 +2677,7 @@ export const ItemDetailPage = () => {
           </div>
         </div>
       )}
-      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '20px', maxWidth: '800px' }}>
+      <div className="item-detail-actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '20px', maxWidth: '800px' }}>
         <button
           type="button"
           onClick={goToPrevStep}
