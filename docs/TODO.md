@@ -14,10 +14,26 @@
 - [x] CI cơ bản.
 
 ## Đang triển khai
-- [ ] Responsive mobile cho luồng admin item 4 bước (#58).
+- [x] Responsive mobile smoke checklist cho Phase 6 (#58).
+
+## Responsive Smoke Checklist (#58)
+Viewport mục tiêu:
+- [x] `375x667`
+- [x] `390x844`
+- [x] `768x1024`
+
+Admin:
+- [x] `ItemsPage`: search, chuyển trang, mở item, toggle public, xóa item không bị vỡ layout/mobile card usable.
+- [x] `ItemDetailPage`: đi hết 4 bước, auto-save khi đổi bước, upload ảnh thường, thao tác spinner cơ bản, social selling CTA reachable.
+- [x] `CategoriesPage`: đổi tab, thêm/sửa/toggle/xóa danh mục trên mobile.
+- [x] `FacebookPostsPage`: filter, search, mở social selling, mở link Facebook trên mobile.
+
+Public:
+- [x] `PublicCatalogPage`: search, filter, sort, cuộn danh sách, card spacing/CTA ổn trên mobile.
+- [x] `PublicItemDetailPage`: back navigation, đọc thông tin, xem spinner/gallery, related items không overflow.
 
 ## Backlog theo issue (ưu tiên)
-- [ ] #58 - Cập nhật giao diện responsive mobile.
+- [x] #58 - Cập nhật giao diện responsive mobile.
   Kế hoạch: `.planning/issues/58-mobile-responsive-ui.md`
 - [ ] #57 - Thêm số lượng + thuộc tính đặc biệt cho sản phẩm.
   Kế hoạch: `.planning/issues/57-quantity-and-custom-attributes.md`

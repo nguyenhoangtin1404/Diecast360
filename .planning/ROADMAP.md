@@ -11,7 +11,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 3: Public Experience** - Public catalog and product viewing workflow.
 - [x] **Phase 4: AI and Social Selling** - Content generation and seller assist tools.
 - [x] **Phase 5: Production and Integrations** - Docker, CI, and Facebook API baseline.
-- [ ] **Phase 6: Issue #58 - Mobile Responsive UI** - Mobile-first UX hardening for admin/public pages.
+- [x] **Phase 6: Issue #58 - Mobile Responsive UI** - Mobile-first UX hardening for admin/public pages.
 - [ ] **Phase 7: Issue #57 - Quantity and Custom Attributes** - Extend product model with stock quantity and custom metadata.
 - [ ] **Phase 8: Issue #46 - Advanced Inventory Management** - Transaction-based inventory and stock audit trail.
 - [ ] **Phase 9: Issue #13 - Pre-Order Management** - Pre-order lifecycle management for model products.
@@ -74,8 +74,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 06-01: Harden admin mobile UX and responsive navigation
-- [ ] 06-02: Harden public mobile UX and responsive smoke checks
+- [x] 06-01: Harden admin mobile UX and responsive navigation
+- [x] 06-02: Harden public mobile UX and responsive smoke checks
 
 ### Phase 7: Issue #57 - Quantity and Custom Attributes
 **Goal**: Add quantity and flexible custom attributes to product domain model.
@@ -161,7 +161,7 @@ Plans:
 | 3. Public Experience | 1/1 | Complete | 2026-03-10 |
 | 4. AI and Social Selling | 1/1 | Complete | 2026-03-13 |
 | 5. Production and Integrations | 1/1 | Complete | 2026-03-16 |
-| 6. Issue #58 - Mobile Responsive UI | 0/2 | In progress (partial) | Mobile stepper UX and navigation controls improved |
+| 6. Issue #58 - Mobile Responsive UI | 2/2 | Complete | 2026-03-20 |
 | 7. Issue #57 - Quantity and Custom Attributes | 0/3 | Not started | - |
 | 8. Issue #46 - Advanced Inventory Management | 0/3 | Not started | - |
 | 9. Issue #13 - Pre-Order Management | 0/3 | Not started | - |
@@ -213,6 +213,16 @@ Completed in codebase for Phase 5:
 - Documentation updated: API_CONTRACT.md, ERROR_HANDLING.md, ENV.md.
 - All tests passed (256 backend tests, 0 lint errors, clean frontend build).
 
+## Execution Update (2026-03-19, Phase 6)
+
+Implemented in codebase for Phase 6:
+- Admin responsive hardening: mobile navigation/menu in shared layout, mobile card/list treatment for `ItemsPage`, `CategoriesPage`, and `FacebookPostsPage`.
+- Admin item workflow hardened for smaller screens: responsive stepper, stacked toolbars, wrapped segmented controls, mobile-safe sticky action bar, and tighter media/social layout behavior in `ItemDetailPage`.
+- Public responsive hardening: `PublicItemDetailPage` now switches to a true one-column mobile layout with mobile-safe media/info panels; `ItemCard` spacing/touch ergonomics improved for narrow widths.
+- Responsive smoke checklist added to `docs/TODO.md` for target viewports `375x667`, `390x844`, and `768x1024`.
+- Verification completed in codebase: frontend unit suite passed (46 tests) and frontend production build passed.
+- Manual responsive smoke checklist completed on target viewports and core admin/public flows.
+
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet executed and pending tasks:
@@ -225,4 +235,4 @@ Phases not yet executed and pending tasks:
 - Phase 13: `13-01`, `13-02`, `13-03` Extended E2E coverage and quality gates.
 
 Partially executed phases (still pending full completion):
-- Phase 6: `06-01`, `06-02` still pending full admin/public responsive hardening and smoke checks.
+- None.
