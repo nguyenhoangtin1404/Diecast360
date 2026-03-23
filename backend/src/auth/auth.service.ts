@@ -8,6 +8,7 @@ import { ErrorCode, AppException } from '../common/exceptions/http-exception.fil
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
+import { SwitchShopDto } from './dto/switch-shop.dto';
 
 @Injectable()
 export class AuthService {
@@ -113,6 +114,7 @@ export class AuthService {
   async validateUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      include: { shop_roles: { select: { shop_id: true, role: true } } },
     });
 
     if (!user || !user.is_active) {
@@ -124,11 +126,45 @@ export class AuthService {
       email: user.email,
       full_name: user.full_name,
       role: user.role,
+      allowed_shop_ids: user.shop_roles.map((r) => r.shop_id),
     };
   }
 
-  private generateAccessToken(userId: string): string {
-    const payload = { sub: userId };
+  /**
+   * Switch active shop context.
+   * Validates the user has a role for the requested shop,
+   * then issues a new access_token with active_shop_id in the payload.
+   */
+  async switchShop(userId: string, dto: SwitchShopDto) {
+    const shopRole = await this.prisma.userShopRole.findUnique({
+      where: { user_id_shop_id: { user_id: userId, shop_id: dto.shop_id } },
+      include: { shop: true },
+    });
+
+    if (!shopRole || !shopRole.shop.is_active) {
+      throw new AppException(
+        ErrorCode.AUTH_FORBIDDEN,
+        'You do not have access to this shop.',
+      );
+    }
+
+    const newAccessToken = this.generateAccessToken(userId, dto.shop_id);
+    return {
+      access_token: newAccessToken,
+      active_shop: {
+        id: shopRole.shop.id,
+        name: shopRole.shop.name,
+        slug: shopRole.shop.slug,
+        role: shopRole.role,
+      },
+    };
+  }
+
+  private generateAccessToken(userId: string, activeShopId?: string): string {
+    const payload: Record<string, unknown> = { sub: userId };
+    if (activeShopId) {
+      payload.active_shop_id = activeShopId;
+    }
     return this.jwtService.sign(payload, {
       expiresIn: (process.env.JWT_EXPIRES_IN || '15m') as StringValue,
     });

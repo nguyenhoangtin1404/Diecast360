@@ -2,6 +2,7 @@ import { Controller, Post, Get, Body, UseGuards, Request, Res, HttpCode, HttpSta
 import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { SwitchShopDto } from './dto/switch-shop.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ConfigService } from '@nestjs/config';
 
@@ -127,6 +128,31 @@ export class AuthController {
     res.clearCookie('refresh_token', { path: '/api/v1/auth' });
     
     return { message: 'Logout successful' };
+  }
+
+  /**
+   * Switch active shop context.
+   * Issues a new access_token cookie with active_shop_id embedded in JWT payload.
+   * User must have a user_shop_roles record for the requested shop.
+   */
+  @Post('switch-shop')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async switchShop(
+    @Body() dto: SwitchShopDto,
+    @Request() req,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.switchShop(req.user.id, dto);
+
+    // Issue new access_token with active_shop_id
+    const accessTokenMaxAge = 15 * 60 * 1000; // 15 minutes
+    res.cookie('access_token', result.access_token, this.getCookieOptions(accessTokenMaxAge));
+
+    return {
+      active_shop: result.active_shop,
+      message: 'Shop context switched successfully',
+    };
   }
 
   /**

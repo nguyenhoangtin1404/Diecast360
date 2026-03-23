@@ -14,6 +14,7 @@ import { SpinnerModule } from './spinner/spinner.module';
 import { PublicModule } from './public/public.module';
 import { AiModule } from './ai/ai.module';
 import { CategoriesModule } from './categories/categories.module';
+import { ShopsModule } from './shops/shops.module';
 import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
 
 @Module({
@@ -39,6 +40,7 @@ import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.f
     PublicModule,
     AiModule,
     CategoriesModule,
+    ShopsModule,
   ],
   controllers: [AppController],
   providers: [

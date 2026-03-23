@@ -38,11 +38,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string } & Record<string, unknown>) {
+  async validate(payload: { sub: string; active_shop_id?: string } & Record<string, unknown>) {
     const user = await this.authService.validateUser(payload.sub);
     if (!user) {
       throw new UnauthorizedException();
     }
-    return user;
+    // Include active_shop_id from JWT payload so TenantGuard can read it
+    return {
+      ...user,
+      active_shop_id: payload.active_shop_id ?? null,
+    };
   }
 }
