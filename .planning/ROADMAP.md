@@ -19,6 +19,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [ ] **Phase 11: Issue #48 - Membership and Points** - Member tiers and points ledger system.
 - [ ] **Phase 12: Issue #44 - Playwright Phase 1** - E2E smoke automation setup and CI integration.
 - [ ] **Phase 13: Issue #33 - Playwright Phase 2** - Extended E2E coverage and quality-gate hardening.
+- [x] **Phase 14: Multi-Tenant Shop** - Support multiple isolated diecast shops on a single deployment with scoped access.
 
 ## Phase Details
 
@@ -169,6 +170,7 @@ Plans:
 | 11. Issue #48 - Membership and Points | 0/2 | Not started | - |
 | 12. Issue #44 - Playwright Phase 1 | 0/3 | Not started | - |
 | 13. Issue #33 - Playwright Phase 2 | 0/3 | Not started | - |
+| 14. Multi-Tenant Shop | 3/3 | Complete | 2026-03-23 |
 
 ## Execution Update (2026-03-04)
 
@@ -223,6 +225,15 @@ Implemented in codebase for Phase 6:
 - Verification completed in codebase: frontend unit suite passed (46 tests) and frontend production build passed.
 - Manual responsive smoke checklist completed on target viewports and core admin/public flows.
 
+## Execution Update (2026-03-23, Phase 14)
+
+Implemented in codebase for Phase 14:
+- Extended Prisma schema with `Shop` and `UserShopRole` models; added safe 3-step migration.
+- Built strict `TenantGuard` to enforce data isolation (zero cross-tenant data leakage) by reading `active_shop_id` from JWT.
+- Added `POST /auth/switch-shop` for secure context switching.
+- Built Super Admin `ShopsModule` for multi-tenant lifecycle management and access control (`@Roles('super_admin')`).
+- Passed 264/264 isolated multi-tenant backend unit tests.
+
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet executed and pending tasks:
@@ -245,6 +256,7 @@ Partially executed phases (still pending full completion):
 **Plans:** 3 plans
 
 Plans:
-- [ ] 14-01: Multi-tenant schema and data isolation
-- [ ] 14-02: API scoping, tenant guard và shop management endpoints
-- [ ] 14-03: Admin tenant selection UI và super-admin shop management
+<<<<<<< HEAD
+- [x] 14-01: Multi-tenant schema and data isolation
+- [x] 14-02: API scoping, tenant guard và shop management endpoints
+- [x] 14-03: Admin tenant selection UI và super-admin shop management
