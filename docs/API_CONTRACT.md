@@ -19,6 +19,8 @@
 ## Data shape
 - `Item`: `{ id, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, status, is_public, fb_post_content, cover_image_url, fb_post_url?, fb_posted_at?, fb_posts_count?, created_at, updated_at, deleted_at? }`.
 - `FacebookPost`: `{ id, item_id, post_url, content, posted_at, created_at }`.
+- `User`: `{ id, email, full_name, role, allowed_shop_ids: string[] }`.
+- `Shop`: `{ id, name, slug, is_active, created_at, updated_at, items_count?, members_count? }`.
 - `ItemImage`: `{ id, item_id, url, thumbnail_url, is_cover, display_order, created_at }`.
 - `SpinFrame`: `{ id, spin_set_id, frame_index, image_url, thumbnail_url, created_at }`.
 - `SpinSet`: `{ id, item_id, label, is_default, frames: SpinFrame[], created_at, updated_at }`.
@@ -40,8 +42,34 @@
 - Response 200: `data: {}`.
 
 ### GET /api/v1/auth/me
-- Auth: Bearer access token.
-- Response 200: `data: { user }`.
+- Auth: Bearer access token hoặc Cookie.
+- Response 200: `data: { user }`. `user` bao gồm mảng `allowed_shop_ids`.
+
+### POST /api/v1/auth/switch-shop
+- Body JSON: `{ "shop_id": "string" }`.
+- Thay đổi `active_shop_id` trong session, server issue lại HTTP-only cookie mới.
+- Response 200: `data: {}`.
+- Errors: `NOT_FOUND (404)`, `AUTH_FORBIDDEN (403)` nếu user không thuộc shop.
+
+## Shops (Super Admin)
+### GET /api/v1/admin/shops
+- Auth: Role `super_admin`.
+- Response 200: `data: { shops: Shop[] }` (có layout `items_count` và `members_count`).
+- Errors: `AUTH_FORBIDDEN (403)` nếu không phải super_admin.
+
+### POST /api/v1/admin/shops
+- Auth: Role `super_admin`.
+- Body JSON: `{ "name": "string" }` (tự động gen slug).
+- Response 201: `data: { shop: Shop }`.
+
+### PATCH /api/v1/admin/shops/:id
+- Auth: Role `super_admin`.
+- Body JSON: `{ "name": "string (optional)", "is_active": "boolean (optional)" }`.
+- Response 200: `data: { shop: Shop }`.
+
+### GET /api/v1/admin/shops/:id/members
+- Auth: Role `super_admin`.
+- Response 200: `data: { members: Array<{ user_id, email, full_name, role, assigned_at }> }`.
 
 ## Items (admin)
 ### GET /api/v1/items

@@ -16,6 +16,23 @@
 
 ## Bảng & cột
 
+### shops
+| Column | Type | Constraints/Notes |
+|--------|------|-------------------|
+| id | uuid | PK |
+| name | varchar | NOT NULL |
+| slug | varchar | NOT NULL, UNIQUE |
+| is_active | boolean | NOT NULL, default `true` |
+| created_at | datetime | NOT NULL, default now() |
+| updated_at | datetime | NOT NULL, auto update |
+
+### user_shop_roles
+| Column | Type | Constraints/Notes |
+|--------|------|-------------------|
+| user_id | uuid | FK → users(id) ON DELETE CASCADE |
+| shop_id | uuid | FK → shops(id) ON DELETE CASCADE |
+| role | enum | NOT NULL, values: `super_admin` \| `shop_admin`, default `shop_admin` |
+
 ### users
 | Column | Type | Constraints/Notes |
 |--------|------|-------------------|
@@ -42,6 +59,7 @@
 | Column | Type | Constraints/Notes |
 |--------|------|-------------------|
 | id | uuid | PK |
+| shop_id | uuid | NULL, FK → shops(id) ON DELETE CASCADE |
 | name | varchar | NOT NULL |
 | description | text | NULL |
 | scale | varchar | NOT NULL, default `1:64` |
@@ -110,6 +128,9 @@
 - Khi xóa ảnh/frames, đảm bảo cập nhật order/index liên tục và cover/default hợp lệ
 
 ## Index đề xuất
+- `shops(is_active)` – filter active shops
+- `user_shop_roles(user_id)` – lookup user's assigned shops
+- `items(shop_id)` – tenant isolation lookup
 - `items(status)` – lọc theo trạng thái kho
 - `items(created_at)` – sort danh sách
 - `items(deleted_at)` – filter soft delete

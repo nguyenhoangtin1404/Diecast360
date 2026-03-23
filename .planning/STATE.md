@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-03-04)
 
 ## Current Position
 
-Phase: 7 of 13 (Quantity and Custom Attributes)
-Plan: 0 of 3 in current phase
-Status: Ready for Phase 7 planning
-Last activity: 2026-03-20 - Completed Phase 6 mobile responsive hardening and responsive smoke checklist
+Phase: 14 of 14 (Multi-Tenant Shop)
+Plan: 3 of 3 in current phase
+Status: Completed Phase 14
+Last activity: 2026-03-23 - Completed Phase 14 Multi-Tenant Shop isolation and passed all 264 unit tests
 
 Progress: [#####-----] 46%
 
@@ -40,6 +40,7 @@ Progress: [#####-----] 46%
 - Completed manual Facebook selling workflow with caption snapshotting, copy actions, and cross-page state coherence.
 - Production-hardened Docker stack, CI pipeline, and Facebook Graph API integration with error mapping and admin publish UX.
 - Completed mobile responsive hardening across admin/public core pages and verified the responsive smoke checklist on target viewports.
+- Implemented robust Multi-Tenant Shop isolation with dual role-based access control (`super_admin` vs `shop_admin`) and strict `TenantGuard` data boundaries.
 
 ### Pending Todos
 
