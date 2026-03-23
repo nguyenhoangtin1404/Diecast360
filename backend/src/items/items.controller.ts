@@ -23,9 +23,11 @@ import { QueryItemsDto } from './dto/query-items.dto';
 import { CreateFacebookPostDto } from './dto/create-facebook-post.dto';
 import { PublishFacebookPostDto } from './dto/publish-facebook-post.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../common/guards/tenant.guard';
+import { CurrentTenantId } from '../common/decorators/tenant.decorator';
 
 @Controller('items')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class ItemsController {
   private readonly logger = new Logger(ItemsController.name);
 
@@ -33,30 +35,42 @@ export class ItemsController {
 
   @Post()
   @Throttle({ default: { ttl: 60000, limit: 10 } })
-  create(@Body() createItemDto: CreateItemDto) {
-    return this.itemsService.create(createItemDto);
+  create(
+    @Body() createItemDto: CreateItemDto,
+    @CurrentTenantId() tenantId: string,
+  ) {
+    return this.itemsService.create(createItemDto, tenantId);
   }
 
   @Get()
-  findAll(@Query() queryDto: QueryItemsDto) {
-    return this.itemsService.findAll(queryDto);
+  findAll(
+    @Query() queryDto: QueryItemsDto,
+    @CurrentTenantId() tenantId: string,
+  ) {
+    return this.itemsService.findAll(queryDto, tenantId);
   }
 
   @Get('search')
-  search(@Query('q') q: string) {
+  search(
+    @Query('q') q: string,
+    @CurrentTenantId() tenantId: string,
+  ) {
     if (!q) {
-      return this.itemsService.findAll({});
+      return this.itemsService.findAll({}, tenantId);
     }
-    return this.itemsService.search(q);
+    return this.itemsService.search(q, tenantId);
   }
 
   @Get('export')
   @Throttle({ default: { ttl: 60000, limit: 5 } })
   @Header('Content-Type', 'text/csv')
   @Header('Content-Disposition', 'attachment; filename="items.csv"')
-  async exportCsv(@Res() res: Response) {
+  async exportCsv(
+    @Res() res: Response,
+    @CurrentTenantId() tenantId: string,
+  ) {
     try {
-      const csv = await this.itemsService.exportCsv();
+      const csv = await this.itemsService.exportCsv(tenantId);
       res.send(csv);
     } catch (error) {
       this.logger.error('CSV Export failed', (error as Error).stack);
@@ -64,21 +78,30 @@ export class ItemsController {
     }
   }
 
-
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.itemsService.findOne(id);
+  findOne(
+    @Param('id') id: string,
+    @CurrentTenantId() tenantId: string,
+  ) {
+    return this.itemsService.findOne(id, tenantId);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateItemDto: UpdateItemDto) {
-    return this.itemsService.update(id, updateItemDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateItemDto: UpdateItemDto,
+    @CurrentTenantId() tenantId: string,
+  ) {
+    return this.itemsService.update(id, updateItemDto, tenantId);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  remove(@Param('id') id: string) {
-    return this.itemsService.remove(id);
+  remove(
+    @Param('id') id: string,
+    @CurrentTenantId() tenantId: string,
+  ) {
+    return this.itemsService.remove(id, tenantId);
   }
 
   // NOTE: This route must appear BEFORE `@Post(':id/facebook-posts')` below.
@@ -91,8 +114,9 @@ export class ItemsController {
   publishFacebookPost(
     @Param('id') id: string,
     @Body() dto: PublishFacebookPostDto,
+    @CurrentTenantId() tenantId: string,
   ) {
-    return this.itemsService.publishFacebookPost(id, dto);
+    return this.itemsService.publishFacebookPost(id, dto, tenantId);
   }
 
   @Post(':id/facebook-posts')
@@ -101,8 +125,9 @@ export class ItemsController {
   addFacebookPost(
     @Param('id') id: string,
     @Body() dto: CreateFacebookPostDto,
+    @CurrentTenantId() tenantId: string,
   ) {
-    return this.itemsService.addFacebookPost(id, dto);
+    return this.itemsService.addFacebookPost(id, dto, tenantId);
   }
 
   @Delete(':id/facebook-posts/:postId')
@@ -111,7 +136,8 @@ export class ItemsController {
   removeFacebookPost(
     @Param('id') id: string,
     @Param('postId') postId: string,
+    @CurrentTenantId() tenantId: string,
   ) {
-    return this.itemsService.removeFacebookPost(id, postId);
+    return this.itemsService.removeFacebookPost(id, postId, tenantId);
   }
 }

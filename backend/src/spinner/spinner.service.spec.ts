@@ -56,7 +56,7 @@ describe('SpinnerService', () => {
       },
       spinSet: {
         findMany: jest.fn(),
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
@@ -174,7 +174,7 @@ describe('SpinnerService', () => {
   // ============================================================
   describe('updateSpinSet', () => {
     it('should update spin set properties', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue({ ...mockSpinSet, item: { id: 'item-1' } });
+      prisma.spinSet.findFirst.mockResolvedValue({ ...mockSpinSet, item: { id: 'item-1' } });
       prisma.spinSet.update.mockResolvedValue({ ...mockSpinSet, label: 'Updated', frames: [] });
 
       const result = await service.updateSpinSet('spin-1', { label: 'Updated' });
@@ -183,7 +183,7 @@ describe('SpinnerService', () => {
     });
 
     it('should throw NOT_FOUND when spin set does not exist', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue(null);
+      prisma.spinSet.findFirst.mockResolvedValue(null);
 
       await expect(
         service.updateSpinSet('nonexistent', { label: 'x' }),
@@ -191,7 +191,7 @@ describe('SpinnerService', () => {
     });
 
     it('should unset other defaults when setting is_default=true', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue({
+      prisma.spinSet.findFirst.mockResolvedValue({
         ...mockSpinSet,
         item_id: 'item-1',
         item: { id: 'item-1' },
@@ -217,7 +217,7 @@ describe('SpinnerService', () => {
   // ============================================================
   describe('uploadFrame', () => {
     it('should upload frame and auto-assign frame_index', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinSet.findFirst.mockResolvedValue(mockSpinSet);
       prisma.spinFrame.count.mockResolvedValue(2);
       prisma.spinFrame.create.mockResolvedValue({ ...mockFrame, frame_index: 2 });
 
@@ -236,7 +236,7 @@ describe('SpinnerService', () => {
     });
 
     it('should throw NOT_FOUND when spin set does not exist', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue(null);
+      prisma.spinSet.findFirst.mockResolvedValue(null);
 
       await expect(
         service.uploadFrame('nonexistent', mockFile, {}),
@@ -244,7 +244,7 @@ describe('SpinnerService', () => {
     });
 
     it('should insert frame at requested index and shift existing frames', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinSet.findFirst.mockResolvedValue(mockSpinSet);
       prisma.spinFrame.count.mockResolvedValue(3);
       prisma.spinFrame.create.mockResolvedValue({ ...mockFrame, frame_index: 1 });
 
@@ -261,7 +261,7 @@ describe('SpinnerService', () => {
     });
 
     it('should clamp requested frame_index to frameCount when index is too large', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinSet.findFirst.mockResolvedValue(mockSpinSet);
       prisma.spinFrame.count.mockResolvedValue(3);
       prisma.spinFrame.create.mockResolvedValue({ ...mockFrame, frame_index: 3 });
 
@@ -278,7 +278,7 @@ describe('SpinnerService', () => {
     });
 
     it('should reject negative frame_index', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinSet.findFirst.mockResolvedValue(mockSpinSet);
       prisma.spinFrame.count.mockResolvedValue(1);
 
       await expect(
@@ -286,7 +286,7 @@ describe('SpinnerService', () => {
       ).rejects.toThrow(AppException);
     });
     it('should reject uploads beyond max frame limit', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinSet.findFirst.mockResolvedValue(mockSpinSet);
       prisma.spinFrame.count.mockResolvedValue(48); // max frames reached
 
       await expect(
@@ -296,7 +296,7 @@ describe('SpinnerService', () => {
       expect(storage.deleteFile).toHaveBeenCalledTimes(2);
     });
     it('should convert WatermarkProcessingError to AppException', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinSet.findFirst.mockResolvedValue(mockSpinSet);
       imageProcessor.processImage.mockRejectedValueOnce(new WatermarkProcessingError('fail watermark'));
 
       await expect(service.uploadFrame('spin-1', mockFile, {})).rejects.toThrow(AppException);
@@ -304,7 +304,7 @@ describe('SpinnerService', () => {
     });
 
     it('should cleanup saved files when db transaction fails', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinSet.findFirst.mockResolvedValue(mockSpinSet);
       prisma.spinFrame.count.mockResolvedValue(0);
       prisma.$transaction.mockImplementationOnce(async () => {
         throw new Error('DB failure');
@@ -389,7 +389,7 @@ describe('SpinnerService', () => {
       const frame1 = { ...mockFrame, id: 'f-1', frame_index: 0 };
       const frame2 = { ...mockFrame, id: 'f-2', frame_index: 1 };
 
-      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinSet.findFirst.mockResolvedValue(mockSpinSet);
       prisma.spinFrame.findMany
         .mockResolvedValueOnce([frame1, frame2])  // all frames in transaction
         .mockResolvedValueOnce([                  // final result after reorder
@@ -407,7 +407,7 @@ describe('SpinnerService', () => {
     });
 
     it('should throw NOT_FOUND when spin set does not exist', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue(null);
+      prisma.spinSet.findFirst.mockResolvedValue(null);
 
       await expect(
         service.reorderFrames('nonexistent', { frame_ids: ['f-1'] }),
@@ -415,7 +415,7 @@ describe('SpinnerService', () => {
     });
 
     it('should throw if some frame IDs are invalid', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinSet.findFirst.mockResolvedValue(mockSpinSet);
       prisma.spinFrame.findMany.mockResolvedValue([{ id: 'f-1' }]); // only 1 found
 
       await expect(
@@ -425,7 +425,7 @@ describe('SpinnerService', () => {
 
     it('should throw if duplicate frame IDs are provided', async () => {
       const frame1 = { ...mockFrame, id: 'f-1', frame_index: 0 };
-      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinSet.findFirst.mockResolvedValue(mockSpinSet);
       prisma.spinFrame.findMany
         .mockResolvedValueOnce([frame1])  // validate
         .mockResolvedValueOnce([frame1]); // all frames
@@ -441,7 +441,7 @@ describe('SpinnerService', () => {
   // ============================================================
   describe('validateFile (via uploadFrame)', () => {
     it('should reject invalid MIME type', async () => {
-      prisma.spinSet.findUnique.mockResolvedValue(mockSpinSet);
+      prisma.spinSet.findFirst.mockResolvedValue(mockSpinSet);
 
       const invalidFile = { ...mockFile, mimetype: 'application/pdf' };
 

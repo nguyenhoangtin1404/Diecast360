@@ -76,25 +76,27 @@ Condition: ${item.condition || ''}`;
     }
   }
 
-  async search(query: string, limit: number = 20) {
+  async search(query: string, tenantId?: string, limit: number = 20) {
     // Try vector/semantic search first, fallback to text search
     try {
       const embedding = await this.embeddingService.getEmbedding(query);
       if (!embedding.length) {
-        return this.findAll({ q: query, page: 1, page_size: limit });
+        return this.findAll({ q: query, page: 1, page_size: limit }, tenantId);
       }
 
       const ids = await this.vectorStore.search(embedding, limit);
 
       if (ids.length === 0) {
         // No vector results - fallback to text search
-        return this.findAll({ q: query, page: 1, page_size: limit });
+        return this.findAll({ q: query, page: 1, page_size: limit }, tenantId);
       }
 
       const items = await this.prisma.item.findMany({
         where: {
           id: { in: ids },
           deleted_at: null,
+          // Tenant isolation: scope vector results to active shop
+          ...(tenantId ? { shop_id: tenantId } : {}),
         },
         include: {
           item_images: {
@@ -143,17 +145,19 @@ Condition: ${item.condition || ''}`;
           err.stack,
         );
       }
-      return this.findAll({ q: query, page: 1, page_size: limit });
+      return this.findAll({ q: query, page: 1, page_size: limit }, tenantId);
     }
   }
 
-  async findAll(queryDto: QueryItemsDto) {
+  async findAll(queryDto: QueryItemsDto, tenantId?: string) {
     const page = queryDto.page || 1;
     const pageSize = queryDto.page_size || 20;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ItemWhereInput = {
       deleted_at: null,
+      // Tenant isolation: scope to active shop if tenantId provided
+      ...(tenantId ? { shop_id: tenantId } : {}),
     };
 
     if (queryDto.status) {
@@ -244,11 +248,13 @@ Condition: ${item.condition || ''}`;
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, tenantId?: string) {
     const item = await this.prisma.item.findFirst({
       where: {
         id,
         deleted_at: null,
+        // Tenant isolation: 404 if item belongs to a different shop (no data leak)
+        ...(tenantId ? { shop_id: tenantId } : {}),
       },
       include: {
         item_images: {
@@ -311,7 +317,7 @@ Condition: ${item.condition || ''}`;
     };
   }
 
-  async create(createDto: CreateItemDto) {
+  async create(createDto: CreateItemDto, tenantId?: string) {
     this.validatePriceFields(createDto.price, createDto.original_price);
     await this.validateCategoryMetadata(createDto.car_brand, createDto.model_brand);
 
@@ -337,6 +343,8 @@ Condition: ${item.condition || ''}`;
           original_price: createDto.original_price !== undefined && createDto.original_price !== null ? createDto.original_price : null,
           status: (createDto.status as ItemStatus) || 'con_hang',
           is_public: createDto.is_public || false,
+          // Tenant isolation: bind item to the active shop
+          ...(tenantId ? { shop_id: tenantId } : {}),
         },
       });
 
@@ -429,11 +437,13 @@ Condition: ${item.condition || ''}`;
     };
   }
 
-  async update(id: string, updateDto: UpdateItemDto) {
+  async update(id: string, updateDto: UpdateItemDto, tenantId?: string) {
     const existingItem = await this.prisma.item.findFirst({
       where: {
         id,
         deleted_at: null,
+        // Tenant isolation: 404 if item belongs to a different shop
+        ...(tenantId ? { shop_id: tenantId } : {}),
       },
     });
 
@@ -482,11 +492,13 @@ Condition: ${item.condition || ''}`;
     return { item };
   }
 
-  async remove(id: string) {
+  async remove(id: string, tenantId?: string) {
     const existingItem = await this.prisma.item.findFirst({
       where: {
         id,
         deleted_at: null,
+        // Tenant isolation: 404 if item belongs to a different shop
+        ...(tenantId ? { shop_id: tenantId } : {}),
       },
     });
 
@@ -505,9 +517,13 @@ Condition: ${item.condition || ''}`;
     return {};
   }
 
-  async exportCsv(): Promise<string> {
+  async exportCsv(tenantId?: string): Promise<string> {
     const items = await this.prisma.item.findMany({
-      where: { deleted_at: null },
+      where: {
+        deleted_at: null,
+        // Tenant isolation: scope export to active shop
+        ...(tenantId ? { shop_id: tenantId } : {}),
+      },
       orderBy: { created_at: 'desc' },
     });
 
@@ -639,9 +655,13 @@ Condition: ${item.condition || ''}`;
     return this.storage.getFileUrl(filePath);
   }
 
-  async addFacebookPost(itemId: string, dto: { post_url: string; content?: string }) {
+  async addFacebookPost(itemId: string, dto: { post_url: string; content?: string }, tenantId?: string) {
     const item = await this.prisma.item.findFirst({
-      where: { id: itemId, deleted_at: null },
+      where: {
+        id: itemId,
+        deleted_at: null,
+        ...(tenantId ? { shop_id: tenantId } : {}),
+      },
       include: { _count: { select: { facebook_posts: true } } },
     });
     if (!item) {
@@ -665,9 +685,14 @@ Condition: ${item.condition || ''}`;
     return { post };
   }
 
-  async removeFacebookPost(itemId: string, postId: string) {
+  async removeFacebookPost(itemId: string, postId: string, tenantId?: string) {
     const post = await this.prisma.facebookPost.findFirst({
-      where: { id: postId, item_id: itemId },
+      where: {
+        id: postId,
+        item_id: itemId,
+        ...(tenantId ? { item: { shop_id: tenantId } } : {}),
+      },
+      include: { item: true },
     });
     if (!post) {
       throw new AppException(ErrorCode.NOT_FOUND, 'Facebook post not found');
@@ -696,7 +721,7 @@ Condition: ${item.condition || ''}`;
    * SELECT FOR UPDATE (raw SQL). Given the 5 req/min throttle per user this
    * risk is accepted as low-impact.
    */
-  async publishFacebookPost(itemId: string, dto?: PublishFacebookPostDto) {
+  async publishFacebookPost(itemId: string, dto?: PublishFacebookPostDto, tenantId?: string) {
     // Use isConfigured() from FacebookConfigService rather than null-checking
     // the injected service — the service is always present because FacebookModule
     // is always imported. This is a server misconfiguration, not a bad token.
@@ -708,7 +733,11 @@ Condition: ${item.condition || ''}`;
     }
 
     const item = await this.prisma.item.findFirst({
-      where: { id: itemId, deleted_at: null },
+      where: {
+        id: itemId,
+        deleted_at: null,
+        ...(tenantId ? { shop_id: tenantId } : {}),
+      },
       include: { _count: { select: { facebook_posts: true } } },
     });
 

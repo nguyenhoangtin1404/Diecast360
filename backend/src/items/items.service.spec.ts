@@ -666,6 +666,7 @@ describe('ItemsService', () => {
       expect(result).toEqual({});
       expect(prisma.facebookPost.findFirst).toHaveBeenCalledWith({
         where: { id: 'post-1', item_id: 'item-123' },
+        include: { item: true },
       });
       expect(prisma.facebookPost.delete).toHaveBeenCalledWith({
         where: { id: 'post-1' },
@@ -681,6 +682,7 @@ describe('ItemsService', () => {
 
       expect(prisma.facebookPost.findFirst).toHaveBeenCalledWith({
         where: { id: 'nonexistent', item_id: 'item-123' },
+        include: { item: true },
       });
     });
   });
