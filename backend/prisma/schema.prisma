@@ -21,17 +21,51 @@ enum ItemStatus {
   da_ban
 }
 
+enum ShopRole {
+  super_admin
+  shop_admin
+}
+
+model Shop {
+  id         String         @id @default(uuid())
+  name       String
+  slug       String         @unique
+  is_active  Boolean        @default(true)
+  created_at DateTime       @default(now())
+  updated_at DateTime       @updatedAt
+
+  items      Item[]
+  user_roles UserShopRole[]
+
+  @@map("shops")
+  @@index([is_active])
+}
+
+model UserShopRole {
+  user_id    String
+  shop_id    String
+  role       ShopRole @default(shop_admin)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  shop Shop @relation(fields: [shop_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, shop_id])
+  @@map("user_shop_roles")
+  @@index([user_id])
+}
+
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
+  id            String         @id @default(uuid())
+  email         String         @unique
   password_hash String
   full_name     String?
-  role          String    @default("admin")
-  is_active     Boolean   @default(true)
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
-  
+  role          String         @default("admin")
+  is_active     Boolean        @default(true)
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @updatedAt
+
   refresh_tokens RefreshToken[]
+  shop_roles     UserShopRole[]
 
   @@map("users")
 }
@@ -68,11 +102,15 @@ model Item {
   deleted_at     DateTime?
   notes          String?
   fb_post_content String?
-  
+  // Multi-tenant: shop_id is nullable for backward-compatible migration.
+  // All new items must have a shop_id. Migration sets existing items to default shop.
+  shop_id        String?
+
   item_images    ItemImage[]
   spin_sets      SpinSet[]
   facebook_posts FacebookPost[]
   vector_sync_task VectorSyncTask?
+  shop           Shop?       @relation(fields: [shop_id], references: [id])
 
   @@map("items")
   @@index([status])
@@ -81,6 +119,7 @@ model Item {
   @@index([car_brand])
   @@index([model_brand])
   @@index([condition])
+  @@index([shop_id])
 }
 
 model FacebookPost {
