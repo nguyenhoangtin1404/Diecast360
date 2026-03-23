@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import ShopSelector from './admin/ShopSelector';
 import styles from './Layout.module.css';
 
 interface LayoutProps {
@@ -61,6 +62,13 @@ export const Layout = ({ children }: LayoutProps) => {
                 <div className={styles.brandSubtitle}>Mô hình xe thu nhỏ</div>
               </div>
             </Link>
+
+            {/* Shop selector — visible only in admin area */}
+            {isAdmin && (
+              <div style={{ marginLeft: 'auto', marginRight: '8px' }}>
+                <ShopSelector />
+              </div>
+            )}
 
             <button
               type="button"
