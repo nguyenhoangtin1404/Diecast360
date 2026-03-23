@@ -23,6 +23,7 @@ describe('AuthService', () => {
     is_active: true,
     created_at: new Date(),
     updated_at: new Date(),
+    shop_roles: [{ shop_id: 'shop-1', role: 'owner' }],
   };
 
   beforeEach(async () => {
@@ -210,6 +211,7 @@ describe('AuthService', () => {
         email: 'admin@test.com',
         full_name: 'Admin User',
         role: 'admin',
+        allowed_shop_ids: ['shop-1'],
       });
     });
 
