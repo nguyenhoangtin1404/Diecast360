@@ -35,6 +35,12 @@
 
 ## v2 Requirements
 
+### Multi-Tenant Shop
+
+- [ ] **MULT-01**: System supports multiple isolated shop tenants with distinct inventory, media, and settings.
+- [ ] **MULT-02**: Admin users can be assigned to one or more shops with role-based access.
+- [ ] **MULT-03**: API requests are scoped to the active tenant via header or token context.
+
 ### UX and Operations
 
 - [x] **RESP-01**: Admin and public pages are fully usable on mobile without layout breakage.

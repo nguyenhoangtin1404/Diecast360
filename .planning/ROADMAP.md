@@ -236,3 +236,15 @@ Phases not yet executed and pending tasks:
 
 Partially executed phases (still pending full completion):
 - None.
+
+### Phase 14: Multi-Tenant Shop
+
+**Goal:** Support multiple isolated diecast shops on a single deployment with scoped access.
+**Requirements**: MULT-01, MULT-02, MULT-03
+**Depends on:** Phase 5 (auth and API baseline)
+**Plans:** 3 plans
+
+Plans:
+- [ ] 14-01: Multi-tenant schema and data isolation
+- [ ] 14-02: API scoping, tenant guard và shop management endpoints
+- [ ] 14-03: Admin tenant selection UI và super-admin shop management
