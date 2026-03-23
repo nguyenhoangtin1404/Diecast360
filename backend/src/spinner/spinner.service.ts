@@ -35,9 +35,12 @@ export class SpinnerService {
     this.maxFrames = this.uploadSupport.resolveMaxSpinnerFrames(this.logger, 48);
   }
 
-  async getSpinSets(itemId: string) {
+  async getSpinSets(itemId: string, tenantId?: string) {
     const spinSets = await this.prisma.spinSet.findMany({
-      where: { item_id: itemId },
+      where: {
+        item_id: itemId,
+        ...(tenantId ? { item: { shop_id: tenantId } } : {}),
+      },
       include: {
         frames: {
           orderBy: { frame_index: 'asc' },
@@ -67,9 +70,13 @@ export class SpinnerService {
     };
   }
 
-  async createSpinSet(itemId: string, createDto: CreateSpinSetDto) {
+  async createSpinSet(itemId: string, createDto: CreateSpinSetDto, tenantId?: string) {
     const item = await this.prisma.item.findFirst({
-      where: { id: itemId, deleted_at: null },
+      where: {
+        id: itemId,
+        deleted_at: null,
+        ...(tenantId ? { shop_id: tenantId } : {}),
+      },
     });
 
     if (!item) {
@@ -104,9 +111,12 @@ export class SpinnerService {
     };
   }
 
-  async updateSpinSet(spinSetId: string, updateDto: UpdateSpinSetDto) {
-    const spinSet = await this.prisma.spinSet.findUnique({
-      where: { id: spinSetId },
+  async updateSpinSet(spinSetId: string, updateDto: UpdateSpinSetDto, tenantId?: string) {
+    const spinSet = await this.prisma.spinSet.findFirst({
+      where: {
+        id: spinSetId,
+        ...(tenantId ? { item: { shop_id: tenantId } } : {}),
+      },
       include: { item: true },
     });
 
@@ -170,9 +180,13 @@ export class SpinnerService {
     spinSetId: string,
     file: Express.Multer.File,
     uploadDto: UploadFrameDto,
+    tenantId?: string,
   ) {
-    const spinSet = await this.prisma.spinSet.findUnique({
-      where: { id: spinSetId },
+    const spinSet = await this.prisma.spinSet.findFirst({
+      where: {
+        id: spinSetId,
+        ...(tenantId ? { item: { shop_id: tenantId } } : {}),
+      },
     });
 
     if (!spinSet) {
@@ -322,9 +336,12 @@ export class SpinnerService {
     await this.uploadSupport.cleanupSavedFiles(this.storage, this.logger, paths, context);
   }
 
-  async reorderFrames(spinSetId: string, reorderDto: ReorderFramesDto) {
-    const spinSet = await this.prisma.spinSet.findUnique({
-      where: { id: spinSetId },
+  async reorderFrames(spinSetId: string, reorderDto: ReorderFramesDto, tenantId?: string) {
+    const spinSet = await this.prisma.spinSet.findFirst({
+      where: {
+        id: spinSetId,
+        ...(tenantId ? { item: { shop_id: tenantId } } : {}),
+      },
     });
 
     if (!spinSet) {
@@ -403,11 +420,12 @@ export class SpinnerService {
     );
   }
 
-  async deleteFrame(spinSetId: string, frameId: string) {
+  async deleteFrame(spinSetId: string, frameId: string, tenantId?: string) {
     const frame = await this.prisma.spinFrame.findFirst({
       where: {
         id: frameId,
         spin_set_id: spinSetId,
+        ...(tenantId ? { spin_set: { item: { shop_id: tenantId } } } : {}),
       },
     });
 

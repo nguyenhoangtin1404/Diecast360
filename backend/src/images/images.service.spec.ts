@@ -213,6 +213,7 @@ describe('ImagesService', () => {
   // ============================================================
   describe('reorderImages', () => {
     it('should reorder images by ids', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
       prisma.itemImage.findMany.mockResolvedValue([
         { ...mockImage, id: 'img-1', display_order: 0, is_cover: true },
         { ...mockImage, id: 'img-2', display_order: 1, is_cover: false },
@@ -230,6 +231,7 @@ describe('ImagesService', () => {
     });
 
     it('should throw if some image IDs do not belong to item', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
       prisma.itemImage.findMany.mockResolvedValue([{ id: 'img-1' }]); // only 1 found
 
       await expect(service.reorderImages('item-1', { image_ids: ['img-1', 'img-wrong'] }))
@@ -237,6 +239,7 @@ describe('ImagesService', () => {
     });
 
     it('should retry on transaction conflict then fail re-validation on latest snapshot mismatch', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
       const retryable = new Prisma.PrismaClientKnownRequestError(
         'Transaction conflict',
         { code: 'P2034', clientVersion: 'test' },

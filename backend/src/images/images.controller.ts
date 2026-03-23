@@ -16,9 +16,11 @@ import { ImagesService } from './images.service';
 import { UpdateImageDto } from './dto/update-image.dto';
 import { ReorderImagesDto } from './dto/reorder-images.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../common/guards/tenant.guard';
+import { CurrentTenantId } from '../common/decorators/tenant.decorator';
 
 @Controller('items/:itemId/images')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class ImagesController {
   constructor(private readonly imagesService: ImagesService) {}
 
@@ -28,12 +30,13 @@ export class ImagesController {
     @Param('itemId') itemId: string,
     @UploadedFile() file: Express.Multer.File,
     @Body() body: { is_cover?: string | boolean },
+    @CurrentTenantId() tenantId: string,
   ) {
     if (!file) {
       throw new Error('File is required');
     }
     const isCover = body.is_cover === 'true' || body.is_cover === true;
-    return this.imagesService.uploadImage(itemId, file, isCover);
+    return this.imagesService.uploadImage(itemId, file, isCover, tenantId);
   }
 
   @Patch(':imageId')
@@ -41,16 +44,18 @@ export class ImagesController {
     @Param('itemId') itemId: string,
     @Param('imageId') imageId: string,
     @Body() updateDto: UpdateImageDto,
+    @CurrentTenantId() tenantId: string,
   ) {
-    return this.imagesService.updateImage(itemId, imageId, updateDto);
+    return this.imagesService.updateImage(itemId, imageId, updateDto, tenantId);
   }
 
   @Patch('order')
   async reorderImages(
     @Param('itemId') itemId: string,
     @Body() reorderDto: ReorderImagesDto,
+    @CurrentTenantId() tenantId: string,
   ) {
-    return this.imagesService.reorderImages(itemId, reorderDto);
+    return this.imagesService.reorderImages(itemId, reorderDto, tenantId);
   }
 
   @Delete(':imageId')
@@ -58,8 +63,9 @@ export class ImagesController {
   async deleteImage(
     @Param('itemId') itemId: string,
     @Param('imageId') imageId: string,
+    @CurrentTenantId() tenantId: string,
   ) {
-    return this.imagesService.deleteImage(itemId, imageId);
+    return this.imagesService.deleteImage(itemId, imageId, tenantId);
   }
 }
 
