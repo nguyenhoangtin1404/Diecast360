@@ -37,6 +37,20 @@ export class ItemsService {
     private fbConfig: FacebookConfigService,
   ) {}
 
+  /**
+   * Every admin item query/mutation must be scoped to exactly one shop.
+   * Without a non-empty tenant id, Prisma would match rows from all shops.
+   */
+  private requireActiveShopId(tenantId: string | undefined | null): string {
+    if (typeof tenantId !== 'string' || tenantId.trim().length === 0) {
+      throw new AppException(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Active shop context is required for this operation.',
+      );
+    }
+    return tenantId.trim();
+  }
+
   async syncVectorStore(item: VectorSyncItem) {
     try {
       if (!item.is_public || item.deleted_at) {
@@ -76,27 +90,27 @@ Condition: ${item.condition || ''}`;
     }
   }
 
-  async search(query: string, tenantId?: string, limit: number = 20) {
+  async search(query: string, tenantId: string, limit: number = 20) {
+    const shopId = this.requireActiveShopId(tenantId);
     // Try vector/semantic search first, fallback to text search
     try {
       const embedding = await this.embeddingService.getEmbedding(query);
       if (!embedding.length) {
-        return this.findAll({ q: query, page: 1, page_size: limit }, tenantId);
+        return this.findAll({ q: query, page: 1, page_size: limit }, shopId);
       }
 
       const ids = await this.vectorStore.search(embedding, limit);
 
       if (ids.length === 0) {
         // No vector results - fallback to text search
-        return this.findAll({ q: query, page: 1, page_size: limit }, tenantId);
+        return this.findAll({ q: query, page: 1, page_size: limit }, shopId);
       }
 
       const items = await this.prisma.item.findMany({
         where: {
           id: { in: ids },
           deleted_at: null,
-          // Tenant isolation: scope vector results to active shop
-          ...(tenantId ? { shop_id: tenantId } : {}),
+          shop_id: shopId,
         },
         include: {
           item_images: {
@@ -145,19 +159,19 @@ Condition: ${item.condition || ''}`;
           err.stack,
         );
       }
-      return this.findAll({ q: query, page: 1, page_size: limit }, tenantId);
+      return this.findAll({ q: query, page: 1, page_size: limit }, shopId);
     }
   }
 
-  async findAll(queryDto: QueryItemsDto, tenantId?: string) {
+  async findAll(queryDto: QueryItemsDto, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
     const page = queryDto.page || 1;
     const pageSize = queryDto.page_size || 20;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ItemWhereInput = {
       deleted_at: null,
-      // Tenant isolation: scope to active shop if tenantId provided
-      ...(tenantId ? { shop_id: tenantId } : {}),
+      shop_id: shopId,
     };
 
     if (queryDto.status) {
@@ -248,13 +262,13 @@ Condition: ${item.condition || ''}`;
     };
   }
 
-  async findOne(id: string, tenantId?: string) {
+  async findOne(id: string, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
     const item = await this.prisma.item.findFirst({
       where: {
         id,
         deleted_at: null,
-        // Tenant isolation: 404 if item belongs to a different shop (no data leak)
-        ...(tenantId ? { shop_id: tenantId } : {}),
+        shop_id: shopId,
       },
       include: {
         item_images: {
@@ -317,7 +331,8 @@ Condition: ${item.condition || ''}`;
     };
   }
 
-  async create(createDto: CreateItemDto, tenantId?: string) {
+  async create(createDto: CreateItemDto, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
     this.validatePriceFields(createDto.price, createDto.original_price);
     await this.validateCategoryMetadata(createDto.car_brand, createDto.model_brand);
 
@@ -343,8 +358,7 @@ Condition: ${item.condition || ''}`;
           original_price: createDto.original_price !== undefined && createDto.original_price !== null ? createDto.original_price : null,
           status: (createDto.status as ItemStatus) || 'con_hang',
           is_public: createDto.is_public || false,
-          // Tenant isolation: bind item to the active shop
-          ...(tenantId ? { shop_id: tenantId } : {}),
+          shop_id: shopId,
         },
       });
 
@@ -437,13 +451,13 @@ Condition: ${item.condition || ''}`;
     };
   }
 
-  async update(id: string, updateDto: UpdateItemDto, tenantId?: string) {
+  async update(id: string, updateDto: UpdateItemDto, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
     const existingItem = await this.prisma.item.findFirst({
       where: {
         id,
         deleted_at: null,
-        // Tenant isolation: 404 if item belongs to a different shop
-        ...(tenantId ? { shop_id: tenantId } : {}),
+        shop_id: shopId,
       },
     });
 
@@ -492,13 +506,13 @@ Condition: ${item.condition || ''}`;
     return { item };
   }
 
-  async remove(id: string, tenantId?: string) {
+  async remove(id: string, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
     const existingItem = await this.prisma.item.findFirst({
       where: {
         id,
         deleted_at: null,
-        // Tenant isolation: 404 if item belongs to a different shop
-        ...(tenantId ? { shop_id: tenantId } : {}),
+        shop_id: shopId,
       },
     });
 
@@ -517,12 +531,12 @@ Condition: ${item.condition || ''}`;
     return {};
   }
 
-  async exportCsv(tenantId?: string): Promise<string> {
+  async exportCsv(tenantId: string): Promise<string> {
+    const shopId = this.requireActiveShopId(tenantId);
     const items = await this.prisma.item.findMany({
       where: {
         deleted_at: null,
-        // Tenant isolation: scope export to active shop
-        ...(tenantId ? { shop_id: tenantId } : {}),
+        shop_id: shopId,
       },
       orderBy: { created_at: 'desc' },
     });
@@ -655,12 +669,13 @@ Condition: ${item.condition || ''}`;
     return this.storage.getFileUrl(filePath);
   }
 
-  async addFacebookPost(itemId: string, dto: { post_url: string; content?: string }, tenantId?: string) {
+  async addFacebookPost(itemId: string, dto: { post_url: string; content?: string }, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
     const item = await this.prisma.item.findFirst({
       where: {
         id: itemId,
         deleted_at: null,
-        ...(tenantId ? { shop_id: tenantId } : {}),
+        shop_id: shopId,
       },
       include: { _count: { select: { facebook_posts: true } } },
     });
@@ -685,12 +700,13 @@ Condition: ${item.condition || ''}`;
     return { post };
   }
 
-  async removeFacebookPost(itemId: string, postId: string, tenantId?: string) {
+  async removeFacebookPost(itemId: string, postId: string, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
     const post = await this.prisma.facebookPost.findFirst({
       where: {
         id: postId,
         item_id: itemId,
-        ...(tenantId ? { item: { shop_id: tenantId } } : {}),
+        item: { shop_id: shopId },
       },
       include: { item: true },
     });
@@ -721,7 +737,12 @@ Condition: ${item.condition || ''}`;
    * SELECT FOR UPDATE (raw SQL). Given the 5 req/min throttle per user this
    * risk is accepted as low-impact.
    */
-  async publishFacebookPost(itemId: string, dto?: PublishFacebookPostDto, tenantId?: string) {
+  async publishFacebookPost(
+    itemId: string,
+    dto: PublishFacebookPostDto | undefined,
+    tenantId: string,
+  ) {
+    const shopId = this.requireActiveShopId(tenantId);
     // Use isConfigured() from FacebookConfigService rather than null-checking
     // the injected service — the service is always present because FacebookModule
     // is always imported. This is a server misconfiguration, not a bad token.
@@ -736,7 +757,7 @@ Condition: ${item.condition || ''}`;
       where: {
         id: itemId,
         deleted_at: null,
-        ...(tenantId ? { shop_id: tenantId } : {}),
+        shop_id: shopId,
       },
       include: { _count: { select: { facebook_posts: true } } },
     });
@@ -772,7 +793,7 @@ Condition: ${item.condition || ''}`;
     try {
       post = await this.prisma.$transaction(async (tx) => {
         const freshItem = await tx.item.findFirst({
-          where: { id: itemId, deleted_at: null },
+          where: { id: itemId, deleted_at: null, shop_id: shopId },
           include: { _count: { select: { facebook_posts: true } } },
         });
         if (!freshItem || freshItem._count.facebook_posts >= 50) {

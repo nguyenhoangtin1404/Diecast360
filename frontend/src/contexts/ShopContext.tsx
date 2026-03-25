@@ -42,8 +42,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       setLoading(true);
-      const meResponse = await apiClient.get<{ ok?: boolean; data: { user: MeUser } }>('/auth/me');
-      const user: MeUser | undefined = meResponse?.data?.user;
+      const meResponse = await apiClient.get('/auth/me');
+      const user: MeUser | undefined =
+        (meResponse as { data?: { user?: MeUser } })?.data?.user ??
+        (meResponse as { user?: MeUser })?.user;
 
       const raw = user?.allowed_shops ?? [];
       if (raw.length === 0) {

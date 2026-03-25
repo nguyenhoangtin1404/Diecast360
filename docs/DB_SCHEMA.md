@@ -59,7 +59,7 @@
 | Column | Type | Constraints/Notes |
 |--------|------|-------------------|
 | id | uuid | PK |
-| shop_id | uuid | NULL, FK → shops(id) ON DELETE CASCADE |
+| shop_id | uuid | NULL, FK → shops(id) (NO ACTION/RESTRICT semantics; no cascade item delete) |
 | name | varchar | NOT NULL |
 | description | text | NULL |
 | scale | varchar | NOT NULL, default `1:64` |

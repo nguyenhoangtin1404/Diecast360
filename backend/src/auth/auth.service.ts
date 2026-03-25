@@ -111,55 +111,61 @@ export class AuthService {
     return {};
   }
 
+  /**
+   * JWT validation only — no `shop_roles` / `shops` join (avoids overhead on every authenticated request).
+   * Full tenant payload: {@link getUserTenantAccess} (e.g. GET /auth/me). Per-shop: targeted query in {@link switchShop}.
+   */
   async validateUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { shop_roles: { select: { shop_id: true, role: true } } },
+      select: { id: true, email: true, full_name: true, role: true, is_active: true },
     });
 
     if (!user || !user.is_active) {
       return null;
     }
 
-    const shop_roles = user.shop_roles.map((r) => ({
-      shop_id: r.shop_id,
-      role: r.role,
-    }));
-
     return {
       id: user.id,
       email: user.email,
       full_name: user.full_name,
       role: user.role,
-      allowed_shop_ids: shop_roles.map((r) => r.shop_id),
-      shop_roles,
     };
   }
 
   /**
-   * Shop summaries for the authenticated user (e.g. GET /auth/me).
-   * Not loaded on every JWT validation — only when assembling the profile response.
+   * Load shop memberships + shop summaries — use for GET /auth/me only, not for JwtStrategy.
    */
-  async getAllowedShopsSummary(userId: string) {
+  async getUserTenantAccess(userId: string) {
     const roles = await this.prisma.userShopRole.findMany({
       where: { user_id: userId },
       include: {
         shop: { select: { id: true, name: true, slug: true, is_active: true } },
       },
     });
-    return roles.map((r) => ({
+
+    const shop_roles = roles.map((r) => ({
+      shop_id: r.shop_id,
+      role: r.role,
+    }));
+
+    const allowed_shops = roles.map((r) => ({
       id: r.shop.id,
       name: r.shop.name,
       slug: r.shop.slug,
       is_active: r.shop.is_active,
       role: r.role,
     }));
+
+    return {
+      allowed_shop_ids: shop_roles.map((r) => r.shop_id),
+      shop_roles,
+      allowed_shops,
+    };
   }
 
   /**
-   * Switch active shop context.
-   * Validates the user has a role for the requested shop,
-   * then issues a new access_token with active_shop_id in the payload.
+   * Switch active shop — loads **one** `user_shop_roles` row (+ shop), not the full role list.
    */
   async switchShop(userId: string, dto: SwitchShopDto) {
     const shopRole = await this.prisma.userShopRole.findUnique({
@@ -247,4 +253,5 @@ export class AuthService {
     return new Date(now.getTime() + milliseconds);
   }
 }
+
 

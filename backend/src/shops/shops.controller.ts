@@ -1,12 +1,14 @@
 import {
-  Controller, Get, Post, Patch, Body, Param, Delete, UseGuards, HttpCode, HttpStatus,
+  Controller, Get, Post, Patch, Body, Param, Delete, UseGuards, HttpCode, HttpStatus, Query,
 } from '@nestjs/common';
 import { ShopsService } from './shops.service';
 import { CreateShopDto } from './dto/create-shop.dto';
+import { QueryShopMembersDto } from './dto/query-shop-members.dto';
 import { UpdateShopDto } from './dto/update-shop.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { ShopRole } from '../generated/prisma/client';
 
 /**
  * ShopsController — Super-admin only.
@@ -16,7 +18,7 @@ import { Roles } from '../common/decorators/roles.decorator';
  */
 @Controller('admin/shops')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('super_admin')
+@Roles(ShopRole.super_admin)
 export class ShopsController {
   constructor(private readonly shopsService: ShopsService) {}
 
@@ -47,7 +49,7 @@ export class ShopsController {
   }
 
   @Get(':id/members')
-  findMembers(@Param('id') id: string) {
-    return this.shopsService.findMembers(id);
+  findMembers(@Param('id') id: string, @Query() query: QueryShopMembersDto) {
+    return this.shopsService.findMembers(id, query);
   }
 }

@@ -78,9 +78,14 @@
 
 ### GET /api/v1/admin/shops/:id/members
 - Auth: Role `super_admin`.
-- Response 200: **`data` là mảng** các bản ghi `user_shop_roles` khớp Prisma: `{ user_id, shop_id, role, user: { id, email, full_name, role, is_active } }[]` (không bọc `{ members: ... }`).
+- Query: `page` (default `1`), `page_size` (default `20`, max `100`).
+- Response 200: `data: { members, pagination }` với:
+  - `members`: mảng bản ghi `user_shop_roles`: `{ user_id, shop_id, role, user: { id, email, full_name, role, is_active } }[]`
+  - `pagination`: `{ page, page_size, total, total_pages }`
 
 ## Items (admin)
+Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop_id`). Nếu user chưa gọi `POST /auth/switch-shop` cho shop hợp lệ, server trả **HTTP 400** với message hướng dẫn switch shop (không dùng 403 vì đây là thiếu context tenant, không phải từ chối quyền).
+
 ### GET /api/v1/items
 - Query: `page` (default 1), `page_size` (default 20), `status` (optional), `is_public` (optional), `q` (search theo tên), `car_brand` (optional), `model_brand` (optional), `condition` (optional), `fb_status=posted|not_posted` (optional).
 - Response 200: `data: { items: Item[], pagination }`.

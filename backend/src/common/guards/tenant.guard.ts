@@ -1,4 +1,4 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 
 /**
  * TenantGuard — enforces that a request has an active_shop_id bound in the JWT.
@@ -18,8 +18,9 @@ export class TenantGuard implements CanActivate {
     const user = request.user;
 
     if (!user || !user.active_shop_id) {
-      throw new ForbiddenException(
-        'No active shop context. Please call POST /auth/switch-shop first.',
+      // Missing tenant context is a client/setup issue (which shop to act on), not role-based denial — use 400.
+      throw new BadRequestException(
+        'Active shop is not selected. Call POST /auth/switch-shop with a shop_id you have access to, then retry.',
       );
     }
 
