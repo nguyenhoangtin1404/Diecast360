@@ -1,4 +1,4 @@
-import { ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ShopRole } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -73,7 +73,7 @@ describe('RolesGuard', () => {
     await expect(guard.canActivate(createContext({ id: 'u1' }))).rejects.toThrow(ForbiddenException);
   });
 
-  it('throws when user is super_admin on shop A but active_shop_id is shop B', async () => {
+  it('allows super_admin even when active_shop_id points to a different shop', async () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([ShopRole.super_admin]);
     const context = createContext({
       id: 'u1',
@@ -81,7 +81,29 @@ describe('RolesGuard', () => {
       shop_roles: [{ shop_id: 'shop-a', role: ShopRole.super_admin }],
     });
 
-    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('throws BadRequestException when tenant-scoped role is requested but active_shop_id is missing', async () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([ShopRole.shop_admin]);
+    const context = createContext({
+      id: 'u1',
+      // active_shop_id missing
+      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
+    });
+
+    await expect(guard.canActivate(context)).rejects.toThrow(BadRequestException);
+  });
+
+  it('allows tenant-scoped role when active_shop_id matches', async () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([ShopRole.shop_admin]);
+    const context = createContext({
+      id: 'u1',
+      active_shop_id: 'shop-a',
+      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
+    });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
   });
 
   it('uses ROLES_KEY when reading metadata', async () => {

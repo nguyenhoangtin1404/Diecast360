@@ -31,12 +31,17 @@ export class ImagesService {
     this.maxUploadBytes = this.uploadSupport.resolveMaxUploadBytes(this.logger, 10);
   }
 
-  async uploadImage(itemId: string, file: Express.Multer.File, isCover?: boolean, tenantId?: string) {
+  async uploadImage(
+    itemId: string,
+    file: Express.Multer.File,
+    isCover: boolean,
+    tenantId: string,
+  ) {
     const item = await this.prisma.item.findFirst({
       where: {
         id: itemId,
         deleted_at: null,
-        ...(tenantId ? { shop_id: tenantId } : {}),
+        shop_id: tenantId,
       },
     });
 
@@ -165,13 +170,18 @@ export class ImagesService {
     );
   }
 
-  async updateImage(itemId: string, imageId: string, updateDto: UpdateImageDto, tenantId?: string) {
+  async updateImage(
+    itemId: string,
+    imageId: string,
+    updateDto: UpdateImageDto,
+    tenantId: string,
+  ) {
     const updated = await this.prisma.$transaction(async (tx) => {
       const image = await tx.itemImage.findFirst({
         where: {
           id: imageId,
           item_id: itemId,
-          ...(tenantId ? { item: { shop_id: tenantId } } : {}),
+          item: { shop_id: tenantId },
         },
       });
 
@@ -229,7 +239,7 @@ export class ImagesService {
     return { image: this.mapImage(updated) };
   }
 
-  async reorderImages(itemId: string, reorderDto: ReorderImagesDto, tenantId?: string) {
+  async reorderImages(itemId: string, reorderDto: ReorderImagesDto, tenantId: string) {
     if (new Set(reorderDto.image_ids).size !== reorderDto.image_ids.length) {
       throw new AppException(ErrorCode.VALIDATION_ERROR, 'Duplicate image IDs in reorder list');
     }
@@ -238,7 +248,7 @@ export class ImagesService {
       where: {
         id: itemId,
         deleted_at: null,
-        ...(tenantId ? { shop_id: tenantId } : {}),
+        shop_id: tenantId,
       },
     });
     if (!item) {
@@ -310,12 +320,12 @@ export class ImagesService {
     );
   }
 
-  async deleteImage(itemId: string, imageId: string, tenantId?: string) {
+  async deleteImage(itemId: string, imageId: string, tenantId: string) {
     const image = await this.prisma.itemImage.findFirst({
       where: {
         id: imageId,
         item_id: itemId,
-        ...(tenantId ? { item: { shop_id: tenantId } } : {}),
+        item: { shop_id: tenantId },
       },
     });
 

@@ -253,5 +253,3 @@ export class AuthService {
     return new Date(now.getTime() + milliseconds);
   }
 }
-
-

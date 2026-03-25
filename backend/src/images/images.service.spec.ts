@@ -22,6 +22,8 @@ describe('ImagesService', () => {
     deleted_at: null,
   };
 
+  const TEST_SHOP_ID = 'shop-a';
+
   const mockImage = {
     id: 'img-1',
     item_id: 'item-1',
@@ -104,7 +106,7 @@ describe('ImagesService', () => {
       prisma.itemImage.create.mockResolvedValue(mockImage);
       prisma.itemImage.updateMany.mockResolvedValue({ count: 0 });
 
-      const result = await service.uploadImage('item-1', mockFile);
+      const result = await service.uploadImage('item-1', mockFile, false, TEST_SHOP_ID);
 
       expect(imageProcessor.processImage).toHaveBeenCalledWith(mockFile.buffer, { watermark: true });
       expect(imageProcessor.generateThumbnail).toHaveBeenCalledWith(mockFile.buffer);
@@ -116,13 +118,13 @@ describe('ImagesService', () => {
     it('should throw NOT_FOUND when item does not exist', async () => {
       prisma.item.findFirst.mockResolvedValue(null);
 
-      await expect(service.uploadImage('nonexistent', mockFile)).rejects.toThrow(AppException);
+      await expect(service.uploadImage('nonexistent', mockFile, false, TEST_SHOP_ID)).rejects.toThrow(AppException);
     });
 
     it('should scope item lookup by tenantId to prevent cross-tenant upload', async () => {
       prisma.item.findFirst.mockResolvedValue(null);
 
-      await expect(service.uploadImage('item-1', mockFile, undefined, 'shop-a')).rejects.toThrow(
+      await expect(service.uploadImage('item-1', mockFile, false, TEST_SHOP_ID)).rejects.toThrow(
         AppException,
       );
 
@@ -141,7 +143,7 @@ describe('ImagesService', () => {
       prisma.itemImage.create.mockResolvedValue(mockImage);
       prisma.itemImage.updateMany.mockResolvedValue({ count: 0 });
 
-      await service.uploadImage('item-1', mockFile);
+      await service.uploadImage('item-1', mockFile, false, TEST_SHOP_ID);
 
       const createCall = prisma.itemImage.create.mock.calls[0][0];
       expect(createCall.data.is_cover).toBe(true);
@@ -156,7 +158,7 @@ describe('ImagesService', () => {
       prisma.itemImage.create.mockResolvedValue({ ...mockImage, display_order: 1 });
       prisma.itemImage.updateMany.mockResolvedValue({ count: 1 });
 
-      await service.uploadImage('item-1', mockFile, true);
+      await service.uploadImage('item-1', mockFile, true, TEST_SHOP_ID);
 
       // Should unset existing covers
       expect(prisma.itemImage.updateMany).toHaveBeenCalledWith({
@@ -169,7 +171,7 @@ describe('ImagesService', () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       imageProcessor.processImage.mockRejectedValueOnce(new WatermarkProcessingError('no dims'));
 
-      await expect(service.uploadImage('item-1', mockFile)).rejects.toThrow(AppException);
+      await expect(service.uploadImage('item-1', mockFile, false, TEST_SHOP_ID)).rejects.toThrow(AppException);
       expect(imageProcessor.generateThumbnail).not.toHaveBeenCalled();
     });
 
@@ -182,7 +184,7 @@ describe('ImagesService', () => {
         throw new Error('DB failure');
       });
 
-      await expect(service.uploadImage('item-1', mockFile)).rejects.toThrow('DB failure');
+      await expect(service.uploadImage('item-1', mockFile, false, TEST_SHOP_ID)).rejects.toThrow('DB failure');
       expect(storage.deleteFile).toHaveBeenCalledTimes(2);
     });
   });
@@ -196,7 +198,12 @@ describe('ImagesService', () => {
       prisma.itemImage.update.mockResolvedValue({ ...mockImage, display_order: 5 });
       prisma.itemImage.findMany.mockResolvedValue([mockImage]);
 
-      const result = await service.updateImage('item-1', 'img-1', { display_order: 5 });
+      const result = await service.updateImage(
+        'item-1',
+        'img-1',
+        { display_order: 5 },
+        TEST_SHOP_ID,
+      );
 
       expect(result.image).toBeDefined();
     });
@@ -205,7 +212,7 @@ describe('ImagesService', () => {
       prisma.itemImage.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateImage('item-1', 'nonexistent', { is_cover: true }),
+        service.updateImage('item-1', 'nonexistent', { is_cover: true }, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
 
@@ -215,7 +222,7 @@ describe('ImagesService', () => {
       prisma.itemImage.updateMany.mockResolvedValue({ count: 1 });
       prisma.itemImage.findMany.mockResolvedValue([mockImage]);
 
-      await service.updateImage('item-1', 'img-1', { is_cover: true });
+      await service.updateImage('item-1', 'img-1', { is_cover: true }, TEST_SHOP_ID);
 
       expect(prisma.itemImage.updateMany).toHaveBeenCalledWith({
         where: { item_id: 'item-1', is_cover: true },
@@ -239,7 +246,7 @@ describe('ImagesService', () => {
 
       const result = await service.reorderImages('item-1', {
         image_ids: ['img-2', 'img-1'],
-      });
+      }, TEST_SHOP_ID);
 
       expect(result.images).toHaveLength(2);
       // 4 calls for reindexing (negative + final), no cover-fix update when still exactly one cover
@@ -250,7 +257,9 @@ describe('ImagesService', () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       prisma.itemImage.findMany.mockResolvedValue([{ id: 'img-1' }]); // only 1 found
 
-      await expect(service.reorderImages('item-1', { image_ids: ['img-1', 'img-wrong'] }))
+      await expect(
+        service.reorderImages('item-1', { image_ids: ['img-1', 'img-wrong'] }, TEST_SHOP_ID),
+      )
         .rejects.toThrow('Reorder must include all item images');
     });
 
@@ -292,7 +301,7 @@ describe('ImagesService', () => {
         .mockResolvedValue(undefined);
 
       await expect(
-        service.reorderImages('item-1', { image_ids: ['img-2', 'img-1'] }),
+        service.reorderImages('item-1', { image_ids: ['img-2', 'img-1'] }, TEST_SHOP_ID),
       ).rejects.toThrow('Reorder must include all item images');
 
       expect(txAttempts).toBe(2);
@@ -301,7 +310,7 @@ describe('ImagesService', () => {
 
     it('should throw when duplicate IDs are provided', async () => {
       await expect(
-        service.reorderImages('item-1', { image_ids: ['img-1', 'img-1'] }),
+        service.reorderImages('item-1', { image_ids: ['img-1', 'img-1'] }, TEST_SHOP_ID),
       ).rejects.toThrow('Duplicate image IDs in reorder list');
     });
   });
@@ -315,7 +324,7 @@ describe('ImagesService', () => {
       prisma.itemImage.delete.mockResolvedValue(mockImage);
       prisma.itemImage.findMany.mockResolvedValue([]);
 
-      const result = await service.deleteImage('item-1', 'img-1');
+      const result = await service.deleteImage('item-1', 'img-1', TEST_SHOP_ID);
 
       expect(result).toEqual({});
       expect(storage.deleteFile).toHaveBeenCalledWith('images/test.jpg');
@@ -326,7 +335,9 @@ describe('ImagesService', () => {
     it('should throw NOT_FOUND when image does not exist', async () => {
       prisma.itemImage.findFirst.mockResolvedValue(null);
 
-      await expect(service.deleteImage('item-1', 'nonexistent')).rejects.toThrow(AppException);
+      await expect(service.deleteImage('item-1', 'nonexistent', TEST_SHOP_ID)).rejects.toThrow(
+        AppException,
+      );
     });
 
     it('should reassign cover when cover image is deleted', async () => {
@@ -346,7 +357,7 @@ describe('ImagesService', () => {
         },
       ]);
 
-      await service.deleteImage('item-1', 'img-1');
+      await service.deleteImage('item-1', 'img-1', TEST_SHOP_ID);
 
       // Should set next image as cover
       expect(prisma.itemImage.update).toHaveBeenCalledWith({
@@ -366,7 +377,7 @@ describe('ImagesService', () => {
       const invalidFile = { ...mockFile, mimetype: 'application/pdf' };
 
       await expect(
-        service.uploadImage('item-1', invalidFile as Express.Multer.File),
+        service.uploadImage('item-1', invalidFile as Express.Multer.File, false, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
 
@@ -375,7 +386,7 @@ describe('ImagesService', () => {
       const largeFile = { ...mockFile, size: 11 * 1024 * 1024 }; // exceeds default 10MB
 
       await expect(
-        service.uploadImage('item-1', largeFile as Express.Multer.File),
+        service.uploadImage('item-1', largeFile as Express.Multer.File, false, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
   });
@@ -391,7 +402,7 @@ describe('ImagesService', () => {
       prisma.itemImage.findMany.mockResolvedValue([]);
 
       await expect(
-        service.updateImage('item-1', 'img-1', { is_cover: false }),
+        service.updateImage('item-1', 'img-1', { is_cover: false }, TEST_SHOP_ID),
       ).rejects.toThrow('Item must always have one cover image');
     });
   });
@@ -405,7 +416,7 @@ describe('ImagesService', () => {
       prisma.itemImage.findMany.mockResolvedValue([]);
       storage.deleteFile.mockRejectedValueOnce(new Error('S3 unavailable'));
 
-      await expect(service.deleteImage('item-1', 'img-1')).resolves.toEqual({});
+      await expect(service.deleteImage('item-1', 'img-1', TEST_SHOP_ID)).resolves.toEqual({});
     });
   });
 });
