@@ -161,6 +161,12 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMe(@Request() req) {
-    return { user: req.user };
+    const allowed_shops = await this.authService.getAllowedShopsSummary(req.user.id);
+    return {
+      user: {
+        ...req.user,
+        allowed_shops,
+      },
+    };
   }
 }

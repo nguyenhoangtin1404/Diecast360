@@ -121,13 +121,39 @@ export class AuthService {
       return null;
     }
 
+    const shop_roles = user.shop_roles.map((r) => ({
+      shop_id: r.shop_id,
+      role: r.role,
+    }));
+
     return {
       id: user.id,
       email: user.email,
       full_name: user.full_name,
       role: user.role,
-      allowed_shop_ids: user.shop_roles.map((r) => r.shop_id),
+      allowed_shop_ids: shop_roles.map((r) => r.shop_id),
+      shop_roles,
     };
+  }
+
+  /**
+   * Shop summaries for the authenticated user (e.g. GET /auth/me).
+   * Not loaded on every JWT validation — only when assembling the profile response.
+   */
+  async getAllowedShopsSummary(userId: string) {
+    const roles = await this.prisma.userShopRole.findMany({
+      where: { user_id: userId },
+      include: {
+        shop: { select: { id: true, name: true, slug: true, is_active: true } },
+      },
+    });
+    return roles.map((r) => ({
+      id: r.shop.id,
+      name: r.shop.name,
+      slug: r.shop.slug,
+      is_active: r.shop.is_active,
+      role: r.role,
+    }));
   }
 
   /**
@@ -155,6 +181,7 @@ export class AuthService {
         id: shopRole.shop.id,
         name: shopRole.shop.name,
         slug: shopRole.shop.slug,
+        is_active: shopRole.shop.is_active,
         role: shopRole.role,
       },
     };

@@ -43,33 +43,42 @@
 
 ### GET /api/v1/auth/me
 - Auth: Bearer access token hoặc Cookie.
-- Response 200: `data: { user }`. `user` bao gồm mảng `allowed_shop_ids`.
+- Response 200: `data: { user }`. `user` gồm (không giới hạn): `allowed_shop_ids`, `shop_roles` (`{ shop_id, role }[]`), `allowed_shops` (`[{ id, name, slug, is_active, role }]`), `active_shop_id` (từ JWT khi đã switch shop).
 
 ### POST /api/v1/auth/switch-shop
-- Body JSON: `{ "shop_id": "string" }`.
+- Body JSON: `{ "shop_id": "UUID" }`.
 - Thay đổi `active_shop_id` trong session, server issue lại HTTP-only cookie mới.
-- Response 200: `data: {}`.
-- Errors: `NOT_FOUND (404)`, `AUTH_FORBIDDEN (403)` nếu user không thuộc shop.
+- Response 200: `data: { active_shop: { id, name, slug, is_active, role }, message?: string }`.
+- Errors: `VALIDATION (400)` nếu `shop_id` không phải UUID; `AUTH_FORBIDDEN (403)` nếu user không thuộc shop hoặc shop không active.
 
 ## Shops (Super Admin)
 ### GET /api/v1/admin/shops
 - Auth: Role `super_admin`.
-- Response 200: `data: { shops: Shop[] }` (có layout `items_count` và `members_count`).
+- Response 200: envelope chuẩn `ok`, `message`; **`data` là trực tiếp `Shop[]`** (mảng shop, không bọc `{ shops: ... }`). Mỗi phần tử gồm trường shop (`id`, `name`, `slug`, `is_active`, `created_at`, `updated_at`) và **`_count`**: `{ items: number, user_roles: number }`.
 - Errors: `AUTH_FORBIDDEN (403)` nếu không phải super_admin.
+
+### GET /api/v1/admin/shops/:id
+- Auth: Role `super_admin`.
+- Response 200: `data` là **một** `Shop` (cùng shape `_count` như trên).
+- Errors: `NOT_FOUND` nếu không tồn tại.
 
 ### POST /api/v1/admin/shops
 - Auth: Role `super_admin`.
-- Body JSON: `{ "name": "string" }` (tự động gen slug).
-- Response 201: `data: { shop: Shop }`.
+- Body JSON: `{ "name": "string", "slug": "string (optional)" }`. Nếu bỏ qua `slug`, server tạo slug duy nhất từ `name` (chữ thường, dấu gạch ngang).
+- Response 201: `data` là **bản ghi `Shop`** vừa tạo (không bọc `{ shop: ... }`).
 
 ### PATCH /api/v1/admin/shops/:id
 - Auth: Role `super_admin`.
 - Body JSON: `{ "name": "string (optional)", "is_active": "boolean (optional)" }`.
-- Response 200: `data: { shop: Shop }`.
+- Response 200: `data` là **bản ghi `Shop`** sau cập nhật.
+
+### PATCH /api/v1/admin/shops/:id/deactivate
+- Auth: Role `super_admin`.
+- Response 200: `data` là **bản ghi `Shop`** với `is_active: false`.
 
 ### GET /api/v1/admin/shops/:id/members
 - Auth: Role `super_admin`.
-- Response 200: `data: { members: Array<{ user_id, email, full_name, role, assigned_at }> }`.
+- Response 200: **`data` là mảng** các bản ghi `user_shop_roles` khớp Prisma: `{ user_id, shop_id, role, user: { id, email, full_name, role, is_active } }[]` (không bọc `{ members: ... }`).
 
 ## Items (admin)
 ### GET /api/v1/items

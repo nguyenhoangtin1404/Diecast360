@@ -12,7 +12,7 @@ interface Shop {
 
 interface CreateShopDto {
   name: string;
-  slug: string;
+  slug?: string;
 }
 
 const ShopsPage: React.FC = () => {
@@ -20,14 +20,14 @@ const ShopsPage: React.FC = () => {
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<CreateShopDto>({ name: '', slug: '' });
+  const [form, setForm] = useState<CreateShopDto>({ name: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchShops = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await apiClient.get('/admin/shops') as any;
+      const res = await apiClient.get('/admin/shops');
       setShops(res?.data || res || []);
     } catch {
       setError('Không thể tải danh sách shop.');
@@ -45,11 +45,14 @@ const ShopsPage: React.FC = () => {
     setSaving(true);
     setError(null);
     try {
-      await apiClient.post('/admin/shops', form);
+      await apiClient.post('/admin/shops', {
+        name: form.name,
+        ...(form.slug?.trim() ? { slug: form.slug.trim() } : {}),
+      });
       setShowForm(false);
-      setForm({ name: '', slug: '' });
+      setForm({ name: '' });
       await fetchShops();
-    } catch (err: any) {
+    } catch (err) {
       setError(err?.message?.message || 'Tạo shop thất bại.');
     } finally {
       setSaving(false);
@@ -66,8 +69,12 @@ const ShopsPage: React.FC = () => {
     }
   };
 
+  const isSuperAdmin =
+    user?.role === 'super_admin' ||
+    user?.shop_roles?.some((r) => r.role === 'super_admin');
+
   // Guard: non-super_admin gets a 403 from the API, but show UI message too
-  if (user && user.role !== 'super_admin') {
+  if (user && !isSuperAdmin) {
     return (
       <div style={styles.container}>
         <h1 style={styles.title}>Quản lý Shops</h1>
@@ -105,15 +112,14 @@ const ShopsPage: React.FC = () => {
             />
           </div>
           <div style={styles.formRow}>
-            <label style={styles.label} htmlFor="shop-slug">Slug</label>
+            <label style={styles.label} htmlFor="shop-slug">Slug (tùy chọn)</label>
             <input
               id="shop-slug"
-              required
               style={styles.input}
-              value={form.slug}
+              value={form.slug ?? ''}
               onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-              placeholder="Ví dụ: shop-a (không dấu, không khoảng trắng)"
-              pattern="^[a-z0-9-]+$"
+              placeholder="Để trống để tự tạo từ tên shop"
+              pattern="^[a-z0-9]+(-[a-z0-9]+)*$"
             />
           </div>
           <button id="submit-shop-form" type="submit" style={styles.createBtn} disabled={saving}>

@@ -456,6 +456,22 @@ describe('ItemsService', () => {
 
       await expect(service.findOne('nonexistent')).rejects.toThrow(AppException);
     });
+
+    it('should not return an item that belongs to another shop (tenant isolation)', async () => {
+      prisma.item.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne('item-123', 'tenant-shop-a')).rejects.toThrow(AppException);
+
+      expect(prisma.item.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: 'item-123',
+            shop_id: 'tenant-shop-a',
+            deleted_at: null,
+          }),
+        }),
+      );
+    });
   });
 
   // ============================================================

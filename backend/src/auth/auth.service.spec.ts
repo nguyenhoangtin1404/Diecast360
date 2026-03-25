@@ -11,6 +11,7 @@ describe('AuthService', () => {
   let prisma: {
     user: Record<string, jest.Mock>;
     refreshToken: Record<string, jest.Mock>;
+    userShopRole: Record<string, jest.Mock>;
   };
   let jwtService: { sign: jest.Mock };
 
@@ -23,7 +24,7 @@ describe('AuthService', () => {
     is_active: true,
     created_at: new Date(),
     updated_at: new Date(),
-    shop_roles: [{ shop_id: 'shop-1', role: 'owner' }],
+    shop_roles: [{ shop_id: 'shop-1', role: 'shop_admin' }],
   };
 
   beforeEach(async () => {
@@ -36,6 +37,10 @@ describe('AuthService', () => {
         create: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
+      },
+      userShopRole: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
       },
     };
 
@@ -212,6 +217,7 @@ describe('AuthService', () => {
         full_name: 'Admin User',
         role: 'admin',
         allowed_shop_ids: ['shop-1'],
+        shop_roles: [{ shop_id: 'shop-1', role: 'shop_admin' }],
       });
     });
 
@@ -227,6 +233,67 @@ describe('AuthService', () => {
 
       const result = await service.validateUser('user-1');
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getAllowedShopsSummary', () => {
+    it('should map user_shop_roles to allowed shop payloads', async () => {
+      prisma.userShopRole.findMany.mockResolvedValue([
+        {
+          role: 'shop_admin',
+          shop: {
+            id: 'shop-1',
+            name: 'Shop One',
+            slug: 'shop-one',
+            is_active: true,
+          },
+        },
+      ]);
+
+      const result = await service.getAllowedShopsSummary('user-1');
+
+      expect(result).toEqual([
+        {
+          id: 'shop-1',
+          name: 'Shop One',
+          slug: 'shop-one',
+          is_active: true,
+          role: 'shop_admin',
+        },
+      ]);
+      expect(prisma.userShopRole.findMany).toHaveBeenCalledWith({
+        where: { user_id: 'user-1' },
+        include: {
+          shop: { select: { id: true, name: true, slug: true, is_active: true } },
+        },
+      });
+    });
+  });
+
+  describe('switchShop', () => {
+    it('should issue token when user has role for shop', async () => {
+      prisma.userShopRole.findUnique.mockResolvedValue({
+        role: 'shop_admin',
+        shop: { id: 'shop-1', name: 'S', slug: 's', is_active: true },
+      });
+
+      const result = await service.switchShop('user-1', { shop_id: 'shop-1' });
+
+      expect(result.access_token).toBe('mock-access-token');
+      expect(result.active_shop).toEqual({
+        id: 'shop-1',
+        name: 'S',
+        slug: 's',
+        is_active: true,
+        role: 'shop_admin',
+      });
+      expect(jwtService.sign).toHaveBeenCalled();
+    });
+
+    it('should reject when user has no role for shop', async () => {
+      prisma.userShopRole.findUnique.mockResolvedValue(null);
+
+      await expect(service.switchShop('user-1', { shop_id: 'shop-x' })).rejects.toThrow(AppException);
     });
   });
 

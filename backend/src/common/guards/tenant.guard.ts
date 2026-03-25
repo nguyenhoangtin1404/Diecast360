@@ -1,5 +1,4 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 /**
  * TenantGuard — enforces that a request has an active_shop_id bound in the JWT.
@@ -7,6 +6,10 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
  * Usage: Apply after JwtAuthGuard.
  * The JwtStrategy.validate() must inject `active_shop_id` into req.user.
  * This guard reads req.user.active_shop_id and assigns it to req.tenantId.
+ *
+ * Note: Items with `shop_id = null` (pre-migration) are invisible to tenant-scoped
+ * queries. Run the data migration that assigns every item to a shop before relying
+ * on tenant isolation in production.
  */
 @Injectable()
 export class TenantGuard implements CanActivate {
