@@ -1,4 +1,11 @@
-import { BadRequestException, CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * TenantGuard — enforces that a request has an active_shop_id bound in the JWT.
@@ -13,7 +20,9 @@ import { BadRequestException, CanActivate, ExecutionContext, Injectable } from '
  */
 @Injectable()
 export class TenantGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
@@ -22,6 +31,17 @@ export class TenantGuard implements CanActivate {
       throw new BadRequestException(
         'Active shop is not selected. Call POST /auth/switch-shop with a shop_id you have access to, then retry.',
       );
+    }
+
+    // Hardening: ensure the selected tenant actually belongs to the user.
+    // Prevents JWT forging / replay where attacker provides arbitrary active_shop_id.
+    const shopRole = await this.prisma.userShopRole.findUnique({
+      where: { user_id_shop_id: { user_id: user.id, shop_id: user.active_shop_id } },
+      include: { shop: { select: { is_active: true } } },
+    });
+
+    if (!shopRole || !shopRole.shop?.is_active) {
+      throw new ForbiddenException('Access forbidden for the selected active shop.');
     }
 
     // Inject tenantId for downstream use via @CurrentTenantId() decorator

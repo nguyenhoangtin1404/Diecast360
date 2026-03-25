@@ -52,9 +52,18 @@ const ShopsPage: React.FC = () => {
       setShowForm(false);
       setForm({ name: '' });
       await fetchShops();
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Backend errors are usually: { ok:false, error:{code}, message }
-      setError(err?.response?.data?.message || err?.message || 'Tạo shop thất bại.');
+      const maybeAxiosError = err as {
+        response?: { data?: { message?: string } };
+        message?: string;
+      };
+
+      setError(
+        maybeAxiosError?.response?.data?.message ||
+          maybeAxiosError?.message ||
+          'Tạo shop thất bại.',
+      );
     } finally {
       setSaving(false);
     }

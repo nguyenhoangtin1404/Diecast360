@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ShopRole } from '../../generated/prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
@@ -23,6 +29,15 @@ export class RolesGuard implements CanActivate {
     private prisma: PrismaService,
   ) {}
 
+  // In-process cache to avoid hitting DB on every request for @Roles(...) routes.
+  // TTL is intentionally small because roles can change (e.g. user promoted/demoted).
+  private readonly shopRolesCache = new Map<
+    string,
+    { expiresAt: number; shopRoles: JwtUserShopRole[] }
+  >();
+
+  private readonly shopRolesCacheTtlMs = 30_000;
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredRoles = this.reflector.getAllAndOverride<ShopRole[]>(ROLES_KEY, [
       context.getHandler(),
@@ -41,11 +56,21 @@ export class RolesGuard implements CanActivate {
 
     let shopRoles = user?.shop_roles as JwtUserShopRole[] | undefined;
     if (!Array.isArray(shopRoles) || shopRoles.length === 0) {
-      const rows = await this.prisma.userShopRole.findMany({
-        where: { user_id: user.id },
-        select: { shop_id: true, role: true },
-      });
-      shopRoles = rows.map((r) => ({ shop_id: r.shop_id, role: r.role }));
+      const cached = this.shopRolesCache.get(user.id);
+      if (cached && cached.expiresAt > Date.now()) {
+        shopRoles = cached.shopRoles;
+      } else {
+        const rows = await this.prisma.userShopRole.findMany({
+          where: { user_id: user.id },
+          select: { shop_id: true, role: true },
+        });
+        shopRoles = rows.map((r) => ({ shop_id: r.shop_id, role: r.role }));
+        this.shopRolesCache.set(user.id, {
+          expiresAt: Date.now() + this.shopRolesCacheTtlMs,
+          shopRoles,
+        });
+      }
+
       request.user = {
         ...user,
         shop_roles: shopRoles,
@@ -57,21 +82,41 @@ export class RolesGuard implements CanActivate {
     }
 
     const activeShopId = typeof user.active_shop_id === 'string' ? user.active_shop_id : undefined;
-    const hasRole = shopRoles.some((userRole) => {
-      if (userRole?.role == null || !requiredRoles.includes(userRole.role)) {
-        return false;
-      }
-      // When a shop context is selected, role must be granted on that exact shop.
-      if (activeShopId) {
-        return userRole.shop_id === activeShopId;
-      }
+
+    // super_admin is treated as a global permission: it should not depend on `active_shop_id`.
+    const hasGlobalSuperAdmin = shopRoles.some(
+      (ur) => ur.role === ShopRole.super_admin && requiredRoles.includes(ShopRole.super_admin),
+    );
+    if (hasGlobalSuperAdmin) {
       return true;
-    });
-    
-    if (!hasRole) {
-       throw new ForbiddenException(`Access forbidden. Required roles: ${requiredRoles.join(', ')}`);
     }
 
-    return true;
+    // If the endpoint requires any non-global role, we must have an active shop context.
+    const requiresTenantScopedRole = requiredRoles.some((r) => r !== ShopRole.super_admin);
+    if (requiresTenantScopedRole) {
+      if (!activeShopId) {
+        throw new BadRequestException(
+          'Active shop is not selected. Call POST /auth/switch-shop with a shop_id you have access to, then retry.',
+        );
+      }
+
+      const hasTenantRole = shopRoles.some(
+        (userRole) =>
+          userRole?.role != null &&
+          requiredRoles.includes(userRole.role) &&
+          userRole.shop_id === activeShopId,
+      );
+
+      if (!hasTenantRole) {
+        throw new ForbiddenException(
+          `Access forbidden. Required roles: ${requiredRoles.join(', ')}`,
+        );
+      }
+
+      return true;
+    }
+
+    // Only global role(s) were requested but the user doesn't have global super_admin.
+    throw new ForbiddenException(`Access forbidden. Required roles: ${requiredRoles.join(', ')}`);
   }
 }

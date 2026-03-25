@@ -234,39 +234,6 @@ describe('AuthService', () => {
   });
 
   describe('getUserTenantAccess', () => {
-    it('should map user roles and shop summaries', async () => {
-      prisma.userShopRole.findMany.mockResolvedValue([
-        {
-          shop_id: 'shop-1',
-          role: 'shop_admin',
-          shop: {
-            id: 'shop-1',
-            name: 'Shop One',
-            slug: 'shop-one',
-            is_active: true,
-          },
-        },
-      ]);
-
-      const result = await service.getUserTenantAccess('user-1');
-
-      expect(result).toEqual({
-        allowed_shop_ids: ['shop-1'],
-        shop_roles: [{ shop_id: 'shop-1', role: 'shop_admin' }],
-        allowed_shops: [
-          {
-            id: 'shop-1',
-            name: 'Shop One',
-            slug: 'shop-one',
-            is_active: true,
-            role: 'shop_admin',
-          },
-        ],
-      });
-    });
-  });
-
-  describe('getUserTenantAccess', () => {
     it('should map user_shop_roles to tenant access payload', async () => {
       prisma.userShopRole.findMany.mockResolvedValue([
         {

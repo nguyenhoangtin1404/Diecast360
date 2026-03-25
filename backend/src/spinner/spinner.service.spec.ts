@@ -37,6 +37,8 @@ describe('SpinnerService', () => {
     created_at: new Date(),
   };
 
+  const TEST_SHOP_ID = 'shop-a';
+
   const mockFile = {
     buffer: Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP+H8hQ6wAAAABJRU5ErkJggg==',
@@ -114,7 +116,7 @@ describe('SpinnerService', () => {
         { ...mockSpinSet, frames: [mockFrame] },
       ]);
 
-      const result = await service.getSpinSets('item-1');
+      const result = await service.getSpinSets('item-1', TEST_SHOP_ID);
 
       expect(result.spin_sets).toHaveLength(1);
       expect(result.spin_sets[0].frames).toHaveLength(1);
@@ -124,7 +126,7 @@ describe('SpinnerService', () => {
     it('should return empty array if no spin sets', async () => {
       prisma.spinSet.findMany.mockResolvedValue([]);
 
-      const result = await service.getSpinSets('item-1');
+      const result = await service.getSpinSets('item-1', TEST_SHOP_ID);
 
       expect(result.spin_sets).toHaveLength(0);
     });
@@ -141,7 +143,7 @@ describe('SpinnerService', () => {
       const result = await service.createSpinSet('item-1', {
         label: 'Default',
         is_default: false,
-      });
+      }, TEST_SHOP_ID);
 
       expect(result.spin_set.id).toBe('spin-1');
       expect(result.spin_set.frames).toEqual([]);
@@ -151,7 +153,7 @@ describe('SpinnerService', () => {
       prisma.item.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.createSpinSet('nonexistent', { label: 'Test' }),
+        service.createSpinSet('nonexistent', { label: 'Test' }, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
 
@@ -176,7 +178,7 @@ describe('SpinnerService', () => {
       prisma.spinSet.updateMany.mockResolvedValue({ count: 1 });
       prisma.spinSet.create.mockResolvedValue({ ...mockSpinSet, is_default: true });
 
-      await service.createSpinSet('item-1', { label: 'New Default', is_default: true });
+      await service.createSpinSet('item-1', { label: 'New Default', is_default: true }, TEST_SHOP_ID);
 
       expect(prisma.spinSet.updateMany).toHaveBeenCalledWith({
         where: { item_id: 'item-1', is_default: true },
@@ -193,7 +195,7 @@ describe('SpinnerService', () => {
       prisma.spinSet.findFirst.mockResolvedValue({ ...mockSpinSet, item: { id: 'item-1' } });
       prisma.spinSet.update.mockResolvedValue({ ...mockSpinSet, label: 'Updated', frames: [] });
 
-      const result = await service.updateSpinSet('spin-1', { label: 'Updated' });
+      const result = await service.updateSpinSet('spin-1', { label: 'Updated' }, TEST_SHOP_ID);
 
       expect(result.spin_set.label).toBe('Updated');
     });
@@ -202,7 +204,7 @@ describe('SpinnerService', () => {
       prisma.spinSet.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateSpinSet('nonexistent', { label: 'x' }),
+        service.updateSpinSet('nonexistent', { label: 'x' }, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
 
@@ -215,7 +217,7 @@ describe('SpinnerService', () => {
       prisma.spinSet.updateMany.mockResolvedValue({ count: 1 });
       prisma.spinSet.update.mockResolvedValue({ ...mockSpinSet, is_default: true, frames: [] });
 
-      await service.updateSpinSet('spin-1', { is_default: true });
+      await service.updateSpinSet('spin-1', { is_default: true }, TEST_SHOP_ID);
 
       expect(prisma.spinSet.updateMany).toHaveBeenCalledWith({
         where: {
@@ -237,7 +239,7 @@ describe('SpinnerService', () => {
       prisma.spinFrame.count.mockResolvedValue(2);
       prisma.spinFrame.create.mockResolvedValue({ ...mockFrame, frame_index: 2 });
 
-      const result = await service.uploadFrame('spin-1', mockFile, {});
+      const result = await service.uploadFrame('spin-1', mockFile, {}, TEST_SHOP_ID);
 
       expect(result.frame.frame_index).toBe(2);
       expect(prisma.spinFrame.updateMany).not.toHaveBeenCalled();
@@ -255,7 +257,7 @@ describe('SpinnerService', () => {
       prisma.spinSet.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.uploadFrame('nonexistent', mockFile, {}),
+        service.uploadFrame('nonexistent', mockFile, {}, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
 
@@ -264,7 +266,7 @@ describe('SpinnerService', () => {
       prisma.spinFrame.count.mockResolvedValue(3);
       prisma.spinFrame.create.mockResolvedValue({ ...mockFrame, frame_index: 1 });
 
-      const result = await service.uploadFrame('spin-1', mockFile, { frame_index: 1 });
+      const result = await service.uploadFrame('spin-1', mockFile, { frame_index: 1 }, TEST_SHOP_ID);
 
       expect(result.frame.frame_index).toBe(1);
       expect(prisma.spinFrame.updateMany).toHaveBeenCalledWith({
@@ -281,7 +283,7 @@ describe('SpinnerService', () => {
       prisma.spinFrame.count.mockResolvedValue(3);
       prisma.spinFrame.create.mockResolvedValue({ ...mockFrame, frame_index: 3 });
 
-      const result = await service.uploadFrame('spin-1', mockFile, { frame_index: 100 });
+      const result = await service.uploadFrame('spin-1', mockFile, { frame_index: 100 }, TEST_SHOP_ID);
 
       expect(result.frame.frame_index).toBe(3);
       expect(prisma.spinFrame.updateMany).toHaveBeenCalledWith({
@@ -298,7 +300,7 @@ describe('SpinnerService', () => {
       prisma.spinFrame.count.mockResolvedValue(1);
 
       await expect(
-        service.uploadFrame('spin-1', mockFile, { frame_index: -1 }),
+        service.uploadFrame('spin-1', mockFile, { frame_index: -1 }, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
     it('should reject uploads beyond max frame limit', async () => {
@@ -306,7 +308,7 @@ describe('SpinnerService', () => {
       prisma.spinFrame.count.mockResolvedValue(48); // max frames reached
 
       await expect(
-        service.uploadFrame('spin-1', mockFile, {}),
+        service.uploadFrame('spin-1', mockFile, {}, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
       expect(storage.saveFile).toHaveBeenCalledTimes(2);
       expect(storage.deleteFile).toHaveBeenCalledTimes(2);
@@ -315,7 +317,9 @@ describe('SpinnerService', () => {
       prisma.spinSet.findFirst.mockResolvedValue(mockSpinSet);
       imageProcessor.processImage.mockRejectedValueOnce(new WatermarkProcessingError('fail watermark'));
 
-      await expect(service.uploadFrame('spin-1', mockFile, {})).rejects.toThrow(AppException);
+      await expect(
+        service.uploadFrame('spin-1', mockFile, {}, TEST_SHOP_ID),
+      ).rejects.toThrow(AppException);
       expect(storage.saveFile).not.toHaveBeenCalled();
     });
 
@@ -326,7 +330,9 @@ describe('SpinnerService', () => {
         throw new Error('DB failure');
       });
 
-      await expect(service.uploadFrame('spin-1', mockFile, {})).rejects.toThrow('DB failure');
+      await expect(
+        service.uploadFrame('spin-1', mockFile, {}, TEST_SHOP_ID),
+      ).rejects.toThrow('DB failure');
       expect(storage.deleteFile).toHaveBeenCalledTimes(2);
     });
   });
@@ -340,7 +346,7 @@ describe('SpinnerService', () => {
       prisma.spinFrame.delete.mockResolvedValue(mockFrame);
       prisma.spinFrame.findMany.mockResolvedValue([]);
 
-      const result = await service.deleteFrame('spin-1', 'frame-1');
+      const result = await service.deleteFrame('spin-1', 'frame-1', TEST_SHOP_ID);
 
       expect(result).toEqual({});
       expect(storage.deleteFile).toHaveBeenCalledWith('spinner/frame0.jpg');
@@ -355,7 +361,7 @@ describe('SpinnerService', () => {
         { ...mockFrame, id: 'f-3', frame_index: 2 },
       ]);
 
-      await service.deleteFrame('spin-1', 'frame-1');
+      await service.deleteFrame('spin-1', 'frame-1', TEST_SHOP_ID);
 
       expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
       expect(prisma.spinFrame.update).not.toHaveBeenCalled();
@@ -383,7 +389,7 @@ describe('SpinnerService', () => {
         });
       });
 
-      await expect(service.deleteFrame('spin-1', 'frame-1')).resolves.toEqual({});
+      await expect(service.deleteFrame('spin-1', 'frame-1', TEST_SHOP_ID)).resolves.toEqual({});
       expect(prisma.spinFrame.update).not.toHaveBeenCalled();
       expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
     });
@@ -392,7 +398,7 @@ describe('SpinnerService', () => {
       prisma.spinFrame.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.deleteFrame('spin-1', 'nonexistent'),
+        service.deleteFrame('spin-1', 'nonexistent', TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
   });
@@ -413,9 +419,11 @@ describe('SpinnerService', () => {
           { ...frame1, frame_index: 1 },
         ]);
 
-      const result = await service.reorderFrames('spin-1', {
-        frame_ids: ['f-2', 'f-1'],
-      });
+      const result = await service.reorderFrames(
+        'spin-1',
+        { frame_ids: ['f-2', 'f-1'] },
+        TEST_SHOP_ID,
+      );
 
       expect(result.frames).toHaveLength(2);
       // 2-step update via raw SQL: temporary negatives then final indices
@@ -426,7 +434,7 @@ describe('SpinnerService', () => {
       prisma.spinSet.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.reorderFrames('nonexistent', { frame_ids: ['f-1'] }),
+        service.reorderFrames('nonexistent', { frame_ids: ['f-1'] }, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
 
@@ -435,7 +443,11 @@ describe('SpinnerService', () => {
       prisma.spinFrame.findMany.mockResolvedValue([{ id: 'f-1' }]); // only 1 found
 
       await expect(
-        service.reorderFrames('spin-1', { frame_ids: ['f-1', 'f-wrong'] }),
+        service.reorderFrames(
+          'spin-1',
+          { frame_ids: ['f-1', 'f-wrong'] },
+          TEST_SHOP_ID,
+        ),
       ).rejects.toThrow(AppException);
     });
 
@@ -447,7 +459,7 @@ describe('SpinnerService', () => {
         .mockResolvedValueOnce([frame1]); // all frames
 
       await expect(
-        service.reorderFrames('spin-1', { frame_ids: ['f-1', 'f-1'] }),
+        service.reorderFrames('spin-1', { frame_ids: ['f-1', 'f-1'] }, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
   });
@@ -462,7 +474,12 @@ describe('SpinnerService', () => {
       const invalidFile = { ...mockFile, mimetype: 'application/pdf' };
 
       await expect(
-        service.uploadFrame('spin-1', invalidFile as Express.Multer.File, {}),
+        service.uploadFrame(
+          'spin-1',
+          invalidFile as Express.Multer.File,
+          {},
+          TEST_SHOP_ID,
+        ),
       ).rejects.toThrow(AppException);
     });
   });
@@ -477,7 +494,7 @@ describe('SpinnerService', () => {
       prisma.spinFrame.findMany.mockResolvedValue([]);
       storage.deleteFile.mockRejectedValueOnce(new Error('Disk error'));
 
-      await expect(service.deleteFrame('spin-1', 'frame-1')).resolves.toEqual({});
+      await expect(service.deleteFrame('spin-1', 'frame-1', TEST_SHOP_ID)).resolves.toEqual({});
     });
   });
 });
