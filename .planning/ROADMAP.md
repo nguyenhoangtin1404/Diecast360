@@ -256,7 +256,6 @@ Partially executed phases (still pending full completion):
 **Plans:** 3 plans
 
 Plans:
-<<<<<<< HEAD
 - [x] 14-01: Multi-tenant schema and data isolation
 - [x] 14-02: API scoping, tenant guard và shop management endpoints
 - [x] 14-03: Admin tenant selection UI và super-admin shop management

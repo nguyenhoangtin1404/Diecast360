@@ -1,5 +1,5 @@
-import React, { useContext } from 'react';
-import { ShopContext } from '../../contexts/ShopContext';
+import React from 'react';
+import { useShop } from '../../hooks/useShop';
 import type { Shop } from '../../contexts/ShopContext';
 
 /**
@@ -10,7 +10,7 @@ import type { Shop } from '../../contexts/ShopContext';
  * - Always shows the active shop name or "Chọn shop..." if none.
  */
 const ShopSelector: React.FC = () => {
-  const shopCtx = useContext(ShopContext);
+  const shopCtx = useShop();
 
   if (!shopCtx || shopCtx.allowedShops.length === 0) {
     return null;

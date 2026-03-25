@@ -1,7 +1,7 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsUUID } from 'class-validator';
 
 export class SwitchShopDto {
-  @IsString()
+  @IsUUID()
   @IsNotEmpty()
   shop_id: string;
 }

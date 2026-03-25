@@ -1,7 +1,9 @@
 import {
   Controller, Get, Post, Patch, Body, Param, Delete, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
-import { ShopsService, CreateShopDto, UpdateShopDto } from './shops.service';
+import { ShopsService } from './shops.service';
+import { CreateShopDto } from './dto/create-shop.dto';
+import { UpdateShopDto } from './dto/update-shop.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';

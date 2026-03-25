@@ -67,10 +67,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const responseData = isApiResponse(response) ? response.data : response;
 
-    if (responseData?.user) {
-      setUser(responseData.user);
-    } else {
+    if (!responseData?.user) {
       throw new Error('Login failed: Invalid response');
+    }
+
+    // Login payload is minimal; hydrate full profile (shop_roles, allowed_shops, active_shop_id)
+    setUser(responseData.user);
+    try {
+      const me = (await apiClient.get('/auth/me')) as ApiResponse<{ user: User }>;
+      if (me.data?.user) {
+        setUser(me.data.user);
+      }
+    } catch {
+      /* keep partial user from login if /auth/me fails */
     }
   };
 

@@ -1,20 +1,38 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ErrorCode, AppException } from '../common/exceptions/http-exception.filter';
-
-export interface CreateShopDto {
-  name: string;
-  slug: string;
-}
-
-export interface UpdateShopDto {
-  name?: string;
-  is_active?: boolean;
-}
+import { CreateShopDto } from './dto/create-shop.dto';
+import { UpdateShopDto } from './dto/update-shop.dto';
 
 @Injectable()
 export class ShopsService {
   constructor(private prisma: PrismaService) {}
+
+  private slugFromName(name: string): string {
+    const s = name
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    return s || 'shop';
+  }
+
+  private async allocateUniqueSlug(base: string): Promise<string> {
+    let candidate = base;
+    let n = 0;
+    for (;;) {
+      const exists = await this.prisma.shop.findUnique({ where: { slug: candidate } });
+      if (!exists) {
+        return candidate;
+      }
+      n += 1;
+      candidate = `${base}-${n}`;
+    }
+  }
 
   /**
    * List all shops — super-admin only, no tenant filter.
@@ -42,10 +60,13 @@ export class ShopsService {
   }
 
   async create(dto: CreateShopDto) {
+    const name = dto.name.trim();
+    const baseSlug = dto.slug?.trim() ? dto.slug.trim() : this.slugFromName(name);
+    const slug = await this.allocateUniqueSlug(baseSlug);
     return this.prisma.shop.create({
       data: {
-        name: dto.name,
-        slug: dto.slug,
+        name,
+        slug,
       },
     });
   }
