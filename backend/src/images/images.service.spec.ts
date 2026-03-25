@@ -119,6 +119,22 @@ describe('ImagesService', () => {
       await expect(service.uploadImage('nonexistent', mockFile)).rejects.toThrow(AppException);
     });
 
+    it('should scope item lookup by tenantId to prevent cross-tenant upload', async () => {
+      prisma.item.findFirst.mockResolvedValue(null);
+
+      await expect(service.uploadImage('item-1', mockFile, undefined, 'shop-a')).rejects.toThrow(
+        AppException,
+      );
+
+      expect(prisma.item.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 'item-1',
+          deleted_at: null,
+          shop_id: 'shop-a',
+        },
+      });
+    });
+
     it('should set first image as cover by default', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       prisma.itemImage.count.mockResolvedValue(0);

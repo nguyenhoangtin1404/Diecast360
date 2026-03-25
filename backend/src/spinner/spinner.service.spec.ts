@@ -155,6 +155,22 @@ describe('SpinnerService', () => {
       ).rejects.toThrow(AppException);
     });
 
+    it('should scope item lookup by tenantId to prevent cross-tenant create', async () => {
+      prisma.item.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createSpinSet('item-1', { label: 'Test' }, 'shop-a'),
+      ).rejects.toThrow(AppException);
+
+      expect(prisma.item.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 'item-1',
+          deleted_at: null,
+          shop_id: 'shop-a',
+        },
+      });
+    });
+
     it('should unset other defaults when creating default spin set', async () => {
       prisma.item.findFirst.mockResolvedValue({ id: 'item-1' });
       prisma.spinSet.updateMany.mockResolvedValue({ count: 1 });

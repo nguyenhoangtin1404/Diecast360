@@ -24,7 +24,6 @@ describe('AuthService', () => {
     is_active: true,
     created_at: new Date(),
     updated_at: new Date(),
-    shop_roles: [{ shop_id: 'shop-1', role: 'shop_admin' }],
   };
 
   beforeEach(async () => {
@@ -216,8 +215,6 @@ describe('AuthService', () => {
         email: 'admin@test.com',
         full_name: 'Admin User',
         role: 'admin',
-        allowed_shop_ids: ['shop-1'],
-        shop_roles: [{ shop_id: 'shop-1', role: 'shop_admin' }],
       });
     });
 
@@ -236,10 +233,11 @@ describe('AuthService', () => {
     });
   });
 
-  describe('getAllowedShopsSummary', () => {
-    it('should map user_shop_roles to allowed shop payloads', async () => {
+  describe('getUserTenantAccess', () => {
+    it('should map user roles and shop summaries', async () => {
       prisma.userShopRole.findMany.mockResolvedValue([
         {
+          shop_id: 'shop-1',
           role: 'shop_admin',
           shop: {
             id: 'shop-1',
@@ -250,17 +248,54 @@ describe('AuthService', () => {
         },
       ]);
 
-      const result = await service.getAllowedShopsSummary('user-1');
+      const result = await service.getUserTenantAccess('user-1');
 
-      expect(result).toEqual([
+      expect(result).toEqual({
+        allowed_shop_ids: ['shop-1'],
+        shop_roles: [{ shop_id: 'shop-1', role: 'shop_admin' }],
+        allowed_shops: [
+          {
+            id: 'shop-1',
+            name: 'Shop One',
+            slug: 'shop-one',
+            is_active: true,
+            role: 'shop_admin',
+          },
+        ],
+      });
+    });
+  });
+
+  describe('getUserTenantAccess', () => {
+    it('should map user_shop_roles to tenant access payload', async () => {
+      prisma.userShopRole.findMany.mockResolvedValue([
         {
-          id: 'shop-1',
-          name: 'Shop One',
-          slug: 'shop-one',
-          is_active: true,
+          shop_id: 'shop-1',
           role: 'shop_admin',
+          shop: {
+            id: 'shop-1',
+            name: 'Shop One',
+            slug: 'shop-one',
+            is_active: true,
+          },
         },
       ]);
+
+      const result = await service.getUserTenantAccess('user-1');
+
+      expect(result).toEqual({
+        allowed_shop_ids: ['shop-1'],
+        shop_roles: [{ shop_id: 'shop-1', role: 'shop_admin' }],
+        allowed_shops: [
+          {
+            id: 'shop-1',
+            name: 'Shop One',
+            slug: 'shop-one',
+            is_active: true,
+            role: 'shop_admin',
+          },
+        ],
+      });
       expect(prisma.userShopRole.findMany).toHaveBeenCalledWith({
         where: { user_id: 'user-1' },
         include: {
@@ -294,6 +329,15 @@ describe('AuthService', () => {
       prisma.userShopRole.findUnique.mockResolvedValue(null);
 
       await expect(service.switchShop('user-1', { shop_id: 'shop-x' })).rejects.toThrow(AppException);
+    });
+
+    it('should reject when user has role but shop is inactive', async () => {
+      prisma.userShopRole.findUnique.mockResolvedValue({
+        role: 'shop_admin',
+        shop: { id: 'shop-1', name: 'S', slug: 's', is_active: false },
+      });
+
+      await expect(service.switchShop('user-1', { shop_id: 'shop-1' })).rejects.toThrow(AppException);
     });
   });
 

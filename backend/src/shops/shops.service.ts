@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ErrorCode, AppException } from '../common/exceptions/http-exception.filter';
+import { isPrismaUniqueConstraintError } from '../common/prisma/prisma-error.utils';
 import { CreateShopDto } from './dto/create-shop.dto';
+import { QueryShopMembersDto } from './dto/query-shop-members.dto';
 import { UpdateShopDto } from './dto/update-shop.dto';
+
+const MAX_SLUG_ALLOCATION_ATTEMPTS = 32;
 
 @Injectable()
 export class ShopsService {
@@ -21,17 +25,9 @@ export class ShopsService {
     return s || 'shop';
   }
 
-  private async allocateUniqueSlug(base: string): Promise<string> {
-    let candidate = base;
-    let n = 0;
-    for (;;) {
-      const exists = await this.prisma.shop.findUnique({ where: { slug: candidate } });
-      if (!exists) {
-        return candidate;
-      }
-      n += 1;
-      candidate = `${base}-${n}`;
-    }
+  /** Slug candidate: `base`, then `base-1`, `base-2`, ... (matches prior allocateUniqueSlug numbering). */
+  private shopSlugCandidate(base: string, attemptIndex: number): string {
+    return attemptIndex === 0 ? base : `${base}-${attemptIndex}`;
   }
 
   /**
@@ -62,13 +58,25 @@ export class ShopsService {
   async create(dto: CreateShopDto) {
     const name = dto.name.trim();
     const baseSlug = dto.slug?.trim() ? dto.slug.trim() : this.slugFromName(name);
-    const slug = await this.allocateUniqueSlug(baseSlug);
-    return this.prisma.shop.create({
-      data: {
-        name,
-        slug,
-      },
-    });
+
+    for (let i = 0; i < MAX_SLUG_ALLOCATION_ATTEMPTS; i++) {
+      const slug = this.shopSlugCandidate(baseSlug, i);
+      try {
+        return await this.prisma.shop.create({
+          data: { name, slug },
+        });
+      } catch (e) {
+        if (isPrismaUniqueConstraintError(e)) {
+          continue;
+        }
+        throw e;
+      }
+    }
+
+    throw new AppException(
+      ErrorCode.INTERNAL_SERVER_ERROR,
+      'Could not allocate a unique shop slug. Please try a different name or slug.',
+    );
   }
 
   async update(id: string, dto: UpdateShopDto) {
@@ -93,11 +101,32 @@ export class ShopsService {
   /**
    * List members of a shop.
    */
-  async findMembers(shopId: string) {
+  async findMembers(shopId: string, query: QueryShopMembersDto) {
     await this.findOne(shopId); // 404 guard
-    return this.prisma.userShopRole.findMany({
-      where: { shop_id: shopId },
-      include: { user: { select: { id: true, email: true, full_name: true, role: true, is_active: true } } },
-    });
+    const page = query.page || 1;
+    const pageSize = query.page_size || 20;
+    const skip = (page - 1) * pageSize;
+
+    const where = { shop_id: shopId };
+    const [members, total] = await this.prisma.$transaction([
+      this.prisma.userShopRole.findMany({
+        where,
+        include: { user: { select: { id: true, email: true, full_name: true, role: true, is_active: true } } },
+        orderBy: { user_id: 'asc' },
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.userShopRole.count({ where }),
+    ]);
+
+    return {
+      members,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total,
+        total_pages: Math.ceil(total / pageSize),
+      },
+    };
   }
 }

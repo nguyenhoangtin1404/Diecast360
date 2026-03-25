@@ -1,4 +1,4 @@
-import { ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ExecutionContext } from '@nestjs/common';
 import { TenantGuard } from './tenant.guard';
 
 describe('TenantGuard', () => {
@@ -14,11 +14,11 @@ describe('TenantGuard', () => {
   it('throws when user has no active_shop_id', () => {
     expect(() =>
       guard.canActivate(createContext({ user: { id: 'u1', shop_roles: [] } })),
-    ).toThrow(ForbiddenException);
+    ).toThrow(BadRequestException);
   });
 
   it('throws when user is missing', () => {
-    expect(() => guard.canActivate(createContext({}))).toThrow(ForbiddenException);
+    expect(() => guard.canActivate(createContext({}))).toThrow(BadRequestException);
   });
 
   it('sets tenantId from JWT-bound active shop', () => {

@@ -39,8 +39,12 @@ describe('ItemsService', () => {
   let mockFacebookGraph: { publishPost: jest.Mock };
   let mockFbConfig: { isConfigured: jest.Mock };
 
+  /** Active shop id for tenant-scoped service calls (matches UUID validation) */
+  const TEST_SHOP_ID = '00000000-0000-0000-0000-000000000001';
+
   const mockItem = {
     id: 'item-123',
+    shop_id: TEST_SHOP_ID,
     name: 'Test Item',
     description: 'desc',
     scale: '1:64',
@@ -148,9 +152,23 @@ describe('ItemsService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('tenant scope enforcement', () => {
+    it('should reject findAll when active shop id is missing', async () => {
+      await expect(service.findAll({}, '')).rejects.toMatchObject({
+        errorCode: ErrorCode.AUTH_FORBIDDEN,
+      });
+    });
+
+    it('should reject findOne when active shop id is missing', async () => {
+      await expect(service.findOne('item-123', '')).rejects.toMatchObject({
+        errorCode: ErrorCode.AUTH_FORBIDDEN,
+      });
+    });
+  });
+
   describe('create', () => {
     it('should create item without draft', async () => {
-      const result = await service.create({ name: 'Test Item' });
+      const result = await service.create({ name: 'Test Item' }, TEST_SHOP_ID);
 
       expect(prisma.$transaction).toHaveBeenCalled();
       expect(prisma.item.create).toHaveBeenCalled();
@@ -163,7 +181,7 @@ describe('ItemsService', () => {
       prisma.category.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.create({ name: 'Test Item', car_brand: 'Unknown Brand' }),
+        service.create({ name: 'Test Item', car_brand: 'Unknown Brand' }, TEST_SHOP_ID),
       ).rejects.toMatchObject({
         errorCode: ErrorCode.ITEM_CATEGORY_INVALID,
       });
@@ -171,7 +189,7 @@ describe('ItemsService', () => {
 
     it('should reject create when original_price is lower than price', async () => {
       await expect(
-        service.create({ name: 'Test Item', price: 200000, original_price: 150000 }),
+        service.create({ name: 'Test Item', price: 200000, original_price: 150000 }, TEST_SHOP_ID),
       ).rejects.toMatchObject({
         errorCode: ErrorCode.VALIDATION_ERROR,
       });
@@ -190,10 +208,13 @@ describe('ItemsService', () => {
       prisma.aiItemDraft.findUnique.mockResolvedValue(mockDraft);
       storage.moveFile.mockResolvedValue('images/item_123_moved.jpg');
 
-      const result = await service.create({
-        name: 'Test Item',
-        draft_id: 'draft-1',
-      });
+      const result = await service.create(
+        {
+          name: 'Test Item',
+          draft_id: 'draft-1',
+        },
+        TEST_SHOP_ID,
+      );
 
       expect(result.item).toBeDefined();
       expect(result).not.toHaveProperty('warning');
@@ -224,10 +245,13 @@ describe('ItemsService', () => {
         .mockResolvedValueOnce('images/good_moved.jpg')
         .mockRejectedValueOnce(new Error('File not found'));
 
-      const result = await service.create({
-        name: 'Test Item',
-        draft_id: 'draft-2',
-      });
+      const result = await service.create(
+        {
+          name: 'Test Item',
+          draft_id: 'draft-2',
+        },
+        TEST_SHOP_ID,
+      );
 
       expect(result.item).toBeDefined();
 
@@ -262,10 +286,13 @@ describe('ItemsService', () => {
     it('should create item normally when draft is not found', async () => {
       prisma.aiItemDraft.findUnique.mockResolvedValue(null);
 
-      const result = await service.create({
-        name: 'Test Item',
-        draft_id: 'nonexistent-draft',
-      });
+      const result = await service.create(
+        {
+          name: 'Test Item',
+          draft_id: 'nonexistent-draft',
+        },
+        TEST_SHOP_ID,
+      );
 
       expect(result.item).toBeDefined();
       expect(result).not.toHaveProperty('warning');
@@ -288,10 +315,13 @@ describe('ItemsService', () => {
         .mockRejectedValueOnce(new Error('Disk full'))
         .mockRejectedValueOnce(new Error('Permission denied'));
 
-      const result = await service.create({
-        name: 'Test Item',
-        draft_id: 'draft-3',
-      });
+      const result = await service.create(
+        {
+          name: 'Test Item',
+          draft_id: 'draft-3',
+        },
+        TEST_SHOP_ID,
+      );
 
       expect(result.item).toBeDefined();
 
@@ -337,7 +367,7 @@ describe('ItemsService', () => {
       prisma.item.findMany.mockResolvedValue([mockItemWithRelations]);
       prisma.item.count.mockResolvedValue(1);
 
-      const result = await service.findAll({});
+      const result = await service.findAll({}, TEST_SHOP_ID);
 
       expect(result.items).toHaveLength(1);
       expect(result.pagination).toEqual({
@@ -354,9 +384,10 @@ describe('ItemsService', () => {
       prisma.item.findMany.mockResolvedValue([]);
       prisma.item.count.mockResolvedValue(0);
 
-      await service.findAll({ status: 'con_hang' as ItemStatus });
+      await service.findAll({ status: 'con_hang' as ItemStatus }, TEST_SHOP_ID);
 
       const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.shop_id).toBe(TEST_SHOP_ID);
       expect(findManyCall.where.status).toBe('con_hang');
     });
 
@@ -364,9 +395,10 @@ describe('ItemsService', () => {
       prisma.item.findMany.mockResolvedValue([]);
       prisma.item.count.mockResolvedValue(0);
 
-      await service.findAll({ q: 'honda' });
+      await service.findAll({ q: 'honda' }, TEST_SHOP_ID);
 
       const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.shop_id).toBe(TEST_SHOP_ID);
       expect(findManyCall.where.name).toEqual({ contains: 'honda', mode: 'insensitive' });
     });
 
@@ -374,9 +406,10 @@ describe('ItemsService', () => {
       prisma.item.findMany.mockResolvedValue([]);
       prisma.item.count.mockResolvedValue(0);
 
-      await service.findAll({});
+      await service.findAll({}, TEST_SHOP_ID);
 
       const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.shop_id).toBe(TEST_SHOP_ID);
       expect(findManyCall.where.deleted_at).toBeNull();
     });
 
@@ -384,9 +417,10 @@ describe('ItemsService', () => {
       prisma.item.findMany.mockResolvedValue([]);
       prisma.item.count.mockResolvedValue(0);
 
-      await service.findAll({ car_brand: 'Toyota', model_brand: 'Tomica' });
+      await service.findAll({ car_brand: 'Toyota', model_brand: 'Tomica' }, TEST_SHOP_ID);
 
       const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.shop_id).toBe(TEST_SHOP_ID);
       expect(findManyCall.where.car_brand).toBe('Toyota');
       expect(findManyCall.where.model_brand).toBe('Tomica');
     });
@@ -395,9 +429,10 @@ describe('ItemsService', () => {
       prisma.item.findMany.mockResolvedValue([]);
       prisma.item.count.mockResolvedValue(0);
 
-      await service.findAll({ fb_status: 'posted' });
+      await service.findAll({ fb_status: 'posted' }, TEST_SHOP_ID);
 
       const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.shop_id).toBe(TEST_SHOP_ID);
       expect(findManyCall.where.facebook_posts).toEqual({ some: {} });
     });
 
@@ -405,9 +440,10 @@ describe('ItemsService', () => {
       prisma.item.findMany.mockResolvedValue([]);
       prisma.item.count.mockResolvedValue(0);
 
-      await service.findAll({ fb_status: 'not_posted' });
+      await service.findAll({ fb_status: 'not_posted' }, TEST_SHOP_ID);
 
       const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.shop_id).toBe(TEST_SHOP_ID);
       expect(findManyCall.where.facebook_posts).toEqual({ none: {} });
     });
 
@@ -415,7 +451,7 @@ describe('ItemsService', () => {
       prisma.item.findMany.mockResolvedValue([]);
       prisma.item.count.mockResolvedValue(50);
 
-      const result = await service.findAll({ page: 3, page_size: 10 });
+      const result = await service.findAll({ page: 3, page_size: 10 }, TEST_SHOP_ID);
 
       expect(result.pagination.page).toBe(3);
       expect(result.pagination.page_size).toBe(10);
@@ -444,7 +480,7 @@ describe('ItemsService', () => {
 
       prisma.item.findFirst.mockResolvedValue(mockFullItem);
 
-      const result = await service.findOne('item-123');
+      const result = await service.findOne('item-123', TEST_SHOP_ID);
 
       expect(result.item.id).toBe('item-123');
       expect(result.images).toHaveLength(1);
@@ -454,7 +490,7 @@ describe('ItemsService', () => {
     it('should throw NOT_FOUND when item does not exist', async () => {
       prisma.item.findFirst.mockResolvedValue(null);
 
-      await expect(service.findOne('nonexistent')).rejects.toThrow(AppException);
+      await expect(service.findOne('nonexistent', TEST_SHOP_ID)).rejects.toThrow(AppException);
     });
 
     it('should not return an item that belongs to another shop (tenant isolation)', async () => {
@@ -482,7 +518,7 @@ describe('ItemsService', () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       prisma.item.update.mockResolvedValue({ ...mockItem, name: 'Updated Name' });
 
-      const result = await service.update('item-123', { name: 'Updated Name' });
+      const result = await service.update('item-123', { name: 'Updated Name' }, TEST_SHOP_ID);
 
       expect(result.item.name).toBe('Updated Name');
       expect(prisma.item.update).toHaveBeenCalledWith({
@@ -494,14 +530,16 @@ describe('ItemsService', () => {
     it('should throw NOT_FOUND when item does not exist', async () => {
       prisma.item.findFirst.mockResolvedValue(null);
 
-      await expect(service.update('nonexistent', { name: 'x' })).rejects.toThrow(AppException);
+      await expect(service.update('nonexistent', { name: 'x' }, TEST_SHOP_ID)).rejects.toThrow(
+        AppException,
+      );
     });
 
     it('should handle partial updates', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       prisma.item.update.mockResolvedValue({ ...mockItem, is_public: true });
 
-      await service.update('item-123', { is_public: true });
+      await service.update('item-123', { is_public: true }, TEST_SHOP_ID);
 
       const updateCall = prisma.item.update.mock.calls[0][0];
       expect(updateCall.data.is_public).toBe(true);
@@ -512,7 +550,11 @@ describe('ItemsService', () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       prisma.item.update.mockResolvedValue({ ...mockItem, fb_post_content: 'Post content from AI' });
 
-      const result = await service.update('item-123', { fb_post_content: 'Post content from AI' });
+      const result = await service.update(
+        'item-123',
+        { fb_post_content: 'Post content from AI' },
+        TEST_SHOP_ID,
+      );
 
       expect(prisma.item.update).toHaveBeenCalledWith({
         where: { id: 'item-123' },
@@ -531,7 +573,7 @@ describe('ItemsService', () => {
       prisma.category.findFirst.mockResolvedValue(null);
       prisma.item.update.mockResolvedValue({ ...mockItem, is_public: true, car_brand: 'Legacy Brand' });
 
-      const result = await service.update('item-123', { is_public: true });
+      const result = await service.update('item-123', { is_public: true }, TEST_SHOP_ID);
 
       expect(result.item.is_public).toBe(true);
       expect(prisma.category.findFirst).not.toHaveBeenCalled();
@@ -544,7 +586,7 @@ describe('ItemsService', () => {
       });
 
       await expect(
-        service.update('item-123', { status: 'con_hang' }),
+        service.update('item-123', { status: 'con_hang' }, TEST_SHOP_ID),
       ).rejects.toMatchObject({
         errorCode: ErrorCode.ITEM_STATUS_TRANSITION_INVALID,
       });
@@ -559,7 +601,7 @@ describe('ItemsService', () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       prisma.item.update.mockResolvedValue({ ...mockItem, deleted_at: new Date() });
 
-      const result = await service.remove('item-123');
+      const result = await service.remove('item-123', TEST_SHOP_ID);
 
       expect(result).toEqual({});
       expect(prisma.item.update).toHaveBeenCalledWith({
@@ -571,7 +613,7 @@ describe('ItemsService', () => {
     it('should throw NOT_FOUND when item does not exist', async () => {
       prisma.item.findFirst.mockResolvedValue(null);
 
-      await expect(service.remove('nonexistent')).rejects.toThrow(AppException);
+      await expect(service.remove('nonexistent', TEST_SHOP_ID)).rejects.toThrow(AppException);
     });
   });
 
@@ -587,9 +629,13 @@ describe('ItemsService', () => {
       const mockPost = { id: 'post-1', item_id: 'item-123', post_url: 'https://fb.com/post1', content: null };
       prisma.facebookPost.create.mockResolvedValue(mockPost);
 
-      const result = await service.addFacebookPost('item-123', {
-        post_url: 'https://fb.com/post1',
-      });
+      const result = await service.addFacebookPost(
+        'item-123',
+        {
+          post_url: 'https://fb.com/post1',
+        },
+        TEST_SHOP_ID,
+      );
 
       expect(result.post.id).toBe('post-1');
     });
@@ -598,7 +644,7 @@ describe('ItemsService', () => {
       prisma.item.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.addFacebookPost('nonexistent', { post_url: 'https://fb.com/post1' }),
+        service.addFacebookPost('nonexistent', { post_url: 'https://fb.com/post1' }, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
 
@@ -615,10 +661,14 @@ describe('ItemsService', () => {
         content: 'Caption saved',
       });
 
-      await service.addFacebookPost('item-123', {
-        post_url: 'https://fb.com/post2',
-        content: 'Caption saved',
-      });
+      await service.addFacebookPost(
+        'item-123',
+        {
+          post_url: 'https://fb.com/post2',
+          content: 'Caption saved',
+        },
+        TEST_SHOP_ID,
+      );
 
       expect(prisma.facebookPost.create).toHaveBeenCalledWith({
         data: {
@@ -643,9 +693,13 @@ describe('ItemsService', () => {
         content: 'Saved caption',
       });
 
-      await service.addFacebookPost('item-123', {
-        post_url: 'https://fb.com/post3',
-      });
+      await service.addFacebookPost(
+        'item-123',
+        {
+          post_url: 'https://fb.com/post3',
+        },
+        TEST_SHOP_ID,
+      );
 
       expect(prisma.facebookPost.create).toHaveBeenCalledWith({
         data: {
@@ -663,7 +717,7 @@ describe('ItemsService', () => {
       });
 
       await expect(
-        service.addFacebookPost('item-123', { post_url: 'https://fb.com/post1' }),
+        service.addFacebookPost('item-123', { post_url: 'https://fb.com/post1' }, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
   });
@@ -677,11 +731,11 @@ describe('ItemsService', () => {
       prisma.facebookPost.findFirst.mockResolvedValue(mockPost);
       prisma.facebookPost.delete.mockResolvedValue(mockPost);
 
-      const result = await service.removeFacebookPost('item-123', 'post-1');
+      const result = await service.removeFacebookPost('item-123', 'post-1', TEST_SHOP_ID);
 
       expect(result).toEqual({});
       expect(prisma.facebookPost.findFirst).toHaveBeenCalledWith({
-        where: { id: 'post-1', item_id: 'item-123' },
+        where: { id: 'post-1', item_id: 'item-123', item: { shop_id: TEST_SHOP_ID } },
         include: { item: true },
       });
       expect(prisma.facebookPost.delete).toHaveBeenCalledWith({
@@ -693,11 +747,15 @@ describe('ItemsService', () => {
       prisma.facebookPost.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.removeFacebookPost('item-123', 'nonexistent'),
+        service.removeFacebookPost('item-123', 'nonexistent', TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
 
       expect(prisma.facebookPost.findFirst).toHaveBeenCalledWith({
-        where: { id: 'nonexistent', item_id: 'item-123' },
+        where: {
+          id: 'nonexistent',
+          item_id: 'item-123',
+          item: { shop_id: TEST_SHOP_ID },
+        },
         include: { item: true },
       });
     });
@@ -735,7 +793,11 @@ describe('ItemsService', () => {
       };
       prisma.facebookPost.create.mockResolvedValue(mockPost);
 
-      const result = await service.publishFacebookPost('item-123', { content: 'Custom content' });
+      const result = await service.publishFacebookPost(
+        'item-123',
+        { content: 'Custom content' },
+        TEST_SHOP_ID,
+      );
 
       expect(result.post.id).toBe('pub-post-1');
       expect(mockFacebookGraph.publishPost).toHaveBeenCalledWith('Custom content');
@@ -773,7 +835,7 @@ describe('ItemsService', () => {
         content: 'Fallback caption',
       });
 
-      await service.publishFacebookPost('item-123', {});
+      await service.publishFacebookPost('item-123', {}, TEST_SHOP_ID);
 
       expect(mockFacebookGraph.publishPost).toHaveBeenCalledWith('Fallback caption');
     });
@@ -782,7 +844,7 @@ describe('ItemsService', () => {
       prisma.item.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.publishFacebookPost('nonexistent'),
+        service.publishFacebookPost('nonexistent', undefined, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
 
@@ -794,7 +856,7 @@ describe('ItemsService', () => {
       });
 
       await expect(
-        service.publishFacebookPost('item-123'),
+        service.publishFacebookPost('item-123', undefined, TEST_SHOP_ID),
       ).rejects.toMatchObject({
         errorCode: ErrorCode.VALIDATION_ERROR,
       });
@@ -804,7 +866,7 @@ describe('ItemsService', () => {
       mockFbConfig.isConfigured.mockReturnValueOnce(false);
 
       await expect(
-        service.publishFacebookPost('item-123', { content: 'Test' }),
+        service.publishFacebookPost('item-123', { content: 'Test' }, TEST_SHOP_ID),
       ).rejects.toMatchObject({
         errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
       });
@@ -822,7 +884,7 @@ describe('ItemsService', () => {
       });
 
       await expect(
-        service.publishFacebookPost('item-123', { content: 'Test' }),
+        service.publishFacebookPost('item-123', { content: 'Test' }, TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
 
@@ -846,7 +908,7 @@ describe('ItemsService', () => {
       prisma.facebookPost.create.mockRejectedValue(new Error('DB connection lost'));
 
       await expect(
-        service.publishFacebookPost('item-123', { content: 'DB fail test' }),
+        service.publishFacebookPost('item-123', { content: 'DB fail test' }, TEST_SHOP_ID),
       ).rejects.toMatchObject({
         errorCode: ErrorCode.FACEBOOK_PUBLISH_ERROR,
       });
@@ -881,7 +943,7 @@ describe('ItemsService', () => {
         });
 
       await expect(
-        service.publishFacebookPost('item-123', { content: 'Race caption' }),
+        service.publishFacebookPost('item-123', { content: 'Race caption' }, TEST_SHOP_ID),
       ).rejects.toMatchObject({
         errorCode: ErrorCode.VALIDATION_ERROR,
       });
@@ -980,7 +1042,7 @@ describe('ItemsService', () => {
     it('should return CSV with headers and BOM', async () => {
       prisma.item.findMany.mockResolvedValue([]);
 
-      const result = await service.exportCsv();
+      const result = await service.exportCsv(TEST_SHOP_ID);
 
       expect(result).toContain('\uFEFF'); // BOM
       expect(result).toContain('id,name,description,status');
@@ -999,7 +1061,7 @@ describe('ItemsService', () => {
         },
       ]);
 
-      const result = await service.exportCsv();
+      const result = await service.exportCsv(TEST_SHOP_ID);
 
       expect(result).toContain('"Item ""with quotes"""');
       expect(result).toContain('"Has, commas"');
@@ -1016,7 +1078,7 @@ describe('ItemsService', () => {
         },
       ]);
 
-      const result = await service.exportCsv();
+      const result = await service.exportCsv(TEST_SHOP_ID);
 
       expect(result).toContain('99.99');
     });

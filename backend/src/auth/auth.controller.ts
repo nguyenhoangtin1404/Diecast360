@@ -156,16 +156,16 @@ export class AuthController {
   }
 
   /**
-   * Get current user info - Requires valid access_token cookie
+   * Profile + tenant payload: merges minimal JWT user with {@link AuthService.getUserTenantAccess}.
    */
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMe(@Request() req) {
-    const allowed_shops = await this.authService.getAllowedShopsSummary(req.user.id);
+    const access = await this.authService.getUserTenantAccess(req.user.id);
     return {
       user: {
         ...req.user,
-        allowed_shops,
+        ...access,
       },
     };
   }

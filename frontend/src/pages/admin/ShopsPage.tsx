@@ -52,8 +52,9 @@ const ShopsPage: React.FC = () => {
       setShowForm(false);
       setForm({ name: '' });
       await fetchShops();
-    } catch (err) {
-      setError(err?.message?.message || 'Tạo shop thất bại.');
+    } catch (err: any) {
+      // Backend errors are usually: { ok:false, error:{code}, message }
+      setError(err?.response?.data?.message || err?.message || 'Tạo shop thất bại.');
     } finally {
       setSaving(false);
     }
