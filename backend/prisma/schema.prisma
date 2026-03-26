@@ -26,6 +26,15 @@ enum ShopRole {
   shop_admin
 }
 
+enum ShopAuditAction {
+  add_shop_admin
+  reset_member_password
+  set_member_active
+  update_shop
+  deactivate_shop
+  activate_shop
+}
+
 model Shop {
   id         String         @id @default(uuid())
   name       String
@@ -36,6 +45,7 @@ model Shop {
 
   items      Item[]
   user_roles UserShopRole[]
+  audit_logs ShopAuditLog[]
 
   @@map("shops")
   @@index([is_active])
@@ -66,8 +76,27 @@ model User {
 
   refresh_tokens RefreshToken[]
   shop_roles     UserShopRole[]
+  audit_logs     ShopAuditLog[] @relation("ShopAuditActor")
 
   @@map("users")
+}
+
+model ShopAuditLog {
+  id            String          @id @default(uuid())
+  shop_id       String
+  actor_user_id String?
+  action        ShopAuditAction
+  target_type   String
+  target_id     String?
+  metadata_json String?
+  created_at    DateTime        @default(now())
+
+  shop  Shop  @relation(fields: [shop_id], references: [id], onDelete: Cascade)
+  actor User? @relation("ShopAuditActor", fields: [actor_user_id], references: [id], onDelete: SetNull)
+
+  @@map("shop_audit_logs")
+  @@index([shop_id, created_at])
+  @@index([action, created_at])
 }
 
 model RefreshToken {
