@@ -83,6 +83,17 @@
   - `members`: mảng bản ghi `user_shop_roles`: `{ user_id, shop_id, role, user: { id, email, full_name, role, is_active } }[]`
   - `pagination`: `{ page, page_size, total, total_pages }`
 
+### POST /api/v1/admin/shops/:id/members
+- Auth: Role `super_admin`.
+- Body JSON (option):
+  - Add existing user by id: `{ "user_id": "UUID" }`
+  - Add existing or create new user by email:
+    - `{ "email": "string", "password": "string (optional but required when user does not exist)", "full_name": "string (optional)" }`
+  - (Nếu thiếu cả `user_id` lẫn `email`, server trả lỗi validation.)
+- Behavior: server gán user vào shop với role cố định `shop_admin` (idempotent: dùng upsert theo cặp `(user_id, shop_id)`).
+- Response 200: `data` là bản ghi `user_shop_roles` sau khi upsert (`user_id`, `shop_id`, `role`).
+- Errors: `NOT_FOUND (404)` nếu shop hoặc user không tồn tại; `VALIDATION_ERROR (422)` nếu body không hợp lệ.
+
 ## Items (admin)
 Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop_id`). Nếu user chưa gọi `POST /auth/switch-shop` cho shop hợp lệ, server trả **HTTP 400** với message hướng dẫn switch shop (không dùng 403 vì đây là thiếu context tenant, không phải từ chối quyền).
 

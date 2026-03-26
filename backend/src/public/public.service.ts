@@ -39,7 +39,7 @@ export class PublicService {
     return total;
   }
 
-  async findAll(queryDto: QueryPublicItemsDto) {
+  async findAll(queryDto: QueryPublicItemsDto, tenantId?: string | null) {
     const page = queryDto.page ?? 1;
     const pageSize = Math.min(queryDto.page_size ?? 20, 100);
     const skip = (page - 1) * pageSize;
@@ -47,6 +47,7 @@ export class PublicService {
     const where: Prisma.ItemWhereInput = {
       deleted_at: null,
       is_public: true,
+      ...(tenantId ? { shop_id: tenantId } : {}),
     };
 
     if (queryDto.status) {
@@ -157,12 +158,13 @@ export class PublicService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, tenantId?: string | null) {
     const item = await this.prisma.item.findFirst({
       where: {
         id,
         deleted_at: null,
         is_public: true,
+        ...(tenantId ? { shop_id: tenantId } : {}),
       },
       include: {
         item_images: {

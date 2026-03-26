@@ -24,6 +24,8 @@ export const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const isAdmin = location.pathname.startsWith('/admin');
+  const isSuperAdmin =
+    user?.role === 'super_admin' || user?.shop_roles?.some((r) => r.role === 'super_admin');
   const [menuState, setMenuState] = useState({ open: false, pathname: location.pathname });
   const isMenuOpen = menuState.open && menuState.pathname === location.pathname;
 
@@ -136,6 +138,16 @@ export const Layout = ({ children }: LayoutProps) => {
                   <Tags size={18} />
                   <span>Danh mục</span>
                 </Link>
+                {isSuperAdmin && (
+                  <Link
+                    to="/admin/shops"
+                    className={linkClassName(location.pathname.startsWith('/admin/shops'))}
+                    onClick={closeMobileMenu}
+                  >
+                    <span className={styles.navIconEmoji}>🏬</span>
+                    <span>Quản lý Shops</span>
+                  </Link>
+                )}
                 <Link
                   to="/admin/facebook-posts"
                   className={linkClassName(location.pathname.startsWith('/admin/facebook-posts'))}

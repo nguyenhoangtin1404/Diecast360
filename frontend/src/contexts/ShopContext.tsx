@@ -61,14 +61,41 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         is_active: s.is_active,
         role: s.role,
       }));
-      setAllowedShops(userShops);
+      // Make selection deterministic to avoid relying on DB ordering.
+      const stableUserShops = [...userShops].sort((a, b) => a.id.localeCompare(b.id));
+      setAllowedShops(stableUserShops);
 
       const activeId = user?.active_shop_id ?? null;
-      const match = activeId ? userShops.find((s) => s.id === activeId) : undefined;
-      if (match) {
-        setActiveShop(match);
-      } else {
-        await switchToShop(userShops[0].id);
+      const activeMatch = activeId
+        ? stableUserShops.find((s) => s.id === activeId)
+        : undefined;
+
+      // For shop_admin users, always prefer a shop where their membership role is shop_admin.
+      // This prevents a "sticky" JWT active_shop_id that points to default-shop.
+      const preferredShopAdmin = stableUserShops.find(
+        (s) => s.is_active && s.role === 'shop_admin',
+      );
+
+      if (preferredShopAdmin) {
+        if (!activeMatch || activeMatch.id !== preferredShopAdmin.id) {
+          await switchToShop(preferredShopAdmin.id);
+        } else {
+          setActiveShop(activeMatch);
+        }
+        return;
+      }
+
+      // For super_admin (or users without shop_admin in any active shop):
+      // - keep current JWT active shop if it exists
+      // - otherwise switch to the first active shop
+      if (activeMatch) {
+        setActiveShop(activeMatch);
+        return;
+      }
+
+      const preferredActive = stableUserShops.find((s) => s.is_active) ?? stableUserShops[0];
+      if (preferredActive) {
+        await switchToShop(preferredActive.id);
       }
     } catch (e) {
       if (import.meta.env.DEV) {
