@@ -167,19 +167,6 @@ export class ShopsService {
       );
     }
 
-    if (!activationChanged && !nameChanged) {
-      await this.logAudit(
-        id,
-        ShopAuditAction.update_shop,
-        actorUserId ?? null,
-        'shop',
-        id,
-        {
-          before: { name: oldShop.name, is_active: oldShop.is_active },
-          after: { name: updated.name, is_active: updated.is_active },
-        },
-      );
-    }
     return updated;
   }
 

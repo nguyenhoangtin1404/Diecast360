@@ -76,6 +76,27 @@ describe('PublicService', () => {
       expect(result.pagination.total).toBe(1);
     });
 
+    it('should return public items for anonymous requests (without tenantId)', async () => {
+      prisma.item.findMany.mockResolvedValue([mockPublicItem]);
+      prisma.item.count.mockResolvedValue(1);
+
+      const result = await service.findAll({}, null);
+
+      expect(result.items).toHaveLength(1);
+      const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.shop_id).toBeUndefined();
+    });
+
+    it('should scope items by tenant when tenantId is provided', async () => {
+      prisma.item.findMany.mockResolvedValue([]);
+      prisma.item.count.mockResolvedValue(0);
+
+      await service.findAll({}, 'shop-tenant-1');
+
+      const findManyCall = prisma.item.findMany.mock.calls[0][0];
+      expect(findManyCall.where.shop_id).toBe('shop-tenant-1');
+    });
+
     it('should filter by car_brand', async () => {
       prisma.item.findMany.mockResolvedValue([]);
       prisma.item.count.mockResolvedValue(0);
@@ -284,6 +305,29 @@ describe('PublicService', () => {
       expect(result.images).toHaveLength(1);
       expect(result.spinner).not.toBeNull();
       expect(result.spinner!.frames).toHaveLength(1);
+    });
+
+    it('should return item for anonymous requests (without tenantId)', async () => {
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockPublicItem,
+        item_images: [],
+        spin_sets: [],
+      });
+
+      const result = await service.findOne('item-1', null);
+
+      expect(result.item.id).toBe('item-1');
+      const findFirstCall = prisma.item.findFirst.mock.calls[0][0];
+      expect(findFirstCall.where.shop_id).toBeUndefined();
+    });
+
+    it('should scope item lookup by tenant when tenantId is provided', async () => {
+      prisma.item.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne('item-1', 'shop-tenant-1')).rejects.toThrow(AppException);
+
+      const findFirstCall = prisma.item.findFirst.mock.calls[0][0];
+      expect(findFirstCall.where.shop_id).toBe('shop-tenant-1');
     });
 
     it('should throw NOT_FOUND when item does not exist', async () => {

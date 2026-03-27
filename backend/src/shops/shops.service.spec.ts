@@ -430,6 +430,26 @@ describe('ShopsService', () => {
       expect(actions).toContain('deactivate_shop');
       expect(actions.filter((a) => a === 'deactivate_shop')).toHaveLength(2);
     });
+
+    it('should not log update_shop when neither name nor is_active changed', async () => {
+      prisma.shop.findUnique.mockResolvedValue({
+        id: shopId,
+        name: 'Shop A',
+        slug: 'shop-a',
+        is_active: true,
+        _count: { items: 0, user_roles: 1 },
+      });
+      prisma.shop.update.mockResolvedValue({
+        id: shopId,
+        name: 'Shop A',
+        slug: 'shop-a',
+        is_active: true,
+      });
+
+      await service.update(shopId, {}, 'actor-1');
+
+      expect(prisma.shopAuditLog.create).not.toHaveBeenCalled();
+    });
   });
 });
 

@@ -40,20 +40,6 @@ export class PublicService {
   }
 
   async findAll(queryDto: QueryPublicItemsDto, tenantId?: string | null) {
-    if (!tenantId) {
-      const page = queryDto.page ?? 1;
-      const pageSize = Math.min(queryDto.page_size ?? 20, 100);
-      return {
-        items: [],
-        pagination: {
-          page,
-          page_size: pageSize,
-          total: 0,
-          total_pages: 0,
-        },
-      };
-    }
-
     const page = queryDto.page ?? 1;
     const pageSize = Math.min(queryDto.page_size ?? 20, 100);
     const skip = (page - 1) * pageSize;
@@ -173,10 +159,6 @@ export class PublicService {
   }
 
   async findOne(id: string, tenantId?: string | null) {
-    if (!tenantId) {
-      throw new AppException(ErrorCode.NOT_FOUND, 'Item not found or not public');
-    }
-
     const item = await this.prisma.item.findFirst({
       where: {
         id,
