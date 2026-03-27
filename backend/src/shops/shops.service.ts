@@ -10,6 +10,7 @@ import { UpdateShopDto } from './dto/update-shop.dto';
 import { AddShopAdminDto } from './dto/add-shop-admin.dto';
 import { ShopAuditAction, ShopRole } from '../generated/prisma/client';
 import * as bcrypt from 'bcrypt';
+import { isUUID } from 'class-validator';
 import { IStorageService } from '../storage/storage.interface';
 import { toNumber } from '../common/utils/decimal.utils';
 
@@ -134,21 +135,51 @@ export class ShopsService {
     });
     const activationChanged =
       dto.is_active !== undefined && oldShop.is_active !== updated.is_active;
-    await this.logAudit(
-      id,
-      activationChanged
-        ? updated.is_active
+    const nameChanged = dto.name !== undefined && oldShop.name !== updated.name;
+
+    if (activationChanged) {
+      await this.logAudit(
+        id,
+        updated.is_active
           ? ShopAuditAction.activate_shop
-          : ShopAuditAction.deactivate_shop
-        : ShopAuditAction.update_shop,
-      actorUserId ?? null,
-      'shop',
-      id,
-      {
-        before: { name: oldShop.name, is_active: oldShop.is_active },
-        after: { name: updated.name, is_active: updated.is_active },
-      },
-    );
+          : ShopAuditAction.deactivate_shop,
+        actorUserId ?? null,
+        'shop',
+        id,
+        {
+          before: { is_active: oldShop.is_active },
+          after: { is_active: updated.is_active },
+        },
+      );
+    }
+
+    if (nameChanged) {
+      await this.logAudit(
+        id,
+        ShopAuditAction.update_shop,
+        actorUserId ?? null,
+        'shop',
+        id,
+        {
+          before: { name: oldShop.name },
+          after: { name: updated.name },
+        },
+      );
+    }
+
+    if (!activationChanged && !nameChanged) {
+      await this.logAudit(
+        id,
+        ShopAuditAction.update_shop,
+        actorUserId ?? null,
+        'shop',
+        id,
+        {
+          before: { name: oldShop.name, is_active: oldShop.is_active },
+          after: { name: updated.name, is_active: updated.is_active },
+        },
+      );
+    }
     return updated;
   }
 
@@ -289,7 +320,15 @@ export class ShopsService {
         action: r.action,
         target_type: r.target_type,
         target_id: r.target_id,
-        metadata: r.metadata_json ? JSON.parse(r.metadata_json) : null,
+        metadata: r.metadata_json
+          ? (() => {
+              try {
+                return JSON.parse(r.metadata_json);
+              } catch {
+                return null;
+              }
+            })()
+          : null,
         created_at: r.created_at,
         actor: r.actor,
       })),
@@ -309,6 +348,10 @@ export class ShopsService {
   async addShopAdmin(shopId: string, dto: AddShopAdminDto, actorUserId?: string | null) {
     await this.findOne(shopId); // throws 404 if shop does not exist
 
+    if (dto.user_id && !isUUID(dto.user_id)) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'user_id must be a valid UUID.');
+    }
+
     const user =
       dto.user_id != null
         ? await this.prisma.user.findUnique({ where: { id: dto.user_id } })
@@ -326,30 +369,35 @@ export class ShopsService {
       }
 
       const password_hash = await bcrypt.hash(dto.password, 10);
+      return this.prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            email: dto.email!,
+            password_hash,
+            full_name: dto.full_name,
+          },
+        });
 
-      const created = await this.prisma.user.create({
-        data: {
-          email: dto.email,
-          password_hash,
-          full_name: dto.full_name,
-        },
-      });
+        const upserted = await tx.userShopRole.upsert({
+          where: { user_id_shop_id: { user_id: created.id, shop_id: shopId } },
+          create: { user_id: created.id, shop_id: shopId, role: ShopRole.shop_admin },
+          update: { role: ShopRole.shop_admin },
+        });
 
-       
-      const upserted = await this.prisma.userShopRole.upsert({
-        where: { user_id_shop_id: { user_id: created.id, shop_id: shopId } },
-        create: { user_id: created.id, shop_id: shopId, role: ShopRole.shop_admin },
-        update: { role: ShopRole.shop_admin },
+        const safeMetadata = JSON.stringify({ email: dto.email, created_user: true });
+        await tx.shopAuditLog.create({
+          data: {
+            shop_id: shopId,
+            actor_user_id: actorUserId ?? null,
+            action: ShopAuditAction.add_shop_admin,
+            target_type: 'user',
+            target_id: created.id,
+            metadata_json: safeMetadata,
+          },
+        });
+
+        return upserted;
       });
-      await this.logAudit(
-        shopId,
-        ShopAuditAction.add_shop_admin,
-        actorUserId ?? null,
-        'user',
-        created.id,
-        { email: dto.email, created_user: true },
-      );
-      return upserted;
     }
 
     const upserted = await this.prisma.userShopRole.upsert({
