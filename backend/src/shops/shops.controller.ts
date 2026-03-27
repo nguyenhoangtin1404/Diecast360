@@ -1,7 +1,6 @@
 import {
-  Controller, Get, Post, Patch, Body, Param, UseGuards, HttpCode, HttpStatus, Query, Req,
+  Controller, Get, Post, Patch, Body, Param, UseGuards, HttpCode, HttpStatus, Query,
 } from '@nestjs/common';
-import type { Request } from 'express';
 import { ShopsService } from './shops.service';
 import { CreateShopDto } from './dto/create-shop.dto';
 import { QueryShopMembersDto } from './dto/query-shop-members.dto';
@@ -14,6 +13,7 @@ import { QueryShopAuditLogsDto } from './dto/query-shop-audit-logs.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUserId } from '../common/decorators/current-user-id.decorator';
 import { ShopRole } from '../generated/prisma/client';
 
 /**
@@ -63,8 +63,8 @@ export class ShopsController {
 
   @Post(':id/members')
   @HttpCode(HttpStatus.OK)
-  addShopAdmin(@Param('id') id: string, @Body() dto: AddShopAdminDto, @Req() req: Request & { user?: { id?: string } }) {
-    return this.shopsService.addShopAdmin(id, dto, req.user?.id ?? null);
+  addShopAdmin(@Param('id') id: string, @Body() dto: AddShopAdminDto, @CurrentUserId() actorUserId: string | null) {
+    return this.shopsService.addShopAdmin(id, dto, actorUserId);
   }
 
   @Post(':id/members/:userId/reset-password')
@@ -73,9 +73,9 @@ export class ShopsController {
     @Param('id') id: string,
     @Param('userId') userId: string,
     @Body() dto: ResetShopMemberPasswordDto,
-    @Req() req: Request & { user?: { id?: string } },
+    @CurrentUserId() actorUserId: string | null,
   ) {
-    return this.shopsService.resetMemberPassword(id, userId, dto.password, req.user?.id ?? null);
+    return this.shopsService.resetMemberPassword(id, userId, dto.password, actorUserId);
   }
 
   @Patch(':id/members/:userId/active')
@@ -84,19 +84,19 @@ export class ShopsController {
     @Param('id') id: string,
     @Param('userId') userId: string,
     @Body() dto: SetShopMemberActiveDto,
-    @Req() req: Request & { user?: { id?: string } },
+    @CurrentUserId() actorUserId: string | null,
   ) {
-    return this.shopsService.setMemberAccountActive(id, userId, dto.is_active, req.user?.id ?? null);
+    return this.shopsService.setMemberAccountActive(id, userId, dto.is_active, actorUserId);
   }
 
   @Patch(':id/deactivate')
   @HttpCode(HttpStatus.OK)
-  deactivate(@Param('id') id: string, @Req() req: Request & { user?: { id?: string } }) {
-    return this.shopsService.deactivate(id, req.user?.id ?? null);
+  deactivate(@Param('id') id: string, @CurrentUserId() actorUserId: string | null) {
+    return this.shopsService.deactivate(id, actorUserId);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateShopDto, @Req() req: Request & { user?: { id?: string } }) {
-    return this.shopsService.update(id, dto, req.user?.id ?? null);
+  update(@Param('id') id: string, @Body() dto: UpdateShopDto, @CurrentUserId() actorUserId: string | null) {
+    return this.shopsService.update(id, dto, actorUserId);
   }
 }

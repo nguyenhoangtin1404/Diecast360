@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { ShopAuditAction } from '../../generated/prisma/client';
 
 export class QueryShopAuditLogsDto {
   @IsOptional()
@@ -16,19 +17,6 @@ export class QueryShopAuditLogsDto {
   page_size?: number = 20;
 
   @IsOptional()
-  @IsIn([
-    'add_shop_admin',
-    'reset_member_password',
-    'set_member_active',
-    'update_shop',
-    'deactivate_shop',
-    'activate_shop',
-  ])
-  action?:
-    | 'add_shop_admin'
-    | 'reset_member_password'
-    | 'set_member_active'
-    | 'update_shop'
-    | 'deactivate_shop'
-    | 'activate_shop';
+  @IsIn(Object.values(ShopAuditAction))
+  action?: ShopAuditAction;
 }
