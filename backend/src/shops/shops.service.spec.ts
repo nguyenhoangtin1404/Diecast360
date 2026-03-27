@@ -25,6 +25,7 @@ describe('ShopsService', () => {
     prisma = {
       shop: {
         findUnique: jest.fn(),
+        update: jest.fn(),
       },
       item: {
         findMany: jest.fn(),
@@ -46,6 +47,12 @@ describe('ShopsService', () => {
       },
       $transaction: jest.fn(),
     };
+    prisma.$transaction.mockImplementation(async (arg: unknown) => {
+      if (typeof arg === 'function') {
+        return (arg as (tx: typeof prisma) => unknown)(prisma);
+      }
+      return arg;
+    });
 
     (bcrypt.hash as unknown as jest.Mock).mockResolvedValue('hashed-password');
 
@@ -68,7 +75,7 @@ describe('ShopsService', () => {
 
   describe('addShopAdmin', () => {
     const shopId = 'shop-1';
-    const userId = 'user-1';
+    const userId = '11111111-1111-4111-8111-111111111111';
 
     it('should throw NOT_FOUND when shop does not exist', async () => {
       prisma.shop.findUnique.mockResolvedValue(null);
@@ -157,6 +164,21 @@ describe('ShopsService', () => {
         create: { user_id: userId, shop_id: shopId, role: ShopRole.shop_admin },
         update: { role: ShopRole.shop_admin },
       });
+    });
+
+    it('should add existing user by email without password', async () => {
+      prisma.shop.findUnique.mockResolvedValue({ id: shopId });
+      prisma.user.findUnique.mockResolvedValue({ id: userId });
+      prisma.userShopRole.upsert.mockResolvedValue({
+        user_id: userId,
+        shop_id: shopId,
+        role: ShopRole.shop_admin,
+      });
+
+      await service.addShopAdmin(shopId, { email: 'existing@test.com' });
+
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.userShopRole.upsert).toHaveBeenCalled();
     });
   });
 
@@ -290,6 +312,123 @@ describe('ShopsService', () => {
       expect(result.logs).toHaveLength(1);
       expect(result.pagination.total).toBe(1);
       expect(result.logs[0].metadata).toEqual({ after: { name: 'Shop A' } });
+    });
+
+    it('should apply action filter when provided', async () => {
+      prisma.shop.findUnique.mockResolvedValue({
+        id: shopId,
+        _count: { items: 0, user_roles: 1 },
+      });
+      prisma.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findAuditLogs(shopId, {
+        page: 1,
+        page_size: 20,
+        action: 'deactivate_shop',
+      });
+
+      expect(prisma.shopAuditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { shop_id: shopId, action: 'deactivate_shop' },
+        }),
+      );
+      expect(prisma.shopAuditLog.count).toHaveBeenCalledWith({
+        where: { shop_id: shopId, action: 'deactivate_shop' },
+      });
+    });
+  });
+
+  describe('findItems', () => {
+    const shopId = 'shop-1';
+
+    it('should search items by keyword', async () => {
+      prisma.shop.findUnique.mockResolvedValue({
+        id: shopId,
+        _count: { items: 0, user_roles: 1 },
+      });
+      prisma.$transaction.mockResolvedValue([[], 0]);
+
+      await service.findItems(shopId, {
+        page: 1,
+        page_size: 20,
+        q: 'Ferrari',
+      });
+
+      expect(prisma.item.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            shop_id: shopId,
+            deleted_at: null,
+            name: { contains: 'Ferrari', mode: 'insensitive' },
+          }),
+        }),
+      );
+      expect(prisma.item.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            name: { contains: 'Ferrari', mode: 'insensitive' },
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('update/deactivate audit actions', () => {
+    const shopId = 'shop-1';
+
+    it('should log deactivate_shop when update changes is_active to false', async () => {
+      prisma.shop.findUnique.mockResolvedValue({
+        id: shopId,
+        name: 'Shop A',
+        slug: 'shop-a',
+        is_active: true,
+        _count: { items: 0, user_roles: 1 },
+      });
+      prisma.shop.update.mockResolvedValue({
+        id: shopId,
+        name: 'Shop A',
+        slug: 'shop-a',
+        is_active: false,
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({ id: 'log-1' });
+
+      await service.update(shopId, { is_active: false }, 'actor-1');
+
+      expect(prisma.shopAuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'deactivate_shop',
+            shop_id: shopId,
+            actor_user_id: 'actor-1',
+          }),
+        }),
+      );
+    });
+
+    it('should log deactivate_shop in both deactivate() and update({is_active:false}) paths', async () => {
+      prisma.shop.findUnique.mockResolvedValue({
+        id: shopId,
+        name: 'Shop A',
+        slug: 'shop-a',
+        is_active: true,
+        _count: { items: 0, user_roles: 1 },
+      });
+      prisma.shop.update.mockResolvedValue({
+        id: shopId,
+        name: 'Shop A',
+        slug: 'shop-a',
+        is_active: false,
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({ id: 'log-1' });
+
+      await service.deactivate(shopId, 'actor-1');
+      await service.update(shopId, { is_active: false }, 'actor-1');
+
+      const actions = prisma.shopAuditLog.create.mock.calls
+        .map((call) => call[0]?.data?.action)
+        .filter(Boolean);
+      expect(actions).toContain('deactivate_shop');
+      expect(actions.filter((a) => a === 'deactivate_shop')).toHaveLength(2);
     });
   });
 });
