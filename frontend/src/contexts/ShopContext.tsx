@@ -70,19 +70,29 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ? stableUserShops.find((s) => s.id === activeId)
         : undefined;
 
-      // For shop_admin users, always prefer a shop where their membership role is shop_admin.
-      // This prevents a "sticky" JWT active_shop_id that points to default-shop.
-      const preferredShopAdmin = stableUserShops.find(
+      // For users that have at least one active shop_admin membership:
+      // - keep current active shop if it is also an active shop_admin
+      // - otherwise switch to a deterministic active shop_admin fallback
+      const hasAnyActiveShopAdmin = stableUserShops.some(
         (s) => s.is_active && s.role === 'shop_admin',
       );
-
-      if (preferredShopAdmin) {
-        if (!activeMatch || activeMatch.id !== preferredShopAdmin.id) {
-          await switchToShop(preferredShopAdmin.id);
-        } else {
-          setActiveShop(activeMatch);
+      if (hasAnyActiveShopAdmin) {
+        const activeShopAdminMatch =
+          activeMatch && activeMatch.is_active && activeMatch.role === 'shop_admin'
+            ? activeMatch
+            : undefined;
+        if (activeShopAdminMatch) {
+          setActiveShop(activeShopAdminMatch);
+          return;
         }
-        return;
+
+        const fallbackShopAdmin = stableUserShops.find(
+          (s) => s.is_active && s.role === 'shop_admin',
+        );
+        if (fallbackShopAdmin) {
+          await switchToShop(fallbackShopAdmin.id);
+          return;
+        }
       }
 
       // For super_admin (or users without shop_admin in any active shop):
