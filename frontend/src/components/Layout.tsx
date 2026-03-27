@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useIsSuperAdmin } from '../hooks/useIsSuperAdmin';
 import ShopSelector from './admin/ShopSelector';
 import styles from './Layout.module.css';
 
@@ -24,8 +25,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const isAdmin = location.pathname.startsWith('/admin');
-  const isSuperAdmin =
-    user?.role === 'super_admin' || user?.shop_roles?.some((r) => r.role === 'super_admin');
+  const isSuperAdmin = useIsSuperAdmin();
   const [menuState, setMenuState] = useState({ open: false, pathname: location.pathname });
   const isMenuOpen = menuState.open && menuState.pathname === location.pathname;
 
