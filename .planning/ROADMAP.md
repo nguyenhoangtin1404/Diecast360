@@ -86,7 +86,7 @@ Plans:
 
 Plans:
 - [x] 07-01: Add schema and migration for quantity/attributes
-- [ ] 07-02: Update item API contract and validations
+- [x] 07-02: Update item API contract and validations
 - [ ] 07-03: Implement admin UI and regression tests for new fields
 
 ### Phase 8: Issue #46 - Advanced Inventory Management
@@ -243,10 +243,19 @@ Implemented in codebase for Phase 7 Plan 01:
 - Added interim service guard so sold items stay at `quantity = 0` before Phase `07-02` exposes quantity payloads.
 - Verification passed: Prisma schema validate, Prisma client generate, `ItemsService` regression suite (54 tests), and local PostgreSQL migration replay with legacy data backfill.
 
+## Execution Update (2026-04-01, Phase 7 Plan 02)
+
+Implemented in codebase for Phase 7 Plan 02:
+- Extended item create/update DTOs with validated `quantity` and flat `attributes` support, including null-safe handling.
+- Added a dedicated custom-attributes validator that rejects nested payloads, reserved keys, and invalid scalar values.
+- Updated item create/update persistence so explicit quantity/attributes round-trip through list/detail responses while sold items still force `quantity = 0`.
+- Added DTO regression coverage plus expanded `ItemsService` tests for create/update/list/detail behavior with the new fields.
+- Synced `docs/API_CONTRACT.md` with the backend request/response contract for `quantity` and `attributes`.
+
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet complete and pending tasks:
-- Phase 7: `07-02`, `07-03` Quantity/custom-attributes API and admin UI.
+- Phase 7: `07-03` Quantity/custom-attributes admin UI and regression follow-through.
 - Phase 8: `08-01`, `08-02`, `08-03` Advanced inventory transactions and audit trail.
 - Phase 9: `09-01`, `09-02`, `09-03` Pre-order domain + API + admin flow.
 - Phase 10: `10-01`, `10-02` Analytics API and dashboard UI.
@@ -255,7 +264,7 @@ Phases not yet complete and pending tasks:
 - Phase 13: `13-01`, `13-02`, `13-03` Extended E2E coverage and quality gates.
 
 Partially executed phases (still pending full completion):
-- Phase 7: `07-01` complete; pending `07-02`, `07-03`.
+- Phase 7: `07-01`, `07-02` complete; pending `07-03`.
 
 ### Phase 14: Multi-Tenant Shop
 

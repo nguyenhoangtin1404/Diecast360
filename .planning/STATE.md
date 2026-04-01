@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-03-04)
 ## Current Position
 
 Phase: 7 of 14 (Issue #57 - Quantity and Custom Attributes)
-Plan: 1 of 3 completed in current phase
-Status: Completed Plan 07-01
-Last activity: 2026-04-01 - Completed Phase 7 Plan 01 schema/migration foundation for quantity and custom attributes
+Plan: 2 of 3 completed in current phase
+Status: Completed Plan 07-02
+Last activity: 2026-04-01 - Completed Phase 7 Plan 02 API validation and persistence for quantity and custom attributes
 
-Progress: [####------] 38%
+Progress: [####------] 41%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
+- Total plans completed: 12
 - Average duration: 1 session
-- Tracked execution time: 5.5+ hours
+- Tracked execution time: 6+ hours
 
 ## Accumulated Context
 
@@ -43,7 +43,8 @@ Progress: [####------] 38%
 - Implemented robust Multi-Tenant Shop isolation with dual role-based access control (`super_admin` vs `shop_admin`) and strict `TenantGuard` data boundaries.
 - Legacy item quantities are backfilled from status (`da_ban` -> `0`, others -> `1`) to avoid inconsistent stock after schema rollout.
 - Flexible per-item custom attributes are stored as JSON/JSONB with an empty-object default so downstream API/UI work can assume a stable object payload.
-- Sold items are forced to `quantity = 0` at the service layer until explicit quantity APIs arrive in Phase 7 Plan 02.
+- Item APIs accept only flat scalar custom attributes and reject nested/null payloads to keep validation deterministic.
+- Sold items are forced to `quantity = 0` at the API/service layer even when clients submit a non-zero quantity.
 
 ### Pending Todos
 
@@ -55,6 +56,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-01 09:06 +07
-Stopped at: Phase 7 Plan 01 completed, next is Plan 07-02 API contract and validation
-Resume file: .planning/phases/07-issue-57-quantity-and-custom-attributes/07-02-PLAN.md
+Last session: 2026-04-01 09:49 +0700
+Stopped at: Phase 7 Plan 02 completed, next is Plan 07-03 admin UI and regression coverage
+Resume file: .planning/phases/07-issue-57-quantity-and-custom-attributes/07-03-PLAN.md
