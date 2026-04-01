@@ -34,7 +34,11 @@ function resolveQuantityForStatus(status: ItemStatus, requestedQuantity?: number
     return 0;
   }
 
-  return requestedQuantity ?? getInitialQuantityForStatus(status);
+  // Use explicit nullish check (not `||`): 0 is a valid stock level and must not fall back to default.
+  if (requestedQuantity == null) {
+    return getInitialQuantityForStatus(status);
+  }
+  return requestedQuantity;
 }
 
 @Injectable()
