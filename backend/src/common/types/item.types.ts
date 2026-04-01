@@ -62,6 +62,9 @@ export interface ItemResponseDto {
   price?: number | null;
   original_price?: number | null;
   status: string;
+  quantity: number;
+  /** Flat key-value metadata; same shape as validated `ItemAttributesInput` on write. */
+  attributes: Record<string, string | number | boolean | null>;
   is_public: boolean;
   cover_image_url?: string | null;
   has_default_spin_set?: boolean;
