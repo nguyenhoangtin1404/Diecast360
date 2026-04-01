@@ -1,6 +1,7 @@
-import { IsString, IsOptional, IsBoolean, IsIn, IsNumber, Min, IsEnum, IsNotEmpty } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsIn, IsNumber, Min, IsEnum, IsNotEmpty, IsInt, ValidateIf } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ItemStatus } from '../../generated/prisma/client';
+import { IsItemAttributes, type ItemAttributesInput } from './item-attributes.validator';
 
 export class UpdateItemDto {
   @IsOptional()
@@ -56,6 +57,16 @@ export class UpdateItemDto {
   @IsOptional()
   @IsEnum(ItemStatus)
   status?: ItemStatus;
+
+  @ValidateIf((_, value) => value !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  quantity?: number;
+
+  @ValidateIf((_, value) => value !== undefined)
+  @IsItemAttributes()
+  attributes?: ItemAttributesInput;
 
   @IsOptional()
   @IsBoolean()

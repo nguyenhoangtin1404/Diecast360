@@ -179,14 +179,42 @@ describe('ItemsService', () => {
       expect(result).not.toHaveProperty('warning');
     });
 
-    it('should initialize sold items with zero quantity and empty attributes', async () => {
-      await service.create({ name: 'Sold Item', status: 'da_ban' }, TEST_SHOP_ID);
+    it('should persist explicit quantity and attributes for non-sold items', async () => {
+      prisma.item.create.mockResolvedValueOnce({
+        ...mockItem,
+        quantity: 7,
+        attributes: { color: 'red', limited: true },
+      });
+
+      const result = await service.create({
+        name: 'Detailed Item',
+        quantity: 7,
+        attributes: { color: 'red', limited: true },
+      }, TEST_SHOP_ID);
+
+      expect(prisma.item.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          quantity: 7,
+          attributes: { color: 'red', limited: true },
+        }),
+      });
+      expect(result.item.quantity).toBe(7);
+      expect(result.item.attributes).toEqual({ color: 'red', limited: true });
+    });
+
+    it('should initialize sold items with zero quantity while persisting provided attributes', async () => {
+      await service.create({
+        name: 'Sold Item',
+        status: 'da_ban',
+        quantity: 4,
+        attributes: { color: 'blue' },
+      }, TEST_SHOP_ID);
 
       expect(prisma.item.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           status: 'da_ban',
           quantity: 0,
-          attributes: {},
+          attributes: { color: 'blue' },
         }),
       });
     });
@@ -392,6 +420,8 @@ describe('ItemsService', () => {
       });
       expect(result.items[0].cover_image_url).toContain('cover.jpg');
       expect(result.items[0].fb_post_url).toBe('https://fb.com/post1');
+      expect(result.items[0].quantity).toBe(1);
+      expect(result.items[0].attributes).toEqual({});
     });
 
     it('should filter by status', async () => {
@@ -497,6 +527,8 @@ describe('ItemsService', () => {
       const result = await service.findOne('item-123', TEST_SHOP_ID);
 
       expect(result.item.id).toBe('item-123');
+      expect(result.item.quantity).toBe(1);
+      expect(result.item.attributes).toEqual({});
       expect(result.images).toHaveLength(1);
       expect(result.images[0].url).toContain('1.jpg');
     });
@@ -560,6 +592,30 @@ describe('ItemsService', () => {
       expect(updateCall.data.name).toBeUndefined();
     });
 
+    it('should persist quantity and attributes on update', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      prisma.item.update.mockResolvedValue({
+        ...mockItem,
+        quantity: 5,
+        attributes: { color: 'green', release_year: 2024 },
+      });
+
+      const result = await service.update('item-123', {
+        quantity: 5,
+        attributes: { color: 'green', release_year: 2024 },
+      }, TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: expect.objectContaining({
+          quantity: 5,
+          attributes: { color: 'green', release_year: 2024 },
+        }),
+      });
+      expect(result.item.quantity).toBe(5);
+      expect(result.item.attributes).toEqual({ color: 'green', release_year: 2024 });
+    });
+
     it('should persist fb_post_content when provided', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       prisma.item.update.mockResolvedValue({ ...mockItem, fb_post_content: 'Post content from AI' });
@@ -607,6 +663,62 @@ describe('ItemsService', () => {
     });
 
     it('should force quantity to zero when marking an item as sold', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
+
+      await service.update('item-123', { status: 'da_ban', quantity: 8 }, TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: expect.objectContaining({
+          status: 'da_ban',
+          quantity: 0,
+        }),
+      });
+    });
+
+    it('should keep sold items at zero quantity even when only quantity is updated', async () => {
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        status: 'da_ban',
+        quantity: 0,
+      });
+      prisma.item.update.mockResolvedValue({
+        ...mockItem,
+        status: 'da_ban',
+        quantity: 0,
+      });
+
+      await service.update('item-123', { quantity: 6 }, TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: expect.objectContaining({
+          quantity: 0,
+        }),
+      });
+    });
+
+    it('should not write quantity when updating unrelated fields on an already sold item', async () => {
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        status: 'da_ban',
+        quantity: 0,
+      });
+      prisma.item.update.mockResolvedValue({
+        ...mockItem,
+        status: 'da_ban',
+        quantity: 0,
+        name: 'Renamed Sold',
+      });
+
+      await service.update('item-123', { name: 'Renamed Sold' }, TEST_SHOP_ID);
+
+      const updateCall = prisma.item.update.mock.calls[0][0];
+      expect(updateCall.data).toEqual({ name: 'Renamed Sold' });
+    });
+
+    it('should zero quantity when transitioning to sold without an explicit quantity field', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       prisma.item.update.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
 

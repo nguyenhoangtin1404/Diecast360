@@ -13,6 +13,7 @@ import { toNumber } from '../common/utils/decimal.utils';
 import { FacebookGraphService } from '../integrations/facebook/facebook-graph.service';
 import { FacebookConfigService } from '../integrations/facebook/facebook-config.service';
 import { PublishFacebookPostDto } from './dto/publish-facebook-post.dto';
+import type { ItemAttributesInput } from './dto/item-attributes.validator';
 
 const ALLOWED_STATUS_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
   con_hang: ['con_hang', 'giu_cho', 'da_ban'],
@@ -22,6 +23,18 @@ const ALLOWED_STATUS_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
 
 function getInitialQuantityForStatus(status: ItemStatus): number {
   return status === 'da_ban' ? 0 : 1;
+}
+
+function toItemAttributesJson(attributes: ItemAttributesInput): Prisma.InputJsonObject {
+  return attributes as Prisma.InputJsonObject;
+}
+
+function resolveQuantityForStatus(status: ItemStatus, requestedQuantity?: number): number {
+  if (status === 'da_ban') {
+    return 0;
+  }
+
+  return requestedQuantity ?? getInitialQuantityForStatus(status);
 }
 
 @Injectable()
@@ -362,8 +375,8 @@ Condition: ${item.condition || ''}`;
           price: createDto.price !== undefined && createDto.price !== null ? createDto.price : null,
           original_price: createDto.original_price !== undefined && createDto.original_price !== null ? createDto.original_price : null,
           status: initialStatus,
-          quantity: getInitialQuantityForStatus(initialStatus),
-          attributes: {},
+          quantity: resolveQuantityForStatus(initialStatus, createDto.quantity),
+          attributes: toItemAttributesJson(createDto.attributes ?? {}),
           is_public: createDto.is_public || false,
           shop_id: shopId,
         },
@@ -482,6 +495,7 @@ Condition: ${item.condition || ''}`;
     const nextOriginalPrice = updateDto.original_price !== undefined
       ? updateDto.original_price
       : toNumber(existingItem.original_price);
+    const nextStatus = updateDto.status ?? existingItem.status;
     this.validatePriceFields(nextPrice ?? undefined, nextOriginalPrice ?? undefined);
 
     if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
@@ -499,7 +513,14 @@ Condition: ${item.condition || ''}`;
     if (updateDto.price !== undefined) updateData.price = updateDto.price ?? null;
     if (updateDto.original_price !== undefined) updateData.original_price = updateDto.original_price ?? null;
     if (updateDto.status !== undefined) updateData.status = updateDto.status;
-    if (updateDto.status === 'da_ban') updateData.quantity = 0;
+    if (updateDto.quantity !== undefined) {
+      updateData.quantity = resolveQuantityForStatus(nextStatus, updateDto.quantity);
+    } else if (updateDto.status === 'da_ban' && existingItem.status !== 'da_ban') {
+      updateData.quantity = 0;
+    }
+    if (updateDto.attributes !== undefined) {
+      updateData.attributes = toItemAttributesJson(updateDto.attributes);
+    }
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
     if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
 
