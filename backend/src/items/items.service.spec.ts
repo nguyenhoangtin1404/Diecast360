@@ -202,6 +202,25 @@ describe('ItemsService', () => {
       expect(result.item.attributes).toEqual({ color: 'red', limited: true });
     });
 
+    it('should persist quantity zero for in-stock items when explicitly requested', async () => {
+      prisma.item.create.mockResolvedValueOnce({
+        ...mockItem,
+        quantity: 0,
+      });
+
+      await service.create({
+        name: 'Out of stock draft',
+        quantity: 0,
+      }, TEST_SHOP_ID);
+
+      expect(prisma.item.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          status: 'con_hang',
+          quantity: 0,
+        }),
+      });
+    });
+
     it('should initialize sold items with zero quantity while persisting provided attributes', async () => {
       await service.create({
         name: 'Sold Item',
@@ -614,6 +633,18 @@ describe('ItemsService', () => {
       });
       expect(result.item.quantity).toBe(5);
       expect(result.item.attributes).toEqual({ color: 'green', release_year: 2024 });
+    });
+
+    it('should persist quantity zero on update when explicitly requested for non-sold items', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      prisma.item.update.mockResolvedValue({ ...mockItem, quantity: 0 });
+
+      await service.update('item-123', { quantity: 0 }, TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: expect.objectContaining({ quantity: 0 }),
+      });
     });
 
     it('should persist empty attributes object when clearing custom metadata', async () => {
