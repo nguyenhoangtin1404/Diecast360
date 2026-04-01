@@ -17,7 +17,8 @@
 - Upload: `multipart/form-data`, field file là `file` (ảnh thường) hoặc `frame` (ảnh spinner). Server dùng Sharp tạo thumbnail.
 
 ## Data shape
-- `Item`: `{ id, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, status, is_public, fb_post_content, cover_image_url, fb_post_url?, fb_posted_at?, fb_posts_count?, created_at, updated_at, deleted_at? }`.
+- `Item`: `{ id, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, status, quantity, attributes, is_public, fb_post_content, cover_image_url, fb_post_url?, fb_posted_at?, fb_posts_count?, created_at, updated_at, deleted_at? }`.
+- `attributes`: object phang `Record<string, string | number | boolean | null>`, toi da 50 key, key phai duoc trim va khong duoc dung cac ten du phong nhu `__proto__`, `constructor`, `prototype`.
 - `FacebookPost`: `{ id, item_id, post_url, content, posted_at, created_at }`.
 - `User`: `{ id, email, full_name, role, allowed_shop_ids: string[] }`.
 - `Shop`: `{ id, name, slug, is_active, created_at, updated_at, items_count?, members_count? }`.
@@ -116,9 +117,16 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
     "scale": "1:64",
     "brand": "",
     "status": "con_hang",
+    "quantity": 1,
+    "attributes": {
+      "color": "red",
+      "limited": true
+    },
     "is_public": false
   }
   ```
+- `quantity` la integer `>= 0`. Neu `status = "da_ban"` server se ep `quantity = 0` bat ke payload gui len.
+- `attributes` la object phang; nested object/array khong hop le.
 - Response 201: `data: { item }` (images/spin_sets rỗng).
 - Errors: `VALIDATION_ERROR (422)`.
 
@@ -127,7 +135,8 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 - Errors: `NOT_FOUND (404)`.
 
 ### PATCH /api/v1/items/:id
-- Body JSON: các field cho phép cập nhật `name/description/scale/brand/car_brand/model_brand/condition/price/original_price/status/is_public/fb_post_content`.
+- Body JSON: các field cho phép cập nhật `name/description/scale/brand/car_brand/model_brand/condition/price/original_price/status/quantity/attributes/is_public/fb_post_content`.
+- Neu item duoc cap nhat sang `status = "da_ban"` hoac item da o trang thai `da_ban`, server luon giu `quantity = 0`.
 - Response 200: `data: { item }`.
 - Errors: `VALIDATION_ERROR (422)`, `NOT_FOUND (404)`.
 
@@ -393,7 +402,7 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 ## Validation chính
 - Email: định dạng email, bắt buộc, unique.
 - Password: bắt buộc ở login (server tự kiểm tra hash).
-- Item: `name` bắt buộc; `status` chỉ nhận 3 giá trị quy định; `scale` không được rỗng; `is_public` boolean.
+- Item: `name` bắt buộc; `status` chỉ nhận 3 giá trị quy định; `scale` không được rỗng; `is_public` boolean; `quantity` là so nguyen `>= 0`; `attributes` phai la flat object hop le.
 - Upload: chỉ nhận `ALLOWED_MIME`, kích thước ≤ `MAX_UPLOAD_MB`.
 - Spinner: `frame_index` phải trong khoảng 0..n và không trùng; order phải đủ tất cả `frame_ids` hiện có.
 
