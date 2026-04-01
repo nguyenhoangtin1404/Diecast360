@@ -136,7 +136,9 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 
 ### PATCH /api/v1/items/:id
 - Body JSON: các field cho phép cập nhật `name/description/scale/brand/car_brand/model_brand/condition/price/original_price/status/quantity/attributes/is_public/fb_post_content`.
-- Neu item duoc cap nhat sang `status = "da_ban"` hoac item da o trang thai `da_ban`, server luon giu `quantity = 0`.
+- Invariant: item `da_ban` luôn có `quantity = 0` trong mọi response (GET/PATCH); client không thể giữ stock > 0 khi đã bán.
+- Khi PATCH chuyển hoặc đặt `status = "da_ban"`, server ghi `quantity = 0` (bỏ qua `quantity` khác 0 trong body nếu có).
+- Khi item đã `da_ban` và body **không** gửi `quantity`, server có thể **không** cập nhật cột `quantity` trong DB (vẫn 0); nếu body có `quantity`, server vẫn ép về `0` trước khi lưu.
 - Response 200: `data: { item }`.
 - Errors: `VALIDATION_ERROR (422)`, `NOT_FOUND (404)`.
 

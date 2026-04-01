@@ -616,6 +616,21 @@ describe('ItemsService', () => {
       expect(result.item.attributes).toEqual({ color: 'green', release_year: 2024 });
     });
 
+    it('should persist empty attributes object when clearing custom metadata', async () => {
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        attributes: { color: 'red' },
+      });
+      prisma.item.update.mockResolvedValue({ ...mockItem, attributes: {} });
+
+      await service.update('item-123', { attributes: {} }, TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: expect.objectContaining({ attributes: {} }),
+      });
+    });
+
     it('should persist fb_post_content when provided', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       prisma.item.update.mockResolvedValue({ ...mockItem, fb_post_content: 'Post content from AI' });

@@ -75,6 +75,7 @@ export const ItemsTable = ({
             <th className={`${styles.th} ${styles.thImage}`}>Hình ảnh</th>
             <th className={styles.th}>Tên</th>
             <th className={styles.th}>Trạng thái</th>
+            <th className={styles.th}>SL</th>
             <th className={styles.th}>Công khai</th>
             <th className={styles.th}>Facebook</th>
             <th className={styles.th}>Giá</th>
@@ -112,6 +113,10 @@ export const ItemsTable = ({
                   {renderStatusIcon(item.status)}
                   <span>{ITEM_STATUS_LABELS[item.status].text}</span>
                 </div>
+              </td>
+              <td className={`${styles.td} ${styles.tdCenter}`}>
+                <span className={styles.mobileFieldLabel}>SL</span>
+                {item.quantity !== undefined && item.quantity !== null ? item.quantity : '—'}
               </td>
               <td className={`${styles.td} ${styles.tdCenter}`}>
                 <span className={styles.mobileFieldLabel}>Công khai</span>

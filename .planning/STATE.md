@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 7 - Quantity and Custom Attributes
+**Current focus:** Phase 8 - Advanced Inventory Management (Issue #46)
 
 ## Current Position
 
-Phase: 7 of 14 (Issue #57 - Quantity and Custom Attributes)
-Plan: 2 of 3 completed in current phase
-Status: Completed Plan 07-02
-Last activity: 2026-04-01 - Completed Phase 7 Plan 02 API validation and persistence for quantity and custom attributes
+Phase: 8 of 14 (Issue #46 - Advanced Inventory Management)
+Plan: 0 of 3 in current phase (not started)
+Status: Phase 7 (Issue #57) delivered; ready to start Phase 8 per roadmap
+Last activity: 2026-04-01 — Phase 7 Plan 03: admin UI for quantity/attributes; backend/DTO unit regression only (Playwright E2E remains Phase 12)
 
-Progress: [####------] 41%
+Progress: [#######---] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
+- Total plans completed: 13
 - Average duration: 1 session
 - Tracked execution time: 6+ hours
 
@@ -45,6 +45,7 @@ Progress: [####------] 41%
 - Flexible per-item custom attributes are stored as JSON/JSONB with an empty-object default so downstream API/UI work can assume a stable object payload.
 - Item APIs accept only flat scalar custom attributes and reject nested/null payloads to keep validation deterministic.
 - Sold items are forced to `quantity = 0` at the API/service layer even when clients submit a non-zero quantity.
+- Admin item workflow exposes quantity and a key/value custom-attributes editor on step 1, with validation matching backend rules before save.
 
 ### Pending Todos
 
@@ -56,6 +57,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-01 09:49 +0700
-Stopped at: Phase 7 Plan 02 completed, next is Plan 07-03 admin UI and regression coverage
-Resume file: .planning/phases/07-issue-57-quantity-and-custom-attributes/07-03-PLAN.md
+Last session: 2026-04-01 (Plan 07-03)
+Stopped at: Phase 7 complete for Issue #57; next milestone is Phase 8 (advanced inventory) per roadmap
+Resume file: .planning/ROADMAP.md (Phase 8)

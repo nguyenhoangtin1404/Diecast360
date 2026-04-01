@@ -30,6 +30,83 @@ const parseNumber = (value: string): string => {
   return value.replace(/,/g, '').replace(/\s/g, '');
 };
 
+const MAX_ITEM_ATTRIBUTE_KEYS = 50;
+const MAX_ITEM_ATTRIBUTE_KEY_LENGTH = 50;
+const RESERVED_ITEM_ATTRIBUTE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
+interface AttributeRow {
+  id: string;
+  key: string;
+  value: string;
+}
+
+function newAttributeRowId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `attr_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function attributeRowsFromApi(attributes: unknown): AttributeRow[] {
+  if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) {
+    return [{ id: newAttributeRowId(), key: '', value: '' }];
+  }
+  const entries = Object.entries(attributes as Record<string, unknown>);
+  if (entries.length === 0) {
+    return [{ id: newAttributeRowId(), key: '', value: '' }];
+  }
+  return entries.map(([k, v]) => ({
+    id: newAttributeRowId(),
+    key: k,
+    value:
+      v === null || v === undefined
+        ? ''
+        : typeof v === 'boolean' || typeof v === 'number'
+          ? String(v)
+          : String(v),
+  }));
+}
+
+/** Integers only without ambiguous leading zeros (e.g. "0123" stays a string). Decimals stay strings. */
+function parseAttributeInputValue(raw: string): string | number | boolean | null {
+  const t = raw.trim();
+  if (t === '') return null;
+  const low = t.toLowerCase();
+  if (low === 'true') return true;
+  if (low === 'false') return false;
+  if (/^-?(0|[1-9]\d*)$/.test(t)) return parseInt(t, 10);
+  return t;
+}
+
+function buildAttributesPayload(
+  rows: AttributeRow[],
+): { ok: true; value: Record<string, string | number | boolean | null> } | { ok: false; message: string } {
+  const out: Record<string, string | number | boolean | null> = {};
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const key = row.key.trim();
+    if (!key) continue;
+    if (key.length > MAX_ITEM_ATTRIBUTE_KEY_LENGTH) {
+      return {
+        ok: false,
+        message: `Tên thuộc tính quá dài (tối đa ${MAX_ITEM_ATTRIBUTE_KEY_LENGTH} ký tự).`,
+      };
+    }
+    if (key !== row.key) {
+      return { ok: false, message: 'Tên thuộc tính không được có khoảng trắng đầu hoặc cuối.' };
+    }
+    if (RESERVED_ITEM_ATTRIBUTE_KEYS.has(key)) {
+      return { ok: false, message: `Tên thuộc tính "${key}" không được phép.` };
+    }
+    if (seen.has(key)) {
+      return { ok: false, message: `Trùng tên thuộc tính: ${key}` };
+    }
+    seen.add(key);
+    out[key] = parseAttributeInputValue(row.value);
+  }
+  if (Object.keys(out).length > MAX_ITEM_ATTRIBUTE_KEYS) {
+    return { ok: false, message: `Tối đa ${MAX_ITEM_ATTRIBUTE_KEYS} thuộc tính.` };
+  }
+  return { ok: true, value: out };
+}
+
 interface SpinFrame {
   id: string;
   spin_set_id: string;
@@ -71,6 +148,8 @@ interface ItemData {
   brand?: string;
   price?: number;
   original_price?: number;
+  quantity?: number;
+  attributes?: Record<string, string | number | boolean | null>;
 }
 
 interface ItemResponse {
@@ -117,6 +196,10 @@ export const ItemDetailPage = () => {
   const [originalPrice, setOriginalPrice] = useState<string>('');
   const [scale, setScale] = useState<string>('1:64');
   const [brand, setBrand] = useState<string>('');
+  const [quantity, setQuantity] = useState<string>('');
+  const [attributeRows, setAttributeRows] = useState<AttributeRow[]>(() => [
+    { id: newAttributeRowId(), key: '', value: '' },
+  ]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [lastImageUploadFailed, setLastImageUploadFailed] = useState(false);
@@ -201,6 +284,11 @@ export const ItemDetailPage = () => {
       setScale(item.scale || '1:64');
       setBrand(item.brand || '');
       setFbPostContent(item.fb_post_content || '');
+      const q = (item as { quantity?: unknown }).quantity;
+      setQuantity(
+        typeof q === 'number' && Number.isFinite(q) ? String(Math.max(0, Math.floor(q))) : '',
+      );
+      setAttributeRows(attributeRowsFromApi((item as { attributes?: unknown }).attributes));
     }
     if (data?.facebook_posts) {
       setFacebookPosts(data.facebook_posts || []);
@@ -264,6 +352,8 @@ export const ItemDetailPage = () => {
   useEffect(() => {
     if (id === 'new') {
       setCondition('new');
+      setQuantity('');
+      setAttributeRows([{ id: newAttributeRowId(), key: '', value: '' }]);
     }
   }, [id]);
 
@@ -390,12 +480,48 @@ export const ItemDetailPage = () => {
       }
     }
 
+    if (status === 'da_ban') {
+      itemData.quantity = 0;
+    } else {
+      const qt = quantity.trim();
+      if (qt !== '') {
+        const qn = parseInt(qt, 10);
+        if (!Number.isNaN(qn) && qn >= 0) {
+          itemData.quantity = qn;
+        }
+      }
+    }
+
+    const attrs = buildAttributesPayload(attributeRows);
+    if (attrs.ok) {
+      itemData.attributes = attrs.value;
+    }
+
     return itemData;
+  };
+
+  const validateInventoryBeforeSave = (): boolean => {
+    if (status !== 'da_ban' && quantity.trim() !== '') {
+      const qn = parseInt(quantity.trim(), 10);
+      if (Number.isNaN(qn) || qn < 0 || !Number.isInteger(qn)) {
+        showToast('Số lượng phải là số nguyên ≥ 0.');
+        return false;
+      }
+    }
+    const attrCheck = buildAttributesPayload(attributeRows);
+    if (!attrCheck.ok) {
+      showToast(attrCheck.message);
+      return false;
+    }
+    return true;
   };
 
   const saveCurrentItem = async (silent = false): Promise<boolean> => {
     if (!name.trim()) {
       showToast('Vui lòng nhập tên sản phẩm trước khi chuyển bước.');
+      return false;
+    }
+    if (!validateInventoryBeforeSave()) {
       return false;
     }
     try {
@@ -608,40 +734,17 @@ export const ItemDetailPage = () => {
 
   // Accept AI generated description
   const handleAcceptAiDescription = () => {
-    if (aiDescription) {
-      const newDescription = aiDescription.long_description;
-      setDescription(newDescription);
-      setShowAiPreview(false);
-      setAiDescription(null);
-
-      // Auto save
-      const itemData: ItemData = {
-        name,
-        description: newDescription,
-        status: status as 'con_hang' | 'giu_cho' | 'da_ban',
-        is_public: isPublic,
-      };
-      
-      if (carBrand) itemData.car_brand = carBrand;
-      if (modelBrand) itemData.model_brand = modelBrand;
-      if (condition) itemData.condition = condition as 'new' | 'old';
-      if (scale) itemData.scale = scale;
-      if (brand) itemData.brand = brand;
-      if (price) {
-        const priceNum = parseFloat(price);
-        if (!isNaN(priceNum) && priceNum >= 0) {
-          itemData.price = priceNum;
-        }
-      }
-      if (originalPrice) {
-        const originalPriceNum = parseFloat(originalPrice);
-        if (!isNaN(originalPriceNum) && originalPriceNum >= 0) {
-          itemData.original_price = originalPriceNum;
-        }
-      }
-      
-      saveMutation.mutate({ itemData });
+    if (!aiDescription) return;
+    if (!validateInventoryBeforeSave()) {
+      return;
     }
+    const newDescription = aiDescription.long_description;
+    setDescription(newDescription);
+    setShowAiPreview(false);
+    setAiDescription(null);
+    const merged = buildItemData();
+    merged.description = newDescription;
+    saveMutation.mutate({ itemData: merged });
   };
 
   if (isLoading && id !== 'new') return <div style={{ padding: '20px' }}>Đang tải...</div>;
@@ -652,6 +755,31 @@ export const ItemDetailPage = () => {
   const selectedSpinSet = spinSets.find((set) => set.id === selectedSpinSetId);
   const maxFramesReached = (selectedSpinSet?.frames?.length ?? 0) >= MAX_SPINNER_FRAMES;
   const isNewItem = id === 'new';
+
+  const addAttributeRow = () => {
+    setAttributeRows((prev) => {
+      if (prev.length >= MAX_ITEM_ATTRIBUTE_KEYS) {
+        showToast(`Tối đa ${MAX_ITEM_ATTRIBUTE_KEYS} thuộc tính.`);
+        return prev;
+      }
+      return [...prev, { id: newAttributeRowId(), key: '', value: '' }];
+    });
+  };
+
+  const removeAttributeRow = (rowId: string) => {
+    setAttributeRows((prev) => {
+      if (prev.length <= 1) {
+        return [{ id: newAttributeRowId(), key: '', value: '' }];
+      }
+      return prev.filter((r) => r.id !== rowId);
+    });
+  };
+
+  const updateAttributeRow = (rowId: string, field: 'key' | 'value', value: string) => {
+    setAttributeRows((prev) =>
+      prev.map((r) => (r.id === rowId ? { ...r, [field]: value } : r)),
+    );
+  };
 
   const goToStep = (step: ProductStep) => {
     void (async () => {
@@ -679,6 +807,9 @@ export const ItemDetailPage = () => {
     if (isNewItem && currentStep === 1) {
       if (!name.trim()) {
         showToast('Vui lòng nhập tên sản phẩm trước khi chuyển bước.');
+        return;
+      }
+      if (!validateInventoryBeforeSave()) {
         return;
       }
 
@@ -1573,6 +1704,148 @@ export const ItemDetailPage = () => {
             >
               <span>Đã bán</span>
             </label>
+          </div>
+        </div>
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
+            Số lượng tồn kho
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            disabled={status === 'da_ban'}
+            value={status === 'da_ban' ? '0' : quantity}
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, '');
+              setQuantity(v);
+            }}
+            placeholder="Ví dụ: 5"
+            style={{
+              width: '100%',
+              maxWidth: '200px',
+              padding: '10px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '8px',
+              fontSize: '14px',
+              outline: 'none',
+              transition: 'all 0.2s',
+              color: '#1a1a1a',
+              backgroundColor: status === 'da_ban' ? '#f3f4f6' : '#fff',
+            }}
+            onFocus={(e) => {
+              if (status === 'da_ban') return;
+              e.currentTarget.style.borderColor = '#007bff';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0, 123, 255, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = '#ddd';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          />
+          {status === 'da_ban' ? (
+            <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px', marginBottom: 0 }}>
+              Trạng thái đã bán: hệ thống luôn lưu số lượng 0.
+            </p>
+          ) : (
+            <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px', marginBottom: 0 }}>
+              Để trống khi tạo mới để dùng mặc định (1). Chỉ nhập số nguyên ≥ 0.
+            </p>
+          )}
+        </div>
+        <div style={{ marginBottom: '16px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '8px',
+              marginBottom: '6px',
+            }}
+          >
+            <label style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>Thuộc tính tùy chỉnh</label>
+            <button
+              type="button"
+              onClick={addAttributeRow}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                background: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              <Plus size={14} />
+              Thêm dòng
+            </button>
+          </div>
+          <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
+            Tối đa {MAX_ITEM_ATTRIBUTE_KEYS} cặp. Giá trị để trống được lưu là null. Nhập <code>true</code> /{' '}
+            <code>false</code> hoặc số nguyên để lưu đúng kiểu.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {attributeRows.map((row) => (
+              <div
+                key={row.id}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr auto',
+                  gap: '8px',
+                  alignItems: 'center',
+                }}
+              >
+                <input
+                  type="text"
+                  value={row.key}
+                  onChange={(e) => updateAttributeRow(row.id, 'key', e.target.value)}
+                  placeholder="Tên (ví dụ: mau_sac)"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                  }}
+                />
+                <input
+                  type="text"
+                  value={row.value}
+                  onChange={(e) => updateAttributeRow(row.id, 'value', e.target.value)}
+                  placeholder="Giá trị"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeAttributeRow(row.id)}
+                  aria-label="Xóa dòng thuộc tính"
+                  style={{
+                    padding: '10px 12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    background: '#fff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <X size={18} color="#6b7280" />
+                </button>
+              </div>
+            ))}
           </div>
         </div>
         {id === 'new' && (
