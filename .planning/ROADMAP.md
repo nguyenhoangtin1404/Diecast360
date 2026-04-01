@@ -87,7 +87,7 @@ Plans:
 Plans:
 - [x] 07-01: Add schema and migration for quantity/attributes
 - [x] 07-02: Update item API contract and validations
-- [ ] 07-03: Implement admin UI and regression tests for new fields
+- [x] 07-03: Implement admin UI and backend unit regression coverage for new fields
 
 ### Phase 8: Issue #46 - Advanced Inventory Management
 **Goal**: Build advanced inventory transaction management with audit trail.
@@ -163,7 +163,7 @@ Plans:
 | 4. AI and Social Selling | 1/1 | Complete | 2026-03-13 |
 | 5. Production and Integrations | 1/1 | Complete | 2026-03-16 |
 | 6. Issue #58 - Mobile Responsive UI | 2/2 | Complete | 2026-03-20 |
-| 7. Issue #57 - Quantity and Custom Attributes | 1/3 | In progress | - |
+| 7. Issue #57 - Quantity and Custom Attributes | 3/3 | Complete | 2026-04-01 |
 | 8. Issue #46 - Advanced Inventory Management | 0/3 | Not started | - |
 | 9. Issue #13 - Pre-Order Management | 0/3 | Not started | - |
 | 10. Issue #49 - Reporting and Analytics | 0/2 | Not started | - |
@@ -252,10 +252,18 @@ Implemented in codebase for Phase 7 Plan 02:
 - Added DTO regression coverage plus expanded `ItemsService` tests for create/update/list/detail behavior with the new fields.
 - Synced `docs/API_CONTRACT.md` with the backend request/response contract for `quantity` and `attributes`.
 
+## Execution Update (2026-04-01, Phase 7 Plan 03)
+
+Implemented in codebase for Phase 7 Plan 03:
+- Added admin step-1 controls on `ItemDetailPage` for integer quantity (sold state shows 0 and disables editing) and a key/value custom-attributes editor aligned with API limits (50 keys, trimmed keys, reserved-key hints).
+- Wired create/update payloads through existing save flows, including step navigation and AI description accept path, with client-side validation before save.
+- Surfaced `quantity` on the admin items table for quick stock visibility.
+- Extended shared `item.types.ts` contracts for `quantity` / `attributes` on list and form-related types.
+- Added `ItemsService` unit regression coverage for clearing `attributes` via PATCH with `{}` (no Playwright in this plan; E2E baseline is Phase 12).
+
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet complete and pending tasks:
-- Phase 7: `07-03` Quantity/custom-attributes admin UI and regression follow-through.
 - Phase 8: `08-01`, `08-02`, `08-03` Advanced inventory transactions and audit trail.
 - Phase 9: `09-01`, `09-02`, `09-03` Pre-order domain + API + admin flow.
 - Phase 10: `10-01`, `10-02` Analytics API and dashboard UI.
@@ -264,7 +272,7 @@ Phases not yet complete and pending tasks:
 - Phase 13: `13-01`, `13-02`, `13-03` Extended E2E coverage and quality gates.
 
 Partially executed phases (still pending full completion):
-- Phase 7: `07-01`, `07-02` complete; pending `07-03`.
+- None.
 
 ### Phase 14: Multi-Tenant Shop
 

@@ -6,6 +6,9 @@
 /**
  * Base item interface with common properties used across the application
  */
+/** Flat custom attributes from API (issue #57) */
+export type ItemAttributesPayload = Record<string, string | number | boolean | null>;
+
 export interface BaseItem {
   id: string;
   name: string;
@@ -17,6 +20,10 @@ export interface BaseItem {
   cover_image_url?: string | null;
   has_spinner?: boolean;
   original_price?: number | null;
+  /** Inventory count (≥ 0); sold items are 0 on server */
+  quantity?: number;
+  /** Optional key-value metadata */
+  attributes?: ItemAttributesPayload;
 }
 
 /**
@@ -60,6 +67,8 @@ export interface ItemFormData {
   status: string;
   is_public: boolean;
   description: string;
+  quantity?: number;
+  attributes?: ItemAttributesPayload;
 }
 
 /**

@@ -47,8 +47,6 @@
 - [x] **ATTR-01**: Product stores inventory quantity with non-negative validation.
 - [x] **ATTR-02**: Product supports flexible custom attributes (key-value metadata).
 
-  *Ghi chú:* Phần API, validation và persistence cho `quantity` / `attributes` đã xong (Phase 7 plan 07-01–07-02). Giao diện admin chỉnh sửa các trường này nằm ở plan **07-03** (Issue #57).
-
 - [ ] **STOK-01**: Inventory is transaction-based with full audit trail.
 - [ ] **PORD-01**: Pre-order lifecycle is managed with explicit status transitions.
 - [ ] **RPTG-01**: Admin can view KPI dashboard with time-range filtering.
@@ -87,8 +85,8 @@
 | PLAT-02 | Phase 5 | Complete (2026-03-16) |
 | PLAT-03 | Phase 5 | Complete (2026-03-16) |
 | RESP-01 | Phase 6 | Complete (2026-03-20) |
-| ATTR-01 | Phase 7 | Complete — API/DB (2026-04-01); admin UI → 07-03 |
-| ATTR-02 | Phase 7 | Complete — API/DB (2026-04-01); admin UI → 07-03 |
+| ATTR-01 | Phase 7 | Complete (2026-04-01) — API, DB, admin UI |
+| ATTR-02 | Phase 7 | Complete (2026-04-01) — API, DB, admin UI |
 | STOK-01 | Phase 8 | Pending |
 | PORD-01 | Phase 9 | Pending |
 | RPTG-01 | Phase 10 | Pending |
