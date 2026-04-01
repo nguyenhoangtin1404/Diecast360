@@ -55,6 +55,8 @@ describe('ItemsService', () => {
     price: null,
     original_price: null,
     status: 'con_hang',
+    quantity: 1,
+    attributes: {},
     is_public: false,
     notes: null,
     created_at: new Date(),
@@ -175,6 +177,18 @@ describe('ItemsService', () => {
       expect(result.item).toBeDefined();
       expect(result.item.id).toBe('item-123');
       expect(result).not.toHaveProperty('warning');
+    });
+
+    it('should initialize sold items with zero quantity and empty attributes', async () => {
+      await service.create({ name: 'Sold Item', status: 'da_ban' }, TEST_SHOP_ID);
+
+      expect(prisma.item.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          status: 'da_ban',
+          quantity: 0,
+          attributes: {},
+        }),
+      });
     });
 
     it('should reject create when category metadata is invalid', async () => {
@@ -589,6 +603,21 @@ describe('ItemsService', () => {
         service.update('item-123', { status: 'con_hang' }, TEST_SHOP_ID),
       ).rejects.toMatchObject({
         errorCode: ErrorCode.ITEM_STATUS_TRANSITION_INVALID,
+      });
+    });
+
+    it('should force quantity to zero when marking an item as sold', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
+
+      await service.update('item-123', { status: 'da_ban' }, TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: expect.objectContaining({
+          status: 'da_ban',
+          quantity: 0,
+        }),
       });
     });
   });
