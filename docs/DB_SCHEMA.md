@@ -70,6 +70,8 @@
 | price | decimal | NULL |
 | original_price | decimal | NULL |
 | status | enum | NOT NULL, values: `con_hang` \| `giu_cho` \| `da_ban`, default `con_hang` |
+| quantity | integer | NOT NULL, default `1`, CHECK `quantity >= 0` |
+| attributes | jsonb | NOT NULL, default `{}` (thuộc tính mở rộng key-value cho từng item) |
 | is_public | boolean | NOT NULL, default `false` |
 | created_at | datetime | NOT NULL, default now() |
 | updated_at | datetime | NOT NULL, auto update |
@@ -125,6 +127,7 @@
 - `(spin_set_id, frame_index)` UNIQUE
 - Spin set default: UNIQUE (item_id) WHERE is_default = true
 - Item soft delete: mọi query business phải filter `deleted_at IS NULL`
+- `items.quantity >= 0` enforced at DB level
 - Khi xóa ảnh/frames, đảm bảo cập nhật order/index liên tục và cover/default hợp lệ
 
 ## Index đề xuất

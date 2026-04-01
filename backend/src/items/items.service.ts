@@ -20,6 +20,10 @@ const ALLOWED_STATUS_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
   da_ban: ['da_ban'],
 };
 
+function getInitialQuantityForStatus(status: ItemStatus): number {
+  return status === 'da_ban' ? 0 : 1;
+}
+
 @Injectable()
 export class ItemsService {
   private readonly logger = new Logger(ItemsService.name);
@@ -344,6 +348,7 @@ Condition: ${item.condition || ''}`;
       // Clear on each attempt to prevent duplicates if transaction retries
       failedImages = [];
       totalImages = 0;
+      const initialStatus = (createDto.status as ItemStatus | undefined) ?? 'con_hang';
 
       const item = await tx.item.create({
         data: {
@@ -356,7 +361,9 @@ Condition: ${item.condition || ''}`;
           condition: (createDto.condition as 'new' | 'old' | undefined) || null,
           price: createDto.price !== undefined && createDto.price !== null ? createDto.price : null,
           original_price: createDto.original_price !== undefined && createDto.original_price !== null ? createDto.original_price : null,
-          status: (createDto.status as ItemStatus) || 'con_hang',
+          status: initialStatus,
+          quantity: getInitialQuantityForStatus(initialStatus),
+          attributes: {},
           is_public: createDto.is_public || false,
           shop_id: shopId,
         },
@@ -492,6 +499,7 @@ Condition: ${item.condition || ''}`;
     if (updateDto.price !== undefined) updateData.price = updateDto.price ?? null;
     if (updateDto.original_price !== undefined) updateData.original_price = updateDto.original_price ?? null;
     if (updateDto.status !== undefined) updateData.status = updateDto.status;
+    if (updateDto.status === 'da_ban') updateData.quantity = 0;
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
     if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
 
