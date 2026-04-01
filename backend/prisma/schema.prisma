@@ -125,6 +125,8 @@ model Item {
   price          Decimal?
   original_price Decimal?
   status         ItemStatus  @default(con_hang)
+  quantity       Int         @default(1)
+  attributes     Json        @default("{}")
   is_public      Boolean     @default(false)
   created_at     DateTime    @default(now())
   updated_at     DateTime    @updatedAt
