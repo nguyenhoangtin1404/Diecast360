@@ -1,0 +1,12 @@
+{
+  "name": "diecast360",
+  "private": true,
+  "scripts": {
+    "dev:backend": "pnpm --dir backend start:dev",
+    "dev:frontend": "pnpm --dir frontend dev",
+    "dev": "concurrently \"pnpm --dir backend start:dev\" \"pnpm --dir frontend dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.1"
+  }
+}
