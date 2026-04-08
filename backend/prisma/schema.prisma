@@ -15,11 +15,6 @@ generator client {
   output   = "../src/generated/prisma"
 }
 
-seed {
-  provider = "ts-node"
-  script   = "prisma/seed-categories.ts"
-}
-
 enum ItemStatus {
   con_hang
   giu_cho
