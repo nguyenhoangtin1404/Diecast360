@@ -12,14 +12,14 @@
 
 ### Media
 
-- [ ] **MEDI-01**: User can upload multiple item images, set a cover image, and reorder images.
-- [ ] **MEDI-02**: User can create spinner sets and upload ordered spinner frames.
-- [ ] **MEDI-03**: User can view spinner on item detail with gallery fallback.
+- [x] **MEDI-01**: User can upload multiple item images, set a cover image, and reorder images.
+- [x] **MEDI-02**: User can create spinner sets and upload ordered spinner frames.
+- [x] **MEDI-03**: User can view spinner on item detail with gallery fallback.
 
 ### Public Catalog
 
-- [ ] **PBLC-01**: Visitor can browse public items and open item detail pages.
-- [ ] **PBLC-02**: Public item detail shows cover/status and spinner when available.
+- [x] **PBLC-01**: Visitor can browse public items and open item detail pages.
+- [x] **PBLC-02**: Public item detail shows cover/status and spinner when available.
 
 ### AI and Social
 
@@ -37,9 +37,9 @@
 
 ### Multi-Tenant Shop
 
-- [ ] **MULT-01**: System supports multiple isolated shop tenants with distinct inventory, media, and settings.
-- [ ] **MULT-02**: Admin users can be assigned to one or more shops with role-based access.
-- [ ] **MULT-03**: API requests are scoped to the active tenant via header or token context.
+- [x] **MULT-01**: System supports multiple isolated shop tenants with distinct inventory, media, and settings.
+- [x] **MULT-02**: Admin users can be assigned to one or more shops with role-based access.
+- [x] **MULT-03**: API requests are scoped to the active tenant via header or token context.
 
 ### UX and Operations
 
@@ -49,6 +49,10 @@
 
 - [ ] **STOK-01**: Inventory is transaction-based with full audit trail.
 - [ ] **PORD-01**: Pre-order lifecycle is managed with explicit status transitions.
+  - [ ] **PORD-01a**: Public mobile page `Mo hinh Dat truoc` hien thi danh sach pre-order dang mo voi card baseline (badge, countdown, price, CTA, bottom nav).
+  - [ ] **PORD-01b**: Public mobile page `Don hang cua toi` hien thi danh sach don va trang thai (dang cho/da ve/da thanh toan) kem CTA theo tung don.
+  - [ ] **PORD-01c**: Admin mobile page `Tao Pre-Order Moi` cho phep tao campaign voi form day du truong du lieu va validate.
+  - [ ] **PORD-01d**: Admin mobile page `Quan ly Pre-order` hien thi tong quan campaign, danh sach nguoi tham gia, va thao tac quan ly co ban.
 - [ ] **RPTG-01**: Admin can view KPI dashboard with time-range filtering.
 - [ ] **MEMB-01**: Membership tiers are managed for customer groups.
 - [ ] **MEMB-02**: Points ledger records all earn/redeem/adjust events.
@@ -73,11 +77,11 @@
 |-------------|-------|--------|
 | INVT-01 | Phase 1 | Complete (2026-03-05) |
 | INVT-02 | Phase 1 | Complete (2026-03-05) |
-| MEDI-01 | Phase 2 | Pending |
-| MEDI-02 | Phase 2 | Pending |
-| MEDI-03 | Phase 3 | Pending |
-| PBLC-01 | Phase 3 | Pending |
-| PBLC-02 | Phase 3 | Pending |
+| MEDI-01 | Phase 2 | Complete (2026-03-10) |
+| MEDI-02 | Phase 2 | Complete (2026-03-10) |
+| MEDI-03 | Phase 3 | Complete (2026-03-10) |
+| PBLC-01 | Phase 3 | Complete (2026-03-10) |
+| PBLC-02 | Phase 3 | Complete (2026-03-10) |
 | AISO-01 | Phase 4 | Complete (2026-03-13) |
 | AISO-02 | Phase 4 | Complete (2026-03-13) |
 | AISO-03 | Phase 4 | Complete (2026-03-13) |
@@ -87,8 +91,15 @@
 | RESP-01 | Phase 6 | Complete (2026-03-20) |
 | ATTR-01 | Phase 7 | Complete (2026-04-01) — API, DB, admin UI |
 | ATTR-02 | Phase 7 | Complete (2026-04-01) — API, DB, admin UI |
+| MULT-01 | Phase 14 | Complete (2026-03-23) |
+| MULT-02 | Phase 14 | Complete (2026-03-23) |
+| MULT-03 | Phase 14 | Complete (2026-03-23) |
 | STOK-01 | Phase 8 | Pending |
 | PORD-01 | Phase 9 | Pending |
+| PORD-01a | Phase 9 | Pending |
+| PORD-01b | Phase 9 | Pending |
+| PORD-01c | Phase 9 | Pending |
+| PORD-01d | Phase 9 | Pending |
 | RPTG-01 | Phase 10 | Pending |
 | MEMB-01 | Phase 11 | Pending |
 | MEMB-02 | Phase 11 | Pending |
@@ -103,4 +114,4 @@
 
 ---
 *Requirements defined: 2026-03-04*
-*Last updated: 2026-03-20 after Phase 6 completion*
+*Last updated: 2026-04-08 after docs normalization*

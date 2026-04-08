@@ -401,6 +401,52 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 - `spinner` lấy spin set default (nếu có). Nếu `null` → client dùng gallery ảnh thường.
 - Errors: `NOT_FOUND (404)`.
 
+## Pre-orders (planned - Phase 9, MVP scope)
+Ghi chu: nhom endpoint nay la ke hoach de trien khai MVP pre-order, chua mac dinh la da ton tai trong codebase hien tai.
+
+### POST /api/v1/pre-orders
+- Auth: admin.
+- Body JSON (draft): `{ "item_id": "uuid", "customer_name": "string", "customer_phone": "string", "quantity": 1, "unit_price": 0, "deposit_amount": 0, "expected_arrival_at": "ISO datetime (optional)", "note": "string (optional)" }`.
+- Response 201: `data: { pre_order }`.
+
+### GET /api/v1/pre-orders
+- Auth: admin.
+- Query: `status` (optional), `item_id` (optional), `page`, `page_size`.
+- Response 200: `data: { pre_orders, pagination }`.
+
+### PATCH /api/v1/pre-orders/:id/status
+- Auth: admin.
+- Body JSON: `{ "status": "draft|open|reserved|arrived|completed|cancelled" }`.
+- Response 200: `data: { pre_order }`.
+- Rule: chi cho phep transition hop le theo state machine.
+
+### GET /api/v1/public/pre-orders
+- Auth: public.
+- Muc tieu MVP: tra ve danh sach pre-order dang mo de khach xem va gui yeu cau coc.
+
+### GET /api/v1/public/my-orders
+- Auth: public (cookie/session khach hang hoac token thay the theo policy MVP).
+- Query: `page`, `page_size`, `status` (optional).
+- Response 200: `data: { orders, pagination }`.
+- `orders` can phuc vu UI `Don hang cua toi`: `id`, `status`, `item_name`, `item_cover_image_url`, `deposit_amount`, `remaining_amount`, `expected_arrival_at`, `updated_at`.
+
+### POST /api/v1/public/pre-orders/:id/deposit-requests
+- Auth: public.
+- Body JSON (draft): `{ "name": "string", "phone": "string", "quantity": 1, "note": "string (optional)" }`.
+- Response 201: `data: { request_id, status }`.
+- Ghi chu: payment gateway la phase tiep theo; MVP cho phep ghi nhan yeu cau coc truoc.
+
+### GET /api/v1/pre-orders/:id/management-summary
+- Auth: admin.
+- Response 200: `data: { pre_order, projected_revenue, deposited_total, participants_count, completion_ratio }`.
+- Muc tieu MVP: cap du lieu tong quan cho man hinh `Quan ly Pre-order`.
+
+### GET /api/v1/pre-orders/:id/participants
+- Auth: admin.
+- Query: `page`, `page_size`, `status` (optional), `q` (optional).
+- Response 200: `data: { participants, pagination }`.
+- Muc tieu MVP: cap du lieu danh sach nguoi tham gia cho man hinh `Quan ly Pre-order`.
+
 ## Validation chính
 - Email: định dạng email, bắt buộc, unique.
 - Password: bắt buộc ở login (server tự kiểm tra hash).

@@ -5,13 +5,13 @@
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 8 - Advanced Inventory Management (Issue #46)
+**Current focus:** Phase 9 - Pre-Order Management (Issue #13) for MVP-first delivery
 
 ## Current Position
 
-Phase: 8 of 14 (Issue #46 - Advanced Inventory Management)
+Phase: 9 of 14 (Issue #13 - Pre-Order Management)
 Plan: 0 of 3 in current phase (not started)
-Status: Phase 7 (Issue #57) delivered; ready to start Phase 8 per roadmap
+Status: Phase 7 (Issue #57) delivered; Phase 9 is prioritized for MVP flow before Phase 8
 Last activity: 2026-04-01 — Phase 7 Plan 03: admin UI for quantity/attributes; backend/DTO unit regression only (Playwright E2E remains Phase 12)
 
 Progress: [#######---] 50%
@@ -58,5 +58,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-04-01 (Plan 07-03)
-Stopped at: Phase 7 complete for Issue #57; next milestone is Phase 8 (advanced inventory) per roadmap
-Resume file: .planning/ROADMAP.md (Phase 8)
+Stopped at: Phase 7 complete for Issue #57; MVP routing now prioritizes Phase 9 (pre-order) before Phase 8
+Resume file: .planning/phases/09-issue-13-pre-order-management/09-01-PLAN.md

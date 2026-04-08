@@ -8,8 +8,8 @@ Ngay lap: 2026-03-04
 |---|---|---|
 | 1 | #58 - Responsive mobile | On dinh UI tren mobile truoc khi mo rong tinh nang |
 | 2 | #57 - So luong + thuoc tinh dac biet | Chuan hoa du lieu san pham/kho |
-| 3 | #46 - Quan ly kho mo rong | Xay module kho cho shop quy mo lon hon |
-| 4 | #13 - Quan ly Pre-Order | Them luong dat truoc va theo doi trang thai |
+| 3 | #13 - Quan ly Pre-Order | Them luong dat truoc va theo doi trang thai |
+| 4 | #46 - Quan ly kho mo rong | Xay module kho cho shop quy mo lon hon |
 | 5 | #49 - Bao cao thong ke | Co dashboard KPI ban hang/kho |
 | 6 | #48 - Diem + hoi vien | Mo rong loyalty |
 | 7 | #44 - Playwright automation | Tu dong hoa test E2E cho cac luong chinh |
@@ -22,7 +22,7 @@ Ghi chu:
 
 - #58 la nen tang UI, can xong som de giam no UI debt.
 - #57 la nen tang data model cho #46, #49, #13.
-- #46 + #13 tao du lieu van hanh de #49 thong ke chinh xac.
+- #13 + #46 tao du lieu van hanh de #49 thong ke chinh xac.
 - #48 su dung du lieu giao dich/khach hang, co the bat dau sau #13.
 - #44 bat dau song song tu som, #33 la buoc nang cao sau khi cac luong chinh on.
 
@@ -83,17 +83,19 @@ DoD:
 ## Issue #13 - Quan ly danh sach mo hinh Pre-Order
 
 Muc tieu:
-- Quan ly san pham pre-order va trang thai don dat truoc.
+- Quan ly san pham pre-order va trang thai don dat truoc tren ca admin va public mobile.
 
 Cong viec:
-- DB: model `pre_orders` + trang thai (`mo_nhan`, `dong_nhan`, `da_coc`, `hoan_tat`, `huy`).
-- API: CRUD pre-order, cap nhat coc, han giao du kien.
-- UI: page danh sach pre-order + chi tiet + bo loc trang thai.
+- DB: model `pre_orders` + state machine transition ro rang.
+- API: CRUD pre-order, cap nhat coc, han giao du kien, public pre-order list, public my-orders, admin management summary.
+- UI public mobile: `Mo hinh Dat truoc`, `Don hang cua toi`.
+- UI admin mobile: `Tao Pre-Order Moi`, `Quan ly Pre-order`.
 - Lien ket item ton kho/quantity sau khi pre-order chuyen thanh don that.
 
 DoD:
 - Theo doi duoc so luong dat truoc, coc va tien do giao.
 - Khong xung dot voi luong item thong thuong.
+- Bo 4 man hinh mobile MVP duoc deliver day du theo baseline.
 
 ---
 
@@ -174,15 +176,15 @@ Phase A (1-2 sprint):
 - #58, #57, #44
 
 Phase B (1-2 sprint):
-- #46, #13, #33
+- #13, #46, #33
 
 Phase C (1-2 sprint):
 - #49, #48
 
 ## 5) Uu tien giao choi boi team
 
-- FE-heavy: #58, mot phan #49, #48.
-- BE/DB-heavy: #57, #46, #13.
+- FE-heavy: #58, #13 (public/admin mobile UI), mot phan #49, #48.
+- BE/DB-heavy: #57, #13 (schema/API), #46.
 - QA/DevEx-heavy: #44, #33.
 
 ## 6) Risk chinh can quan ly

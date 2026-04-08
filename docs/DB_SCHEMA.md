@@ -123,12 +123,29 @@
 | created_at | datetime | NOT NULL, default now() |
 | updated_at | datetime | NOT NULL, auto update |
 
+### pre_orders (planned - Phase 9)
+| Column | Type | Constraints/Notes |
+|--------|------|-------------------|
+| id | uuid | PK |
+| item_id | uuid | FK -> items(id), NOT NULL |
+| customer_name | varchar | NOT NULL |
+| customer_phone | varchar | NOT NULL |
+| quantity | integer | NOT NULL, CHECK `quantity > 0` |
+| unit_price | decimal | NOT NULL, CHECK `unit_price >= 0` |
+| deposit_amount | decimal | NOT NULL, CHECK `deposit_amount >= 0` |
+| expected_arrival_at | datetime | NULL |
+| status | enum | NOT NULL, planned values: `draft` \| `open` \| `reserved` \| `arrived` \| `completed` \| `cancelled` |
+| note | text | NULL |
+| created_at | datetime | NOT NULL, default now() |
+| updated_at | datetime | NOT NULL, auto update |
+
 ## Ràng buộc bắt buộc
 - `(spin_set_id, frame_index)` UNIQUE
 - Spin set default: UNIQUE (item_id) WHERE is_default = true
 - Item soft delete: mọi query business phải filter `deleted_at IS NULL`
 - `items.quantity >= 0` enforced at DB level
 - Khi xóa ảnh/frames, đảm bảo cập nhật order/index liên tục và cover/default hợp lệ
+- Pre-order (planned): transition status chi duoc cap nhat theo state machine hop le tai service layer
 
 ## Index đề xuất
 - `shops(is_active)` – filter active shops
@@ -142,6 +159,7 @@
 - `items(condition)` – filter theo tình trạng
 - `item_images(item_id, display_order)` – render gallery
 - `spin_frames(spin_set_id, frame_index)` – tải spinner tuần tự
+- `pre_orders(item_id, status, created_at)` – filter danh sach pre-order theo item/trang thai/thoi gian (planned)
 
 ## Nguyên tắc migration
 - Không chỉnh sửa migration đã apply ở bất kỳ môi trường nào.

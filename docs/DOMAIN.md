@@ -40,6 +40,12 @@
 - Thuộc tính: `id (uuid)`, `images_json` (JSON paths ảnh), `extracted_text` (text trích xuất), `ai_json` (dữ liệu item do AI phân tích), `confidence_json` (confidence scores), `status` (`PENDING|CONFIRMED|REJECTED`), `created_at`, `updated_at`.
 - Quy trình: Upload ảnh → AI phân tích → tạo draft PENDING → user xác nhận hoặc hủy.
 
+### PreOrder (planned - Phase 9)
+- Thực thể pre-order cho luồng đặt cọc và theo dõi đơn hàng.
+- Thuoc tinh du kien MVP: `id`, `item_id`, `customer_name`, `customer_phone`, `quantity`, `deposit_amount`, `unit_price`, `expected_arrival_at`, `status`, `note`, `created_at`, `updated_at`.
+- Trang thai du kien: `draft`, `open`, `reserved`, `arrived`, `completed`, `cancelled`.
+- Muc tieu: tach ro luong ban thuong (`items`) va luong pre-order de quan ly transition minh bach.
+
 ## Quy tắc nghiệp vụ
 - Soft delete: item dùng `deleted_at`; dữ liệu đã xóa mềm không xuất hiện ở danh sách admin/public.
 - Spinner:
@@ -51,6 +57,7 @@
   - Xóa ảnh phải cập nhật cover nếu ảnh cover bị xóa (chọn ảnh đầu tiên còn lại).
 - Public catalog: chỉ hiển thị item `is_public = true` và chưa bị soft delete; trạng thái hiển thị nguyên giá trị (`con_hang/giu_cho/da_ban`).
 - Social selling: UI cần cung cấp thao tác copy caption/link dựa trên dữ liệu item (không thay đổi dữ liệu gốc).
+- Pre-order (planned): lifecycle pre-order phai duoc quan ly bang state model tuong minh, khong cap nhat trang thai tuy y.
 
 ## Luồng chính
 - Admin
@@ -59,3 +66,12 @@
 - Public
   - Xem danh sách item công khai, xem chi tiết item.
   - Nếu item có spin set default → dùng Spinner360 với drag/touch/autoplay/preload thông minh; nếu không → hiển thị gallery ảnh thường.
+
+## Planned for MVP pre-order
+- Public/Customer:
+  - `Mo hinh Dat truoc`: danh sach pre-order dang mo (badge, countdown, gia, CTA, bottom nav).
+  - `Don hang cua toi`: theo doi trang thai don va thao tac theo tung don.
+- Admin:
+  - `Tao Pre-Order Moi`: tao campaign pre-order voi form day du.
+  - `Quan ly Pre-order`: tong quan campaign + danh sach nguoi tham gia + thao tac quan ly.
+- Ghi chu: phan nay la ke hoach cho Phase 9, chua duoc xem la da hoan thanh implementation.

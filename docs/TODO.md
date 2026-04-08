@@ -35,7 +35,7 @@ Public:
 ## Backlog theo issue (ưu tiên)
 - [x] #58 - Cập nhật giao diện responsive mobile.
   Kế hoạch: `.planning/issues/58-mobile-responsive-ui.md`
-- [ ] #57 - Thêm số lượng + thuộc tính đặc biệt cho sản phẩm.
+- [x] #57 - Thêm số lượng + thuộc tính đặc biệt cho sản phẩm.
   Kế hoạch: `.planning/issues/57-quantity-and-custom-attributes.md`
 - [ ] #46 - Quản lý kho mở rộng cho shop mô hình.
   Kế hoạch: `.planning/issues/46-advanced-inventory-management.md`

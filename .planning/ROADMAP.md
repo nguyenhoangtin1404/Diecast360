@@ -12,7 +12,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 4: AI and Social Selling** - Content generation and seller assist tools.
 - [x] **Phase 5: Production and Integrations** - Docker, CI, and Facebook API baseline.
 - [x] **Phase 6: Issue #58 - Mobile Responsive UI** - Mobile-first UX hardening for admin/public pages.
-- [ ] **Phase 7: Issue #57 - Quantity and Custom Attributes** - Extend product model with stock quantity and custom metadata.
+- [x] **Phase 7: Issue #57 - Quantity and Custom Attributes** - Extend product model with stock quantity and custom metadata.
 - [ ] **Phase 8: Issue #46 - Advanced Inventory Management** - Transaction-based inventory and stock audit trail.
 - [ ] **Phase 9: Issue #13 - Pre-Order Management** - Pre-order lifecycle management for model products.
 - [ ] **Phase 10: Issue #49 - Reporting and Analytics** - KPI dashboard and analytics APIs.
@@ -101,15 +101,15 @@ Plans:
 - [ ] 08-03: Add inventory timeline UI and reconciliation tests
 
 ### Phase 9: Issue #13 - Pre-Order Management
-**Goal**: Deliver pre-order lifecycle management for model products.
+**Goal**: Deliver pre-order lifecycle management with admin + public mobile MVP workflows.
 **Depends on**: Phase 7
-**Requirements**: PORD-01
+**Requirements**: PORD-01, PORD-01a, PORD-01b, PORD-01c, PORD-01d
 **Plans**: 3 plans
 
 Plans:
 - [ ] 09-01: Add pre-order schema and state model
 - [ ] 09-02: Build pre-order APIs and transition rules
-- [ ] 09-03: Add admin pre-order management UI and flow tests
+- [ ] 09-03: Add admin + public mobile pre-order UI and flow tests
 
 ### Phase 10: Issue #49 - Reporting and Analytics
 **Goal**: Add reporting and analytics dashboard for operations insights.
@@ -265,7 +265,7 @@ Implemented in codebase for Phase 7 Plan 03:
 
 Phases not yet complete and pending tasks:
 - Phase 8: `08-01`, `08-02`, `08-03` Advanced inventory transactions and audit trail.
-- Phase 9: `09-01`, `09-02`, `09-03` Pre-order domain + API + admin flow.
+- Phase 9: `09-01`, `09-02`, `09-03` Pre-order domain + API + admin/public mobile MVP flows.
 - Phase 10: `10-01`, `10-02` Analytics API and dashboard UI.
 - Phase 11: `11-01`, `11-02` Membership and points rules + admin tooling.
 - Phase 12: `12-01`, `12-02`, `12-03` Playwright baseline and CI integration.

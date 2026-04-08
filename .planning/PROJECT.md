@@ -21,9 +21,9 @@ A seller can create and publish a diecast listing with complete media and ready-
 
 ### Active
 
-- [ ] Facebook Graph API posting and comment sync
-- [ ] Dockerized local stack with database service
-- [ ] Production hardening for upload, auth, and observability
+- [ ] Pre-order lifecycle management (Issue #13, Phase 9)
+- [ ] Transaction-based inventory with audit trail (Issue #46, Phase 8)
+- [ ] Reporting and analytics dashboard (Issue #49, Phase 10)
 
 ### Out of Scope
 
@@ -33,7 +33,7 @@ A seller can create and publish a diecast listing with complete media and ready-
 ## Context
 
 The repository already contains backend and frontend implementation, plus domain and API documentation under `docs/`.
-Current work is focused on production-readiness and Facebook workflow automation.
+Current work is focused on pre-order marketplace MVP delivery, starting with pre-order schema, APIs, and admin/public mobile workflows.
 
 ## Constraints
 
@@ -50,4 +50,4 @@ Current work is focused on production-readiness and Facebook workflow automation
 | Keep social flow centered on Facebook posting UX | Matches target seller workflow | ✓ Good |
 
 ---
-*Last updated: 2026-03-13 after Phase 4 execution*
+*Last updated: 2026-04-08 after docs normalization*
