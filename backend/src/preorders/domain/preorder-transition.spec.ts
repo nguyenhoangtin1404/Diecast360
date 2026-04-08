@@ -32,6 +32,11 @@ describe('pre-order status transitions', () => {
     }
   });
 
+  it('allows cancellation after goods arrive', () => {
+    expect(canTransitionPreOrderStatus('ARRIVED', 'CANCELLED')).toBe(true);
+    expect(() => assertValidPreOrderStatusTransition('ARRIVED', 'CANCELLED')).not.toThrow();
+  });
+
   it('treats PAID as terminal state', () => {
     const nonSelf = PREORDER_STATUSES.filter((status) => status !== 'PAID');
     nonSelf.forEach((status) => {
