@@ -3,7 +3,9 @@ import {
   assertValidPreOrderStatusTransition,
   canTransitionPreOrderStatus,
 } from './preorder-transition';
-import { PreOrderStatus } from './preorder-status';
+import { PREORDER_STATUSES } from './preorder-status';
+import type { PreOrderStatus } from './preorder-status';
+import { PreOrderDomainException } from './preorder-domain.exception';
 
 describe('pre-order status transitions', () => {
   it('allows all configured transitions', () => {
@@ -14,17 +16,33 @@ describe('pre-order status transitions', () => {
     }
   });
 
-  it('rejects transition from paid back to waiting', () => {
-    expect(canTransitionPreOrderStatus('da_thanh_toan', 'dang_cho_hang')).toBe(false);
-    expect(() => assertValidPreOrderStatusTransition('da_thanh_toan', 'dang_cho_hang')).toThrow(
-      'Invalid pre-order status transition from "da_thanh_toan" to "dang_cho_hang"',
-    );
+  it('rejects same-status transition as no-op', () => {
+    expect(canTransitionPreOrderStatus('PENDING_CONFIRMATION', 'PENDING_CONFIRMATION')).toBe(false);
+    expect(() =>
+      assertValidPreOrderStatusTransition('PENDING_CONFIRMATION', 'PENDING_CONFIRMATION'),
+    ).toThrow(PreOrderDomainException);
   });
 
-  it('rejects transition from cancelled to arrived', () => {
-    expect(canTransitionPreOrderStatus('da_huy', 'da_ve')).toBe(false);
-    expect(() => assertValidPreOrderStatusTransition('da_huy', 'da_ve')).toThrow(
-      'Invalid pre-order status transition from "da_huy" to "da_ve"',
-    );
+  it('rejects invalid transitions exhaustively', () => {
+    for (const from of PREORDER_STATUSES) {
+      for (const to of PREORDER_STATUSES) {
+        const expected = PREORDER_STATUS_TRANSITIONS[from].includes(to) && from !== to;
+        expect(canTransitionPreOrderStatus(from, to)).toBe(expected);
+      }
+    }
+  });
+
+  it('treats PAID as terminal state', () => {
+    const nonSelf = PREORDER_STATUSES.filter((status) => status !== 'PAID');
+    nonSelf.forEach((status) => {
+      expect(canTransitionPreOrderStatus('PAID', status)).toBe(false);
+    });
+  });
+
+  it('treats CANCELLED as terminal state', () => {
+    const nonSelf = PREORDER_STATUSES.filter((status) => status !== 'CANCELLED');
+    nonSelf.forEach((status) => {
+      expect(canTransitionPreOrderStatus('CANCELLED', status)).toBe(false);
+    });
   });
 });
