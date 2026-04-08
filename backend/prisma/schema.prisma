@@ -35,14 +35,6 @@ enum ShopAuditAction {
   activate_shop
 }
 
-enum PreOrderStatus {
-  cho_xac_nhan
-  dang_cho_hang
-  da_ve
-  da_thanh_toan
-  da_huy
-}
-
 model Shop {
   id         String         @id @default(uuid())
   name       String
@@ -52,7 +44,6 @@ model Shop {
   updated_at DateTime       @updatedAt
 
   items      Item[]
-  pre_orders PreOrder[]
   user_roles UserShopRole[]
   audit_logs ShopAuditLog[]
 
@@ -86,7 +77,6 @@ model User {
   refresh_tokens RefreshToken[]
   shop_roles     UserShopRole[]
   audit_logs     ShopAuditLog[] @relation("ShopAuditActor")
-  pre_orders     PreOrder[]
 
   @@map("users")
 }
@@ -151,7 +141,6 @@ model Item {
   spin_sets      SpinSet[]
   facebook_posts FacebookPost[]
   vector_sync_task VectorSyncTask?
-  pre_orders     PreOrder[]
   shop           Shop?       @relation(fields: [shop_id], references: [id])
 
   @@map("items")
@@ -162,36 +151,6 @@ model Item {
   @@index([model_brand])
   @@index([condition])
   @@index([shop_id])
-}
-
-model PreOrder {
-  id                   String         @id @default(uuid())
-  shop_id              String
-  item_id              String
-  user_id              String?
-  status               PreOrderStatus @default(cho_xac_nhan)
-  quantity             Int            @default(1)
-  unit_price           Decimal?
-  total_amount         Decimal?
-  deposit_amount       Decimal        @default(0)
-  paid_amount          Decimal        @default(0)
-  expected_arrival_at  DateTime?
-  expected_delivery_at DateTime?
-  note                 String?
-  created_at           DateTime       @default(now())
-  updated_at           DateTime       @updatedAt
-  cancelled_at         DateTime?
-  completed_at         DateTime?
-
-  shop Shop  @relation(fields: [shop_id], references: [id], onDelete: Cascade)
-  item Item  @relation(fields: [item_id], references: [id], onDelete: Restrict)
-  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
-
-  @@map("pre_orders")
-  @@index([shop_id, status])
-  @@index([item_id])
-  @@index([user_id])
-  @@index([expected_arrival_at])
 }
 
 model FacebookPost {
