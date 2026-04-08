@@ -40,7 +40,7 @@ CREATE TABLE "pre_orders" (
 CREATE INDEX "pre_orders_shop_id_status_idx" ON "pre_orders"("shop_id", "status");
 CREATE INDEX "pre_orders_item_id_idx" ON "pre_orders"("item_id");
 CREATE INDEX "pre_orders_user_id_idx" ON "pre_orders"("user_id");
-CREATE INDEX "pre_orders_expected_arrival_at_idx" ON "pre_orders"("expected_arrival_at");
+CREATE INDEX "pre_orders_shop_id_expected_arrival_at_idx" ON "pre_orders"("shop_id", "expected_arrival_at");
 
 ALTER TABLE "pre_orders" ADD CONSTRAINT "pre_orders_shop_id_fkey"
     FOREIGN KEY ("shop_id") REFERENCES "shops"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -36,11 +36,11 @@ enum ShopAuditAction {
 }
 
 enum PreOrderStatus {
-  cho_xac_nhan
-  dang_cho_hang
-  da_ve
-  da_thanh_toan
-  da_huy
+  PENDING_CONFIRMATION @map("cho_xac_nhan")
+  WAITING_FOR_GOODS    @map("dang_cho_hang")
+  ARRIVED              @map("da_ve")
+  PAID                 @map("da_thanh_toan")
+  CANCELLED            @map("da_huy")
 }
 
 model Shop {
@@ -169,7 +169,7 @@ model PreOrder {
   shop_id              String
   item_id              String
   user_id              String?
-  status               PreOrderStatus @default(cho_xac_nhan)
+  status               PreOrderStatus @default(PENDING_CONFIRMATION)
   quantity             Int            @default(1)
   unit_price           Decimal?
   total_amount         Decimal?
@@ -191,7 +191,7 @@ model PreOrder {
   @@index([shop_id, status])
   @@index([item_id])
   @@index([user_id])
-  @@index([expected_arrival_at])
+  @@index([shop_id, expected_arrival_at])
 }
 
 model FacebookPost {
