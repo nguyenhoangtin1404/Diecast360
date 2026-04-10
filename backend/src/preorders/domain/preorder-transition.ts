@@ -4,7 +4,7 @@ import { PreOrderDomainException } from './preorder-domain.exception';
 export const PREORDER_STATUS_TRANSITIONS: Record<PreOrderStatus, ReadonlyArray<PreOrderStatus>> = {
   PENDING_CONFIRMATION: ['WAITING_FOR_GOODS', 'CANCELLED'],
   WAITING_FOR_GOODS: ['ARRIVED', 'CANCELLED'],
-  ARRIVED: ['PAID'],
+  ARRIVED: ['PAID', 'CANCELLED'],
   PAID: [],
   CANCELLED: [],
 };
