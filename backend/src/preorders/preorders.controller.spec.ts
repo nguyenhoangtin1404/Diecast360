@@ -27,6 +27,24 @@ describe('PreordersController', () => {
     expect(service.transitionStatus).toHaveBeenCalledWith('po-1', PreOrderStatus.ARRIVED, 'shop-1');
   });
 
+  it('passes actor context for update', async () => {
+    service.update.mockResolvedValue({ preorder: { id: 'po-2' } });
+    const result = await controller.update(
+      'po-2',
+      { note: 'updated' },
+      'shop-1',
+      'user-2',
+      { user: { role: 'admin' } } as never,
+    );
+    expect(result).toEqual({ preorder: { id: 'po-2' } });
+    expect(service.update).toHaveBeenCalledWith(
+      'po-2',
+      { note: 'updated' },
+      'shop-1',
+      { userId: 'user-2', role: 'admin' },
+    );
+  });
+
   it('passes actor context for create', async () => {
     service.create.mockResolvedValue({ preorder: { id: 'po-1' } });
     const result = await controller.create(
@@ -55,5 +73,15 @@ describe('PreordersController', () => {
       '00000000-0000-0000-0000-000000000001',
       expect.objectContaining({ page: 1, page_size: 20 }),
     );
+  });
+
+  it('routes participants with query pagination', async () => {
+    service.getCampaignParticipants.mockResolvedValue({ participants: [], pagination: { page: 2 } });
+    const result = await controller.getParticipants('item-1', 'shop-1', { page: 2, page_size: 10 });
+    expect(result).toEqual({ participants: [], pagination: { page: 2 } });
+    expect(service.getCampaignParticipants).toHaveBeenCalledWith('item-1', 'shop-1', {
+      page: 2,
+      page_size: 10,
+    });
   });
 });

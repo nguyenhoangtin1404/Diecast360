@@ -158,6 +158,7 @@ describe('PreordersService', () => {
         expected_delivery_at: null,
       },
       tenantId,
+      { userId: null, role: 'admin' },
     );
 
     expect(prisma.preOrder.update).toHaveBeenCalledWith(
@@ -195,6 +196,45 @@ describe('PreordersService', () => {
       page_size: 2,
       total: 3,
       total_pages: 2,
+    });
+  });
+
+  it('rejects update when actor is not owner and not admin', async () => {
+    prisma.preOrder.findFirst.mockResolvedValue({
+      id: 'po-3',
+      shop_id: tenantId,
+      user_id: 'owner-user',
+      quantity: 1,
+      unit_price: { toNumber: () => 100 },
+      deposit_amount: { toNumber: () => 10 },
+      paid_amount: { toNumber: () => 10 },
+    });
+
+    await expect(
+      service.update(
+        'po-3',
+        { note: 'try update' },
+        tenantId,
+        { userId: 'other-user', role: 'member' },
+      ),
+    ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it('applies participants pagination from query', async () => {
+    prisma.preOrder.findMany.mockResolvedValue([]);
+    prisma.preOrder.count.mockResolvedValue(101);
+    const result = await service.getCampaignParticipants('item-1', tenantId, { page: 2, page_size: 50 });
+    expect(prisma.preOrder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 50,
+        take: 50,
+      }),
+    );
+    expect(result.pagination).toEqual({
+      page: 2,
+      page_size: 50,
+      total: 101,
+      total_pages: 3,
     });
   });
 
