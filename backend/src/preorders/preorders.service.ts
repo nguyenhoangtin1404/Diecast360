@@ -1,10 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PreOrderStatus, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { toNumber } from '../common/utils/decimal.utils';
 import { IStorageService } from '../storage/storage.interface';
-import { Inject } from '@nestjs/common';
 import { assertValidPreOrderStatusTransition } from './domain/preorder-transition';
 import { PreOrderDomainException } from './domain/preorder-domain.exception';
 import { CreatePreorderDto } from './dto/create-preorder.dto';
@@ -115,8 +114,15 @@ export class PreordersService {
     };
   }
 
-  async create(dto: CreatePreorderDto, tenantId: string) {
+  async create(
+    dto: CreatePreorderDto,
+    tenantId: string,
+    actor: { userId: string | null; role: string | null },
+  ) {
     const shopId = this.requireActiveShopId(tenantId);
+    if (dto.user_id && dto.user_id !== actor.userId && actor.role !== 'admin') {
+      throw new AppException(ErrorCode.AUTH_FORBIDDEN, 'Only admin can create pre-order for another user');
+    }
     await this.assertItemInShop(dto.item_id, shopId);
     this.validateFinancials({
       unitPrice: dto.unit_price ?? null,
@@ -131,7 +137,7 @@ export class PreordersService {
       data: {
         shop_id: shopId,
         item_id: dto.item_id,
-        user_id: dto.user_id ?? null,
+        user_id: dto.user_id ?? actor.userId ?? null,
         quantity: dto.quantity,
         unit_price: dto.unit_price ?? null,
         total_amount: totalAmount,
@@ -222,14 +228,30 @@ export class PreordersService {
     }
 
     const now = new Date();
-    const preorder = await this.prisma.preOrder.update({
-      where: { id },
+    const updated = await this.prisma.preOrder.updateMany({
+      where: {
+        id,
+        shop_id: shopId,
+        status: current.status,
+      },
       data: {
         status: nextStatus,
         cancelled_at: nextStatus === PreOrderStatus.CANCELLED ? now : null,
         completed_at: nextStatus === PreOrderStatus.PAID ? now : null,
       },
     });
+    if (updated.count === 0) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Pre-order status changed concurrently. Please refresh and retry.',
+      );
+    }
+    const preorder = await this.prisma.preOrder.findFirst({
+      where: { id, shop_id: shopId },
+    });
+    if (!preorder) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Pre-order not found');
+    }
 
     return { preorder };
   }
@@ -325,27 +347,43 @@ export class PreordersService {
 
   async findMyOrders(userId: string, tenantId: string, query: QueryPreordersDto) {
     const shopId = this.requireActiveShopId(tenantId);
+    const page = query.page ?? 1;
+    const pageSize = Math.min(query.page_size ?? 20, 50);
+    const skip = (page - 1) * pageSize;
     const where: Prisma.PreOrderWhereInput = { shop_id: shopId, user_id: userId };
     if (query.status) where.status = query.status;
 
-    const rows = await this.prisma.preOrder.findMany({
-      where,
-      orderBy: [{ created_at: 'desc' }],
-      include: {
-        item: {
-          select: {
-            name: true,
-            scale: true,
-            brand: true,
-            car_brand: true,
-            model_brand: true,
-            item_images: { where: { is_cover: true }, take: 1, select: { file_path: true } },
+    const [rows, total] = await Promise.all([
+      this.prisma.preOrder.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: [{ created_at: 'desc' }],
+        include: {
+          item: {
+            select: {
+              name: true,
+              scale: true,
+              brand: true,
+              car_brand: true,
+              model_brand: true,
+              item_images: { where: { is_cover: true }, take: 1, select: { file_path: true } },
+            },
           },
         },
-      },
-    });
+      }),
+      this.prisma.preOrder.count({ where }),
+    ]);
 
-    return { cards: rows.map((row) => this.toCard(row)) };
+    return {
+      cards: rows.map((row) => this.toCard(row)),
+      pagination: {
+        page,
+        page_size: pageSize,
+        total,
+        total_pages: Math.ceil(total / pageSize),
+      },
+    };
   }
 
   async getAdminSummary(tenantId: string) {
@@ -369,13 +407,19 @@ export class PreordersService {
 
   async getCampaignParticipants(itemId: string, tenantId: string) {
     const shopId = this.requireActiveShopId(tenantId);
-    const rows = await this.prisma.preOrder.findMany({
-      where: { shop_id: shopId, item_id: itemId },
-      orderBy: [{ created_at: 'desc' }],
-      include: {
-        user: { select: { id: true, full_name: true, email: true } },
-      },
-    });
+    const pageSize = 50;
+    const [rows, total] = await Promise.all([
+      this.prisma.preOrder.findMany({
+        where: { shop_id: shopId, item_id: itemId },
+        skip: 0,
+        take: pageSize,
+        orderBy: [{ created_at: 'desc' }],
+        include: {
+          user: { select: { id: true, full_name: true, email: true } },
+        },
+      }),
+      this.prisma.preOrder.count({ where: { shop_id: shopId, item_id: itemId } }),
+    ]);
 
     return {
       participants: rows.map((row) => ({
@@ -386,6 +430,12 @@ export class PreordersService {
         paid_amount: toNumber(row.paid_amount) ?? 0,
         user: row.user,
       })),
+      pagination: {
+        page: 1,
+        page_size: pageSize,
+        total,
+        total_pages: Math.ceil(total / pageSize),
+      },
     };
   }
 }

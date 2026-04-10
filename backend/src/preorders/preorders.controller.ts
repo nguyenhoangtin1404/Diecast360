@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CurrentTenantId } from '../common/decorators/tenant.decorator';
@@ -17,8 +18,14 @@ export class PreordersController {
 
   @Post()
   @UseGuards(JwtAuthGuard, TenantGuard)
-  create(@Body() dto: CreatePreorderDto, @CurrentTenantId() tenantId: string) {
-    return this.preordersService.create(dto, tenantId);
+  create(
+    @Body() dto: CreatePreorderDto,
+    @CurrentTenantId() tenantId: string,
+    @CurrentUserId() userId: string | null,
+    @Req() req: Request,
+  ) {
+    const role = (req.user as { role?: string } | undefined)?.role ?? null;
+    return this.preordersService.create(dto, tenantId, { userId, role });
   }
 
   @Patch(':id')
