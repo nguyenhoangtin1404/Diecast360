@@ -152,13 +152,21 @@ export class PreordersService {
     return { preorder };
   }
 
-  async update(id: string, dto: UpdatePreorderDto, tenantId: string) {
+  async update(
+    id: string,
+    dto: UpdatePreorderDto,
+    tenantId: string,
+    actor: { userId: string | null; role: string | null },
+  ) {
     const shopId = this.requireActiveShopId(tenantId);
     const current = await this.prisma.preOrder.findFirst({
       where: { id, shop_id: shopId },
     });
     if (!current) {
       throw new AppException(ErrorCode.NOT_FOUND, 'Pre-order not found');
+    }
+    if (current.user_id !== actor.userId && actor.role !== 'admin') {
+      throw new AppException(ErrorCode.AUTH_FORBIDDEN, 'You can only update your own pre-order');
     }
     if (dto.item_id) {
       await this.assertItemInShop(dto.item_id, shopId);
@@ -216,7 +224,7 @@ export class PreordersService {
     }
 
     try {
-      assertValidPreOrderStatusTransition(current.status as never, nextStatus as never);
+      assertValidPreOrderStatusTransition(current.status as PreOrderStatus, nextStatus);
     } catch (error) {
       if (!(error instanceof PreOrderDomainException)) {
         throw error;
@@ -259,7 +267,7 @@ export class PreordersService {
   async findAdminList(query: QueryPreordersDto, tenantId: string) {
     const shopId = this.requireActiveShopId(tenantId);
     const page = query.page ?? 1;
-    const pageSize = query.page_size ?? 20;
+    const pageSize = Math.min(query.page_size ?? 20, 100);
     const skip = (page - 1) * pageSize;
     const where: Prisma.PreOrderWhereInput = { shop_id: shopId };
     if (query.status) where.status = query.status;
@@ -405,20 +413,24 @@ export class PreordersService {
     };
   }
 
-  async getCampaignParticipants(itemId: string, tenantId: string) {
+  async getCampaignParticipants(itemId: string, tenantId: string, query: QueryPreordersDto = {}) {
     const shopId = this.requireActiveShopId(tenantId);
-    const pageSize = 50;
+    const page = query.page ?? 1;
+    const pageSize = Math.min(query.page_size ?? 20, 100);
+    const skip = (page - 1) * pageSize;
+    const where: Prisma.PreOrderWhereInput = { shop_id: shopId, item_id: itemId };
+    if (query.status) where.status = query.status;
     const [rows, total] = await Promise.all([
       this.prisma.preOrder.findMany({
-        where: { shop_id: shopId, item_id: itemId },
-        skip: 0,
+        where,
+        skip,
         take: pageSize,
         orderBy: [{ created_at: 'desc' }],
         include: {
           user: { select: { id: true, full_name: true, email: true } },
         },
       }),
-      this.prisma.preOrder.count({ where: { shop_id: shopId, item_id: itemId } }),
+      this.prisma.preOrder.count({ where }),
     ]);
 
     return {
@@ -431,7 +443,7 @@ export class PreordersService {
         user: row.user,
       })),
       pagination: {
-        page: 1,
+        page,
         page_size: pageSize,
         total,
         total_pages: Math.ceil(total / pageSize),

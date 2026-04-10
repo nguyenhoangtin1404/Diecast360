@@ -2,8 +2,10 @@ import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { CurrentTenantId } from '../common/decorators/tenant.decorator';
 import { CurrentUserId } from '../common/decorators/current-user-id.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { PreordersService } from './preorders.service';
 import { CreatePreorderDto } from './dto/create-preorder.dto';
@@ -11,6 +13,7 @@ import { UpdatePreorderDto } from './dto/update-preorder.dto';
 import { TransitionPreorderStatusDto } from './dto/transition-preorder-status.dto';
 import { QueryPreordersDto } from './dto/query-preorders.dto';
 import { QueryPublicPreordersDto } from './dto/query-public-preorders.dto';
+import { ShopRole } from '../generated/prisma/client';
 
 @Controller('preorders')
 export class PreordersController {
@@ -34,8 +37,11 @@ export class PreordersController {
     @Param('id') id: string,
     @Body() dto: UpdatePreorderDto,
     @CurrentTenantId() tenantId: string,
+    @CurrentUserId() userId: string | null,
+    @Req() req: Request,
   ) {
-    return this.preordersService.update(id, dto, tenantId);
+    const role = (req.user as { role?: string } | undefined)?.role ?? null;
+    return this.preordersService.update(id, dto, tenantId, { userId, role });
   }
 
   @Patch(':id/status')
@@ -49,21 +55,28 @@ export class PreordersController {
   }
 
   @Get('admin')
-  @UseGuards(JwtAuthGuard, TenantGuard)
+  @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+  @Roles(ShopRole.shop_admin, ShopRole.super_admin)
   findAdminList(@Query() query: QueryPreordersDto, @CurrentTenantId() tenantId: string) {
     return this.preordersService.findAdminList(query, tenantId);
   }
 
   @Get('admin/summary')
-  @UseGuards(JwtAuthGuard, TenantGuard)
+  @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+  @Roles(ShopRole.shop_admin, ShopRole.super_admin)
   getAdminSummary(@CurrentTenantId() tenantId: string) {
     return this.preordersService.getAdminSummary(tenantId);
   }
 
   @Get('admin/campaigns/:itemId/participants')
-  @UseGuards(JwtAuthGuard, TenantGuard)
-  getParticipants(@Param('itemId') itemId: string, @CurrentTenantId() tenantId: string) {
-    return this.preordersService.getCampaignParticipants(itemId, tenantId);
+  @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+  @Roles(ShopRole.shop_admin, ShopRole.super_admin)
+  getParticipants(
+    @Param('itemId') itemId: string,
+    @CurrentTenantId() tenantId: string,
+    @Query() query: QueryPreordersDto,
+  ) {
+    return this.preordersService.getCampaignParticipants(itemId, tenantId, query);
   }
 
   @Get('public')
