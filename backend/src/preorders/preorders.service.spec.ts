@@ -13,6 +13,7 @@ describe('PreordersService', () => {
       create: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
       groupBy: jest.fn(),
@@ -116,6 +117,7 @@ describe('PreordersService', () => {
           deposit_amount: 120,
         },
         tenantId,
+        { userId: 'user-1', role: 'admin' },
       ),
     ).rejects.toBeInstanceOf(AppException);
   });
@@ -166,5 +168,46 @@ describe('PreordersService', () => {
         }),
       }),
     );
+  });
+
+  it('rejects create for another user when actor is not admin', async () => {
+    prisma.item.findFirst.mockResolvedValue({ id: 'item-1' });
+    await expect(
+      service.create(
+        {
+          item_id: 'f9f4f357-4957-4bdf-a8ea-1434d9f801f7',
+          user_id: '63bbf6a8-7a4f-4e95-a860-2e3b2df8f218',
+          quantity: 1,
+        },
+        tenantId,
+        { userId: '4fc7be0b-913e-4e34-a754-d12d6457f174', role: 'member' },
+      ),
+    ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it('returns pagination metadata for my-orders', async () => {
+    prisma.preOrder.findMany.mockResolvedValue([]);
+    prisma.preOrder.count.mockResolvedValue(3);
+
+    const result = await service.findMyOrders('user-1', tenantId, { page: 1, page_size: 2 });
+    expect(result.pagination).toEqual({
+      page: 1,
+      page_size: 2,
+      total: 3,
+      total_pages: 2,
+    });
+  });
+
+  it('handles concurrent transition conflict', async () => {
+    prisma.preOrder.findFirst.mockResolvedValueOnce({
+      id: 'po-2',
+      shop_id: tenantId,
+      status: PreOrderStatus.PENDING_CONFIRMATION,
+    });
+    prisma.preOrder.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.transitionStatus('po-2', PreOrderStatus.WAITING_FOR_GOODS, tenantId),
+    ).rejects.toBeInstanceOf(AppException);
   });
 });

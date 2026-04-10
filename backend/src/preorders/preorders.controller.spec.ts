@@ -27,6 +27,22 @@ describe('PreordersController', () => {
     expect(service.transitionStatus).toHaveBeenCalledWith('po-1', PreOrderStatus.ARRIVED, 'shop-1');
   });
 
+  it('passes actor context for create', async () => {
+    service.create.mockResolvedValue({ preorder: { id: 'po-1' } });
+    const result = await controller.create(
+      { item_id: '26fcb08a-76d7-4b2f-aef5-8a6e30a8f2ab', quantity: 1 },
+      'shop-1',
+      'user-1',
+      { user: { role: 'admin' } } as never,
+    );
+    expect(result).toEqual({ preorder: { id: 'po-1' } });
+    expect(service.create).toHaveBeenCalledWith(
+      { item_id: '26fcb08a-76d7-4b2f-aef5-8a6e30a8f2ab', quantity: 1 },
+      'shop-1',
+      { userId: 'user-1', role: 'admin' },
+    );
+  });
+
   it('routes public listing with validated query dto', async () => {
     service.findPublicCards.mockResolvedValue({ cards: [] });
     const result = await controller.findPublicCards({
