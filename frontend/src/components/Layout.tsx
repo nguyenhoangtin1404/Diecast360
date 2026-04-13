@@ -104,6 +104,22 @@ export const Layout = ({ children }: LayoutProps) => {
                   <span>Liên hệ</span>
                 </Link>
                 <Link
+                  to="/preorders"
+                  className={linkClassName(location.pathname.startsWith('/preorders'))}
+                  onClick={closeMobileMenu}
+                >
+                  <span className={styles.navIconEmoji}>⏳</span>
+                  <span>Dat truoc</span>
+                </Link>
+                <Link
+                  to="/my-orders"
+                  className={linkClassName(location.pathname.startsWith('/my-orders'))}
+                  onClick={closeMobileMenu}
+                >
+                  <span className={styles.navIconEmoji}>🧾</span>
+                  <span>Don hang cua toi</span>
+                </Link>
+                <Link
                   to="/admin/items"
                   className={linkClassName(false)}
                   onClick={closeMobileMenu}
@@ -129,6 +145,14 @@ export const Layout = ({ children }: LayoutProps) => {
                 >
                   <ShoppingBag size={18} />
                   <span>Sản phẩm</span>
+                </Link>
+                <Link
+                  to="/admin/preorders"
+                  className={linkClassName(location.pathname.startsWith('/admin/preorders'))}
+                  onClick={closeMobileMenu}
+                >
+                  <span className={styles.navIconEmoji}>⏳</span>
+                  <span>Pre-order</span>
                 </Link>
                 <Link
                   to="/admin/categories"
