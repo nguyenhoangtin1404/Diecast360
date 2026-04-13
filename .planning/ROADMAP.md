@@ -104,12 +104,17 @@ Plans:
 **Goal**: Deliver pre-order lifecycle management with admin + public mobile MVP workflows.
 **Depends on**: Phase 7
 **Requirements**: PORD-01, PORD-01a, PORD-01b, PORD-01c, PORD-01d
-**Plans**: 3 plans
+**Plans**: 4 plans
 
 Plans:
 - [ ] 09-01: Add pre-order schema and state model
 - [ ] 09-02: Build pre-order APIs and transition rules
-- [ ] 09-03: Add admin + public mobile pre-order UI and flow tests
+- [x] 09-03: Add admin + public mobile pre-order UI and flow tests
+- [ ] 09-04: Close review gaps for public access, campaign UX, transition parity, and invalid-transition E2E coverage
+
+Review status (2026-04-13):
+- 09-03 is implemented and validated by build + targeted e2e.
+- Remaining quality gaps for phase closure: public shop resolution for `/preorders`, campaign selector/action wiring, invalid-transition e2e coverage, and frontend/backend transition map parity.
 
 ### Phase 10: Issue #49 - Reporting and Analytics
 **Goal**: Add reporting and analytics dashboard for operations insights.
@@ -165,7 +170,7 @@ Plans:
 | 6. Issue #58 - Mobile Responsive UI | 2/2 | Complete | 2026-03-20 |
 | 7. Issue #57 - Quantity and Custom Attributes | 3/3 | Complete | 2026-04-01 |
 | 8. Issue #46 - Advanced Inventory Management | 0/3 | Not started | - |
-| 9. Issue #13 - Pre-Order Management | 0/3 | Not started | - |
+| 9. Issue #13 - Pre-Order Management | 1/4 | In progress | 2026-04-13 |
 | 10. Issue #49 - Reporting and Analytics | 0/2 | Not started | - |
 | 11. Issue #48 - Membership and Points | 0/2 | Not started | - |
 | 12. Issue #44 - Playwright Phase 1 | 0/3 | Not started | - |
