@@ -14,6 +14,11 @@ import ShopsPage from './pages/admin/ShopsPage';
 import { PublicCatalogPage } from './pages/PublicCatalogPage';
 import { PublicItemDetailPage } from './pages/PublicItemDetailPage';
 import { ContactPage } from './pages/ContactPage';
+import { PreOrdersPage } from './pages/admin/PreOrdersPage';
+import { CreatePreOrderPage } from './pages/admin/preorders/CreatePreOrderPage';
+import { PreOrderManagementPage } from './pages/admin/preorders/PreOrderManagementPage';
+import { PreOrdersPage as PublicPreOrdersPage } from './pages/public/PreOrdersPage';
+import { MyOrdersPage } from './pages/public/MyOrdersPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,9 +37,41 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Layout><PublicCatalogPage /></Layout>} />
+              <Route path="/preorders" element={<Layout><PublicPreOrdersPage /></Layout>} />
+              <Route path="/my-orders" element={<Layout><MyOrdersPage /></Layout>} />
               <Route path="/items/:id" element={<Layout><PublicItemDetailPage /></Layout>} />
               <Route path="/contact" element={<Layout><ContactPage /></Layout>} />
               <Route path="/admin/login" element={<LoginPage />} />
+              <Route
+                path="/admin/preorders"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <PreOrdersPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/preorders/create"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <CreatePreOrderPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/preorders/manage"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <PreOrderManagementPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/admin/items/import"
                 element={
