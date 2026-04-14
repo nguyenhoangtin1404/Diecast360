@@ -73,10 +73,6 @@ export class PreordersService {
         throw new AppException(ErrorCode.VALIDATION_ERROR, 'paid_amount must be <= total_amount');
       }
     }
-
-    if (paidAmount < depositAmount) {
-      throw new AppException(ErrorCode.VALIDATION_ERROR, 'paid_amount must be >= deposit_amount');
-    }
   }
 
   private toCard(data: {
@@ -145,7 +141,8 @@ export class PreordersService {
         paid_amount: dto.paid_amount ?? 0,
         expected_arrival_at: dto.expected_arrival_at ? new Date(dto.expected_arrival_at) : null,
         expected_delivery_at: dto.expected_delivery_at ? new Date(dto.expected_delivery_at) : null,
-        note: dto.note ?? null,
+        note: dto.note?.trim() ? dto.note.trim() : null,
+        cover_image_url: dto.cover_image_url?.trim() ? dto.cover_image_url.trim() : null,
       },
     });
 

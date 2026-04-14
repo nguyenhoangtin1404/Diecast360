@@ -26,6 +26,7 @@ export interface AdminPreOrder {
   deposit_amount: number;
   paid_amount: number;
   note: string | null;
+  cover_image_url?: string | null;
   expected_arrival_at: string | null;
   expected_delivery_at: string | null;
   item_id: string;

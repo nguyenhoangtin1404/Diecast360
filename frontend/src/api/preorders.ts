@@ -24,8 +24,8 @@ export const fetchAdminPreorders = async (
 ) => {
   const params = new URLSearchParams();
   if (status) params.set('status', status);
-  if (options?.page) params.set('page', String(options.page));
-  if (options?.pageSize) params.set('page_size', String(options.pageSize));
+  if (options?.page != null) params.set('page', String(options.page));
+  if (options?.pageSize != null) params.set('page_size', String(options.pageSize));
   const response = (await apiClient.get(`/preorders/admin?${params.toString()}`)) as ApiResponse<AdminListResponse>;
   return response.data;
 };
@@ -57,6 +57,7 @@ export const createPreorder = async (payload: {
   expected_arrival_at?: string;
   expected_delivery_at?: string;
   note?: string;
+  cover_image_url?: string;
 }) => {
   const response = (await apiClient.post('/preorders', payload)) as ApiResponse<{ preorder: AdminPreOrder }>;
   return response.data.preorder;

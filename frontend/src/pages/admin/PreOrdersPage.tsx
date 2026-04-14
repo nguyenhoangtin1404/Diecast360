@@ -1,37 +1,24 @@
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { fetchAdminPreorders, transitionPreorderStatus } from '../../api/preorders';
+import { fetchAdminPreorders } from '../../api/preorders';
+import { PREORDER_STATUS_LABELS } from '../../constants/preorder';
+import { usePreorderTransition } from '../../hooks/usePreorderTransition';
 import type { PreOrderStatus } from '../../types/preorder';
-import {
-  PREORDER_STATUS_COLORS,
-  PREORDER_STATUS_LABELS,
-  PREORDER_TRANSITIONS,
-} from './preorders/status';
+import { PREORDER_STATUS_COLORS, PREORDER_TRANSITIONS } from './preorders/status';
 import styles from './preorders/preordersAdmin.module.css';
 
 export const PreOrdersPage = () => {
   const [filterStatus, setFilterStatus] = useState<PreOrderStatus | 'ALL'>('ALL');
-  const [transitionError, setTransitionError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-preorders', filterStatus],
     queryFn: async () => fetchAdminPreorders(filterStatus === 'ALL' ? undefined : filterStatus),
   });
 
-  const transitionMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: PreOrderStatus }) =>
-      transitionPreorderStatus(id, status),
-    onMutate: () => {
-      setTransitionError(null);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-preorders', filterStatus], exact: true });
-      queryClient.invalidateQueries({ queryKey: ['admin-preorder-manage'] });
-    },
-    onError: () => {
-      setTransitionError('Chuyển trạng thái thất bại. Vui lòng thử lại.');
-    },
+  const { transitionMutation, transitionError } = usePreorderTransition(() => {
+    void queryClient.invalidateQueries({ queryKey: ['admin-preorders', filterStatus], exact: true });
+    void queryClient.invalidateQueries({ queryKey: ['admin-preorder-manage'] });
   });
 
   const preorders = useMemo(() => data?.preorders ?? [], [data?.preorders]);

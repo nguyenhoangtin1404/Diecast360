@@ -1,26 +1,32 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  fetchAdminPreorders,
-  fetchCampaignParticipants,
-  transitionPreorderStatus,
-} from '../../../api/preorders';
-import type { PreOrderStatus } from '../../../types/preorder';
-import { PREORDER_STATUS_LABELS, PREORDER_TRANSITIONS } from './status';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAdminPreorders, fetchCampaignParticipants } from '../../../api/preorders';
+import { PREORDER_STATUS_LABELS } from '../../../constants/preorder';
+import { usePreorderTransition } from '../../../hooks/usePreorderTransition';
+import { PREORDER_TRANSITIONS } from './status';
 import styles from './preordersAdmin.module.css';
+
+const PAGE_SIZE = 50;
 
 export const PreOrderManagementPage = () => {
   const queryClient = useQueryClient();
-  const { data } = useQuery({
-    queryKey: ['admin-preorder-manage'],
-    queryFn: async () => fetchAdminPreorders(undefined, { page: 1, pageSize: 50 }),
+  const [page, setPage] = useState(1);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-preorder-manage', page, PAGE_SIZE],
+    queryFn: async () => fetchAdminPreorders(undefined, { page, pageSize: PAGE_SIZE }),
   });
 
+  const pagination = data?.pagination;
+  const totalPages = Math.max(1, pagination?.total_pages ?? 1);
+  const totalCount = pagination?.total ?? 0;
+  const pageOutOfRange = Boolean(pagination && page > totalPages);
+
   const campaigns = useMemo(() => {
-    const entries = data?.preorders ?? [];
+    const list = data?.preorders ?? [];
     const map = new Map<string, string>();
-    entries.forEach((order) => {
+    list.forEach((order) => {
       if (!map.has(order.item_id)) {
         map.set(order.item_id, order.item?.name ?? order.item_id);
       }
@@ -28,18 +34,14 @@ export const PreOrderManagementPage = () => {
     return Array.from(map.entries()).map(([itemId, label]) => ({ itemId, label }));
   }, [data?.preorders]);
 
-  /** User override; when null or stale, first campaign is used. */
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
 
-  const effectiveCampaignId = useMemo(() => {
-    if (!campaigns.length) {
-      return '';
-    }
-    if (selectedCampaignId && campaigns.some((campaign) => campaign.itemId === selectedCampaignId)) {
-      return selectedCampaignId;
-    }
-    return campaigns[0].itemId;
-  }, [campaigns, selectedCampaignId]);
+  const effectiveCampaignId =
+    campaigns.length === 0
+      ? ''
+      : selectedCampaignId && campaigns.some((campaign) => campaign.itemId === selectedCampaignId)
+        ? selectedCampaignId
+        : campaigns[0].itemId;
 
   const participantsQuery = useQuery({
     queryKey: ['admin-preorder-participants', effectiveCampaignId],
@@ -47,31 +49,12 @@ export const PreOrderManagementPage = () => {
     enabled: Boolean(effectiveCampaignId),
   });
 
-  const campaignPreorders = useMemo(
-    () => (data?.preorders ?? []).filter((order) => order.item_id === effectiveCampaignId),
-    [data?.preorders, effectiveCampaignId],
-  );
+  const campaignPreorders = (data?.preorders ?? []).filter((order) => order.item_id === effectiveCampaignId);
+  const projectedRevenue = campaignPreorders.reduce((sum, order) => sum + (order.total_amount ?? 0), 0);
 
-  const projectedRevenue = useMemo(
-    () => campaignPreorders.reduce((sum, order) => sum + (order.total_amount ?? 0), 0),
-    [campaignPreorders],
-  );
-
-  const [transitionError, setTransitionError] = useState<string | null>(null);
-
-  const transitionMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: PreOrderStatus }) =>
-      transitionPreorderStatus(id, status),
-    onMutate: () => {
-      setTransitionError(null);
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin-preorder-manage'] });
-      void queryClient.invalidateQueries({ queryKey: ['admin-preorder-participants'] });
-    },
-    onError: () => {
-      setTransitionError('Chuyển trạng thái thất bại. Vui lòng thử lại.');
-    },
+  const { transitionMutation, transitionError } = usePreorderTransition(() => {
+    void queryClient.invalidateQueries({ queryKey: ['admin-preorder-manage'] });
+    void queryClient.invalidateQueries({ queryKey: ['admin-preorder-participants'] });
   });
 
   return (
@@ -80,6 +63,51 @@ export const PreOrderManagementPage = () => {
         <h1 className={styles.title}>Quản lý Pre-order</h1>
         <p>Theo dõi campaign, doanh thu dự kiến và danh sách người tham gia.</p>
       </div>
+
+      {isLoading && <div className={styles.card}>Đang tải danh sách pre-order...</div>}
+
+      {!isLoading && pageOutOfRange && (
+        <div className={styles.card} data-testid="admin-manage-page-out-of-range">
+          <p className={styles.error}>
+            Trang {page} vượt quá tổng số trang ({totalPages}). Dữ liệu có thể không đầy đủ.
+          </p>
+          <button type="button" className={styles.button} onClick={() => setPage(1)}>
+            Về trang 1
+          </button>
+        </div>
+      )}
+
+      {!isLoading && pagination && totalPages > 1 && (
+        <div className={styles.card} data-testid="admin-manage-pagination">
+          <p>
+            {`Hiển thị ${(data?.preorders ?? []).length} / ${totalCount} đơn (trang ${Math.min(page, totalPages)}/${totalPages}, ${PAGE_SIZE} đơn/trang).`}
+          </p>
+          <div className={styles.controls}>
+            <button
+              type="button"
+              className={`${styles.button} ${styles.buttonSecondary}`}
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Trang trước
+            </button>
+            <button
+              type="button"
+              className={`${styles.button} ${styles.buttonSecondary}`}
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Trang sau
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!isLoading && pagination && totalPages === 1 && totalCount > 0 && (
+        <p className={styles.card} data-testid="admin-manage-list-meta">
+          Tổng {totalCount} đơn pre-order trong shop.
+        </p>
+      )}
 
       <div className={styles.gridTwo}>
         <div className={styles.card}>
@@ -111,6 +139,7 @@ export const PreOrderManagementPage = () => {
               className={styles.button}
               to={effectiveCampaignId ? `/admin/items/${effectiveCampaignId}` : '#'}
               aria-disabled={!effectiveCampaignId}
+              tabIndex={effectiveCampaignId ? undefined : -1}
               onClick={(event) => {
                 if (!effectiveCampaignId) {
                   event.preventDefault();
@@ -127,6 +156,7 @@ export const PreOrderManagementPage = () => {
                   : '#'
               }
               aria-disabled={!effectiveCampaignId}
+              tabIndex={effectiveCampaignId ? undefined : -1}
               onClick={(event) => {
                 if (!effectiveCampaignId) {
                   event.preventDefault();

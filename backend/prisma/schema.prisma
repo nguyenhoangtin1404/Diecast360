@@ -178,6 +178,7 @@ model PreOrder {
   expected_arrival_at  DateTime?
   expected_delivery_at DateTime?
   note                 String?
+  cover_image_url      String?
   created_at           DateTime       @default(now())
   updated_at           DateTime       @updatedAt
   cancelled_at         DateTime?
