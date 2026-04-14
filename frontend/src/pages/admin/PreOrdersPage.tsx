@@ -12,6 +12,7 @@ import styles from './preorders/preordersAdmin.module.css';
 
 export const PreOrdersPage = () => {
   const [filterStatus, setFilterStatus] = useState<PreOrderStatus | 'ALL'>('ALL');
+  const [transitionError, setTransitionError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-preorders', filterStatus],
@@ -21,8 +22,15 @@ export const PreOrdersPage = () => {
   const transitionMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: PreOrderStatus }) =>
       transitionPreorderStatus(id, status),
+    onMutate: () => {
+      setTransitionError(null);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-preorders'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-preorders', filterStatus], exact: true });
+      queryClient.invalidateQueries({ queryKey: ['admin-preorder-manage'] });
+    },
+    onError: () => {
+      setTransitionError('Chuyển trạng thái thất bại. Vui lòng thử lại.');
     },
   });
 
@@ -31,17 +39,17 @@ export const PreOrdersPage = () => {
   return (
     <div className={styles.container}>
       <div className={styles.card}>
-        <h1 className={styles.title}>Quan ly Pre-order</h1>
+        <h1 className={styles.title}>Quản lý Pre-order</h1>
         <div className={styles.controls}>
           <label>
-            Loc trang thai:
+            Lọc trạng thái:
             <select
               data-testid="admin-preorder-status-filter"
               className={styles.select}
               value={filterStatus}
               onChange={(event) => setFilterStatus(event.target.value as PreOrderStatus | 'ALL')}
             >
-              <option value="ALL">Tat ca</option>
+              <option value="ALL">Tất cả</option>
               {Object.entries(PREORDER_STATUS_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -50,22 +58,27 @@ export const PreOrdersPage = () => {
             </select>
           </label>
           <Link className={styles.button} to="/admin/preorders/create">
-            Tao Pre-Order Moi
+            Tạo Pre-Order Mới
           </Link>
           <Link className={`${styles.button} ${styles.buttonSecondary}`} to="/admin/preorders/manage">
-            Quan ly theo campaign
+            Quản lý theo campaign
           </Link>
         </div>
       </div>
 
-      {isLoading && <div className={styles.card}>Dang tai danh sach pre-order...</div>}
-      {error && <div className={styles.card}>Khong the tai danh sach pre-order.</div>}
+      {isLoading && <div className={styles.card}>Đang tải danh sách pre-order...</div>}
+      {error && <div className={styles.card}>Không thể tải danh sách pre-order.</div>}
+      {transitionError && (
+        <div className={styles.card} data-testid="admin-preorder-transition-error">
+          {transitionError}
+        </div>
+      )}
 
       {preorders.map((preorder) => (
         <div className={styles.card} key={preorder.id} data-testid="admin-preorder-card">
           <div className={styles.row}>
             <strong>{preorder.item?.name ?? preorder.item_id}</strong>
-            <span>{preorder.user?.full_name ?? preorder.user?.email ?? 'Khach le'}</span>
+            <span>{preorder.user?.full_name ?? preorder.user?.email ?? 'Khách lẻ'}</span>
             <span
               className={styles.badge}
               style={{ background: PREORDER_STATUS_COLORS[preorder.status] }}
@@ -73,8 +86,8 @@ export const PreOrdersPage = () => {
             >
               {PREORDER_STATUS_LABELS[preorder.status]}
             </span>
-            <span>So luong: {preorder.quantity}</span>
-            <span>Tong tien: {(preorder.total_amount ?? preorder.unit_price ?? 0).toLocaleString('vi-VN')} VND</span>
+            <span>Số lượng: {preorder.quantity}</span>
+            <span>Tổng tiền: {(preorder.total_amount ?? preorder.unit_price ?? 0).toLocaleString('vi-VN')} VND</span>
             <div className={styles.controls}>
               {(PREORDER_TRANSITIONS[preorder.status] ?? []).map((status) => (
                 <button
@@ -84,7 +97,7 @@ export const PreOrdersPage = () => {
                   disabled={transitionMutation.isPending}
                   onClick={() => transitionMutation.mutate({ id: preorder.id, status })}
                 >
-                  Chuyen sang: {PREORDER_STATUS_LABELS[status]}
+                  Chuyển sang: {PREORDER_STATUS_LABELS[status]}
                 </button>
               ))}
             </div>

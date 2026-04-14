@@ -46,3 +46,21 @@ export interface Pagination {
   total_pages?: number;
 }
 
+export interface Participant {
+  preorder_id: string;
+  status: PreOrderStatus;
+  quantity: number;
+  deposit_amount: number;
+  paid_amount: number;
+  user: {
+    id: string;
+    full_name: string | null;
+    email: string | null;
+  } | null;
+}
+
+export interface ParticipantResponse {
+  participants: Participant[];
+  pagination: Pagination;
+}
+

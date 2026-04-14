@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
@@ -33,6 +34,11 @@ export default defineConfig({
     timeout: 120_000,
     stdout: 'pipe',
     stderr: 'pipe',
+    env: {
+      ...process.env,
+      // Lets anonymous `/preorders` E2E resolve shop without `?shop_id=` (see public PreOrdersPage).
+      VITE_PUBLIC_PREORDER_SHOP_ID: 'shop-1',
+    },
   },
 });
  
