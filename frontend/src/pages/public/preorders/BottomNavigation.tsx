@@ -20,7 +20,10 @@ export const BottomNavigation = ({ preordersSearch = '' }: BottomNavigationProps
       >
         Đặt trước
       </Link>
-      <Link className={location.pathname === '/my-orders' ? styles.active : ''} to="/my-orders">
+      <Link
+        className={location.pathname === '/my-orders' ? styles.active : ''}
+        to={`/my-orders${preordersSearch}`}
+      >
         Đơn hàng của tôi
       </Link>
     </nav>

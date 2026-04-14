@@ -102,12 +102,18 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
     if (!Number.isFinite(form.paid_amount) || form.paid_amount < 0) {
       return 'Tiền đã thanh toán không được âm.';
     }
-    const totalAmount = form.unit_price * form.quantity;
-    if (form.deposit_amount > totalAmount) {
-      return 'Tiền đặt cọc không được vượt tổng giá trị đơn.';
+    const hasUnitPriceCap = Number.isFinite(form.unit_price) && form.unit_price > 0;
+    const totalAmount = hasUnitPriceCap ? form.unit_price * form.quantity : null;
+    if (totalAmount != null) {
+      if (form.deposit_amount > totalAmount) {
+        return 'Tiền đặt cọc không được vượt tổng giá trị đơn.';
+      }
+      if (form.paid_amount > totalAmount) {
+        return 'Tiền đã thanh toán không được vượt tổng giá trị đơn.';
+      }
     }
-    if (form.paid_amount > totalAmount) {
-      return 'Tiền đã thanh toán không được vượt tổng giá trị đơn.';
+    if (form.paid_amount < form.deposit_amount) {
+      return 'Tiền đã thanh toán không được nhỏ hơn tiền đặt cọc.';
     }
     if (form.cover_image_url.trim().length > 2048) {
       return 'URL ảnh cover không được vượt 2048 ký tự.';
@@ -151,7 +157,8 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
           await createMutation.mutateAsync({
             item_id: form.item_id.trim(),
             quantity: form.quantity,
-            unit_price: form.unit_price,
+            unit_price:
+              Number.isFinite(form.unit_price) && form.unit_price > 0 ? form.unit_price : undefined,
             deposit_amount: form.deposit_amount,
             paid_amount: form.paid_amount,
             expected_arrival_at: toIsoOrUndefined(form.expected_arrival_at),

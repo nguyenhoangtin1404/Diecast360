@@ -59,10 +59,15 @@ export class PreordersService {
     paidAmount: number;
   }): void {
     const { unitPrice, quantity, depositAmount, paidAmount } = input;
-    const totalAmount = unitPrice != null ? Number((unitPrice * quantity).toFixed(2)) : null;
+    const totalAmount =
+      unitPrice != null && unitPrice > 0 ? Number((unitPrice * quantity).toFixed(2)) : null;
 
     if (depositAmount < 0 || paidAmount < 0) {
       throw new AppException(ErrorCode.VALIDATION_ERROR, 'deposit_amount and paid_amount must be >= 0');
+    }
+
+    if (paidAmount < depositAmount) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'paid_amount must be >= deposit_amount');
     }
 
     if (totalAmount != null) {
@@ -120,14 +125,18 @@ export class PreordersService {
       throw new AppException(ErrorCode.AUTH_FORBIDDEN, 'Only admin can create pre-order for another user');
     }
     await this.assertItemInShop(dto.item_id, shopId);
+    const normalizedUnitPrice =
+      dto.unit_price != null && dto.unit_price > 0 ? dto.unit_price : null;
     this.validateFinancials({
-      unitPrice: dto.unit_price ?? null,
+      unitPrice: normalizedUnitPrice,
       quantity: dto.quantity,
       depositAmount: dto.deposit_amount ?? 0,
       paidAmount: dto.paid_amount ?? 0,
     });
     const totalAmount =
-      dto.unit_price != null ? Number((dto.unit_price * dto.quantity).toFixed(2)) : null;
+      normalizedUnitPrice != null
+        ? Number((normalizedUnitPrice * dto.quantity).toFixed(2))
+        : null;
 
     const preorder = await this.prisma.preOrder.create({
       data: {
@@ -135,7 +144,7 @@ export class PreordersService {
         item_id: dto.item_id,
         user_id: dto.user_id ?? actor.userId ?? null,
         quantity: dto.quantity,
-        unit_price: dto.unit_price ?? null,
+        unit_price: normalizedUnitPrice,
         total_amount: totalAmount,
         deposit_amount: dto.deposit_amount ?? 0,
         paid_amount: dto.paid_amount ?? 0,
@@ -170,16 +179,21 @@ export class PreordersService {
     }
 
     const quantity = dto.quantity ?? current.quantity;
-    const unitPrice = dto.unit_price ?? toNumber(current.unit_price);
+    const mergedUnitPrice =
+      dto.unit_price !== undefined ? dto.unit_price : toNumber(current.unit_price);
+    const normalizedUnitPrice =
+      mergedUnitPrice != null && mergedUnitPrice > 0 ? mergedUnitPrice : null;
     const depositAmount = dto.deposit_amount ?? toNumber(current.deposit_amount) ?? 0;
     const paidAmount = dto.paid_amount ?? toNumber(current.paid_amount) ?? 0;
     this.validateFinancials({
-      unitPrice,
+      unitPrice: normalizedUnitPrice,
       quantity,
       depositAmount,
       paidAmount,
     });
-    const totalAmount = unitPrice != null ? Number((unitPrice * quantity).toFixed(2)) : null;
+    const totalAmount =
+      normalizedUnitPrice != null ? Number((normalizedUnitPrice * quantity).toFixed(2)) : null;
+    const shouldRefreshPricing = dto.unit_price !== undefined || dto.quantity !== undefined;
 
     const hasExpectedArrival = Object.prototype.hasOwnProperty.call(dto, 'expected_arrival_at');
     const hasExpectedDelivery = Object.prototype.hasOwnProperty.call(dto, 'expected_delivery_at');
@@ -190,8 +204,8 @@ export class PreordersService {
         item_id: dto.item_id,
         user_id: dto.user_id,
         quantity: dto.quantity,
-        unit_price: dto.unit_price,
-        total_amount: totalAmount,
+        unit_price: dto.unit_price !== undefined ? normalizedUnitPrice : undefined,
+        total_amount: shouldRefreshPricing ? totalAmount : undefined,
         deposit_amount: dto.deposit_amount,
         paid_amount: dto.paid_amount,
         expected_arrival_at: hasExpectedArrival
