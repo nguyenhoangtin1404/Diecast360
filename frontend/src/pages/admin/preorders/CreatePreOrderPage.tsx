@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createPreorder } from '../../../api/preorders';
+import { isOptionalHttpOrHttpsUrl } from '../../../utils/safeHttpUrl';
 import styles from './preordersAdmin.module.css';
 
 type FormState = {
@@ -28,6 +29,28 @@ const emptyForm = (itemId: string): FormState => ({
   note: '',
 });
 
+/** `datetime-local` value → ISO string for API, or undefined if empty. */
+const toIsoOrUndefined = (value: string): string | undefined => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+  return parsed.toISOString();
+};
+
+const parseOptionalLocalDateTime = (value: string): Date | null => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 type CreatePreOrderFormProps = {
   initialItemId: string;
 };
@@ -37,13 +60,26 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
   const [form, setForm] = useState(() => emptyForm(initialItemId));
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const postSuccessNavigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    return () => {
+      if (postSuccessNavigateTimeoutRef.current !== undefined) {
+        clearTimeout(postSuccessNavigateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const createMutation = useMutation({
     mutationFn: createPreorder,
     onSuccess: () => {
       setSuccess('Đã tạo pre-order thành công.');
       setError(null);
-      window.setTimeout(() => {
+      if (postSuccessNavigateTimeoutRef.current !== undefined) {
+        clearTimeout(postSuccessNavigateTimeoutRef.current);
+      }
+      postSuccessNavigateTimeoutRef.current = setTimeout(() => {
+        postSuccessNavigateTimeoutRef.current = undefined;
         navigate('/admin/preorders');
       }, 1200);
     },
@@ -53,7 +89,7 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
     },
   });
 
-  const numericValidationError = (() => {
+  const validationError = (() => {
     if (!Number.isFinite(form.quantity) || !Number.isInteger(form.quantity) || form.quantity < 1) {
       return 'Số lượng phải là số nguyên dương.';
     }
@@ -70,13 +106,32 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
     if (form.deposit_amount > totalAmount) {
       return 'Tiền đặt cọc không được vượt tổng giá trị đơn.';
     }
-    if (form.paid_amount < form.deposit_amount) {
-      return 'Tiền đã thanh toán không được nhỏ hơn tiền đặt cọc.';
+    if (form.paid_amount > totalAmount) {
+      return 'Tiền đã thanh toán không được vượt tổng giá trị đơn.';
     }
+    if (form.cover_image_url.trim().length > 2048) {
+      return 'URL ảnh cover không được vượt 2048 ký tự.';
+    }
+    if (!isOptionalHttpOrHttpsUrl(form.cover_image_url)) {
+      return 'URL ảnh cover phải là địa chỉ http:// hoặc https:// hợp lệ.';
+    }
+
+    const arrival = parseOptionalLocalDateTime(form.expected_arrival_at);
+    const delivery = parseOptionalLocalDateTime(form.expected_delivery_at);
+    if (form.expected_arrival_at.trim() && !arrival) {
+      return 'Ngày dự kiến về hàng không hợp lệ.';
+    }
+    if (form.expected_delivery_at.trim() && !delivery) {
+      return 'Ngày dự kiến giao hàng không hợp lệ.';
+    }
+    if (arrival && delivery && delivery.getTime() < arrival.getTime()) {
+      return 'Ngày giao hàng không được trước ngày về hàng.';
+    }
+
     return null;
   })();
 
-  const canSubmit = form.item_id.trim().length > 0 && !numericValidationError;
+  const canSubmit = form.item_id.trim().length > 0 && !validationError;
 
   return (
     <div className={styles.container}>
@@ -90,7 +145,7 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
         onSubmit={async (event) => {
           event.preventDefault();
           if (!canSubmit) {
-            setError(numericValidationError ?? 'Vui lòng nhập item_id và thông tin số hợp lệ.');
+            setError(validationError ?? 'Vui lòng nhập item_id và thông tin hợp lệ.');
             return;
           }
           await createMutation.mutateAsync({
@@ -99,12 +154,10 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
             unit_price: form.unit_price,
             deposit_amount: form.deposit_amount,
             paid_amount: form.paid_amount,
-            expected_arrival_at: form.expected_arrival_at || undefined,
-            expected_delivery_at: form.expected_delivery_at || undefined,
-            note:
-              [form.note.trim(), form.cover_image_url.trim() && `Cover image URL: ${form.cover_image_url.trim()}`]
-                .filter(Boolean)
-                .join('\n') || undefined,
+            expected_arrival_at: toIsoOrUndefined(form.expected_arrival_at),
+            expected_delivery_at: toIsoOrUndefined(form.expected_delivery_at),
+            note: form.note.trim() || undefined,
+            cover_image_url: form.cover_image_url.trim() || undefined,
           });
         }}
       >
@@ -113,6 +166,7 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
           <input
             className={styles.input}
             placeholder="URL ảnh cover (tùy chọn)"
+            maxLength={2048}
             value={form.cover_image_url}
             onChange={(event) =>
               setForm((current) => ({ ...current, cover_image_url: event.target.value }))
@@ -138,6 +192,7 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
               min={1}
               step={1}
               inputMode="numeric"
+              data-testid="admin-preorder-quantity"
               value={form.quantity}
               onChange={(event) => setForm((current) => ({ ...current, quantity: Number(event.target.value) }))}
             />
@@ -151,6 +206,7 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
               className={styles.input}
               type="number"
               min={0}
+              data-testid="admin-preorder-unit-price"
               value={form.unit_price}
               onChange={(event) => setForm((current) => ({ ...current, unit_price: Number(event.target.value) }))}
             />
@@ -161,6 +217,7 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
               className={styles.input}
               type="number"
               min={0}
+              data-testid="admin-preorder-deposit-amount"
               value={form.deposit_amount}
               onChange={(event) => setForm((current) => ({ ...current, deposit_amount: Number(event.target.value) }))}
             />
@@ -174,6 +231,7 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
               className={styles.input}
               type="number"
               min={0}
+              data-testid="admin-preorder-paid-amount"
               value={form.paid_amount}
               onChange={(event) => setForm((current) => ({ ...current, paid_amount: Number(event.target.value) }))}
             />
@@ -210,7 +268,7 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
             onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
           />
         </label>
-        {numericValidationError && <p className={styles.error}>{numericValidationError}</p>}
+        {validationError && <p className={styles.error}>{validationError}</p>}
 
         <button
           className={styles.button}
@@ -230,7 +288,6 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
 export const CreatePreOrderPage = () => {
   const [searchParams] = useSearchParams();
   const itemIdFromQuery = searchParams.get('item_id')?.trim() ?? '';
-  const formInstanceKey = itemIdFromQuery || '__no_item_query__';
 
-  return <CreatePreOrderForm key={formInstanceKey} initialItemId={itemIdFromQuery} />;
+  return <CreatePreOrderForm key={itemIdFromQuery} initialItemId={itemIdFromQuery} />;
 };

@@ -41,6 +41,15 @@ const adminListResponse = {
   message: '',
 };
 
+/** Stable admin list JSON for a single row status (avoids shared mutable state across routes). */
+const buildAdminListPayload = (rowStatus: string) => ({
+  ...adminListResponse,
+  data: {
+    ...adminListResponse.data,
+    preorders: adminListResponse.data.preorders.map((row) => ({ ...row, status: rowStatus })),
+  },
+});
+
 const adminListMultiCampaignResponse = {
   ok: true,
   data: {
@@ -154,20 +163,20 @@ async function mockBase(page: import('@playwright/test').Page) {
 test.describe('Pre-order flows', () => {
   test('admin flow supports list, transition and campaign management', async ({ page }) => {
     await mockBase(page);
-    let currentStatus = 'PENDING_CONFIRMATION';
-    await page.route('**/api/v1/preorders/admin**', (route: Route) =>
-      route.fulfill({
+    /** Mutated only synchronously at the start of the PATCH handler before `fulfill`, then read by GET mocks. */
+    const preorderMock = { adminListStatus: 'PENDING_CONFIRMATION' as string };
+
+    await page.route('**/api/v1/preorders/admin**', async (route: Route) => {
+      if (route.request().method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          ...adminListResponse,
-          data: {
-            ...adminListResponse.data,
-            preorders: adminListResponse.data.preorders.map((row) => ({ ...row, status: currentStatus })),
-          },
-        }),
-      }),
-    );
+        body: JSON.stringify(buildAdminListPayload(preorderMock.adminListStatus)),
+      });
+    });
     await page.route('**/api/v1/preorders/admin/campaigns/item-1/participants**', (route: Route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(participantsResponse) }),
     );
@@ -175,23 +184,28 @@ test.describe('Pre-order flows', () => {
     await page.goto('/admin/preorders');
     await expect(page.getByTestId('admin-preorder-card')).toBeVisible();
     await expect(page.getByTestId('admin-preorder-status-badge')).toContainText('Chờ xác nhận');
-    await page.route('**/api/v1/preorders/po-1/status', async (route: Route) => {
-      currentStatus = 'WAITING_FOR_GOODS';
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          ok: true,
-          data: {
-            preorder: {
-              ...adminListResponse.data.preorders[0],
-              status: 'WAITING_FOR_GOODS',
+
+    await page.route(
+      '**/api/v1/preorders/po-1/status',
+      async (route: Route) => {
+        preorderMock.adminListStatus = 'WAITING_FOR_GOODS';
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ok: true,
+            data: {
+              preorder: {
+                ...adminListResponse.data.preorders[0],
+                status: 'WAITING_FOR_GOODS',
+              },
             },
-          },
-          message: '',
-        }),
-      });
-    });
+            message: '',
+          }),
+        });
+      },
+      { times: 1 },
+    );
     await page.getByRole('button', { name: /Chuyển sang: Chờ hàng về/i }).click();
     await expect(page.getByTestId('admin-preorder-status-badge')).toContainText('Chờ hàng về');
     await page.getByRole('link', { name: /Quản lý theo campaign/i }).click();
@@ -228,6 +242,105 @@ test.describe('Pre-order flows', () => {
     await page.goto('/admin/preorders');
     await page.getByRole('button', { name: /Chuyển sang: Đã thanh toán/i }).click();
     await expect(page.getByTestId('admin-preorder-transition-error')).toContainText(
+      'Chuyển trạng thái thất bại',
+    );
+  });
+
+  test('admin management participant transition updates status after PATCH', async ({ page }) => {
+    await mockBase(page);
+    const participantStatus = { value: 'PENDING_CONFIRMATION' as string };
+
+    await page.route('**/api/v1/preorders/admin**', (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(adminListResponse),
+      }),
+    );
+    await page.route('**/api/v1/preorders/admin/campaigns/**/participants**', async (route: Route) => {
+      if (route.request().method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...participantsResponse,
+          data: {
+            ...participantsResponse.data,
+            participants: participantsResponse.data.participants.map((p) => ({
+              ...p,
+              status: participantStatus.value,
+            })),
+          },
+        }),
+      });
+    });
+    await page.route(
+      '**/api/v1/preorders/po-1/status',
+      async (route: Route) => {
+        participantStatus.value = 'WAITING_FOR_GOODS';
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ok: true,
+            data: {
+              preorder: {
+                ...adminListResponse.data.preorders[0],
+                status: 'WAITING_FOR_GOODS',
+              },
+            },
+            message: '',
+          }),
+        });
+      },
+      { times: 1 },
+    );
+
+    await page.goto('/admin/preorders/manage');
+    await expect(page.getByTestId('admin-participant-row')).toContainText('Chờ xác nhận');
+    await page.getByRole('button', { name: /Chuyển sang: Chờ hàng về/i }).click();
+    await expect(page.getByTestId('admin-participant-row')).toContainText('Chờ hàng về');
+  });
+
+  test('admin management surfaces API error on rejected status transition', async ({ page }) => {
+    await mockBase(page);
+    await page.route('**/api/v1/preorders/admin**', (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(adminListResponse),
+      }),
+    );
+    await page.route('**/api/v1/preorders/admin/campaigns/**/participants**', (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...participantsResponse,
+          data: {
+            ...participantsResponse.data,
+            participants: [{ ...participantsResponse.data.participants[0], status: 'ARRIVED' }],
+          },
+        }),
+      }),
+    );
+    await page.route('**/api/v1/preorders/po-1/status', (route: Route) =>
+      route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: false,
+          message: 'Invalid pre-order status transition from "ARRIVED" to "PAID"',
+        }),
+      }),
+    );
+
+    await page.goto('/admin/preorders/manage');
+    await page.getByRole('button', { name: /Chuyển sang: Đã thanh toán/i }).click();
+    await expect(page.getByTestId('admin-manage-transition-error')).toContainText(
       'Chuyển trạng thái thất bại',
     );
   });
@@ -269,6 +382,13 @@ test.describe('Pre-order flows', () => {
     await mockBase(page);
     await page.goto('/admin/preorders/create?item_id=item-99');
     await expect(page.getByTestId('admin-preorder-item-id')).toHaveValue('item-99');
+
+    await page.getByTestId('admin-preorder-note').fill('dirty-state');
+    await page.getByTestId('admin-preorder-quantity').fill('42');
+    await page.goto('/admin/preorders/create?item_id=item-88');
+    await expect(page.getByTestId('admin-preorder-item-id')).toHaveValue('item-88');
+    await expect(page.getByTestId('admin-preorder-quantity')).toHaveValue('1');
+    await expect(page.getByTestId('admin-preorder-note')).toHaveValue('');
   });
 
   test('public preorder page works for anonymous visitor with query shop_id', async ({ page }) => {
@@ -359,15 +479,15 @@ test.describe('Pre-order flows', () => {
 
     await page.goto('/admin/preorders/create');
     await page.getByTestId('admin-preorder-item-id').fill('item-1');
-    await page.locator('input[type="number"]').nth(1).fill('100');
-    await page.locator('input[type="number"]').nth(2).fill('200');
+    await page.getByTestId('admin-preorder-unit-price').fill('100');
+    await page.getByTestId('admin-preorder-deposit-amount').fill('200');
     await expect(page.getByText('Tiền đặt cọc không được vượt tổng giá trị đơn.')).toBeVisible();
 
-    await page.locator('input[type="number"]').nth(2).fill('50');
-    await page.locator('input[type="number"]').nth(3).fill('20');
-    await expect(page.getByText('Tiền đã thanh toán không được nhỏ hơn tiền đặt cọc.')).toBeVisible();
+    await page.getByTestId('admin-preorder-deposit-amount').fill('50');
+    await page.getByTestId('admin-preorder-paid-amount').fill('120');
+    await expect(page.getByText('Tiền đã thanh toán không được vượt tổng giá trị đơn.')).toBeVisible();
 
-    await page.locator('input[type="number"]').nth(3).fill('50');
+    await page.getByTestId('admin-preorder-paid-amount').fill('50');
     await page.getByTestId('admin-preorder-note').fill('test submit');
     await page.getByTestId('admin-preorder-submit').click();
     await expect(page.getByText('Tạo pre-order thất bại. Vui lòng kiểm tra lại.')).toBeVisible();

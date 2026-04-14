@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchMyOrders } from '../../api/preorders';
 import { useAuth } from '../../hooks/useAuth';
 import { PREORDER_STATUS_LABELS } from '../../constants/preorder';
+import { safeHttpUrlForAttribute } from '../../utils/safeHttpUrl';
 import { BottomNavigation } from './preorders/BottomNavigation';
 import styles from './preorders/preordersPublic.module.css';
 
@@ -39,7 +40,11 @@ export const MyOrdersPage = () => {
       )}
       {cards.map((card) => (
         <article key={card.id} className={styles.card} data-testid="my-order-card">
-          <img className={styles.image} src={card.cover_image_url ?? ''} alt={card.title} />
+          <img
+            className={styles.image}
+            src={safeHttpUrlForAttribute(card.cover_image_url)}
+            alt={card.title}
+          />
           <div className={styles.body}>
             <span className={styles.badge} data-testid="my-order-status">
               {PREORDER_STATUS_LABELS[card.status]}

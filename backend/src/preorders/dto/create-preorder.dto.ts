@@ -6,8 +6,11 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUrl,
   IsUUID,
+  MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreatePreorderDto {
@@ -53,4 +56,11 @@ export class CreatePreorderDto {
   @IsString()
   @IsNotEmpty()
   note?: string;
+
+  @IsOptional()
+  @ValidateIf((_, v) => typeof v === 'string' && v.trim().length > 0)
+  @IsString()
+  @MaxLength(2048)
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true, require_tld: false })
+  cover_image_url?: string;
 }
