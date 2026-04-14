@@ -109,7 +109,7 @@ export const Layout = ({ children }: LayoutProps) => {
                   onClick={closeMobileMenu}
                 >
                   <span className={styles.navIconEmoji}>⏳</span>
-                  <span>Dat truoc</span>
+                  <span>Đặt trước</span>
                 </Link>
                 <Link
                   to="/my-orders"
@@ -117,7 +117,7 @@ export const Layout = ({ children }: LayoutProps) => {
                   onClick={closeMobileMenu}
                 >
                   <span className={styles.navIconEmoji}>🧾</span>
-                  <span>Don hang cua toi</span>
+                  <span>Đơn hàng của tôi</span>
                 </Link>
                 <Link
                   to="/admin/items"

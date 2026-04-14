@@ -1,12 +1,5 @@
 import type { PreOrderStatus } from '../../../types/preorder';
-
-export const PREORDER_STATUS_LABELS: Record<PreOrderStatus, string> = {
-  PENDING_CONFIRMATION: 'Chờ xác nhận',
-  WAITING_FOR_GOODS: 'Chờ hàng về',
-  ARRIVED: 'Đã về hàng',
-  PAID: 'Đã thanh toán',
-  CANCELLED: 'Đã hủy',
-};
+import { PREORDER_STATUS_LABELS } from '../../../constants/preorder';
 
 export const PREORDER_STATUS_COLORS: Record<PreOrderStatus, string> = {
   PENDING_CONFIRMATION: '#fef3c7',
@@ -19,8 +12,10 @@ export const PREORDER_STATUS_COLORS: Record<PreOrderStatus, string> = {
 export const PREORDER_TRANSITIONS: Record<PreOrderStatus, PreOrderStatus[]> = {
   PENDING_CONFIRMATION: ['WAITING_FOR_GOODS', 'CANCELLED'],
   WAITING_FOR_GOODS: ['ARRIVED', 'CANCELLED'],
-  ARRIVED: ['PAID'],
+  ARRIVED: ['PAID', 'CANCELLED'],
   PAID: [],
   CANCELLED: [],
 };
+
+export { PREORDER_STATUS_LABELS };
 

@@ -1,6 +1,12 @@
 import { apiClient } from './client';
 import type { ApiResponse } from '../types/category';
-import type { AdminPreOrder, Pagination, PreOrderCard, PreOrderStatus } from '../types/preorder';
+import type {
+  AdminPreOrder,
+  Pagination,
+  ParticipantResponse,
+  PreOrderCard,
+  PreOrderStatus,
+} from '../types/preorder';
 
 interface AdminListResponse {
   preorders: AdminPreOrder[];
@@ -12,27 +18,14 @@ interface CardListResponse {
   pagination: Pagination;
 }
 
-interface Participant {
-  preorder_id: string;
-  status: PreOrderStatus;
-  quantity: number;
-  deposit_amount: number;
-  paid_amount: number;
-  user: {
-    id: string;
-    full_name: string | null;
-    email: string | null;
-  } | null;
-}
-
-interface ParticipantResponse {
-  participants: Participant[];
-  pagination: Pagination;
-}
-
-export const fetchAdminPreorders = async (status?: PreOrderStatus) => {
+export const fetchAdminPreorders = async (
+  status?: PreOrderStatus,
+  options?: { page?: number; pageSize?: number },
+) => {
   const params = new URLSearchParams();
   if (status) params.set('status', status);
+  if (options?.page) params.set('page', String(options.page));
+  if (options?.pageSize) params.set('page_size', String(options.pageSize));
   const response = (await apiClient.get(`/preorders/admin?${params.toString()}`)) as ApiResponse<AdminListResponse>;
   return response.data;
 };
