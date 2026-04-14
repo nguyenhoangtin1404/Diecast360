@@ -122,6 +122,50 @@ describe('PreordersService', () => {
     ).rejects.toBeInstanceOf(AppException);
   });
 
+  it('allows create with deposit and paid when unit_price is omitted (no total cap)', async () => {
+    prisma.item.findFirst.mockResolvedValue({ id: 'item-1' });
+    prisma.preOrder.create.mockResolvedValue({ id: 'new-po' });
+
+    await service.create(
+      {
+        item_id: 'f9f4f357-4957-4bdf-a8ea-1434d9f801f7',
+        quantity: 2,
+        deposit_amount: 50,
+        paid_amount: 50,
+      },
+      tenantId,
+      { userId: 'user-1', role: 'admin' },
+    );
+
+    expect(prisma.preOrder.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          unit_price: null,
+          total_amount: null,
+          deposit_amount: 50,
+          paid_amount: 50,
+        }),
+      }),
+    );
+  });
+
+  it('rejects create when paid_amount is less than deposit_amount', async () => {
+    prisma.item.findFirst.mockResolvedValue({ id: 'item-1' });
+    await expect(
+      service.create(
+        {
+          item_id: 'f9f4f357-4957-4bdf-a8ea-1434d9f801f7',
+          quantity: 1,
+          unit_price: 100,
+          deposit_amount: 80,
+          paid_amount: 30,
+        },
+        tenantId,
+        { userId: 'user-1', role: 'admin' },
+      ),
+    ).rejects.toBeInstanceOf(AppException);
+  });
+
   it('returns admin summary totals', async () => {
     prisma.preOrder.groupBy.mockResolvedValue([
       {

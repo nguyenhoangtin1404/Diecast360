@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsDateString,
   IsInt,
@@ -58,7 +58,8 @@ export class CreatePreorderDto {
   note?: string;
 
   @IsOptional()
-  @ValidateIf((_, v) => typeof v === 'string' && v.trim().length > 0)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @ValidateIf((_, v) => v !== undefined && v !== null && v !== '')
   @IsString()
   @MaxLength(2048)
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true, require_tld: false })

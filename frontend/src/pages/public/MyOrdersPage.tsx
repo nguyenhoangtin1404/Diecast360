@@ -1,14 +1,25 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchMyOrders } from '../../api/preorders';
+import { API_CONFIG } from '../../config/api';
 import { useAuth } from '../../hooks/useAuth';
 import { PREORDER_STATUS_LABELS } from '../../constants/preorder';
 import { safeHttpUrlForAttribute } from '../../utils/safeHttpUrl';
+import { sanitizeShopIdQueryParam } from '../../utils/sanitizeShopId';
 import { BottomNavigation } from './preorders/BottomNavigation';
 import styles from './preorders/preordersPublic.module.css';
 
 export const MyOrdersPage = () => {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const queryShopId = sanitizeShopIdQueryParam(searchParams.get('shop_id'));
+  const configShopId = sanitizeShopIdQueryParam(API_CONFIG.PUBLIC_PREORDER_SHOP_ID);
+  const preorderNavShopId =
+    queryShopId ||
+    configShopId ||
+    sanitizeShopIdQueryParam(user?.active_shop_id ?? null) ||
+    sanitizeShopIdQueryParam(user?.allowed_shop_ids?.[0] ?? null) ||
+    '';
   const { data, isLoading, isError } = useQuery({
     queryKey: ['my-orders'],
     queryFn: fetchMyOrders,
@@ -64,7 +75,9 @@ export const MyOrdersPage = () => {
           </div>
         </article>
       ))}
-      <BottomNavigation />
+      <BottomNavigation
+        preordersSearch={preorderNavShopId ? `?shop_id=${encodeURIComponent(preorderNavShopId)}` : ''}
+      />
     </div>
   );
 };
