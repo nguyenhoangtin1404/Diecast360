@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { useAuth } from '../../hooks/useAuth';
-import { Mail, Lock, LogIn, AlertCircle, Box, Loader2 } from 'lucide-react';
+import { Mail, Lock, LogIn, AlertCircle, Box, Loader2, Shield } from 'lucide-react';
 import type { ApiErrorResponse } from '../../types/item.types';
+import { ROUTES } from '../../config/routes';
 
 const defaultLoginError = 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
 
@@ -38,7 +39,7 @@ export const LoginPage = () => {
 
     try {
       await login(email, password);
-      navigate('/admin/items');
+      navigate(ROUTES.admin.items);
     } catch (err) {
       setError(getLoginErrorMessage(err));
     } finally {
@@ -47,101 +48,124 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl" />
-      </div>
+    <div className="relative min-h-screen overflow-hidden bg-[#F8FAFC] px-4 py-12 sm:px-6">
+      <div
+        className="pointer-events-none absolute -left-40 top-0 h-[480px] w-[480px] rounded-full bg-gradient-to-br from-indigo-400/35 to-violet-500/30 blur-3xl motion-safe:animate-blob-drift"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -right-32 bottom-0 h-[400px] w-[400px] rounded-full bg-gradient-to-tl from-violet-500/25 to-indigo-300/20 blur-3xl motion-safe:animate-blob-drift [animation-delay:-8s]"
+        aria-hidden
+      />
 
-      {/* Login Card */}
-      <div className="relative w-full max-w-md">
-        <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 p-8">
-          {/* Logo & Title */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg mb-4">
-              <Box className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Diecast360</h1>
-            <p className="text-slate-400 text-sm">Đăng nhập vào trang quản trị</p>
+      <div className="relative mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-center lg:gap-16">
+        <div className="max-w-xl">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700 shadow-corporate-card">
+            <Shield className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+            Khu vực quản trị
           </div>
+          <h1 className="text-3xl font-extrabold leading-[1.1] tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
+            Đăng nhập{' '}
+            <span className="text-gradient-trust">Diecast360</span>
+          </h1>
+          <p className="mt-4 text-base leading-relaxed text-slate-600 sm:text-lg">
+            Giao diện Corporate Trust — bảo mật cookie HttpOnly, đa shop, và trải nghiệm quản trị nhất quán với catalog công khai.
+          </p>
+          <ul className="mt-8 space-y-3 text-sm font-medium text-slate-600">
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" aria-hidden />
+              Quản lý sản phẩm, media & 360°
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-violet-500" aria-hidden />
+              Pre-order & bài đăng Facebook
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+              Sẵn sàng cho đội vận hành thực tế
+            </li>
+          </ul>
+        </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-red-300 text-sm">{error}</p>
-            </div>
-          )}
-
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email Field */}
-            <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-slate-300">
-                Email
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Mail className="w-5 h-5 text-slate-400" />
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  placeholder="admin@diecast360.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
-                />
+        <div className="mx-auto w-full max-w-md">
+          <div className="rounded-2xl border border-slate-100 bg-white p-8 shadow-corporate-card transition-shadow duration-200 hover:shadow-corporate-card-hover sm:p-10">
+            <div className="mb-8 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-corporate-btn">
+                <Box className="h-7 w-7" strokeWidth={2} aria-hidden />
               </div>
+              <h2 className="text-xl font-bold text-slate-900">Chào mừng trở lại</h2>
+              <p className="mt-1 text-sm font-medium text-slate-500">Nhập email và mật khẩu quản trị</p>
             </div>
 
-            {/* Password Field */}
-            <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-slate-300">
-                Mật khẩu
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="w-5 h-5 text-slate-400" />
-                </div>
-                <input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all duration-200"
-                />
+            {error && (
+              <div className="mb-6 flex gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" strokeWidth={2} aria-hidden />
+                <p>{error}</p>
               </div>
-            </div>
+            )}
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-600 disabled:to-slate-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:shadow-none transition-all duration-200 flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Đang đăng nhập...</span>
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-5 h-5" />
-                  <span>Đăng nhập</span>
-                </>
-              )}
-            </button>
-          </form>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <label htmlFor="email" className="block text-sm font-semibold text-slate-700">
+                  Email
+                </label>
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                    <Mail className="h-5 w-5 text-slate-400" strokeWidth={2} aria-hidden />
+                  </div>
+                  <input
+                    id="email"
+                    type="email"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm font-medium text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+                  />
+                </div>
+              </div>
 
-          {/* Footer */}
-          <div className="mt-8 pt-6 border-t border-white/10 text-center">
-            <p className="text-slate-500 text-sm">
-              © 2024 Diecast360. Quản lý xe mô hình 1:64
+              <div className="space-y-2">
+                <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
+                  Mật khẩu
+                </label>
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                    <Lock className="h-5 w-5 text-slate-400" strokeWidth={2} aria-hidden />
+                  </div>
+                  <input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="w-full rounded-lg border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm font-medium text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="group flex w-full min-h-[48px] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 py-3 text-sm font-bold text-white shadow-corporate-btn transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-corporate-card-hover disabled:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-500 disabled:shadow-none"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" strokeWidth={2} aria-hidden />
+                    <span>Đang đăng nhập…</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="h-5 w-5 transition-transform duration-200 group-hover:translate-x-0.5" strokeWidth={2} aria-hidden />
+                    <span>Đăng nhập</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <p className="mt-8 border-t border-slate-100 pt-6 text-center text-xs font-medium text-slate-400">
+              © {new Date().getFullYear()} Diecast360 · Corporate Trust
             </p>
           </div>
         </div>
@@ -149,4 +173,3 @@ export const LoginPage = () => {
     </div>
   );
 };
-

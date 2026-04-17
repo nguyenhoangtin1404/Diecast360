@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { ItemCard } from '../components/catalog/ItemCard';
 import { CatalogSearchInput } from '../components/catalog/CatalogSearchInput';
@@ -125,10 +126,11 @@ export const PublicCatalogPage = () => {
   if (error) {
     console.error('Error loading catalog:', error);
     return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            Error loading catalog. Please try again later.
+      <div className="relative min-h-[50vh] px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-7xl">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-rose-800 shadow-corporate-card">
+            <p className="font-semibold">Không tải được catalog</p>
+            <p className="mt-1 text-sm text-rose-700/90">Vui lòng thử lại sau.</p>
           </div>
         </div>
       </div>
@@ -136,66 +138,109 @@ export const PublicCatalogPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Search Bar */}
-        <div className="mb-6">
-          <CatalogSearchInput
-            value={searchInput}
-            onChange={setSearchInput}
-          />
-        </div>
+    <div className="relative overflow-hidden">
+      <div
+        className="pointer-events-none absolute -left-32 top-0 h-[420px] w-[420px] rounded-full bg-gradient-to-br from-indigo-400/30 to-violet-500/25 blur-3xl motion-safe:animate-blob-drift"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -right-24 top-32 h-[380px] w-[380px] rounded-full bg-gradient-to-bl from-violet-500/25 to-indigo-400/20 blur-3xl motion-safe:animate-blob-drift [animation-delay:-6s]"
+        aria-hidden
+      />
 
-        {/* Filters */}
-        <CatalogFilters
-          carBrand={urlState.carBrand}
-          modelBrand={urlState.modelBrand}
-          condition={urlState.condition}
-          onCarBrandChange={(nextCarBrand) => updateUrlState({ carBrand: nextCarBrand })}
-          onModelBrandChange={(nextModelBrand) => updateUrlState({ modelBrand: nextModelBrand })}
-          onConditionChange={(nextCondition) => updateUrlState({ condition: nextCondition })}
-        />
-
-        {/* Sort */}
-        <CatalogSort
-          sortBy={urlState.sortBy}
-          sortOrder={urlState.sortOrder}
-          onSortChange={handleSortChange}
-        />
-
-        {/* Loading State */}
-        {isLoading && items.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-500">Đang tải...</div>
-          </div>
-        )}
-
-        {/* Items Grid */}
-        {items.length === 0 && !isLoading && (
-          <div className="text-center py-12">
-            <p className="text-gray-600 text-lg">Không tìm thấy sản phẩm nào.</p>
-            {(urlState.search || urlState.carBrand || urlState.modelBrand || urlState.condition) && (
-              <p className="text-gray-500 mt-2">Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm.</p>
-            )}
-          </div>
-        )}
-
-        {items.length > 0 && (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {items.map((item: PublicItem, index: number) => (
-                <ItemCard key={item.id} item={item} index={index} />
-              ))}
+      <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
+        <section className="mb-10 grid gap-10 lg:mb-14 lg:grid-cols-2 lg:items-center lg:gap-12">
+          <div className="max-w-2xl">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 shadow-corporate-card backdrop-blur">
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              Catalog công khai
             </div>
+            <h1 className="text-3xl font-extrabold leading-[1.1] tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
+              Khám phá{' '}
+              <span className="text-gradient-trust">kho xe 1:64</span>
+              <br />
+              ảnh thật & góc nhìn 360°
+            </h1>
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
+              Lọc theo hãng xe, hãng mô hình và tình trạng. Giao diện Corporate Trust — rõ ràng, đáng tin, tối ưu cho cả mobile và desktop.
+            </p>
+          </div>
 
-            {/* Infinite Scroll Trigger */}
-            <InfiniteScrollTrigger
-              onIntersect={() => fetchNextPage()}
-              hasMore={hasNextPage ?? false}
-              isLoading={isFetchingNextPage}
+          <div className="relative lg:justify-self-end" style={{ perspective: '2000px' }}>
+            <div
+              className="mx-auto max-w-md rounded-2xl border border-slate-100 bg-white/90 p-6 shadow-corporate-card backdrop-blur transition-all duration-500 ease-out hover:shadow-corporate-card-hover sm:p-8"
+              style={{
+                transform: 'rotateX(5deg) rotateY(-12deg)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'rotateX(2deg) rotateY(-8deg)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'rotateX(5deg) rotateY(-12deg)';
+              }}
+            >
+              <p className="text-sm font-semibold text-slate-700">Tìm nhanh</p>
+              <div className="mt-3">
+                <CatalogSearchInput value={searchInput} onChange={setSearchInput} />
+              </div>
+              <div className="mt-4 flex items-center gap-2 text-xs font-medium text-slate-500">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+                Dữ liệu cập nhật theo shop công khai
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-corporate-card sm:p-6 lg:p-8">
+          <CatalogFilters
+            carBrand={urlState.carBrand}
+            modelBrand={urlState.modelBrand}
+            condition={urlState.condition}
+            onCarBrandChange={(nextCarBrand) => updateUrlState({ carBrand: nextCarBrand })}
+            onModelBrandChange={(nextModelBrand) => updateUrlState({ modelBrand: nextModelBrand })}
+            onConditionChange={(nextCondition) => updateUrlState({ condition: nextCondition })}
+          />
+
+          <div className="mt-6 border-t border-slate-100 pt-6">
+            <CatalogSort
+              sortBy={urlState.sortBy}
+              sortOrder={urlState.sortOrder}
+              onSortChange={handleSortChange}
             />
-          </>
-        )}
+          </div>
+
+          {isLoading && items.length === 0 && (
+            <div className="py-16 text-center">
+              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+              <p className="mt-4 text-sm font-medium text-slate-500">Đang tải catalog…</p>
+            </div>
+          )}
+
+          {items.length === 0 && !isLoading && (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 py-14 text-center">
+              <p className="text-lg font-semibold text-slate-800">Không tìm thấy sản phẩm nào.</p>
+              {(urlState.search || urlState.carBrand || urlState.modelBrand || urlState.condition) && (
+                <p className="mt-2 text-sm text-slate-500">Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm.</p>
+              )}
+            </div>
+          )}
+
+          {items.length > 0 && (
+            <>
+              <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+                {items.map((item: PublicItem, index: number) => (
+                  <ItemCard key={item.id} item={item} index={index} />
+                ))}
+              </div>
+
+              <InfiniteScrollTrigger
+                onIntersect={() => fetchNextPage()}
+                hasMore={hasNextPage ?? false}
+                isLoading={isFetchingNextPage}
+              />
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

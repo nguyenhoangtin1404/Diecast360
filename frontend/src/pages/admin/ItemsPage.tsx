@@ -86,8 +86,24 @@ export const ItemsPage = () => {
     }
   };
 
-  if (isLoading) return <div>Đang tải...</div>;
-  if (error) return <div>Lỗi khi tải sản phẩm</div>;
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 px-4 py-16">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+        <p className="text-sm font-semibold text-slate-600">Đang tải sản phẩm…</p>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-rose-800 shadow-corporate-card">
+          <p className="font-bold">Lỗi khi tải sản phẩm</p>
+          <p className="mt-1 text-sm text-rose-700/90">Vui lòng tải lại trang hoặc thử lại sau.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>

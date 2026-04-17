@@ -63,19 +63,33 @@
   bottom: 0;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  border-top: 1px solid #d1d5db;
-  background: #fff;
+  border-top: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 -4px 20px -2px rgba(79, 70, 229, 0.08);
 }
 
 .bottomNav a {
-  padding: 10px 8px;
+  padding: 12px 8px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   text-decoration: none;
-  color: #374151;
+  color: #64748b;
   font-size: 13px;
+  font-weight: 600;
+  transition: color 0.2s ease-out, background 0.2s ease-out;
+}
+
+.bottomNav a:hover {
+  color: #4f46e5;
+  background: rgba(79, 70, 229, 0.06);
 }
 
 .bottomNav .active {
-  color: #111827;
-  font-weight: 700;
+  color: #4f46e5;
+  font-weight: 800;
+  background: rgba(79, 70, 229, 0.08);
 }
