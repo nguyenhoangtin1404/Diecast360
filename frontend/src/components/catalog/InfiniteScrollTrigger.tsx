@@ -44,8 +44,13 @@ export const InfiniteScrollTrigger = ({
   }
 
   return (
-    <div ref={triggerRef} className="h-20 flex items-center justify-center">
-      {isLoading && <div className="text-gray-500">Đang tải...</div>}
+    <div ref={triggerRef} className="flex h-24 items-center justify-center">
+      {isLoading && (
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+          Đang tải thêm…
+        </div>
+      )}
     </div>
   );
 };

@@ -38,33 +38,33 @@ export const ItemCard = ({ item, index = 0 }: ItemCardProps) => {
   return (
     <Link
       to={`/items/${item.id}`}
-      className="group relative block opacity-0 animate-fade-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+      className="group relative block opacity-0 animate-fade-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      <div className="h-full border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-300 bg-white">
-        <div className="relative aspect-square overflow-hidden bg-gray-100">
+      <div className="h-full overflow-hidden rounded-xl border border-slate-100 bg-white shadow-corporate-card transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-corporate-card-hover">
+        <div className="relative aspect-square overflow-hidden bg-slate-100">
           <img
             src={item.cover_image_url || '/placeholder-item.svg'}
             alt={item.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
             onError={(event) => {
               event.currentTarget.src = '/placeholder-item.svg';
             }}
           />
           {item.has_spinner && (
-            <span className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+            <span className="absolute right-2 top-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-2.5 py-1 text-xs font-bold text-white shadow-corporate-glow">
               360°
             </span>
           )}
         </div>
         <div className="p-4 sm:p-5">
-          <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors text-base leading-6 min-h-[3rem]">
+          <h3 className="mb-2 line-clamp-2 min-h-[3rem] text-base font-semibold leading-snug text-slate-900 transition-colors duration-200 group-hover:text-indigo-700">
             {item.name}
           </h3>
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-gray-600">{statusText}</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+            <span className="font-medium text-slate-500">{statusText}</span>
             {conditionText && (
-              <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs whitespace-nowrap">
+              <span className="whitespace-nowrap rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-100">
                 {conditionText}
               </span>
             )}
@@ -72,18 +72,18 @@ export const ItemCard = ({ item, index = 0 }: ItemCardProps) => {
           {item.price != null && (
             <div className="mt-2">
               {hasDiscount && item.original_price && (
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm text-gray-500 line-through">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-slate-400 line-through">
                     {formatPrice(item.original_price)}
                   </span>
                   {discountPercent > 0 && (
-                    <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded">
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100">
                       -{discountPercent}%
                     </span>
                   )}
                 </div>
               )}
-              <div className="text-lg font-bold text-gray-900">
+              <div className="text-lg font-extrabold tracking-tight text-slate-900">
                 {formatPrice(item.price)}
               </div>
             </div>
@@ -94,5 +94,4 @@ export const ItemCard = ({ item, index = 0 }: ItemCardProps) => {
   );
 };
 
-// Backward compatibility alias
 export const CatalogItem = ItemCard;

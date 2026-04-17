@@ -7,10 +7,20 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Plus Jakarta Sans"', "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        "corporate-card": "0 4px 20px -2px rgba(79, 70, 229, 0.1)",
+        "corporate-card-hover":
+          "0 10px 25px -5px rgba(79, 70, 229, 0.15), 0 8px 10px -6px rgba(79, 70, 229, 0.1)",
+        "corporate-btn": "0 4px 14px 0 rgba(79, 70, 229, 0.3)",
+        "corporate-glow": "0 0 20px rgba(79, 70, 229, 0.35)",
       },
       colors: {
         background: "hsl(var(--background))",
@@ -54,8 +64,17 @@ module.exports = {
           "5": "hsl(var(--chart-5))",
         },
       },
+      keyframes: {
+        "blob-drift": {
+          "0%, 100%": { transform: "translate(0, 0) scale(1)" },
+          "33%": { transform: "translate(24px, -16px) scale(1.03)" },
+          "66%": { transform: "translate(-12px, 12px) scale(0.98)" },
+        },
+      },
+      animation: {
+        "blob-drift": "blob-drift 18s ease-in-out infinite",
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],
 }
-

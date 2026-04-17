@@ -1,13 +1,11 @@
 import React from 'react';
+import { cn } from '../../lib/utils';
 import { useShop } from '../../hooks/useShop';
 import type { Shop } from '../../contexts/ShopContext';
 
 /**
  * ShopSelector — dropdown to switch the active shop context.
  * Shown in the admin Layout header.
- * - If user has 1 shop: shows a static label (no dropdown).
- * - If user has multiple shops: shows a dropdown to switch.
- * - Always shows the active shop name or "Chọn shop..." if none.
  */
 const ShopSelector: React.FC = () => {
   const shopCtx = useShop();
@@ -18,26 +16,32 @@ const ShopSelector: React.FC = () => {
 
   const { activeShop, allowedShops, switchShop, loading } = shopCtx;
 
-  // Only one shop — show static label
+  const badgeClass = cn(
+    'flex max-w-[200px] items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm',
+  );
+
   if (allowedShops.length === 1) {
     return (
-      <div style={styles.staticBadge} title="Shop hiện tại">
-        <span style={styles.dot} />
-        <span style={styles.shopName}>{activeShop?.name || allowedShops[0].name}</span>
+      <div className={badgeClass} title="Shop hiện tại">
+        <span
+          className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.25)]"
+          aria-hidden
+        />
+        <span className="truncate">{activeShop?.name || allowedShops[0].name}</span>
       </div>
     );
   }
 
   return (
-    <div style={styles.wrapper} title="Chọn shop đang hoạt động">
-      <span style={styles.dot} />
+    <div className={cn(badgeClass, 'gap-1.5')} title="Chọn shop đang hoạt động">
+      <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-hidden />
       <select
         id="shop-selector"
         aria-label="Chọn shop"
         value={activeShop?.id || ''}
         onChange={(e) => switchShop(e.target.value)}
         disabled={loading}
-        style={styles.select}
+        className="max-w-[160px] cursor-pointer truncate border-0 bg-transparent text-sm font-semibold text-slate-800 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 disabled:opacity-60"
       >
         {!activeShop && (
           <option value="" disabled>
@@ -50,59 +54,9 @@ const ShopSelector: React.FC = () => {
           </option>
         ))}
       </select>
-      {loading && <span style={styles.spinner}>⏳</span>}
+      {loading && <span className="text-xs text-slate-500">⏳</span>}
     </div>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '4px 8px',
-    borderRadius: '8px',
-    background: 'rgba(255,255,255,0.08)',
-  },
-  staticBadge: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '4px 10px',
-    borderRadius: '8px',
-    background: 'rgba(255,255,255,0.08)',
-    fontSize: '13px',
-    fontWeight: 500,
-  },
-  dot: {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: '#22c55e', // green — active indicator
-    flexShrink: 0,
-  },
-  shopName: {
-    color: 'inherit',
-    fontWeight: 500,
-    fontSize: '13px',
-    maxWidth: '120px',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  select: {
-    background: 'transparent',
-    border: 'none',
-    color: 'inherit',
-    fontSize: '13px',
-    fontWeight: 500,
-    cursor: 'pointer',
-    outline: 'none',
-    maxWidth: '140px',
-  },
-  spinner: {
-    fontSize: '12px',
-  },
 };
 
 export default ShopSelector;

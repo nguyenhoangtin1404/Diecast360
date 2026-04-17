@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import type { CategoryItem } from '../../types/category';
+import { cn } from '../../lib/utils';
 
 interface CatalogFiltersProps {
   carBrand: string | null;
@@ -11,6 +12,13 @@ interface CatalogFiltersProps {
   onModelBrandChange: (brand: string | null) => void;
   onConditionChange: (condition: 'new' | 'old' | null) => void;
 }
+
+const chipBase =
+  'min-h-[44px] rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2';
+
+const chipInactive = 'border-slate-200 bg-white text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50/50 hover:text-indigo-800';
+const chipActive =
+  'border-transparent bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-corporate-btn hover:-translate-y-0.5 hover:shadow-corporate-card-hover';
 
 export const CatalogFilters = ({
   carBrand,
@@ -62,30 +70,26 @@ export const CatalogFilters = ({
   };
 
   return (
-    <div className="space-y-6 mb-6">
+    <div className="mb-2 space-y-8">
       {isCategoriesError && (
-        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
           Không thể tải bộ lọc lúc này.
         </div>
       )}
 
-      {/* Car Brand Filters */}
       {isCategoriesLoading && (
-        <div className="text-sm text-gray-500">Đang tải bộ lọc...</div>
+        <div className="text-sm font-medium text-slate-500">Đang tải bộ lọc...</div>
       )}
       {carBrands.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Hãng xe</h3>
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Hãng xe</h3>
           <div className="flex flex-wrap gap-2">
             {carBrands.map((brand) => (
               <button
                 key={brand}
+                type="button"
                 onClick={() => handleCarBrandClick(brand)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  carBrand === brand
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={cn(chipBase, carBrand === brand ? chipActive : chipInactive)}
               >
                 {brand}
               </button>
@@ -94,20 +98,16 @@ export const CatalogFilters = ({
         </div>
       )}
 
-      {/* Model Brand Filters */}
       {modelBrands.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Hãng mô hình</h3>
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Hãng mô hình</h3>
           <div className="flex flex-wrap gap-2">
             {modelBrands.map((brand) => (
               <button
                 key={brand}
+                type="button"
                 onClick={() => handleModelBrandClick(brand)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  modelBrand === brand
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={cn(chipBase, modelBrand === brand ? chipActive : chipInactive)}
               >
                 {brand}
               </button>
@@ -116,27 +116,20 @@ export const CatalogFilters = ({
         </div>
       )}
 
-      {/* Condition Filters */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">Tình trạng</h3>
+        <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Tình trạng</h3>
         <div className="flex flex-wrap gap-2">
           <button
+            type="button"
             onClick={() => handleConditionClick('new')}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              condition === 'new'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            className={cn(chipBase, condition === 'new' ? chipActive : chipInactive)}
           >
             Mới
           </button>
           <button
+            type="button"
             onClick={() => handleConditionClick('old')}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              condition === 'old'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            className={cn(chipBase, condition === 'old' ? chipActive : chipInactive)}
           >
             Cũ
           </button>

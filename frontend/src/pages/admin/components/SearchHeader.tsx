@@ -3,6 +3,7 @@ import { Plus, Search, Sparkles, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import styles from '../ItemsPage.module.css';
 import { downloadFile } from '../../../api/client';
+import { ROUTES } from '../../../config/routes';
 
 interface SearchHeaderProps {
   search: string;
@@ -16,7 +17,7 @@ export const SearchHeader = ({ search, onSearchChange }: SearchHeaderProps) => {
     setIsExporting(true);
     try {
       const blob = await downloadFile('/items/export');
-      
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -36,7 +37,7 @@ export const SearchHeader = ({ search, onSearchChange }: SearchHeaderProps) => {
   return (
     <div className={styles.actionsBar}>
       <div className={styles.searchWrapper}>
-        <Search size={18} className={styles.searchIcon} />
+        <Search size={18} className={styles.searchIcon} strokeWidth={2} />
         <input
           type="text"
           placeholder="Tìm kiếm AI (VD: xe đỏ thể thao...)"
@@ -45,20 +46,21 @@ export const SearchHeader = ({ search, onSearchChange }: SearchHeaderProps) => {
           className={styles.searchInput}
         />
       </div>
-      <Link to="/admin/items/new" className={styles.addButton}>
-        <Plus size={18} />
+      <Link to={`${ROUTES.admin.items}/new`} className={styles.addButton}>
+        <Plus size={18} strokeWidth={2} />
         <span>Thêm sản phẩm</span>
       </Link>
-       <Link to="/admin/items/import" className={styles.addButton} style={{ marginRight: '0.75rem', backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}>
-        <Sparkles size={18} />
+      <Link to={ROUTES.admin.itemsImport} className={styles.aiImportButton}>
+        <Sparkles size={18} strokeWidth={2} />
         <span>Thêm sản phẩm (AI)</span>
       </Link>
-      <button 
-        onClick={handleExportCsv} 
+      <button
+        type="button"
+        onClick={handleExportCsv}
         disabled={isExporting}
         className={styles.exportButton}
       >
-        <Download size={18} />
+        <Download size={18} strokeWidth={2} />
         <span>{isExporting ? 'Đang xuất...' : 'Xuất dữ liệu'}</span>
       </button>
     </div>
