@@ -7,7 +7,11 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 - [Tóm tắt khả năng](#tóm-tắt-khả-năng)
 - [Cấu trúc repo](#cấu-trúc-repo)
 - [Stack & quy ước API](#stack--quy-ước-api)
-- [Chạy local](#chạy-local)
+- [Yêu cầu môi trường](#yêu-cầu-môi-trường)
+- [Cài đặt & chạy dev](#cài-đặt--chạy-dev)
+- [Hướng dẫn dev chi tiết](docs/DEV.md)
+- [Docker Compose (full stack)](#docker-compose-full-stack)
+- [Dev Container](#dev-container)
 - [Cơ sở dữ liệu](#cơ-sở-dữ-liệu)
 - [Tài liệu kỹ thuật](#tài-liệu-kỹ-thuật)
 - [Quy tắc thay đổi](#quy-tắc-thay-đổi)
@@ -21,69 +25,98 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 | **Media** | Nhiều ảnh, thumbnail, cover, sắp xếp; spinner 360° (nhiều spin set, một default; khuyến nghị 24 frame, tối đa 36). |
 | **Catalog công khai** | `GET /api/v1/public/items`, `GET /api/v1/public/items/:id` — JWT **tùy chọn** (`OptionalJwtAuthGuard`). Không token: trả mọi item `is_public` (không lọc `shop_id`). Có token hợp lệ: có thể scope theo shop đang chọn (`active_shop_id` trên payload JWT). Token sai/hết hạn: `401`. |
 | **Đa shop & quản trị** | Super admin: quản lý shop, thành viên, mặt hàng; nhật ký **audit** (MVP) cho thao tác nhạy cảm. Chi tiết route: `docs/API_CONTRACT.md`. |
-| **Xác thực** | Access + refresh JWT, revoke qua refresh token; route admin kèm guard + kiểm tra vai trò. |
-| **Social / AI** | Copy caption + link; semantic search; AI image import; gợi ý nội dung SEO (xem guide). |
+| **Xác thực** | Access + refresh JWT, revoke qua refresh token; cookie-based session aspects — xem `docs/COOKIE_AUTH.md`; route admin kèm guard + kiểm tra vai trò. |
+| **Social / AI / tìm kiếm** | Copy caption + link; semantic search (Pinecone tùy chọn); OpenAI cho gợi ý / import; gợi ý SEO (xem guide). |
 
 ## Cấu trúc repo
 
 ```
-backend/     NestJS + Prisma + PostgreSQL
-frontend/    React + Vite + TanStack Query + Tailwind CSS
-docs/        Đặc tả domain, API, schema, môi trường
-uploads/     Static upload (dev); production cấu hình qua Storage abstraction
+pnpm-workspace.yaml   Monorepo: packages backend + frontend
+backend/              NestJS + Prisma + PostgreSQL
+frontend/             React 19 + Vite 7 + TanStack Query + Tailwind CSS
+docs/                 Domain, API, schema, môi trường
+uploads/              File tĩnh upload (dev); production qua storage / reverse proxy
+.devcontainer/        Codespace / VS Code Dev Container (Node + Postgres)
+docker-compose.yml    Postgres + backend + frontend (Dockerfile dev targets)
 ```
 
 ## Stack & quy ước API
 
-- **Backend:** Node.js 20+, NestJS, Prisma, PostgreSQL, Sharp, storage abstraction (local trong dev).
-- **Frontend:** React, Vite, React Router, TanStack Query, Tailwind CSS.
-- **API:** global prefix `/api/v1`; payload JSON **snake_case**; response envelope `{ ok, data, message }` hoặc `{ ok, error, message }` ([`docs/ERROR_HANDLING.md`](docs/ERROR_HANDLING.md)).
+- **Monorepo:** [pnpm](https://pnpm.io/) (`pnpm install` ở root; script `pnpm dev` chạy song song backend + frontend nhờ `concurrently`).
+- **Backend:** Node.js, NestJS 11, Prisma 6, PostgreSQL, Sharp, upload local trong dev; tùy chọn OpenAI, Pinecone.
+- **Frontend:** React 19, Vite 7, React Router 7, TanStack Query, Tailwind CSS 3, Radix Slot; test: Vitest + Playwright.
+- **API:** prefix toàn cục `/api/v1`; payload JSON **snake_case**; envelope `{ ok, data, message }` hoặc `{ ok, error, message }` ([`docs/ERROR_HANDLING.md`](docs/ERROR_HANDLING.md)).
 
-## Chạy local
+## Yêu cầu môi trường
 
-### Yêu cầu
+- **Node.js:** theo `frontend/package.json` → `>=20.19.0 <21` **hoặc** `>=22.12.0` (Dev Container hiện dùng image Node **24**).
+- **pnpm** (lockfile: `pnpm-lock.yaml` ở root).
+- **PostgreSQL** — local, Docker (`docker-compose.yml`), hoặc managed (ví dụ Neon).
 
-- Node.js **>= 20.17.0**
-- npm hoặc yarn
-- PostgreSQL (Docker, local, hoặc Neon)
+## Cài đặt & chạy dev
 
-### Backend
+**Hướng dẫn đầy đủ** (nhiều luồng: native / Compose / Dev Container, Postgres chỉ Docker, LAN, Prisma, test, xử lý sự cố): [`docs/DEV.md`](docs/DEV.md).
 
-```bash
-cd backend
-npm install
-cp .env.example .env
-# Cấu hình DATABASE_URL + DIRECT_URL (xem bảng dưới)
-npm run prisma:generate
-npm run prisma:migrate    # dev
-# hoặc: npx prisma migrate deploy   # CI / production
-mkdir uploads
-npm run create:admin:quick
-npm run start:dev
-```
+### 1. Chuẩn bị biến môi trường
 
-API mặc định: `http://localhost:3000` (path thực tế có prefix `/api/v1`).
+- **Chạy backend/frontend trên máy (không Docker app):**  
+  - `cp backend/.env.example backend/.env` và chỉnh `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `COOKIE_SECRET`, v.v.  
+  - `cp frontend/.env.example frontend/.env` — tối thiểu `VITE_API_BASE_URL=http://localhost:3000/api/v1` (hoặc để trống / `auto` để frontend tự suy ra host mặc định theo `frontend/src/config/api.ts`).
+- **Tham chiếu gộp cho Docker / tài liệu:** [`/.env.example`](.env.example) và chi tiết trong [`docs/ENV.md`](docs/ENV.md).
 
-### Frontend
+### 2. Cài dependency (root)
 
 ```bash
-cd frontend
-npm install
+pnpm install
 ```
 
-Tạo `.env` nếu cần:
+(`postinstall` của backend chạy `prisma generate`.)
 
-```env
-VITE_API_BASE_URL=http://localhost:3000/api/v1
-```
+### 3. Database & seed (lần đầu)
 
 ```bash
-npm run dev
+pnpm --filter ./backend exec prisma migrate dev
+pnpm --filter ./backend exec prisma db seed   # tùy chọn: seed categories
+mkdir -p backend/uploads
+pnpm --filter ./backend create:admin:quick
 ```
 
-UI dev: `http://localhost:5173`
+### 4. Chạy song song API + UI
 
-Biến môi trường đầy đủ: [`docs/ENV.md`](docs/ENV.md).
+```bash
+pnpm dev
+```
+
+- API: `http://localhost:3000` (REST dưới `/api/v1`).
+- UI: `http://localhost:5173` (Vite `--host` nên có thể truy cập qua LAN).
+
+Chạy riêng từng package:
+
+```bash
+pnpm run dev:backend    # tương đương backend: nest start --watch
+pnpm run dev:frontend   # tương đương frontend: vite --host
+```
+
+## Docker Compose (full stack)
+
+Chạy Postgres 16, backend và frontend trong container (bind mount mã nguồn).
+
+1. `cp .env.example .env` và đặt **`JWT_SECRET`**, **`COOKIE_SECRET`** (Compose **bắt buộc** hai biến này; không có giá trị mặc định an toàn).
+2. Hoặc cho dev nhanh: `cp docker-compose.override.yml.example docker-compose.override.yml` (placeholder yếu — **chỉ máy cá nhân**).
+3. `docker compose up --build`
+
+- DB: `postgresql://postgres:postgres@localhost:5432/diecast360` (map port `5432`).
+- Frontend nhận `VITE_API_BASE_URL` (mặc định trỏ tới `http://localhost:3000/api/v1`).
+
+Trong container backend vẫn dùng `npm run start:dev` / frontend `npm run dev` theo image build; mã nguồn host được mount vào container.
+
+## Dev Container
+
+Thư mục [`.devcontainer/`](.devcontainer/): service `app` (Node) + `db` (Postgres, volume `postgres-data`). `devcontainer.json` forward port **3000** và **5432**; sau khi tạo container chạy:
+
+`pnpm install && pnpm --filter ./backend exec prisma migrate dev --name init`
+
+Workspace mount: `/workspaces/<tên-thư-mục-repo>`.
 
 ## Cơ sở dữ liệu
 
@@ -105,6 +138,8 @@ Biến môi trường đầy đủ: [`docs/ENV.md`](docs/ENV.md).
 | [`docs/ERROR_HANDLING.md`](docs/ERROR_HANDLING.md) | Mã lỗi & envelope |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kiến trúc hệ thống |
 | [`docs/ENV.md`](docs/ENV.md) | Biến môi trường |
+| [`docs/DEV.md`](docs/DEV.md) | Chạy dev local, Docker, Dev Container, test & troubleshooting |
+| [`docs/COOKIE_AUTH.md`](docs/COOKIE_AUTH.md) | Cookie & CORS liên quan auth |
 | [`docs/AI_RULES.md`](docs/AI_RULES.md) | Quy tắc tích hợp AI |
 | [`docs/TODO.md`](docs/TODO.md) | Lộ trình |
 | [`docs/PROMPT_TEMPLATE.md`](docs/PROMPT_TEMPLATE.md) | Prompt mẫu |
