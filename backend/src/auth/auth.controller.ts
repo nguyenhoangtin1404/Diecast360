@@ -92,7 +92,8 @@ export class AuthController {
       });
     }
     
-    const result = await this.authService.refreshFromCookie(refreshToken);
+    const priorAccess = req.cookies?.access_token as string | undefined;
+    const result = await this.authService.refreshFromCookie(refreshToken, priorAccess);
     
     // Set new access_token cookie
     const accessTokenMaxAge = 15 * 60 * 1000;

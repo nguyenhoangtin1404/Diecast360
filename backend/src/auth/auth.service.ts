@@ -31,7 +31,8 @@ export class AuthService {
       throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials');
     }
 
-    const accessToken = this.generateAccessToken(user.id);
+    const defaultShopId = await this.resolveDefaultShopIdForUser(user.id);
+    const accessToken = this.generateAccessToken(user.id, defaultShopId);
     const refreshToken = await this.generateRefreshToken(user.id);
 
     return {
@@ -58,7 +59,7 @@ export class AuthService {
    * Refresh tokens using refresh_token from cookie
    * Used by cookie-based authentication flow
    */
-  async refreshFromCookie(refreshToken: string) {
+  async refreshFromCookie(refreshToken: string, priorAccessToken?: string | null) {
     const tokenHash = this.hashToken(refreshToken);
     
     const refreshTokenRecord = await this.prisma.refreshToken.findUnique({
@@ -84,8 +85,20 @@ export class AuthService {
       data: { revoked_at: new Date() },
     });
 
-    const accessToken = this.generateAccessToken(refreshTokenRecord.user.id);
-    const newRefreshToken = await this.generateRefreshToken(refreshTokenRecord.user.id);
+    const userId = refreshTokenRecord.user.id;
+    let shopId = this.parseActiveShopFromAccessJwt(priorAccessToken);
+    if (shopId) {
+      const role = await this.prisma.userShopRole.findUnique({
+        where: { user_id_shop_id: { user_id: userId, shop_id: shopId } },
+        include: { shop: { select: { is_active: true } } },
+      });
+      if (!role?.shop?.is_active) {
+        shopId = undefined;
+      }
+    }
+    shopId = shopId ?? (await this.resolveDefaultShopIdForUser(userId));
+    const accessToken = this.generateAccessToken(userId, shopId);
+    const newRefreshToken = await this.generateRefreshToken(userId);
 
     return {
       access_token: accessToken,
@@ -191,6 +204,28 @@ export class AuthService {
         role: shopRole.role,
       },
     };
+  }
+
+  /** Decode-only: reuse active_shop_id from the expiring access cookie when rotating refresh (must still validate membership). */
+  private parseActiveShopFromAccessJwt(priorAccessToken?: string | null): string | undefined {
+    if (!priorAccessToken || typeof priorAccessToken !== 'string') return undefined;
+    try {
+      const decoded = this.jwtService.decode(priorAccessToken) as { active_shop_id?: unknown } | null;
+      const id = decoded?.active_shop_id;
+      return typeof id === 'string' && id.length > 0 ? id : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** First active shop the user belongs to (stable by shop_id). Used when issuing JWT without explicit switch-shop. */
+  private async resolveDefaultShopIdForUser(userId: string): Promise<string | undefined> {
+    const row = await this.prisma.userShopRole.findFirst({
+      where: { user_id: userId, shop: { is_active: true } },
+      orderBy: { shop_id: 'asc' },
+      select: { shop_id: true },
+    });
+    return row?.shop_id;
   }
 
   private generateAccessToken(userId: string, activeShopId?: string): string {

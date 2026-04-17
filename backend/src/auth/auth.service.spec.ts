@@ -13,7 +13,7 @@ describe('AuthService', () => {
     refreshToken: Record<string, jest.Mock>;
     userShopRole: Record<string, jest.Mock>;
   };
-  let jwtService: { sign: jest.Mock };
+  let jwtService: { sign: jest.Mock; decode: jest.Mock };
 
   const mockUser = {
     id: 'user-1',
@@ -40,11 +40,13 @@ describe('AuthService', () => {
       userShopRole: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
       },
     };
 
     jwtService = {
       sign: jest.fn().mockReturnValue('mock-access-token'),
+      decode: jest.fn().mockReturnValue(null),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -74,6 +76,7 @@ describe('AuthService', () => {
       prisma.user.findUnique.mockResolvedValue(mockUser);
       jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
       prisma.refreshToken.create.mockResolvedValue({});
+      prisma.userShopRole.findFirst.mockResolvedValue({ shop_id: 'shop-default' });
 
       const result = await service.login({ email: 'admin@test.com', password: 'password123' });
 
@@ -127,6 +130,7 @@ describe('AuthService', () => {
       prisma.refreshToken.findUnique.mockResolvedValue(mockRefreshTokenRecord);
       prisma.refreshToken.update.mockResolvedValue({});
       prisma.refreshToken.create.mockResolvedValue({});
+      prisma.userShopRole.findFirst.mockResolvedValue({ shop_id: 'shop-default' });
 
       const result = await service.refreshFromCookie('valid-refresh-token');
 
