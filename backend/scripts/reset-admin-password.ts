@@ -9,8 +9,9 @@ const prisma = new PrismaClient();
 
 async function resetAdminPassword() {
   try {
-    const email = process.argv[2] || 'admin@diecast360.com';
-    const password = process.argv[3] || 'admin';
+    const args = process.argv.slice(2).filter((a) => a !== '--');
+    const email = args[0] || 'admin@diecast360.com';
+    const password = args[1] || 'admin';
 
     console.log('=== Reset mật khẩu Admin ===\n');
     console.log(`Email: ${email}`);

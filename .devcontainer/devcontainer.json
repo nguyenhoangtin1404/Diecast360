@@ -14,7 +14,7 @@
 	"forwardPorts": [3000, 5432],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "cd backend && pnpm install && pnpm prisma generate && pnpm prisma migrate dev --name init",
+	"postCreateCommand": "pnpm install && pnpm --filter ./backend exec prisma migrate dev --name init",
 
 	// Configure tool-specific properties.
 	// "customizations": {},

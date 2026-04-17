@@ -2,9 +2,10 @@
   "name": "diecast360",
   "private": true,
   "scripts": {
-    "dev:backend": "pnpm --dir backend start:dev",
-    "dev:frontend": "pnpm --dir frontend dev",
-    "dev": "concurrently \"pnpm --dir backend start:dev\" \"pnpm --dir frontend dev\""
+    "start": "pnpm run dev",
+    "dev": "concurrently -k -n backend,frontend -c cyan,magenta \"pnpm run dev:backend\" \"pnpm run dev:frontend\"",
+    "dev:backend": "pnpm --filter ./backend start:dev",
+    "dev:frontend": "pnpm --filter ./frontend dev"
   },
   "devDependencies": {
     "concurrently": "^8.2.1"

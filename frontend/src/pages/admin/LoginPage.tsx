@@ -5,6 +5,24 @@ import { useAuth } from '../../hooks/useAuth';
 import { Mail, Lock, LogIn, AlertCircle, Box, Loader2 } from 'lucide-react';
 import type { ApiErrorResponse } from '../../types/item.types';
 
+const defaultLoginError = 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
+
+function getLoginErrorMessage(err: unknown): string {
+  if (isAxiosError<ApiErrorResponse>(err)) {
+    return err.response?.data?.message || defaultLoginError;
+  }
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    const m = (err as { message?: unknown }).message;
+    if (typeof m === 'string' && m.length > 0) {
+      return m;
+    }
+  }
+  if (err instanceof Error && err.message) {
+    return err.message;
+  }
+  return defaultLoginError;
+}
+
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,11 +40,7 @@ export const LoginPage = () => {
       await login(email, password);
       navigate('/admin/items');
     } catch (err) {
-      if (isAxiosError<ApiErrorResponse>(err)) {
-        setError(err.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
-      } else {
-        setError('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
-      }
+      setError(getLoginErrorMessage(err));
     } finally {
       setLoading(false);
     }

@@ -9,8 +9,10 @@ const prisma = new PrismaClient();
 
 async function createAdminQuick() {
   try {
-    const email = process.argv[2] || 'nguyenhoangtin1404@gmail.com';
-    const password = process.argv[3] || '123456';
+    // pnpm/npm pass `--` before extra args; strip it so `pnpm run create:admin:quick -- user@x pass` works
+    const args = process.argv.slice(2).filter((a) => a !== '--');
+    const email = args[0] || 'nguyenhoangtin1404@gmail.com';
+    const password = args[1] || '123456';
 
     console.log('=== Tạo tài khoản Admin ===\n');
     console.log(`Email: ${email}`);
