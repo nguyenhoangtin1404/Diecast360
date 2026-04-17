@@ -1,18 +1,30 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
+  ClipboardList,
   Home,
   LogIn,
   LogOut,
   Menu,
   Phone,
+  PlusCircle,
   ShoppingBag,
+  Sparkles,
+  Store,
   Tags,
   User as UserIcon,
   X,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useIsSuperAdmin } from '../hooks/useIsSuperAdmin';
+import {
+  ROUTES,
+  isAdminItemsImportActive,
+  isAdminItemsSectionActive,
+  isAdminPreordersCreateActive,
+  isAdminPreordersHubActive,
+  isAdminPreordersManageActive,
+} from '../config/routes';
 import ShopSelector from './admin/ShopSelector';
 import styles from './Layout.module.css';
 
@@ -32,7 +44,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const handleLogout = async () => {
     setMenuState({ open: false, pathname: location.pathname });
     await logout();
-    navigate('/admin/login');
+    navigate(ROUTES.adminLogin);
   };
 
   const toggleMobileMenu = () => {
@@ -50,12 +62,15 @@ export const Layout = ({ children }: LayoutProps) => {
   const linkClassName = (active = false) =>
     active ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink;
 
+  const pathname = location.pathname;
+  const adminEntry = user ? ROUTES.admin.items : ROUTES.adminLogin;
+
   return (
     <div className={styles.shell}>
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <div className={styles.headerRow}>
-            <Link to="/" className={styles.brandLink} onClick={closeMobileMenu}>
+            <Link to={ROUTES.home} className={styles.brandLink} onClick={closeMobileMenu}>
               <div className={styles.brandMark}>
                 360°
               </div>
@@ -65,7 +80,6 @@ export const Layout = ({ children }: LayoutProps) => {
               </div>
             </Link>
 
-            {/* Shop selector — visible only in admin area */}
             {isAdmin && (
               <div style={{ marginLeft: 'auto', marginRight: '8px' }}>
                 <ShopSelector />
@@ -88,98 +102,130 @@ export const Layout = ({ children }: LayoutProps) => {
             {!isAdmin ? (
               <>
                 <Link
-                  to="/"
-                  className={linkClassName(location.pathname === '/')}
+                  to={ROUTES.home}
+                  className={linkClassName(pathname === ROUTES.home)}
                   onClick={closeMobileMenu}
                 >
                   <Home size={18} />
                   <span>Trang chủ</span>
                 </Link>
                 <Link
-                  to="/contact"
-                  className={linkClassName(location.pathname === '/contact')}
+                  to={ROUTES.contact}
+                  className={linkClassName(pathname === ROUTES.contact)}
                   onClick={closeMobileMenu}
                 >
                   <Phone size={18} />
                   <span>Liên hệ</span>
                 </Link>
                 <Link
-                  to="/preorders"
-                  className={linkClassName(location.pathname.startsWith('/preorders'))}
+                  to={ROUTES.preorders}
+                  className={linkClassName(pathname.startsWith(ROUTES.preorders))}
                   onClick={closeMobileMenu}
                 >
                   <span className={styles.navIconEmoji}>⏳</span>
                   <span>Đặt trước</span>
                 </Link>
                 <Link
-                  to="/my-orders"
-                  className={linkClassName(location.pathname.startsWith('/my-orders'))}
+                  to={ROUTES.myOrders}
+                  className={linkClassName(pathname.startsWith(ROUTES.myOrders))}
                   onClick={closeMobileMenu}
                 >
                   <span className={styles.navIconEmoji}>🧾</span>
                   <span>Đơn hàng của tôi</span>
                 </Link>
                 <Link
-                  to="/admin/items"
+                  to={adminEntry}
                   className={linkClassName(false)}
                   onClick={closeMobileMenu}
                 >
                   <LogIn size={18} />
-                  <span>Quản trị</span>
+                  <span>{user ? 'Quản trị' : 'Đăng nhập quản trị'}</span>
                 </Link>
               </>
             ) : (
               <>
                 <Link
-                  to="/"
-                  className={linkClassName(false)}
+                  to={ROUTES.home}
+                  className={linkClassName(pathname === ROUTES.home)}
                   onClick={closeMobileMenu}
                 >
                   <Home size={18} />
                   <span>Trang chủ</span>
                 </Link>
                 <Link
-                  to="/admin/items"
-                  className={linkClassName(location.pathname.startsWith('/admin/items'))}
+                  to={ROUTES.preorders}
+                  className={linkClassName(pathname.startsWith(ROUTES.preorders))}
+                  onClick={closeMobileMenu}
+                >
+                  <Store size={18} />
+                  <span>Đặt trước (khách)</span>
+                </Link>
+                <Link
+                  to={ROUTES.admin.items}
+                  className={linkClassName(isAdminItemsSectionActive(pathname))}
                   onClick={closeMobileMenu}
                 >
                   <ShoppingBag size={18} />
                   <span>Sản phẩm</span>
                 </Link>
                 <Link
-                  to="/admin/preorders"
-                  className={linkClassName(location.pathname.startsWith('/admin/preorders'))}
+                  to={ROUTES.admin.itemsImport}
+                  className={linkClassName(isAdminItemsImportActive(pathname))}
+                  onClick={closeMobileMenu}
+                >
+                  <Sparkles size={18} />
+                  <span>Import AI</span>
+                </Link>
+                <Link
+                  to={ROUTES.admin.categories}
+                  className={linkClassName(pathname.startsWith(ROUTES.admin.categories))}
+                  onClick={closeMobileMenu}
+                >
+                  <Tags size={18} />
+                  <span>Danh mục</span>
+                </Link>
+                <Link
+                  to={ROUTES.admin.preorders}
+                  className={linkClassName(isAdminPreordersHubActive(pathname))}
                   onClick={closeMobileMenu}
                 >
                   <span className={styles.navIconEmoji}>⏳</span>
                   <span>Pre-order</span>
                 </Link>
                 <Link
-                  to="/admin/categories"
-                  className={linkClassName(location.pathname.startsWith('/admin/categories'))}
+                  to={ROUTES.admin.preordersCreate}
+                  className={linkClassName(isAdminPreordersCreateActive(pathname))}
                   onClick={closeMobileMenu}
                 >
-                  <Tags size={18} />
-                  <span>Danh mục</span>
+                  <PlusCircle size={18} />
+                  <span>Tạo đợt</span>
+                </Link>
+                <Link
+                  to={ROUTES.admin.preordersManage}
+                  className={linkClassName(isAdminPreordersManageActive(pathname))}
+                  onClick={closeMobileMenu}
+                >
+                  <ClipboardList size={18} />
+                  <span>QL đặt trước</span>
+                </Link>
+                <Link
+                  to={ROUTES.admin.facebookPosts}
+                  className={linkClassName(pathname.startsWith(ROUTES.admin.facebookPosts))}
+                  onClick={closeMobileMenu}
+                >
+                  <span className={styles.navIconEmoji}>📘</span>
+                  <span>Bài đăng FB</span>
                 </Link>
                 {isSuperAdmin && (
                   <Link
-                    to="/admin/shops"
-                    className={linkClassName(location.pathname.startsWith('/admin/shops'))}
+                    to={ROUTES.admin.shops}
+                    className={linkClassName(pathname.startsWith(ROUTES.admin.shops))}
                     onClick={closeMobileMenu}
                   >
                     <span className={styles.navIconEmoji}>🏬</span>
                     <span>Quản lý Shops</span>
                   </Link>
                 )}
-                <Link
-                  to="/admin/facebook-posts"
-                  className={linkClassName(location.pathname.startsWith('/admin/facebook-posts'))}
-                  onClick={closeMobileMenu}
-                >
-                  <span className={styles.navIconEmoji}>📘</span>
-                  <span>Bài đăng FB</span>
-                </Link>
               </>
             )}
 

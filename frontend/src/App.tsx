@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext.tsx';
 import { ShopProvider } from './contexts/ShopContext.tsx';
+import { ROUTES } from './config/routes';
 import { ProtectedRoute } from './components/admin/ProtectedRoute';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/admin/LoginPage';
@@ -36,14 +37,14 @@ function App() {
         <ShopProvider>
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Layout><PublicCatalogPage /></Layout>} />
-              <Route path="/preorders" element={<Layout><PublicPreOrdersPage /></Layout>} />
-              <Route path="/my-orders" element={<Layout><MyOrdersPage /></Layout>} />
+              <Route path={ROUTES.home} element={<Layout><PublicCatalogPage /></Layout>} />
+              <Route path={ROUTES.preorders} element={<Layout><PublicPreOrdersPage /></Layout>} />
+              <Route path={ROUTES.myOrders} element={<Layout><MyOrdersPage /></Layout>} />
               <Route path="/items/:id" element={<Layout><PublicItemDetailPage /></Layout>} />
-              <Route path="/contact" element={<Layout><ContactPage /></Layout>} />
-              <Route path="/admin/login" element={<LoginPage />} />
+              <Route path={ROUTES.contact} element={<Layout><ContactPage /></Layout>} />
+              <Route path={ROUTES.adminLogin} element={<LoginPage />} />
               <Route
-                path="/admin/preorders"
+                path={ROUTES.admin.preorders}
                 element={
                   <ProtectedRoute>
                     <Layout>
@@ -53,7 +54,7 @@ function App() {
                 }
               />
               <Route
-                path="/admin/preorders/create"
+                path={ROUTES.admin.preordersCreate}
                 element={
                   <ProtectedRoute>
                     <Layout>
@@ -63,7 +64,7 @@ function App() {
                 }
               />
               <Route
-                path="/admin/preorders/manage"
+                path={ROUTES.admin.preordersManage}
                 element={
                   <ProtectedRoute>
                     <Layout>
@@ -73,7 +74,7 @@ function App() {
                 }
               />
               <Route
-                path="/admin/items/import"
+                path={ROUTES.admin.itemsImport}
                 element={
                   <ProtectedRoute>
                     <Layout>
@@ -83,7 +84,7 @@ function App() {
                 }
               />
               <Route
-                path="/admin/categories"
+                path={ROUTES.admin.categories}
                 element={
                   <ProtectedRoute>
                     <Layout>
@@ -93,7 +94,7 @@ function App() {
                 }
               />
               <Route
-                path="/admin/items"
+                path={ROUTES.admin.items}
                 element={
                   <ProtectedRoute>
                     <Layout>
@@ -113,7 +114,7 @@ function App() {
                 }
               />
               <Route
-                path="/admin/facebook-posts"
+                path={ROUTES.admin.facebookPosts}
                 element={
                   <ProtectedRoute>
                     <Layout>
@@ -123,7 +124,7 @@ function App() {
                 }
               />
               <Route
-                path="/admin/shops"
+                path={ROUTES.admin.shops}
                 element={
                   <ProtectedRoute>
                     <Layout>
@@ -132,7 +133,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
             </Routes>
           </BrowserRouter>
         </ShopProvider>
