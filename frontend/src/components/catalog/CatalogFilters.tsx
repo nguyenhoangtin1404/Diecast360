@@ -78,7 +78,7 @@ export const CatalogFilters = ({
       )}
 
       {isCategoriesLoading && (
-        <div className="text-sm font-medium text-slate-500">Đang tải bộ lọc…</div>
+        <div className="text-sm font-medium text-slate-500">Đang tải bộ lọc...</div>
       )}
       {carBrands.length > 0 && (
         <div>
