@@ -7,6 +7,7 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import { ExternalLink, Eye, Search } from 'lucide-react';
 import type { AdminItem, Pagination } from '../../types/item.types';
 import { ITEM_STATUS_LABELS } from '../../constants/item';
+import { cn } from '../../lib/utils';
 import styles from './FacebookPostsPage.module.css';
 
 export const FacebookPostsPage = () => {
@@ -64,13 +65,13 @@ export const FacebookPostsPage = () => {
         </div>
 
         <div className={styles.searchBox}>
-          <Search size={18} className={styles.searchIcon} />
+          <Search size={18} className={cn(styles.searchIcon, 'text-slate-400')} strokeWidth={2} />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
             placeholder="Tìm sản phẩm..."
-            className={styles.searchInput}
+            className={cn('input-trust py-2 pl-10 pr-3')}
           />
         </div>
       </div>

@@ -39,13 +39,19 @@ export const PreOrdersPage = () => {
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.heading}>Mô hình Đặt trước</h1>
-      {isLoading && <div>Đang tải danh sách...</div>}
-      {authLoading && !shopId && <div>Đang tải thông tin shop...</div>}
-      {!authLoading && !shopId && <div>Chưa có thông tin shop để hiển thị pre-order.</div>}
-      {shopId && isError && <div>Không thể tải danh sách pre-order. Vui lòng thử lại.</div>}
+      <h1 className={styles.heading}>
+        Mô hình <span className={styles.headingGradient}>Đặt trước</span>
+      </h1>
+      {isLoading && <div className={styles.loading}>Đang tải danh sách...</div>}
+      {authLoading && !shopId && <div className={styles.loading}>Đang tải thông tin shop...</div>}
+      {!authLoading && !shopId && (
+        <div className={styles.alert}>Chưa có thông tin shop để hiển thị pre-order.</div>
+      )}
+      {shopId && isError && (
+        <div className={styles.alert}>Không thể tải danh sách pre-order. Vui lòng thử lại.</div>
+      )}
       {shopId && !isLoading && !isError && cards.length === 0 && (
-        <div>Chưa có sản phẩm pre-order nào ở thời điểm hiện tại.</div>
+        <div className={styles.alert}>Chưa có sản phẩm pre-order nào ở thời điểm hiện tại.</div>
       )}
       {cards.map((card) => (
         <article key={card.id} className={styles.card} data-testid="public-preorder-card">

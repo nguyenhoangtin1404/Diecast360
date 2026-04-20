@@ -73,7 +73,7 @@ const ShopAuditModal: React.FC<Props> = ({
         {error && <p style={styles.modalError}>{error}</p>}
         {loading ? (
           <p style={styles.modalHint}>Đang tải...</p>
-        ) : (
+        ) : error ? null : (
           <div style={styles.shopItemsTableWrap}>
             {logs.length === 0 ? (
               <p style={styles.modalHint}>Chưa có bản ghi hoạt động.</p>
@@ -105,21 +105,24 @@ const ShopAuditModal: React.FC<Props> = ({
         )}
 
         <div style={styles.itemsPaginationRow}>
-          <span style={styles.modalHint}>
-            Trang {page}/{totalPages}
-          </span>
+          {!loading && !error ? (
+            <span style={styles.modalHint}>
+              Trang {page}/{totalPages}
+            </span>
+          ) : (
+            <span style={styles.modalHint} />
+          )}
           <div style={styles.itemsPaginationBtns}>
-            <button type="button" style={styles.modalCancelBtn} onClick={onPrevPage} disabled={page <= 1 || loading}>
-              Trước
-            </button>
-            <button
-              type="button"
-              style={styles.modalCancelBtn}
-              onClick={onNextPage}
-              disabled={page >= totalPages || loading}
-            >
-              Sau
-            </button>
+            {!loading && !error && (
+              <>
+                <button type="button" style={styles.modalCancelBtn} onClick={onPrevPage} disabled={page <= 1}>
+                  Trước
+                </button>
+                <button type="button" style={styles.modalCancelBtn} onClick={onNextPage} disabled={page >= totalPages}>
+                  Sau
+                </button>
+              </>
+            )}
             <button type="button" style={styles.modalConfirmBtn} onClick={onClose}>
               Đóng
             </button>

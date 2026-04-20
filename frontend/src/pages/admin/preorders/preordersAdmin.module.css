@@ -1,84 +1,277 @@
+/* Phase 9 admin pre-order surfaces — Corporate Trust */
+
 .container {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 1rem;
   display: grid;
-  gap: 16px;
+  gap: 1rem;
+  min-height: 100vh;
+  background: var(--ct-canvas, #f8fafc);
+  color: var(--ct-ink, #0f172a);
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  position: relative;
+  isolation: isolate;
+}
+
+.container::before {
+  content: "";
+  position: fixed;
+  width: 28rem;
+  height: 28rem;
+  top: -8rem;
+  right: -6rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, rgba(124, 58, 237, 0.12), transparent 70%);
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .card {
-  background: #fff;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  padding: 14px;
+  background: var(--ct-surface, #fff);
+  border-radius: 0.75rem;
+  border: 1px solid var(--ct-border, #e2e8f0);
+  padding: 1rem 1.125rem;
+  box-shadow: 0 4px 20px -2px rgba(79, 70, 229, 0.1);
+  transition:
+    box-shadow 0.2s ease-out,
+    transform 0.2s ease-out;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card:hover {
+    box-shadow:
+      0 10px 25px -5px rgba(79, 70, 229, 0.12),
+      0 8px 10px -6px rgba(79, 70, 229, 0.08);
+  }
 }
 
 .title {
-  margin: 0 0 8px;
-  font-size: 20px;
+  margin: 0 0 0.375rem;
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
   font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ct-ink, #0f172a);
+}
+
+.card > p {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--ct-muted, #64748b);
+}
+
+.card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--ct-ink, #0f172a);
 }
 
 .row {
   display: grid;
-  gap: 8px;
+  gap: 0.5rem;
+}
+
+.row strong {
+  font-weight: 600;
+  color: var(--ct-ink, #0f172a);
+}
+
+.row > span {
+  font-size: 0.875rem;
+  color: var(--ct-muted, #64748b);
 }
 
 .gridTwo {
   display: grid;
-  gap: 10px;
+  gap: 0.75rem;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .badge {
   display: inline-flex;
-  padding: 4px 10px;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 
 .controls {
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
   flex-wrap: wrap;
+  align-items: center;
 }
 
+.controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* Secondary: white surface, slate border */
 .button {
-  border: 0;
-  border-radius: 8px;
-  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 40px;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--ct-border, #e2e8f0);
   cursor: pointer;
-  background: #111827;
-  color: #fff;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: #334155;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition:
+    background 0.2s ease-out,
+    border-color 0.2s ease-out,
+    transform 0.2s ease-out,
+    box-shadow 0.2s ease-out;
 }
 
+.button:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.1);
+  }
+}
+
+.button:focus-visible,
+.buttonPrimary:focus-visible {
+  outline: 2px solid var(--ct-primary, #4f46e5);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+a.button[aria-disabled='true'],
+a.buttonPrimary[aria-disabled='true'] {
+  opacity: 0.45;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* Primary gradient CTA */
+.buttonPrimary {
+  composes: button;
+  border: 0;
+  color: #fff;
+  background: linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed));
+  box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.28);
+}
+
+.buttonPrimary:hover {
+  background: linear-gradient(90deg, #4338ca, #6d28d9);
+  filter: brightness(1.02);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .buttonPrimary:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 8px 20px -4px rgba(79, 70, 229, 0.35),
+      0 4px 14px 0 rgba(79, 70, 229, 0.25);
+  }
+}
+
+/* Muted secondary (pagination) — slightly softer than default button */
 .buttonSecondary {
-  background: #e5e7eb;
-  color: #111827;
+  composes: button;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+.buttonSecondary:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.buttonSecondary:disabled {
+  opacity: 0.45;
+}
+
+.buttonPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .input,
 .select,
 .textarea {
   width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 10px;
-  font-size: 14px;
+  border: 1px solid var(--ct-border, #e2e8f0);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: var(--ct-ink, #0f172a);
+  background: #fff;
+  transition:
+    border-color 0.15s ease-out,
+    box-shadow 0.15s ease-out;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: #94a3b8;
+}
+
+.input:focus-visible,
+.select:focus-visible,
+.textarea:focus-visible {
+  outline: none;
+  border-color: var(--ct-primary, #4f46e5);
+  box-shadow:
+    0 0 0 1px #fff,
+    0 0 0 3px rgba(79, 70, 229, 0.35);
 }
 
 .textarea {
-  min-height: 88px;
+  min-height: 5.5rem;
   resize: vertical;
+  line-height: 1.55;
+}
+
+form label,
+.card label {
+  display: grid;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
 }
 
 .error {
   color: #b91c1c;
-  font-size: 13px;
+  font-size: 0.8125rem;
+  font-weight: 500;
 }
 
 .success {
-  color: #15803d;
-  font-size: 13px;
+  color: #047857;
+  font-size: 0.8125rem;
+  font-weight: 600;
 }

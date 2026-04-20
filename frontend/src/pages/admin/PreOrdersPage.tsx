@@ -44,10 +44,10 @@ export const PreOrdersPage = () => {
               ))}
             </select>
           </label>
-          <Link className={styles.button} to="/admin/preorders/create">
+          <Link className={styles.buttonPrimary} to="/admin/preorders/create">
             Tạo Pre-Order Mới
           </Link>
-          <Link className={`${styles.button} ${styles.buttonSecondary}`} to="/admin/preorders/manage">
+          <Link className={styles.button} to="/admin/preorders/manage">
             Quản lý theo campaign
           </Link>
         </div>
