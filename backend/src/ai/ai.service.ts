@@ -25,7 +25,11 @@ export class AiService {
     });
   }
 
-  async generateItemDescription(itemId: string, customInstructions?: string): Promise<AiDescriptionResponseDto> {
+  async generateItemDescription(
+    itemId: string,
+    tenantId: string,
+    customInstructions?: string,
+  ): Promise<AiDescriptionResponseDto> {
     this.ensureApiKeyConfigured();
 
     // Fetch item data
@@ -33,6 +37,7 @@ export class AiService {
       where: {
         id: itemId,
         deleted_at: null,
+        shop_id: tenantId,
       },
     });
 
@@ -87,7 +92,11 @@ Trả về JSON với format sau (KHÔNG có markdown code block):
     }
   }
 
-  async generateFacebookPost(itemId: string, customInstructions?: string): Promise<{ content: string }> {
+  async generateFacebookPost(
+    itemId: string,
+    tenantId: string,
+    customInstructions?: string,
+  ): Promise<{ content: string }> {
     this.ensureApiKeyConfigured();
 
     // Fetch item data
@@ -95,6 +104,7 @@ Trả về JSON với format sau (KHÔNG có markdown code block):
       where: {
         id: itemId,
         deleted_at: null,
+        shop_id: tenantId,
       },
     });
 

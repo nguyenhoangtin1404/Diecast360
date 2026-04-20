@@ -1,4 +1,6 @@
+import { ConfigService } from '@nestjs/config';
 import { LocalStorageService } from './local-storage.service';
+import { verifySignedMediaParams } from '../common/media/signed-media.util';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
@@ -10,6 +12,19 @@ const mockedFs = jest.mocked(fs);
 describe('LocalStorageService', () => {
   let service: LocalStorageService;
   const originalEnv = process.env;
+  const mediaSigningSecret = 'm'.repeat(32);
+
+  const mockConfig = (): ConfigService =>
+    ({
+      get: jest.fn((key: string) => {
+        if (key === 'UPLOAD_DIR') return '/test/uploads';
+        if (key === 'BACKEND_URL') return 'http://localhost:3000';
+        if (key === 'MEDIA_SIGNING_SECRET') return mediaSigningSecret;
+        if (key === 'JWT_SECRET') return 'short';
+        if (key === 'MEDIA_URL_TTL_MS') return 3600000;
+        return undefined;
+      }),
+    }) as unknown as ConfigService;
 
   beforeEach(() => {
     process.env = { ...originalEnv, UPLOAD_DIR: '/test/uploads' };
@@ -20,7 +35,7 @@ describe('LocalStorageService', () => {
     mockedFs.rename.mockResolvedValue(undefined);
     mockedFs.copyFile.mockResolvedValue(undefined);
 
-    service = new LocalStorageService();
+    service = new LocalStorageService(mockConfig());
   });
 
   afterEach(() => {
@@ -114,19 +129,30 @@ describe('LocalStorageService', () => {
   // getFileUrl
   // ============================================================
   describe('getFileUrl', () => {
-    it('should return correct URL', () => {
-      const url = service.getFileUrl('images/test.jpg');
-      expect(url).toBe('http://localhost:3000/uploads/images/test.jpg');
+    it('should return signed media URL', () => {
+      const href = service.getFileUrl('images/test.jpg');
+      const u = new URL(href);
+      expect(u.pathname).toBe('/api/v1/media');
+      const d = u.searchParams.get('d');
+      const s = u.searchParams.get('s');
+      expect(d).toBeTruthy();
+      expect(s).toBeTruthy();
+      const payload = verifySignedMediaParams(d!, s!, mediaSigningSecret);
+      expect(payload?.p).toBe('images/test.jpg');
     });
 
     it('should strip leading ./ from path', () => {
-      const url = service.getFileUrl('./images/test.jpg');
-      expect(url).toBe('http://localhost:3000/uploads/images/test.jpg');
+      const href = service.getFileUrl('./images/test.jpg');
+      const u = new URL(href);
+      const payload = verifySignedMediaParams(u.searchParams.get('d')!, u.searchParams.get('s')!, mediaSigningSecret);
+      expect(payload?.p).toBe('images/test.jpg');
     });
 
     it('should strip leading / from path', () => {
-      const url = service.getFileUrl('/images/test.jpg');
-      expect(url).toBe('http://localhost:3000/uploads/images/test.jpg');
+      const href = service.getFileUrl('/images/test.jpg');
+      const u = new URL(href);
+      const payload = verifySignedMediaParams(u.searchParams.get('d')!, u.searchParams.get('s')!, mediaSigningSecret);
+      expect(payload?.p).toBe('images/test.jpg');
     });
   });
 });

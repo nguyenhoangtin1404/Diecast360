@@ -16,7 +16,10 @@ import { PrismaModule } from '../common/prisma/prisma.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {
-        const secret = configService.get<string>('JWT_SECRET') || 'super-secret';
+        const secret = configService.get<string>('JWT_SECRET');
+        if (!secret || secret.trim().length < 32) {
+          throw new Error('JWT_SECRET must be set and at least 32 characters long');
+        }
         const expiresIn = (configService.get<string>('JWT_EXPIRES_IN') || '15m') as StringValue;
         return {
           secret,

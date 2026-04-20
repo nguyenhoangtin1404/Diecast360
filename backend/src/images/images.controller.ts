@@ -11,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ImagesService } from './images.service';
 import { UpdateImageDto } from './dto/update-image.dto';
@@ -25,6 +26,7 @@ export class ImagesController {
   constructor(private readonly imagesService: ImagesService) {}
 
   @Post()
+  @Throttle({ default: { ttl: 60000, limit: 40 } })
   @UseInterceptors(FileInterceptor('file'))
   async uploadImage(
     @Param('itemId') itemId: string,

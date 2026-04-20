@@ -21,6 +21,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await apiClient.get('/auth/me') as ApiResponse<{ user: User }>;
       setUser(response.data?.user);
+      if (response.data?.user) {
+        try {
+          await apiClient.get('/auth/csrf');
+        } catch {
+          /* cookie may still be set; ignore */
+        }
+      }
       return true;
     } catch {
       setUser(null);

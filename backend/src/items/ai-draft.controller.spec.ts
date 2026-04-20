@@ -63,7 +63,7 @@ describe('AiDraftController', () => {
   });
 
   it('should create a draft after analyzing and saving images', async () => {
-    const result = await controller.createDraft([buildFile('box.jpg'), buildFile('bottom.jpg')]);
+    const result = await controller.createDraft([buildFile('box.jpg'), buildFile('bottom.jpg')], 'shop-1');
 
     expect(aiService.analyzeImages).toHaveBeenCalledWith([Buffer.from('box.jpg'), Buffer.from('bottom.jpg')]);
     expect(prisma.aiItemDraft.create).toHaveBeenCalledWith({
@@ -86,21 +86,22 @@ describe('AiDraftController', () => {
       .mockResolvedValueOnce('drafts/first.jpg')
       .mockResolvedValueOnce('drafts/second.jpg');
 
-    await controller.createDraft([buildFile('same.jpg'), buildFile('same.jpg')]);
+    await controller.createDraft([buildFile('same.jpg'), buildFile('same.jpg')], 'shop-1');
 
     const firstFilename = storage.saveFile.mock.calls[0][1] as string;
     const secondFilename = storage.saveFile.mock.calls[1][1] as string;
     expect(firstFilename).not.toBe(secondFilename);
+    expect(firstFilename).toContain('shop1');
   });
 
   it('should reject empty uploads', async () => {
-    await expect(controller.createDraft([])).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.createDraft([], 'shop-1')).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('should propagate analysis errors without saving or cleaning up files', async () => {
     aiService.analyzeImages.mockRejectedValueOnce(new Error('analysis failed'));
 
-    await expect(controller.createDraft([buildFile('box.jpg')])).rejects.toThrow('analysis failed');
+    await expect(controller.createDraft([buildFile('box.jpg')], 'shop-1')).rejects.toThrow('analysis failed');
 
     expect(storage.saveFile).not.toHaveBeenCalled();
     expect(storage.deleteFile).not.toHaveBeenCalled();
@@ -114,7 +115,7 @@ describe('AiDraftController', () => {
     prisma.aiItemDraft.create.mockRejectedValueOnce(new Error('db write failed'));
 
     await expect(
-      controller.createDraft([buildFile('box.jpg'), buildFile('bottom.jpg')]),
+      controller.createDraft([buildFile('box.jpg'), buildFile('bottom.jpg')], 'shop-1'),
     ).rejects.toThrow('db write failed');
 
     expect(storage.deleteFile).toHaveBeenCalledTimes(2);
@@ -128,7 +129,7 @@ describe('AiDraftController', () => {
       .mockRejectedValueOnce(new Error('disk full'));
 
     await expect(
-      controller.createDraft([buildFile('box.jpg'), buildFile('bottom.jpg')]),
+      controller.createDraft([buildFile('box.jpg'), buildFile('bottom.jpg')], 'shop-1'),
     ).rejects.toThrow('disk full');
 
     expect(storage.deleteFile).toHaveBeenCalledTimes(1);
@@ -142,7 +143,7 @@ describe('AiDraftController', () => {
     prisma.aiItemDraft.create.mockRejectedValueOnce(new Error('db write failed'));
     storage.deleteFile.mockRejectedValueOnce(new Error('cleanup failed'));
 
-    await expect(controller.createDraft([buildFile('box.jpg')])).rejects.toThrow('db write failed');
+    await expect(controller.createDraft([buildFile('box.jpg')], 'shop-1')).rejects.toThrow('db write failed');
 
     expect(loggerErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('Failed to cleanup draft file "drafts/box.jpg"'),

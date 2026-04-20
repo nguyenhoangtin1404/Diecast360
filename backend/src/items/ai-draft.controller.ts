@@ -5,9 +5,11 @@ import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { IStorageService } from '../storage/storage.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../common/guards/tenant.guard';
+import { CurrentTenantId } from '../common/decorators/tenant.decorator';
 
 @Controller('items/ai-draft')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class AiDraftController {
   private readonly logger = new Logger(AiDraftController.name);
 
@@ -22,6 +24,7 @@ export class AiDraftController {
   @UseInterceptors(FilesInterceptor('images', 10)) // max 10 files
   async createDraft(
     @UploadedFiles() files: Array<Express.Multer.File>,
+    @CurrentTenantId() tenantId: string,
   ) {
     if (!files || files.length === 0) {
       throw new BadRequestException('At least one image is required');
@@ -49,7 +52,7 @@ export class AiDraftController {
       // 2. Save images to storage
       const imageUrls: string[] = [];
       for (const [index, file] of files.entries()) {
-        const filename = this.buildDraftFilename(file.originalname, index);
+        const filename = this.buildDraftFilename(file.originalname, index, tenantId);
         const path = await this.storage.saveFile(file.buffer, filename, 'drafts');
         savedPaths.push(path);
         imageUrls.push(this.storage.getFileUrl(path));
@@ -87,8 +90,9 @@ export class AiDraftController {
     }
   }
 
-  private buildDraftFilename(originalName: string, index: number): string {
+  private buildDraftFilename(originalName: string, index: number, tenantId: string): string {
+    const tenantPrefix = tenantId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'tenant';
     const sanitized = originalName.replace(/[^a-zA-Z0-9.]/g, '_');
-    return `draft_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 10)}_${sanitized}`;
+    return `draft_${tenantPrefix}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 10)}_${sanitized}`;
   }
 }

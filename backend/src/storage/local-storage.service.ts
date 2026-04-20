@@ -1,14 +1,17 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { buildSignedMediaFileUrl } from '../common/media/signed-media.util';
+import { resolveMediaSigningSecret } from '../common/media/media-signing-secret';
 import { IStorageService } from './storage.interface';
 
 @Injectable()
 export class LocalStorageService implements IStorageService {
   private readonly uploadDir: string;
 
-  constructor() {
-    this.uploadDir = process.env.UPLOAD_DIR || './uploads';
+  constructor(private readonly config: ConfigService) {
+    this.uploadDir = this.config.get<string>('UPLOAD_DIR') || './uploads';
     this.ensureUploadDir();
   }
 
@@ -64,10 +67,12 @@ export class LocalStorageService implements IStorageService {
   }
 
   getFileUrl(filePath: string): string {
-    const baseUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-    // Remove leading ./ or / from filePath
+    const backend = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').replace(/\/$/, '');
+    const apiBase = `${backend}/api/v1`;
+    const secret = resolveMediaSigningSecret(this.config);
+    const ttlMs = Number(this.config.get('MEDIA_URL_TTL_MS')) || 7 * 24 * 60 * 60 * 1000;
     const cleanPath = filePath.replace(/^\.\//, '').replace(/^\//, '');
-    return `${baseUrl}/uploads/${cleanPath}`;
+    return buildSignedMediaFileUrl(apiBase, cleanPath, secret, ttlMs);
   }
 }
 

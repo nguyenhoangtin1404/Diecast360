@@ -12,6 +12,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SpinnerService } from './spinner.service';
 import { CreateSpinSetDto } from './dto/create-spin-set.dto';
@@ -60,6 +61,7 @@ export class SpinSetController {
   }
 
   @Post('frames')
+  @Throttle({ default: { ttl: 60000, limit: 35 } })
   @UseInterceptors(FileInterceptor('frame'))
   async uploadFrame(
     @Param('spinSetId') spinSetId: string,

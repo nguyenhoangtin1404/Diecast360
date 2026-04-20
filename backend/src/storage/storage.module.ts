@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { LocalStorageService } from './local-storage.service';
 import { IStorageService } from './storage.interface';
 
@@ -8,6 +9,7 @@ const StorageServiceProvider = {
 };
 
 @Module({
+  imports: [ConfigModule],
   providers: [StorageServiceProvider, LocalStorageService],
   exports: ['IStorageService', LocalStorageService],
 })
