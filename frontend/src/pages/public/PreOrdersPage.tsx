@@ -22,7 +22,9 @@ export const PreOrdersPage = () => {
   const { user, loading: authLoading } = useAuth();
   const queryShopId = sanitizeShopIdQueryParam(searchParams.get('shop_id'));
   const configShopId = sanitizeShopIdQueryParam(API_CONFIG.PUBLIC_PREORDER_SHOP_ID);
-  /** Anonymous-friendly order: URL and deploy config do not depend on auth. */
+  /** Có shop cố định từ URL hoặc env build — không cần chờ JWT /auth/me. */
+  const hasDeterministicShopContext = Boolean(queryShopId || configShopId);
+  /** Thứ tự: query → env build → người dùng đã đăng nhập (active / allowed shop). */
   const shopId =
     queryShopId ||
     configShopId ||
@@ -43,9 +45,14 @@ export const PreOrdersPage = () => {
         Mô hình <span className={styles.headingGradient}>Đặt trước</span>
       </h1>
       {isLoading && <div className={styles.loading}>Đang tải danh sách...</div>}
-      {authLoading && !shopId && <div className={styles.loading}>Đang tải thông tin shop...</div>}
+      {authLoading && !shopId && !hasDeterministicShopContext && (
+        <div className={styles.loading}>Đang tải thông tin shop...</div>
+      )}
       {!authLoading && !shopId && (
-        <div className={styles.alert}>Chưa có thông tin shop để hiển thị pre-order.</div>
+        <div className={styles.alert}>
+          Chưa có thông tin shop để hiển thị pre-order. Dùng <code>?shop_id=...</code> trên URL hoặc cấu hình{' '}
+          <code>VITE_PUBLIC_PREORDER_SHOP_ID</code> khi build (xem <code>frontend/.env.example</code>).
+        </div>
       )}
       {shopId && isError && (
         <div className={styles.alert}>Không thể tải danh sách pre-order. Vui lòng thử lại.</div>
