@@ -10,12 +10,21 @@ const prisma = new PrismaClient();
 async function resetAdminPassword() {
   try {
     const args = process.argv.slice(2).filter((a) => a !== '--');
-    const email = args[0] || 'admin@diecast360.com';
-    const password = args[1] || 'admin';
+    const email = args[0];
+    const password = args[1];
+
+    if (!email || !password) {
+      console.error('Usage: pnpm run reset:admin -- <email> <new-password>');
+      process.exit(1);
+    }
+    if (password.length < 8) {
+      console.error('Password must be at least 8 characters');
+      process.exit(1);
+    }
 
     console.log('=== Reset mật khẩu Admin ===\n');
     console.log(`Email: ${email}`);
-    console.log(`Password mới: ${password}\n`);
+    console.log('Password mới: [HIDDEN]\n');
 
     // Tìm user
     const user = await prisma.user.findUnique({
@@ -46,7 +55,7 @@ async function resetAdminPassword() {
     console.log(`Role: ${user.role}`);
     console.log(`\n💡 Bạn có thể đăng nhập tại: http://localhost:5173/admin/login`);
     console.log(`   Email: ${email}`);
-    console.log(`   Password: ${password}`);
+    console.log('   Password: [HIDDEN]');
   } catch (error) {
     console.error('❌ Lỗi khi reset mật khẩu:', error);
     process.exit(1);

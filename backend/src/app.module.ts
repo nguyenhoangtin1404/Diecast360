@@ -17,6 +17,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { ShopsModule } from './shops/shops.module';
 import { PreordersModule } from './preorders/preorders.module';
 import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
+import { MediaModule } from './common/media/media.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.f
     CategoriesModule,
     ShopsModule,
     PreordersModule,
+    MediaModule,
   ],
   controllers: [AppController],
   providers: [

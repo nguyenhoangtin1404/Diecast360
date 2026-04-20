@@ -46,6 +46,7 @@ describe('AiService', () => {
     deleted_at: null,
     fb_post_content: null,
   };
+  const TEST_SHOP_ID = 'shop-1';
 
   const descriptionResponse = {
     short_description: 'Mô tả ngắn cho sản phẩm',
@@ -109,7 +110,7 @@ describe('AiService', () => {
     it('should generate description and return full DTO', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
 
-      const result = await service.generateItemDescription('item-1');
+      const result = await service.generateItemDescription('item-1', TEST_SHOP_ID);
 
       expect(result.short_description).toBe('Mô tả ngắn cho sản phẩm');
       expect(result.long_description).toBe('Mô tả chi tiết cho sản phẩm diecast');
@@ -117,7 +118,7 @@ describe('AiService', () => {
       expect(result.meta_title).toBe('SEO Title');
       expect(result.meta_description).toBe('SEO meta description');
       expect(prisma.item.findFirst).toHaveBeenCalledWith({
-        where: { id: 'item-1', deleted_at: null },
+        where: { id: 'item-1', deleted_at: null, shop_id: TEST_SHOP_ID },
       });
     });
 
@@ -125,7 +126,7 @@ describe('AiService', () => {
       prisma.item.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.generateItemDescription('nonexistent'),
+        service.generateItemDescription('nonexistent', TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
 
@@ -144,7 +145,7 @@ describe('AiService', () => {
 
       prisma.item.findFirst.mockResolvedValue(mockItem);
 
-      await expect(svcNoKey.generateItemDescription('item-1')).rejects.toThrow(AppException);
+      await expect(svcNoKey.generateItemDescription('item-1', TEST_SHOP_ID)).rejects.toThrow(AppException);
     });
 
     it('should throw when AI returns incomplete content', async () => {
@@ -153,7 +154,7 @@ describe('AiService', () => {
         choices: [{ message: { content: JSON.stringify({ short_description: 'only partial' }) } }],
       });
 
-      await expect(service.generateItemDescription('item-1')).rejects.toThrow(AppException);
+      await expect(service.generateItemDescription('item-1', TEST_SHOP_ID)).rejects.toThrow(AppException);
     });
 
     it('should throw when bullet_specs only contain empty entries', async () => {
@@ -169,7 +170,7 @@ describe('AiService', () => {
         }],
       });
 
-      await expect(service.generateItemDescription('item-1')).rejects.toMatchObject({
+      await expect(service.generateItemDescription('item-1', TEST_SHOP_ID)).rejects.toMatchObject({
         errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
       });
     });
@@ -180,7 +181,7 @@ describe('AiService', () => {
         choices: [{ message: { content: null } }],
       });
 
-      await expect(service.generateItemDescription('item-1')).rejects.toThrow(AppException);
+      await expect(service.generateItemDescription('item-1', TEST_SHOP_ID)).rejects.toThrow(AppException);
     });
 
     it('should throw when AI returns malformed JSON', async () => {
@@ -189,7 +190,7 @@ describe('AiService', () => {
         choices: [{ message: { content: '{not-json}' } }],
       });
 
-      await expect(service.generateItemDescription('item-1')).rejects.toMatchObject({
+      await expect(service.generateItemDescription('item-1', TEST_SHOP_ID)).rejects.toMatchObject({
         errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
       });
     });
@@ -198,14 +199,14 @@ describe('AiService', () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       mockCreate.mockRejectedValueOnce(new Error('API rate limit'));
 
-      await expect(service.generateItemDescription('item-1')).rejects.toThrow(AppException);
+      await expect(service.generateItemDescription('item-1', TEST_SHOP_ID)).rejects.toThrow(AppException);
     });
 
     it('should map OpenAI 429 errors to RATE_LIMIT_EXCEEDED', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       mockCreate.mockRejectedValueOnce({ status: 429, message: 'Too many requests' });
 
-      await expect(service.generateItemDescription('item-1')).rejects.toMatchObject({
+      await expect(service.generateItemDescription('item-1', TEST_SHOP_ID)).rejects.toMatchObject({
         errorCode: ErrorCode.RATE_LIMIT_EXCEEDED,
       });
     });
@@ -214,7 +215,7 @@ describe('AiService', () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       mockCreate.mockRejectedValueOnce(null);
 
-      await expect(service.generateItemDescription('item-1')).rejects.toMatchObject({
+      await expect(service.generateItemDescription('item-1', TEST_SHOP_ID)).rejects.toMatchObject({
         errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
         message: 'Failed to generate AI description',
       });
@@ -235,7 +236,7 @@ describe('AiService', () => {
     it('should generate Facebook post and return content string', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
 
-      const result = await service.generateFacebookPost('item-1');
+      const result = await service.generateFacebookPost('item-1', TEST_SHOP_ID);
 
       expect(result).toHaveProperty('content');
       expect(result.content).toBe('🔥 Hot Wheels Civic tuyệt đẹp! #diecast');
@@ -245,7 +246,7 @@ describe('AiService', () => {
       prisma.item.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.generateFacebookPost('nonexistent'),
+        service.generateFacebookPost('nonexistent', TEST_SHOP_ID),
       ).rejects.toThrow(AppException);
     });
 
@@ -255,14 +256,14 @@ describe('AiService', () => {
         choices: [{ message: { content: null } }],
       });
 
-      await expect(service.generateFacebookPost('item-1')).rejects.toThrow(AppException);
+      await expect(service.generateFacebookPost('item-1', TEST_SHOP_ID)).rejects.toThrow(AppException);
     });
 
     it('should wrap OpenAI API errors as AppException', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       mockCreate.mockRejectedValueOnce(new Error('Timeout'));
 
-      await expect(service.generateFacebookPost('item-1')).rejects.toThrow(AppException);
+      await expect(service.generateFacebookPost('item-1', TEST_SHOP_ID)).rejects.toThrow(AppException);
     });
 
     it('should trim whitespace from generated Facebook post content', async () => {
@@ -271,7 +272,7 @@ describe('AiService', () => {
         choices: [{ message: { content: '  caption with spaces  ' } }],
       });
 
-      await expect(service.generateFacebookPost('item-1')).resolves.toEqual({
+      await expect(service.generateFacebookPost('item-1', TEST_SHOP_ID)).resolves.toEqual({
         content: 'caption with spaces',
       });
     });
@@ -280,7 +281,7 @@ describe('AiService', () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       mockCreate.mockRejectedValueOnce('Timeout from upstream');
 
-      await expect(service.generateFacebookPost('item-1')).rejects.toMatchObject({
+      await expect(service.generateFacebookPost('item-1', TEST_SHOP_ID)).rejects.toMatchObject({
         errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
         message: 'Failed to generate Facebook post',
       });

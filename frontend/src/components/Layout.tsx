@@ -207,7 +207,7 @@ export const Layout = ({ children }: LayoutProps) => {
         <div>
           <p className="text-sm font-semibold tracking-wide text-white">Diecast360</p>
           <p className="mt-1 max-w-md text-sm leading-relaxed text-slate-400">
-            Catalog công khai, quản trị đa shop, media & viewer 360° — giao diện Corporate Trust.
+            Catalog công khai, quản trị đa shop, media & viewer 360°.
           </p>
         </div>
         <p className="text-xs font-medium text-slate-500">© {new Date().getFullYear()} Diecast360</p>

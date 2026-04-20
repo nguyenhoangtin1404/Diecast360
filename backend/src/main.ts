@@ -4,9 +4,10 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/exceptions/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { join } from 'path';
 import * as sharp from 'sharp';
 import * as cookieParser from 'cookie-parser';
+import { createCsrfMiddleware } from './common/middleware/csrf.middleware';
+import { validateRuntimeSecurityConfig } from './common/security/runtime-security';
 
 /** Merge FRONTEND_URL + FRONTEND_URLS and add localhost ↔ 127.0.0.1 variants (same port). */
 function buildCorsAllowedOrigins(): string[] {
@@ -58,18 +59,17 @@ sharp.concurrency(1); // Process images sequentially to limit concurrent memory 
 sharp.simd(false); // Disable SIMD to reduce memory footprint (slight performance trade-off)
 
 async function bootstrap() {
+  validateRuntimeSecurityConfig();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
   // Cookie parser middleware - enables reading cookies from requests
-  const cookieSecret = process.env.COOKIE_SECRET || 'diecast360-cookie-secret';
+  const cookieSecret = process.env.COOKIE_SECRET;
+  if (!cookieSecret || cookieSecret.trim().length < 32) {
+    throw new Error('COOKIE_SECRET must be set and at least 32 characters long');
+  }
   app.use(cookieParser(cookieSecret));
-  
-  // Serve static files from uploads directory
-  const uploadDir = process.env.UPLOAD_DIR || './uploads';
-  app.useStaticAssets(join(process.cwd(), uploadDir), {
-    prefix: '/uploads',
-  });
-  
+  app.use(createCsrfMiddleware());
+
   app.setGlobalPrefix('api/v1');
   
   app.useGlobalPipes(
@@ -85,8 +85,8 @@ async function bootstrap() {
 
   const corsOrigins = buildCorsAllowedOrigins();
   const allowLanCors =
-    process.env.CORS_ALLOW_LAN === 'true' ||
-    (process.env.CORS_ALLOW_LAN !== 'false' && process.env.NODE_ENV !== 'production');
+    process.env.NODE_ENV !== 'production' &&
+    process.env.CORS_ALLOW_LAN === 'true';
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -111,5 +111,9 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
 }
-bootstrap();
+export { validateRuntimeSecurityConfig } from './common/security/runtime-security';
+
+if (require.main === module) {
+  bootstrap();
+}
 

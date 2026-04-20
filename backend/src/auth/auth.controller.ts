@@ -1,5 +1,7 @@
 import { Controller, Post, Get, Body, UseGuards, Request, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
+import * as crypto from 'crypto';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { SwitchShopDto } from './dto/switch-shop.dto';
@@ -40,11 +42,50 @@ export class AuthController {
     };
   }
 
+  /** Readable CSRF cookie for double-submit pattern (paired with X-CSRF-Token header). */
+  private getCsrfCookieOptions(maxAgeMs = 7 * 24 * 60 * 60 * 1000): CookieOptions {
+    const isSecure = this.configService.get('COOKIE_SECURE') === 'true';
+    const sameSite = (this.configService.get('COOKIE_SAME_SITE') || 'lax') as 'lax' | 'strict' | 'none';
+    return {
+      httpOnly: false,
+      secure: isSecure,
+      sameSite,
+      path: '/',
+      maxAge: maxAgeMs,
+    };
+  }
+
+  private issueCsrfCookie(res: Response): string {
+    const token = crypto.randomBytes(32).toString('hex');
+    res.cookie('csrf_token', token, this.getCsrfCookieOptions());
+    return token;
+  }
+
+  private clearCsrfCookie(res: Response): void {
+    res.clearCookie('csrf_token', {
+      path: '/',
+      httpOnly: false,
+      secure: this.configService.get('COOKIE_SECURE') === 'true',
+      sameSite: (this.configService.get('COOKIE_SAME_SITE') || 'lax') as 'lax' | 'strict' | 'none',
+    });
+  }
+
+  /**
+   * Issue or rotate CSRF token (GET — safe method, not blocked by CSRF middleware).
+   */
+  @Get('csrf')
+  @HttpCode(HttpStatus.OK)
+  getCsrf(@Res({ passthrough: true }) res: Response) {
+    const csrf_token = this.issueCsrfCookie(res);
+    return { csrf_token };
+  }
+
   /**
    * Login endpoint - Sets access_token and refresh_token as HttpOnly cookies
    */
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 8 } })
   async login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) res: Response,
@@ -61,7 +102,9 @@ export class AuthController {
       ...this.getCookieOptions(refreshTokenMaxAge),
       path: '/api/v1/auth', // Restrict refresh token to auth endpoints only
     });
-    
+
+    this.issueCsrfCookie(res);
+
     // Return user info (tokens are in cookies, not in response body for security)
     return {
       user: result.user,
@@ -74,6 +117,7 @@ export class AuthController {
    */
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 25 } })
   async refresh(
     @Request() req,
     @Res({ passthrough: true }) res: Response,
@@ -84,6 +128,7 @@ export class AuthController {
       // Clear any stale cookies - user needs to login again
       res.clearCookie('access_token', { path: '/' });
       res.clearCookie('refresh_token', { path: '/api/v1/auth' });
+      this.clearCsrfCookie(res);
       // Return 401 to trigger login redirect
       return res.status(401).json({
         ok: false,
@@ -105,7 +150,9 @@ export class AuthController {
       ...this.getCookieOptions(refreshTokenMaxAge),
       path: '/api/v1/auth',
     });
-    
+
+    this.issueCsrfCookie(res);
+
     return { message: 'Token refreshed successfully' };
   }
 
@@ -114,6 +161,7 @@ export class AuthController {
    */
   @Post('logout')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 40 } })
   async logout(
     @Request() req,
     @Res({ passthrough: true }) res: Response,
@@ -127,7 +175,8 @@ export class AuthController {
     // Clear cookies
     res.clearCookie('access_token', { path: '/' });
     res.clearCookie('refresh_token', { path: '/api/v1/auth' });
-    
+    this.clearCsrfCookie(res);
+
     return { message: 'Logout successful' };
   }
 
@@ -139,6 +188,7 @@ export class AuthController {
   @Post('switch-shop')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 30 } })
   async switchShop(
     @Body() dto: SwitchShopDto,
     @Request() req,
@@ -149,6 +199,8 @@ export class AuthController {
     // Issue new access_token with active_shop_id
     const accessTokenMaxAge = 15 * 60 * 1000; // 15 minutes
     res.cookie('access_token', result.access_token, this.getCookieOptions(accessTokenMaxAge));
+
+    this.issueCsrfCookie(res);
 
     return {
       active_shop: result.active_shop,

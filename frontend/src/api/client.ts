@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_CONFIG } from '../config/api';
+import { csrfHeaderPair, ensureCsrfBootstrap, fetchWithCsrfRetry } from './csrf';
 
 export const apiClient = axios.create({
   baseURL: API_CONFIG.BASE_URL,
@@ -12,6 +13,15 @@ export const apiClient = axios.create({
 // Request interceptor - Cookies are automatically sent with withCredentials: true
 apiClient.interceptors.request.use(
   (config) => {
+    const method = (config.method || 'get').toUpperCase();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      const extra = csrfHeaderPair();
+      const h = config.headers ?? {};
+      for (const [k, v] of Object.entries(extra)) {
+        (h as Record<string, string>)[k] = v;
+      }
+      config.headers = h;
+    }
     return config;
   },
   (error) => {
@@ -28,6 +38,32 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    if (!originalRequest) {
+      return Promise.reject(error.response?.data || error);
+    }
+
+    const errData = error.response?.data as { error?: { code?: string } } | undefined;
+    const reqWithFlags = originalRequest as typeof originalRequest & { _csrfRetry?: boolean };
+    if (
+      error.response?.status === 403 &&
+      errData?.error?.code === 'CSRF_INVALID' &&
+      !reqWithFlags._csrfRetry
+    ) {
+      const method = (originalRequest.method || 'get').toUpperCase();
+      const url = String(originalRequest.url || '');
+      if (
+        ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) &&
+        !url.includes('/auth/csrf')
+      ) {
+        reqWithFlags._csrfRetry = true;
+        try {
+          await ensureCsrfBootstrap();
+          return apiClient(originalRequest);
+        } catch {
+          return Promise.reject(error.response?.data || error);
+        }
+      }
+    }
 
     // Skip refresh attempt for auth endpoints to avoid loops
     const isAuthEndpoint = originalRequest.url?.includes('/auth/');
@@ -39,9 +75,30 @@ apiClient.interceptors.response.use(
       try {
         // Attempt to refresh the token using cookie-based refresh
         // The refresh_token cookie will be sent automatically
-        const refreshResponse = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh`, {}, {
-          withCredentials: true,
-        });
+        const refreshResponse = await (async () => {
+          const doRefresh = () =>
+            axios.post(
+              `${API_CONFIG.BASE_URL}/auth/refresh`,
+              {},
+              {
+                withCredentials: true,
+                headers: csrfHeaderPair(),
+              },
+            );
+          try {
+            return await doRefresh();
+          } catch (e) {
+            if (
+              axios.isAxiosError(e) &&
+              e.response?.status === 403 &&
+              (e.response?.data as { error?: { code?: string } })?.error?.code === 'CSRF_INVALID'
+            ) {
+              await ensureCsrfBootstrap();
+              return await doRefresh();
+            }
+            throw e;
+          }
+        })();
 
         // Check if refresh was successful
         if (refreshResponse.status === 200) {
@@ -87,10 +144,13 @@ export const uploadFile = async <T = unknown>(
   url: string, 
   formData: FormData
 ): Promise<T> => {
-  const response = await axios.post(`${API_CONFIG.BASE_URL}${url}`, formData, {
-    withCredentials: true,
-    // DO NOT set Content-Type manually — Axios auto-detects
-    // multipart/form-data with correct boundary from FormData
-  });
+  const response = await fetchWithCsrfRetry(() =>
+    axios.post(`${API_CONFIG.BASE_URL}${url}`, formData, {
+      withCredentials: true,
+      headers: csrfHeaderPair(),
+      // DO NOT set Content-Type manually — Axios auto-detects
+      // multipart/form-data with correct boundary from FormData
+    }),
+  );
   return response.data;
 };

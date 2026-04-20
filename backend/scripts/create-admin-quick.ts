@@ -11,12 +11,21 @@ async function createAdminQuick() {
   try {
     // pnpm/npm pass `--` before extra args; strip it so `pnpm run create:admin:quick -- user@x pass` works
     const args = process.argv.slice(2).filter((a) => a !== '--');
-    const email = args[0] || 'nguyenhoangtin1404@gmail.com';
-    const password = args[1] || '123456';
+    const email = args[0];
+    const password = args[1];
+
+    if (!email || !password) {
+      console.error('Usage: pnpm run create:admin:quick -- <email> <password>');
+      process.exit(1);
+    }
+    if (password.length < 8) {
+      console.error('Password must be at least 8 characters');
+      process.exit(1);
+    }
 
     console.log('=== Tạo / cập nhật tài khoản Admin ===\n');
     console.log(`Email: ${email}`);
-    console.log(`Password: ${password}\n`);
+    console.log('Password: [HIDDEN]\n');
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
