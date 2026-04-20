@@ -242,7 +242,7 @@ test.describe('Pre-order flows', () => {
     await page.goto('/admin/preorders');
     await page.getByRole('button', { name: /Chuyển sang: Đã thanh toán/i }).click();
     await expect(page.getByTestId('admin-preorder-transition-error')).toContainText(
-      'Chuyển trạng thái thất bại',
+      'Invalid pre-order status transition',
     );
   });
 
@@ -341,7 +341,7 @@ test.describe('Pre-order flows', () => {
     await page.goto('/admin/preorders/manage');
     await page.getByRole('button', { name: /Chuyển sang: Đã thanh toán/i }).click();
     await expect(page.getByTestId('admin-manage-transition-error')).toContainText(
-      'Chuyển trạng thái thất bại',
+      'Invalid pre-order status transition',
     );
   });
 

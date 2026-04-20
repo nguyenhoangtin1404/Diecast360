@@ -34,14 +34,18 @@ export const PreOrderManagementPage = () => {
     return Array.from(map.entries()).map(([itemId, label]) => ({ itemId, label }));
   }, [data?.preorders]);
 
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  /** Lựa chọn campaign thủ công; nếu null hoặc không còn trong danh sách thì fallback campaign đầu. */
+  const [campaignOverrideId, setCampaignOverrideId] = useState<string | null>(null);
 
-  const effectiveCampaignId =
-    campaigns.length === 0
-      ? ''
-      : selectedCampaignId && campaigns.some((campaign) => campaign.itemId === selectedCampaignId)
-        ? selectedCampaignId
-        : campaigns[0].itemId;
+  const effectiveCampaignId = useMemo(() => {
+    if (campaigns.length === 0) {
+      return '';
+    }
+    if (campaignOverrideId && campaigns.some((c) => c.itemId === campaignOverrideId)) {
+      return campaignOverrideId;
+    }
+    return campaigns[0].itemId;
+  }, [campaigns, campaignOverrideId]);
 
   const participantsQuery = useQuery({
     queryKey: ['admin-preorder-participants', effectiveCampaignId],
@@ -125,7 +129,7 @@ export const PreOrderManagementPage = () => {
               className={styles.select}
               data-testid="admin-campaign-selector"
               value={effectiveCampaignId}
-              onChange={(event) => setSelectedCampaignId(event.target.value)}
+              onChange={(event) => setCampaignOverrideId(event.target.value)}
             >
               {campaigns.map((campaign) => (
                 <option key={campaign.itemId} value={campaign.itemId}>

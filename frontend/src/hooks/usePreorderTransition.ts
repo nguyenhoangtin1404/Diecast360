@@ -2,8 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { transitionPreorderStatus } from '../api/preorders';
 import type { PreOrderStatus } from '../types/preorder';
-
-const TRANSITION_ERROR_MESSAGE = 'Chuyển trạng thái thất bại. Vui lòng thử lại.';
+import { messageFromPreorderTransitionError } from '../utils/preorderApiError';
 
 export function usePreorderTransition(onSuccess: () => void) {
   const [transitionError, setTransitionError] = useState<string | null>(null);
@@ -17,8 +16,8 @@ export function usePreorderTransition(onSuccess: () => void) {
     onSuccess: () => {
       onSuccess();
     },
-    onError: () => {
-      setTransitionError(TRANSITION_ERROR_MESSAGE);
+    onError: (err: unknown) => {
+      setTransitionError(messageFromPreorderTransitionError(err));
     },
   });
 
