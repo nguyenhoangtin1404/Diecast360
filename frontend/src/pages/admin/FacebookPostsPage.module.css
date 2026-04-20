@@ -134,21 +134,7 @@
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: #aaa;
-}
-
-.searchInput {
-  width: 100%;
-  padding: 8px 14px 8px 38px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.searchInput:focus {
-  border-color: #1877F2;
+  pointer-events: none;
 }
 
 .stats {

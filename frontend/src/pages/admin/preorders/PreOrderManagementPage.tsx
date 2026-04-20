@@ -71,7 +71,7 @@ export const PreOrderManagementPage = () => {
           <p className={styles.error}>
             Trang {page} vượt quá tổng số trang ({totalPages}). Dữ liệu có thể không đầy đủ.
           </p>
-          <button type="button" className={styles.button} onClick={() => setPage(1)}>
+          <button type="button" className={styles.buttonPrimary} onClick={() => setPage(1)}>
             Về trang 1
           </button>
         </div>
@@ -85,7 +85,7 @@ export const PreOrderManagementPage = () => {
           <div className={styles.controls}>
             <button
               type="button"
-              className={`${styles.button} ${styles.buttonSecondary}`}
+              className={styles.buttonSecondary}
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
@@ -93,7 +93,7 @@ export const PreOrderManagementPage = () => {
             </button>
             <button
               type="button"
-              className={`${styles.button} ${styles.buttonSecondary}`}
+              className={styles.buttonSecondary}
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             >
@@ -136,7 +136,7 @@ export const PreOrderManagementPage = () => {
           </label>
           <div className={styles.controls}>
             <Link
-              className={styles.button}
+              className={styles.buttonPrimary}
               to={effectiveCampaignId ? `/admin/items/${effectiveCampaignId}` : '#'}
               aria-disabled={!effectiveCampaignId}
               tabIndex={effectiveCampaignId ? undefined : -1}
@@ -149,7 +149,7 @@ export const PreOrderManagementPage = () => {
               Xem chi tiết campaign
             </Link>
             <Link
-              className={`${styles.button} ${styles.buttonSecondary}`}
+              className={styles.button}
               to={
                 effectiveCampaignId
                   ? `/admin/preorders/create?item_id=${encodeURIComponent(effectiveCampaignId)}`

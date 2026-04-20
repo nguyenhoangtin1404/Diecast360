@@ -66,11 +66,14 @@ export function useAuditLogs() {
         setAuditPageSize(parsed.pagination.page_size as 10 | 20 | 50 | 100);
         setAuditTotalPages(parsed.pagination.total_pages || 1);
       } catch (err: unknown) {
-        const msg =
-          typeof err === 'object' && err !== null && 'message' in err
-            ? String((err as { message?: string }).message ?? '')
-            : '';
-        setAuditError(msg || 'Không tải được lịch sử hoạt động.');
+        let msg = '';
+        if (typeof err === 'object' && err !== null) {
+          const o = err as { message?: unknown };
+          if (typeof o.message === 'string') {
+            msg = o.message;
+          }
+        }
+        setAuditError(msg.trim() || 'Không tải được lịch sử hoạt động.');
       } finally {
         setAuditLoading(false);
       }

@@ -278,7 +278,7 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
         {validationError && <p className={styles.error}>{validationError}</p>}
 
         <button
-          className={styles.button}
+          className={styles.buttonPrimary}
           type="submit"
           data-testid="admin-preorder-submit"
           disabled={!canSubmit || createMutation.isPending}

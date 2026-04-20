@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Search, Sparkles, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { cn } from '../../../lib/utils';
 import styles from '../ItemsPage.module.css';
 import { downloadFile } from '../../../api/client';
 import { ROUTES } from '../../../config/routes';
@@ -37,13 +38,13 @@ export const SearchHeader = ({ search, onSearchChange }: SearchHeaderProps) => {
   return (
     <div className={styles.actionsBar}>
       <div className={styles.searchWrapper}>
-        <Search size={18} className={styles.searchIcon} strokeWidth={2} />
+        <Search size={18} className={cn(styles.searchIcon, 'text-slate-400')} strokeWidth={2} />
         <input
           type="text"
           placeholder="Tìm kiếm AI (VD: xe đỏ thể thao...)"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className={styles.searchInput}
+          className={cn('input-trust py-2.5 pl-10 pr-3')}
         />
       </div>
       <Link to={`${ROUTES.admin.items}/new`} className={styles.addButton}>

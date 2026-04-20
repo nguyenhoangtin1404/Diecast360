@@ -30,8 +30,10 @@ export const MyOrdersPage = () => {
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.heading}>Đơn hàng của tôi</h1>
-      {authLoading && <div>Đang kiểm tra đăng nhập...</div>}
+      <h1 className={styles.heading}>
+        <span className={styles.headingGradient}>Đơn hàng</span> của tôi
+      </h1>
+      {authLoading && <div className={styles.loading}>Đang kiểm tra đăng nhập...</div>}
       {!authLoading && !isAuthenticated && (
         <div className={styles.card}>
           <div className={styles.body}>
@@ -42,12 +44,12 @@ export const MyOrdersPage = () => {
           </div>
         </div>
       )}
-      {isLoading && <div>Đang tải đơn hàng...</div>}
+      {isLoading && <div className={styles.loading}>Đang tải đơn hàng...</div>}
       {!authLoading && isAuthenticated && isError && (
-        <div className={styles.card}>Không thể tải danh sách đơn hàng. Vui lòng thử lại.</div>
+        <div className={styles.alert}>Không thể tải danh sách đơn hàng. Vui lòng thử lại.</div>
       )}
       {!authLoading && isAuthenticated && !isLoading && !isError && cards.length === 0 && (
-        <div className={styles.card}>Bạn chưa có đơn pre-order nào.</div>
+        <div className={styles.alert}>Bạn chưa có đơn pre-order nào.</div>
       )}
       {cards.map((card) => (
         <article key={card.id} className={styles.card} data-testid="my-order-card">
@@ -66,10 +68,10 @@ export const MyOrdersPage = () => {
             <button type="button" className={styles.cta}>
               Theo dõi vận chuyển
             </button>
-            <button type="button" className={styles.cta}>
+            <button type="button" className={styles.ctaSecondary}>
               Chi tiết đơn hàng
             </button>
-            <button type="button" className={styles.cta}>
+            <button type="button" className={styles.ctaSecondary}>
               Quản lý thanh toán
             </button>
           </div>

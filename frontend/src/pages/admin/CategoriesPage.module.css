@@ -317,43 +317,6 @@
   color: #333;
 }
 
-.formInput {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 14px;
-  outline: none;
-  transition: all 0.2s;
-  color: #1a1a1a;
-  background-color: #fff;
-  box-sizing: border-box;
-}
-
-.formInput:focus {
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-}
-
-.formSelect {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 14px;
-  outline: none;
-  transition: all 0.2s;
-  color: #1a1a1a;
-  background-color: #fff;
-  cursor: pointer;
-  box-sizing: border-box;
-}
-
-.formSelect:focus {
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-}
-
 .modalActions {
   display: flex;
   gap: 12px;

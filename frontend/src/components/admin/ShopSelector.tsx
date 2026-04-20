@@ -5,7 +5,7 @@ import type { Shop } from '../../contexts/ShopContext';
 
 /**
  * ShopSelector — dropdown to switch the active shop context.
- * Shown in the admin Layout header.
+ * Shown in the admin Layout sidebar (brand section).
  */
 const ShopSelector: React.FC = () => {
   const shopCtx = useShop();

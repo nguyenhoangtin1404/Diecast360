@@ -4,6 +4,7 @@ import { Tags, Plus, Pencil, ToggleLeft, ToggleRight, Trash2, AlertTriangle } fr
 import { apiClient } from '../../api/client';
 import type { CategoryItem, ApiError, ApiResponse, CategoryType } from '../../types/category';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { cn } from '../../lib/utils';
 import styles from './CategoriesPage.module.css';
 
 interface CategoriesResponse {
@@ -348,7 +349,7 @@ export const CategoriesPage = () => {
               <label className={styles.formLabel}>Tên danh mục <span style={{ color: '#dc3545' }}>*</span></label>
               <input
                 type="text"
-                className={styles.formInput}
+                className={cn('input-trust')}
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 placeholder="Nhập tên danh mục..."
@@ -362,7 +363,7 @@ export const CategoriesPage = () => {
               <div className={styles.formGroup}>
                 <label className={styles.formLabel}>Loại</label>
                 <select
-                  className={styles.formSelect}
+                  className={cn('select-trust')}
                   value={formType}
                   onChange={(e) => setFormType(e.target.value as CategoryType)}
                 >
