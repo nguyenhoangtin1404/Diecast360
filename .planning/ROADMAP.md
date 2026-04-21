@@ -14,7 +14,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 6: Issue #58 - Mobile Responsive UI** - Mobile-first UX hardening for admin/public pages.
 - [x] **Phase 7: Issue #57 - Quantity and Custom Attributes** - Extend product model with stock quantity and custom metadata.
 - [x] **Phase 8: Issue #46 - Advanced Inventory Management** - Transaction-based inventory and stock audit trail.
-- [ ] **Phase 9: Issue #13 - Pre-Order Management** - Pre-order lifecycle management for model products.
+- [x] **Phase 9: Issue #13 - Pre-Order Management** - Pre-order lifecycle management for model products.
 - [ ] **Phase 10: Issue #49 - Reporting and Analytics** - KPI dashboard and analytics APIs.
 - [ ] **Phase 11: Issue #48 - Membership and Points** - Member tiers and points ledger system.
 - [ ] **Phase 12: Issue #44 - Playwright Phase 1** - E2E smoke automation setup and CI integration.
@@ -107,14 +107,12 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 09-01: Add pre-order schema and state model
-- [ ] 09-02: Build pre-order APIs and transition rules
+- [x] 09-01: Add pre-order schema and state model (schema + `preorder-transition` domain trong codebase)
+- [x] 09-02: Build pre-order APIs and transition rules (`PreordersModule` / controller / service)
 - [x] 09-03: Add admin + public mobile pre-order UI and flow tests
-- [ ] 09-04: Close review gaps for public access, campaign UX, transition parity, and invalid-transition E2E coverage
+- [x] 09-04: Close review gaps for public access, campaign UX, transition parity, and invalid-transition E2E coverage
 
-Review status (2026-04-13):
-- 09-03 is implemented and validated by build + targeted e2e.
-- Remaining quality gaps for phase closure: public shop resolution for `/preorders`, campaign selector/action wiring, invalid-transition e2e coverage, and frontend/backend transition map parity.
+Review status (2026-04-20): Các gap trong 09-03-SUMMARY đã xử lý trong code + plan 09-04 (chi tiết xem `09-04-PLAN.md` Implementation notes).
 
 ### Phase 10: Issue #49 - Reporting and Analytics
 **Goal**: Add reporting and analytics dashboard for operations insights.
@@ -170,7 +168,7 @@ Plans:
 | 6. Issue #58 - Mobile Responsive UI | 2/2 | Complete | 2026-03-20 |
 | 7. Issue #57 - Quantity and Custom Attributes | 3/3 | Complete | 2026-04-01 |
 | 8. Issue #46 - Advanced Inventory Management | 3/3 | Complete | 2026-04-20 |
-| 9. Issue #13 - Pre-Order Management | 1/4 | In progress | 2026-04-13 |
+| 9. Issue #13 - Pre-Order Management | 4/4 | Complete | 2026-04-20 |
 | 10. Issue #49 - Reporting and Analytics | 0/2 | Not started | - |
 | 11. Issue #48 - Membership and Points | 0/2 | Not started | - |
 | 12. Issue #44 - Playwright Phase 1 | 0/3 | Not started | - |
@@ -275,11 +273,18 @@ Implemented in codebase for Phase 8:
 - Added deterministic adjustment contract (`quantity = abs(adjustment_delta)`) and reverse-transaction safeguards.
 - Added admin item-level inventory timeline UI (`InventoryTimeline`) integrated into `ItemDetailPage`.
 - Verification passed: `jest inventory.service.spec.ts inventory.integration.spec.ts` (6 tests passed).
+## Execution Update (2026-04-20, Phase 9 Plan 09-04 — đóng phase)
+
+- **Public `/preorders`:** Không hiển thị trạng thái “chờ shop” khi đã có `?shop_id=` hoặc `VITE_PUBLIC_PREORDER_SHOP_ID`; thông báo khi thiếu shop kèm hướng dẫn URL/env (`PreOrdersPage.tsx`).
+- **Admin campaign:** Chọn campaign qua `campaignOverrideId` + `effectiveCampaignId` `useMemo` (không dùng `useEffect` setState gây cảnh báo React Compiler).
+- **Lỗi transition:** `messageFromPreorderTransitionError` (`preorderApiError.ts`) + unit test Vitest; hook `usePreorderTransition` hiển thị message backend; E2E assert chuỗi `Invalid pre-order status transition`.
+- **Parity map:** Ghi chú đồng bộ với `backend/.../preorder-transition.ts` trong `status.ts`.
 
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet complete and pending tasks:
 - Phase 9: `09-01`, `09-02`, `09-03` Pre-order domain + API + admin/public mobile MVP flows.
+- Phase 8: `08-01`, `08-02`, `08-03` Advanced inventory transactions and audit trail.
 - Phase 10: `10-01`, `10-02` Analytics API and dashboard UI.
 - Phase 11: `11-01`, `11-02` Membership and points rules + admin tooling.
 - Phase 12: `12-01`, `12-02`, `12-03` Playwright baseline and CI integration.
@@ -299,3 +304,13 @@ Plans:
 - [x] 14-01: Multi-tenant schema and data isolation
 - [x] 14-02: API scoping, tenant guard và shop management endpoints
 - [x] 14-03: Admin tenant selection UI và super-admin shop management
+
+## Execution Update (2026-04-20) — Security / media follow-up (ngoài số phase)
+
+Đã triển khai trên nhánh `feat/security-signed-media-csrf-throttle` (chưa gộp vào roadmap phase mới; bổ sung cho **Phase 5** production-hardening và **Phase 2** media an toàn):
+
+- Bỏ phục vụ tĩnh `/uploads`; URL file ký HMAC qua `GET /api/v1/media`; tùy chọn `MEDIA_SIGNING_SECRET`.
+- CSRF double-submit (middleware + cookie + frontend retry/bootstrap).
+- Bắt buộc secret dài, `runtime-security` production checks, throttle điểm nóng (auth/upload/AI), cô lập tenant thêm cho AI routes.
+
+Gợi ý tài liệu follow-up: cập nhật `docs/API_CONTRACT.md` / `ENV.md` khi merge PR (media raw response, biến env mới).
