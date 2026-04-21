@@ -273,6 +273,7 @@ Implemented in codebase for Phase 8:
 - Added deterministic adjustment contract (`quantity = abs(adjustment_delta)`) and reverse-transaction safeguards.
 - Added admin item-level inventory timeline UI (`InventoryTimeline`) integrated into `ItemDetailPage`.
 - Verification passed: `jest inventory.service.spec.ts inventory.integration.spec.ts` (6 tests passed).
+
 ## Execution Update (2026-04-20, Phase 9 Plan 09-04 — đóng phase)
 
 - **Public `/preorders`:** Không hiển thị trạng thái “chờ shop” khi đã có `?shop_id=` hoặc `VITE_PUBLIC_PREORDER_SHOP_ID`; thông báo khi thiếu shop kèm hướng dẫn URL/env (`PreOrdersPage.tsx`).
@@ -283,8 +284,6 @@ Implemented in codebase for Phase 8:
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet complete and pending tasks:
-- Phase 9: `09-01`, `09-02`, `09-03` Pre-order domain + API + admin/public mobile MVP flows.
-- Phase 8: `08-01`, `08-02`, `08-03` Advanced inventory transactions and audit trail.
 - Phase 10: `10-01`, `10-02` Analytics API and dashboard UI.
 - Phase 11: `11-01`, `11-02` Membership and points rules + admin tooling.
 - Phase 12: `12-01`, `12-02`, `12-03` Playwright baseline and CI integration.
