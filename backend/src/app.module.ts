@@ -18,6 +18,7 @@ import { ShopsModule } from './shops/shops.module';
 import { PreordersModule } from './preorders/preorders.module';
 import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
 import { MediaModule } from './common/media/media.module';
+import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { MediaModule } from './common/media/media.module';
     ShopsModule,
     PreordersModule,
     MediaModule,
+    InventoryModule,
   ],
   controllers: [AppController],
   providers: [

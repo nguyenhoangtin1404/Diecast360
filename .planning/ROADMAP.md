@@ -13,7 +13,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 5: Production and Integrations** - Docker, CI, and Facebook API baseline.
 - [x] **Phase 6: Issue #58 - Mobile Responsive UI** - Mobile-first UX hardening for admin/public pages.
 - [x] **Phase 7: Issue #57 - Quantity and Custom Attributes** - Extend product model with stock quantity and custom metadata.
-- [ ] **Phase 8: Issue #46 - Advanced Inventory Management** - Transaction-based inventory and stock audit trail.
+- [x] **Phase 8: Issue #46 - Advanced Inventory Management** - Transaction-based inventory and stock audit trail.
 - [ ] **Phase 9: Issue #13 - Pre-Order Management** - Pre-order lifecycle management for model products.
 - [ ] **Phase 10: Issue #49 - Reporting and Analytics** - KPI dashboard and analytics APIs.
 - [ ] **Phase 11: Issue #48 - Membership and Points** - Member tiers and points ledger system.
@@ -96,9 +96,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 08-01: Implement inventory transaction schema and service core
-- [ ] 08-02: Expose inventory transaction APIs and authorization rules
-- [ ] 08-03: Add inventory timeline UI and reconciliation tests
+- [x] 08-01: Implement inventory transaction schema and service core
+- [x] 08-02: Expose inventory transaction APIs and authorization rules
+- [x] 08-03: Add inventory timeline UI and reconciliation tests
 
 ### Phase 9: Issue #13 - Pre-Order Management
 **Goal**: Deliver pre-order lifecycle management with admin + public mobile MVP workflows.
@@ -169,7 +169,7 @@ Plans:
 | 5. Production and Integrations | 1/1 | Complete | 2026-03-16 |
 | 6. Issue #58 - Mobile Responsive UI | 2/2 | Complete | 2026-03-20 |
 | 7. Issue #57 - Quantity and Custom Attributes | 3/3 | Complete | 2026-04-01 |
-| 8. Issue #46 - Advanced Inventory Management | 0/3 | Not started | - |
+| 8. Issue #46 - Advanced Inventory Management | 3/3 | Complete | 2026-04-20 |
 | 9. Issue #13 - Pre-Order Management | 1/4 | In progress | 2026-04-13 |
 | 10. Issue #49 - Reporting and Analytics | 0/2 | Not started | - |
 | 11. Issue #48 - Membership and Points | 0/2 | Not started | - |
@@ -266,10 +266,19 @@ Implemented in codebase for Phase 7 Plan 03:
 - Extended shared `item.types.ts` contracts for `quantity` / `attributes` on list and form-related types.
 - Added `ItemsService` unit regression coverage for clearing `attributes` via PATCH with `{}` (no Playwright in this plan; E2E baseline is Phase 12).
 
+## Execution Update (2026-04-20, Phase 8)
+
+Implemented in codebase for Phase 8:
+- Added inventory ledger schema (`InventoryTransactionType`, `InventoryTransaction`) with migration, FK constraints, and indexes.
+- Built `InventoryModule` with transaction-driven service layer and tenant-scoped APIs for create/list/reconciliation/reverse flows.
+- Hardened stock mutation path with row-level locking (`FOR UPDATE`) to prevent concurrent lost updates.
+- Added deterministic adjustment contract (`quantity = abs(adjustment_delta)`) and reverse-transaction safeguards.
+- Added admin item-level inventory timeline UI (`InventoryTimeline`) integrated into `ItemDetailPage`.
+- Verification passed: `jest inventory.service.spec.ts inventory.integration.spec.ts` (6 tests passed).
+
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet complete and pending tasks:
-- Phase 8: `08-01`, `08-02`, `08-03` Advanced inventory transactions and audit trail.
 - Phase 9: `09-01`, `09-02`, `09-03` Pre-order domain + API + admin/public mobile MVP flows.
 - Phase 10: `10-01`, `10-02` Analytics API and dashboard UI.
 - Phase 11: `11-01`, `11-02` Membership and points rules + admin tooling.
