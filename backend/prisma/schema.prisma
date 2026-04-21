@@ -43,6 +43,12 @@ enum PreOrderStatus {
   CANCELLED            @map("da_huy")
 }
 
+enum InventoryTransactionType {
+  stock_in
+  stock_out
+  adjustment
+}
+
 model Shop {
   id         String         @id @default(uuid())
   name       String
@@ -55,6 +61,7 @@ model Shop {
   pre_orders PreOrder[]
   user_roles UserShopRole[]
   audit_logs ShopAuditLog[]
+  inventory_transactions InventoryTransaction[]
 
   @@map("shops")
   @@index([is_active])
@@ -87,6 +94,7 @@ model User {
   shop_roles     UserShopRole[]
   audit_logs     ShopAuditLog[] @relation("ShopAuditActor")
   pre_orders     PreOrder[]
+  inventory_transactions InventoryTransaction[]
 
   @@map("users")
 }
@@ -152,6 +160,7 @@ model Item {
   facebook_posts FacebookPost[]
   vector_sync_task VectorSyncTask?
   pre_orders     PreOrder[]
+  inventory_transactions InventoryTransaction[]
   shop           Shop?       @relation(fields: [shop_id], references: [id])
 
   @@map("items")
@@ -162,6 +171,32 @@ model Item {
   @@index([model_brand])
   @@index([condition])
   @@index([shop_id])
+}
+
+model InventoryTransaction {
+  id                String                   @id @default(uuid())
+  shop_id           String
+  item_id           String
+  actor_user_id     String?
+  reversal_of_id    String?                  @unique
+  type              InventoryTransactionType
+  quantity          Int
+  delta             Int
+  resulting_quantity Int
+  reason            String
+  note              String?
+  created_at        DateTime                 @default(now())
+
+  shop  Shop  @relation(fields: [shop_id], references: [id], onDelete: Cascade)
+  item  Item  @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  actor User? @relation(fields: [actor_user_id], references: [id], onDelete: SetNull)
+  reversal_of InventoryTransaction? @relation("InventoryTransactionReversal", fields: [reversal_of_id], references: [id], onDelete: SetNull)
+  reversed_by InventoryTransaction? @relation("InventoryTransactionReversal")
+
+  @@map("inventory_transactions")
+  @@index([shop_id, created_at])
+  @@index([item_id, created_at])
+  @@index([item_id, type, created_at])
 }
 
 model PreOrder {

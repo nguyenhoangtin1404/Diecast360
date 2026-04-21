@@ -5,6 +5,7 @@ import { apiClient, uploadFile } from '../../api/client';
 import { ArrowLeft, Edit, Plus, X, Star, Sparkles } from 'lucide-react';
 import { Spinner360 } from '../../components/Spinner360/Spinner360';
 import { CategoryQuickManage } from '../../components/admin/CategoryQuickManage';
+import { InventoryTimeline } from '../../components/admin/InventoryTimeline';
 import type { CategoryItem, ApiResponse } from '../../types/category';
 import { showToast } from '../../utils/toast';
 import type { FacebookPost } from '../../types/item.types';
@@ -1902,6 +1903,9 @@ export const ItemDetailPage = () => {
         <div style={{ fontSize: '13px', color: '#6b7280' }}>
           Dữ liệu sẽ tự động lưu khi bạn nhấn nút Bước tiếp hoặc Bước trước.
         </div>
+        {id && id !== 'new' && (
+          <InventoryTimeline itemId={id} />
+        )}
       </form>
       {id !== 'new' && item && (
         <div className="item-detail-sections" style={{ marginTop: '40px', maxWidth: '800px' }}>

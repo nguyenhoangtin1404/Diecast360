@@ -46,6 +46,7 @@ Progress: [##########] 100% (Phase 9)
 - Item APIs accept only flat scalar custom attributes and reject nested/null payloads to keep validation deterministic.
 - Sold items are forced to `quantity = 0` at the API/service layer even when clients submit a non-zero quantity.
 - Admin item workflow exposes quantity and a key/value custom-attributes editor on step 1, with validation matching backend rules before save.
+- (2026-04-20) Completed Phase 8 implementation: inventory ledger schema/migration, tenant-scoped inventory APIs, `FOR UPDATE` locking, reconciliation/reverse safeguards, and admin inventory timeline UI.
 - (2026-04-20) Signed media URLs (`/api/v1/media`), optional `MEDIA_SIGNING_SECRET`, CSRF double-submit + client retry, stricter JWT/cookie secrets, `TenantGuard` trên AI, throttle auth/upload/AI — nhánh `feat/security-signed-media-csrf-throttle`.
 - (2026-04-20) Pre-order Phase 9 closure: public `/preorders` không phụ thuộc auth khi có `shop_id`/env; admin campaign selection ổn định; lỗi chuyển trạng thái hiển thị message backend; unit test cho extract message.
 
