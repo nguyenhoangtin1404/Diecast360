@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
+  ChartNoAxesColumn,
   ClipboardList,
   Home,
   LogOut,
@@ -18,6 +19,7 @@ import { useIsSuperAdmin } from '../hooks/useIsSuperAdmin';
 import {
   ROUTES,
   isAdminItemsImportActive,
+  isAdminReportsActive,
   isAdminItemsSectionActive,
   isAdminPreordersCreateActive,
   isAdminPreordersHubActive,
@@ -120,6 +122,14 @@ export const Layout = ({ children }: LayoutProps) => {
 
   const renderAdminSidebarNav = () => (
     <>
+      <Link
+        to={ROUTES.admin.reports}
+        className={cn(adminSidebarNavLinkBase, isAdminReportsActive(pathname) && adminSidebarNavLinkActive)}
+        onClick={closeMobileMenu}
+      >
+        <ChartNoAxesColumn size={18} strokeWidth={2} />
+        <span>Báo cáo</span>
+      </Link>
       <Link
         to={ROUTES.admin.items}
         className={cn(adminSidebarNavLinkBase, isAdminItemsSectionActive(pathname) && adminSidebarNavLinkActive)}

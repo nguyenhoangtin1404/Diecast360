@@ -39,7 +39,7 @@ export const LoginPage = () => {
 
     try {
       await login(email, password);
-      navigate(ROUTES.admin.items);
+      navigate(ROUTES.admin.reports);
     } catch (err) {
       setError(getLoginErrorMessage(err));
     } finally {
