@@ -5,6 +5,7 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 ## Mục lục
 
 - [Tóm tắt khả năng](#tóm-tắt-khả-năng)
+- [Tiến độ triển khai theo phase](#tiến-độ-triển-khai-theo-phase)
 - [Cấu trúc repo](#cấu-trúc-repo)
 - [Stack & quy ước API](#stack--quy-ước-api)
 - [Yêu cầu môi trường](#yêu-cầu-môi-trường)
@@ -25,8 +26,28 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 | **Media** | Nhiều ảnh, thumbnail, cover, sắp xếp; spinner 360° (nhiều spin set, một default; khuyến nghị 24 frame, tối đa 36). |
 | **Catalog công khai** | `GET /api/v1/public/items`, `GET /api/v1/public/items/:id` — JWT **tùy chọn** (`OptionalJwtAuthGuard`). Không token: trả mọi item `is_public` (không lọc `shop_id`). Có token hợp lệ: có thể scope theo shop đang chọn (`active_shop_id` trên payload JWT). Token sai/hết hạn: `401`. |
 | **Đa shop & quản trị** | Super admin: quản lý shop, thành viên, mặt hàng; nhật ký **audit** (MVP) cho thao tác nhạy cảm. Chi tiết route: `docs/API_CONTRACT.md`. |
+| **Kho nâng cao** | Ledger giao dịch tồn kho (import/export/adjust/reverse), timeline theo item, cập nhật tồn kho có khóa cạnh tranh (`FOR UPDATE`) để tránh lost update. |
+| **Pre-order** | Quản lý vòng đời pre-order theo trạng thái, campaign pre-order cho admin, luồng public mobile-first theo shop + trang "Đơn hàng của tôi". |
 | **Xác thực** | Access + refresh JWT, revoke qua refresh token; cookie-based session aspects — xem `docs/COOKIE_AUTH.md`; route admin kèm guard + kiểm tra vai trò. |
-| **Social / AI / tìm kiếm** | Copy caption + link; semantic search (Pinecone tùy chọn); OpenAI cho gợi ý / import; gợi ý SEO (xem guide). |
+| **Social / AI / tìm kiếm** | Copy caption + link; semantic search (Pinecone tùy chọn); OpenAI cho gợi ý / import; gợi ý SEO (xem guide); publish Facebook từ admin item detail. |
+| **Responsive UX** | Harden UI cho màn hình mobile/tablet ở các luồng admin/public cốt lõi (layout, navigation, item workflows). |
+
+## Tiến độ triển khai theo phase
+
+| Phase | Trạng thái | Nội dung đã triển khai |
+|------|------------|-------------------------|
+| **Phase 1 - Inventory Foundation** | ✅ Hoàn thành | Chuẩn hóa vòng đời item, rule validate trạng thái/giá/category, bộ lọc danh sách ổn định cho admin. |
+| **Phase 2 - Media Pipeline** | ✅ Hoàn thành | Upload/sắp xếp/xóa ảnh và frame 360 deterministic, rollback/cleanup an toàn khi lỗi xử lý media. |
+| **Phase 3 - Public Experience** | ✅ Hoàn thành | Catalog public ổn định (filter/sort/paging theo URL), detail page có fallback media rõ ràng. |
+| **Phase 4 - AI and Social Selling** | ✅ Hoàn thành | Luồng AI generate/import nội dung, copy caption/link và lưu lịch sử post thủ công cho social selling. |
+| **Phase 5 - Production and Integrations** | ✅ Hoàn thành | Docker Compose + CI hardening; tích hợp Facebook Graph API và endpoint publish từ admin. |
+| **Phase 6 - Mobile Responsive UI** | ✅ Hoàn thành | Tối ưu trải nghiệm mobile-first cho trang admin/public trọng yếu, kèm checklist smoke responsive. |
+| **Phase 7 - Quantity and Custom Attributes** | ✅ Hoàn thành | Thêm `quantity` + `attributes` (schema/API/UI), validate dữ liệu mở rộng và hiển thị tồn kho trên admin. |
+| **Phase 8 - Advanced Inventory Management** | ✅ Hoàn thành | Bổ sung ledger giao dịch tồn kho, API reconciliation/reverse và timeline tồn kho trong `ItemDetailPage`. |
+| **Phase 9 - Pre-Order Management** | ✅ Hoàn thành | Hoàn thiện pre-order lifecycle cho admin + public, vá review gaps và đồng bộ transition/error UX. |
+| **Phase 14 - Multi-Tenant Shop** | ✅ Hoàn thành | Multi-tenant theo shop với `TenantGuard`, `switch-shop`, quản trị shop cho super admin và cách ly dữ liệu. |
+
+Các phase chưa triển khai: **10, 11, 12, 13** (Reporting/Analytics, Membership/Points, Playwright phase 1-2).
 
 ## Cấu trúc repo
 
