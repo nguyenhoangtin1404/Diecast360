@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 
@@ -55,7 +55,10 @@ export const ReportsPage = () => {
   });
 
   const summary = summaryQuery.data?.summary;
-  const trends = trendsQuery.data?.series ?? [];
+  const trends = useMemo(
+    () => trendsQuery.data?.series ?? [],
+    [trendsQuery.data?.series],
+  );
   const maxRevenue = useMemo(() => {
     const values = trends.map((item) => item.preorder_revenue);
     return values.length > 0 ? Math.max(1, Math.max(...values)) : 1;
@@ -68,17 +71,16 @@ export const ReportsPage = () => {
     return map;
   }, [trends]);
   const calendarDays = useMemo(() => buildCalendarDays(trends), [trends]);
-  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
+  const [manualSelectedDateKey, setManualSelectedDateKey] = useState<string | null>(null);
+  const defaultSelectedDateKey =
+    trends.length > 0
+      ? toDateKey(new Date(trends[trends.length - 1].bucket_start))
+      : null;
+  const selectedDateKey =
+    manualSelectedDateKey && trendMap.has(manualSelectedDateKey)
+      ? manualSelectedDateKey
+      : defaultSelectedDateKey;
   const selectedPoint = selectedDateKey ? trendMap.get(selectedDateKey) ?? null : null;
-
-  useEffect(() => {
-    if (trends.length === 0) {
-      setSelectedDateKey(null);
-      return;
-    }
-    const next = toDateKey(new Date(trends[trends.length - 1].bucket_start));
-    setSelectedDateKey((prev) => (prev && trendMap.has(prev) ? prev : next));
-  }, [trendMap, trends]);
 
   const isLoading = summaryQuery.isLoading || trendsQuery.isLoading;
   const isError = summaryQuery.isError || trendsQuery.isError;
@@ -195,7 +197,7 @@ export const ReportsPage = () => {
                                 }
                               : undefined
                           }
-                          onClick={() => day.inRange && setSelectedDateKey(day.dateKey)}
+                          onClick={() => day.inRange && setManualSelectedDateKey(day.dateKey)}
                           disabled={!day.inRange}
                         >
                           <div className={`text-xs font-semibold ${day.inRange ? 'text-slate-900' : 'text-slate-500'}`}>
