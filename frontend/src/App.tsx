@@ -11,6 +11,7 @@ import { ItemDetailPage } from './pages/admin/ItemDetailPage';
 import { AiImportPage } from './pages/admin/AiImportPage';
 import { CategoriesPage } from './pages/admin/CategoriesPage';
 import { FacebookPostsPage } from './pages/admin/FacebookPostsPage';
+import { ReportsPage } from './pages/admin/ReportsPage';
 import ShopsPage from './pages/admin/ShopsPage';
 import { PublicCatalogPage } from './pages/PublicCatalogPage';
 import { PublicItemDetailPage } from './pages/PublicItemDetailPage';
@@ -109,6 +110,16 @@ function App() {
                   <ProtectedRoute>
                     <Layout>
                       <ItemDetailPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={ROUTES.admin.reports}
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <ReportsPage />
                     </Layout>
                   </ProtectedRoute>
                 }
