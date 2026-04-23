@@ -86,12 +86,13 @@ export const ReportsPage = () => {
   const isError = summaryQuery.isError || trendsQuery.isError;
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
+    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6 px-4 pt-5 pb-8 box-border max-md:px-3 max-md:pt-4 max-md:pb-5">
       <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Báo cáo và thống kê</h1>
-            <p className="mt-1 text-sm text-slate-600">KPI kho, pre-order và bài đăng Facebook theo khoảng thời gian.</p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 md:text-[1.75rem] md:leading-snug">
+              Báo cáo và thống kê
+            </h1>
           </div>
           <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
             {RANGE_OPTIONS.map((option) => (

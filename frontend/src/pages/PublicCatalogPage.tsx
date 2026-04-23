@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { ItemCard } from '../components/catalog/ItemCard';
 import { CatalogSearchInput } from '../components/catalog/CatalogSearchInput';
@@ -151,41 +150,21 @@ export const PublicCatalogPage = () => {
       <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
         <section className="mb-10 grid gap-10 lg:mb-14 lg:grid-cols-2 lg:items-center lg:gap-12">
           <div className="max-w-2xl">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 shadow-corporate-card backdrop-blur">
-              <Sparkles className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-              Catalog công khai
-            </div>
             <h1 className="text-3xl font-extrabold leading-[1.1] tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
               Khám phá{' '}
               <span className="text-gradient-trust">kho xe 1:64</span>
               <br />
               ảnh thật & góc nhìn 360°
             </h1>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
-              Lọc theo hãng xe, hãng mô hình và tình trạng. Giao diện Corporate Trust — rõ ràng, đáng tin, tối ưu cho cả mobile và desktop.
-            </p>
           </div>
 
-          <div className="relative lg:justify-self-end" style={{ perspective: '2000px' }}>
+          <div className="relative lg:justify-self-end">
             <div
               className="mx-auto max-w-md rounded-2xl border border-slate-100 bg-white/90 p-6 shadow-corporate-card backdrop-blur transition-all duration-500 ease-out hover:shadow-corporate-card-hover sm:p-8"
-              style={{
-                transform: 'rotateX(5deg) rotateY(-12deg)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'rotateX(2deg) rotateY(-8deg)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'rotateX(5deg) rotateY(-12deg)';
-              }}
             >
               <p className="text-sm font-semibold text-slate-700">Tìm nhanh</p>
               <div className="mt-3">
                 <CatalogSearchInput value={searchInput} onChange={setSearchInput} />
-              </div>
-              <div className="mt-4 flex items-center gap-2 text-xs font-medium text-slate-500">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-                Dữ liệu cập nhật theo shop công khai
               </div>
             </div>
           </div>

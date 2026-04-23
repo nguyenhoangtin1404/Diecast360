@@ -916,6 +916,12 @@ export const ItemDetailPage = () => {
             opacity: 0;
           }
         }
+        .item-detail-shell {
+          max-width: 1280px;
+          margin: 0 auto;
+          box-sizing: border-box;
+          padding: 20px 16px 32px;
+        }
         .product-stepper {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -967,14 +973,14 @@ export const ItemDetailPage = () => {
             padding: 8px 10px;
           }
           .item-detail-shell {
-            padding: 12px;
+            padding: 16px 12px 20px;
           }
           .item-detail-header-row {
             flex-direction: column;
             align-items: flex-start;
           }
           .item-detail-heading {
-            font-size: 22px;
+            font-size: 24px;
           }
           .item-detail-form,
           .item-detail-sections {
@@ -999,7 +1005,7 @@ export const ItemDetailPage = () => {
           }
         }
       `}</style>
-    <div className="item-detail-shell" style={{ padding: isMobile ? '12px' : '20px' }}>
+    <div className="item-detail-shell">
       <div style={{ marginBottom: '24px' }}>
         <div className="item-detail-header-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
           <button
@@ -1049,19 +1055,19 @@ export const ItemDetailPage = () => {
           <div>
             <h1 className="item-detail-heading" style={{ 
               margin: 0, 
-              fontSize: isMobile ? '22px' : '28px', 
-              fontWeight: '700', 
-              color: '#1a1a1a',
-              letterSpacing: '-0.5px',
-              lineHeight: '1.2',
+              fontSize: isMobile ? '24px' : '28px', 
+              fontWeight: '800', 
+              color: '#0f172a',
+              letterSpacing: '-0.02em',
+              lineHeight: '1.15',
             }}>
               {id === 'new' ? 'Tạo sản phẩm mới' : 'Chỉnh sửa sản phẩm'}
             </h1>
             <p style={{ 
               margin: '4px 0 0 0', 
               fontSize: '14px', 
-              color: '#666',
-              fontWeight: '400',
+              color: '#64748b',
+              fontWeight: '500',
             }}>
               {id === 'new' ? 'Thêm sản phẩm mới vào kho' : `Chỉnh sửa thông tin sản phẩm: ${item?.name || ''}`}
             </p>

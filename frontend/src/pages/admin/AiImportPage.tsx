@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, Loader2, Check, AlertCircle } from 'lucide-react';
+import { Upload, Loader2, Check, AlertCircle } from 'lucide-react';
 import { isAxiosError } from 'axios';
 import { apiClient, uploadFile } from '../../api/client';
 import type { ItemFormData, ApiErrorResponse } from '../../types/item.types';
@@ -135,67 +135,59 @@ export const AiImportPage = () => {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <button 
-        onClick={() => navigate('/admin/items')}
-        className="flex items-center text-gray-400 hover:text-white mb-6 transition-colors"
-      >
-        <ArrowLeft size={20} className="mr-2" />
-        Back to Items
-      </button>
-
+    <div className="mx-auto box-border w-full max-w-[1280px] px-4 pt-5 pb-8 text-slate-900 max-md:px-3 max-md:pt-4 max-md:pb-5">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">AI Quick Import</h1>
-        <p className="text-gray-400">Upload photos (box, bottom, overview) to auto-fill item details.</p>
+        <h1 className="mb-2 text-2xl font-extrabold tracking-tight text-slate-900 md:text-[1.75rem] md:leading-snug">
+          Thêm nhanh sản phẩm bằng AI
+        </h1>
+        <p className="max-w-2xl text-slate-600">
+          Tải ảnh (hộp, đáy, tổng quan) để hệ thống tự điền thông tin sản phẩm.
+        </p>
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6 flex items-center text-red-400">
-            <AlertCircle size={20} className="mr-3" />
-            {error}
+        <div className="mb-6 flex items-center rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+          <AlertCircle size={20} className="mr-3 shrink-0" strokeWidth={2} aria-hidden />
+          {error}
         </div>
       )}
 
       {/* Upload Area - Only show if no draft or if we want to allow re-upload (maybe hidden if draft exists for simplicity) */}
       {!draft && (
-          <div className="border-2 border-dashed border-gray-700 hover:border-blue-500 rounded-xl p-12 text-center transition-colors bg-gray-900/50">
-            {analyzing ? (
-                <div className="flex flex-col items-center justify-center p-8">
-                    <Loader2 size={48} className="animate-spin text-blue-500 mb-4" />
-                    <h3 className="text-xl font-medium text-white">Analyzing Images...</h3>
-                    <p className="text-gray-400 mt-2">Extracting Brand, Model, Scale, and Details (powered by Vision AI)</p>
-                </div>
-            ) : (
-                <label className="cursor-pointer flex flex-col items-center justify-center">
-                    <Upload size={48} className="text-gray-500 mb-4" />
-                    <span className="text-xl font-medium text-white">Click or Drag photos here</span>
-                    <span className="text-gray-500 mt-2">Upload at least 3 photos for best results</span>
-                    <input 
-                        type="file" 
-                        multiple 
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={handleFileChange} 
-                    />
-                </label>
-            )}
-          </div>
+        <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-12 text-center shadow-sm transition-colors hover:border-indigo-400 hover:bg-slate-50/80">
+          {analyzing ? (
+            <div className="flex flex-col items-center justify-center p-8">
+              <Loader2 size={48} className="mb-4 animate-spin text-indigo-600" strokeWidth={2} aria-hidden />
+              <h3 className="text-xl font-semibold text-slate-900">Analyzing Images...</h3>
+              <p className="mt-2 text-slate-600">
+                Extracting Brand, Model, Scale, and Details (powered by Vision AI)
+              </p>
+            </div>
+          ) : (
+            <label className="flex cursor-pointer flex-col items-center justify-center">
+              <Upload size={48} className="mb-4 text-slate-400" strokeWidth={2} aria-hidden />
+              <span className="text-xl font-semibold text-slate-900">Click or Drag photos here</span>
+              <span className="mt-2 text-slate-600">Upload at least 3 photos for best results</span>
+              <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
+            </label>
+          )}
+        </div>
       )}
 
       {draft && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Left: Images */}
               <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white">Uploaded Images</h3>
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                  <h3 className="text-lg font-semibold text-slate-900">Uploaded Images</h3>
+                  <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                       {draft.images.map((img, idx) => (
-                          <div key={idx} className="aspect-square rounded-lg overflow-hidden border border-gray-700 bg-gray-800">
-                              <img src={img} alt={`Draft ${idx}`} className="w-full h-full object-cover" />
+                          <div key={idx} className="aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                              <img src={img} alt={`Draft ${idx}`} className="h-full w-full object-cover" />
                           </div>
                       ))}
                   </div>
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 text-blue-300 text-sm">
-                      <p className="font-semibold mb-1">AI Analysis Confidence:</p>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
+                      <p className="mb-1 font-semibold text-blue-900">AI Analysis Confidence:</p>
                       <div className="grid grid-cols-2 gap-2">
                           {Object.entries(draft.confidence || {}).map(([key, val]) => (
                               <div key={key} className="flex justify-between">

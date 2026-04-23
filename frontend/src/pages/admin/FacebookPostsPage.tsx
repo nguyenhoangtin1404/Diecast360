@@ -37,7 +37,7 @@ export const FacebookPostsPage = () => {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>📘 Bài đăng Facebook</h1>
+        <h1 className={styles.title}>Bài đăng Facebook</h1>
         <p className={styles.subtitle}>Quản lý tất cả bài đăng Facebook của sản phẩm</p>
       </div>
 

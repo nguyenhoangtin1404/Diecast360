@@ -123,7 +123,7 @@ export const PreOrderManagementPage = () => {
         </div>
         <div className={styles.card}>
           <h2>Hành động nhanh</h2>
-          <label>
+          <label className={styles.campaignSelectorLabel}>
             Chọn campaign:
             <select
               className={styles.select}

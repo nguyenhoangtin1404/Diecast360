@@ -68,9 +68,6 @@ export const LoginPage = () => {
             Đăng nhập{' '}
             <span className="text-gradient-trust">Diecast360</span>
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-slate-600 sm:text-lg">
-            Giao diện Corporate Trust — bảo mật cookie HttpOnly, đa shop, và trải nghiệm quản trị nhất quán với catalog công khai.
-          </p>
           <ul className="mt-8 space-y-3 text-sm font-medium text-slate-600">
             <li className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" aria-hidden />
@@ -165,7 +162,7 @@ export const LoginPage = () => {
             </form>
 
             <p className="mt-8 border-t border-slate-100 pt-6 text-center text-xs font-medium text-slate-400">
-              © {new Date().getFullYear()} Diecast360 · Corporate Trust
+              © {new Date().getFullYear()} Diecast360
             </p>
           </div>
         </div>

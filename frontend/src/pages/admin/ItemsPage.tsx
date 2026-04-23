@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Box } from 'lucide-react';
 import { apiClient } from '../../api/client';
 import { API_CONFIG } from '../../config/api';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -110,9 +109,6 @@ export const ItemsPage = () => {
       {/* Page Header */}
       <div className={styles.headerWrapper}>
         <div className={styles.headerContent}>
-          <div className={styles.headerIcon}>
-            <Box size={24} color="white" />
-          </div>
           <div>
             <h1 className={styles.headerTitle}>Quản lý sản phẩm</h1>
             <p className={styles.headerSubtitle}>

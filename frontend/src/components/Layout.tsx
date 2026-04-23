@@ -2,15 +2,12 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ChartNoAxesColumn,
-  ClipboardList,
   Home,
   LogOut,
   Menu,
   Phone,
-  PlusCircle,
   ShoppingBag,
   Sparkles,
-  Tags,
   User as UserIcon,
   X,
 } from 'lucide-react';
@@ -21,9 +18,7 @@ import {
   isAdminItemsImportActive,
   isAdminReportsActive,
   isAdminItemsSectionActive,
-  isAdminPreordersCreateActive,
   isAdminPreordersHubActive,
-  isAdminPreordersManageActive,
 } from '../config/routes';
 import { cn } from '../lib/utils';
 import ShopSelector from './admin/ShopSelector';
@@ -144,18 +139,7 @@ export const Layout = ({ children }: LayoutProps) => {
         onClick={closeMobileMenu}
       >
         <Sparkles size={18} strokeWidth={2} />
-        <span>Import AI</span>
-      </Link>
-      <Link
-        to={ROUTES.admin.categories}
-        className={cn(
-          adminSidebarNavLinkBase,
-          pathname.startsWith(ROUTES.admin.categories) && adminSidebarNavLinkActive,
-        )}
-        onClick={closeMobileMenu}
-      >
-        <Tags size={18} strokeWidth={2} />
-        <span>Danh mục</span>
+        <span>AI tool</span>
       </Link>
       <Link
         to={ROUTES.admin.preorders}
@@ -166,22 +150,6 @@ export const Layout = ({ children }: LayoutProps) => {
           ⏳
         </span>
         <span>Pre-order</span>
-      </Link>
-      <Link
-        to={ROUTES.admin.preordersCreate}
-        className={cn(adminSidebarNavLinkBase, isAdminPreordersCreateActive(pathname) && adminSidebarNavLinkActive)}
-        onClick={closeMobileMenu}
-      >
-        <PlusCircle size={18} strokeWidth={2} />
-        <span>Tạo đợt</span>
-      </Link>
-      <Link
-        to={ROUTES.admin.preordersManage}
-        className={cn(adminSidebarNavLinkBase, isAdminPreordersManageActive(pathname) && adminSidebarNavLinkActive)}
-        onClick={closeMobileMenu}
-      >
-        <ClipboardList size={18} strokeWidth={2} />
-        <span>QL đặt trước</span>
       </Link>
       <Link
         to={ROUTES.admin.facebookPosts}
@@ -205,7 +173,7 @@ export const Layout = ({ children }: LayoutProps) => {
           <span className="text-base" aria-hidden>
             🏬
           </span>
-          <span>Quản lý Shops</span>
+          <span>Quản lý shop</span>
         </Link>
       )}
     </>

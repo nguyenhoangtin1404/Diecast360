@@ -25,31 +25,35 @@ export const PreOrdersPage = () => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.card}>
+      <header className={styles.pageHeader}>
         <h1 className={styles.title}>Quản lý Pre-order</h1>
+      </header>
+      <div className={styles.card}>
         <div className={styles.controls}>
-          <label>
-            Lọc trạng thái:
-            <select
-              data-testid="admin-preorder-status-filter"
-              className={styles.select}
-              value={filterStatus}
-              onChange={(event) => setFilterStatus(event.target.value as PreOrderStatus | 'ALL')}
-            >
-              <option value="ALL">Tất cả</option>
-              {Object.entries(PREORDER_STATUS_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
           <Link className={styles.buttonPrimary} to="/admin/preorders/create">
             Tạo Pre-Order Mới
           </Link>
           <Link className={styles.button} to="/admin/preorders/manage">
             Quản lý theo campaign
           </Link>
+          <div className={styles.controlsFilter}>
+            <label>
+              Lọc trạng thái:
+              <select
+                data-testid="admin-preorder-status-filter"
+                className={styles.select}
+                value={filterStatus}
+                onChange={(event) => setFilterStatus(event.target.value as PreOrderStatus | 'ALL')}
+              >
+                <option value="ALL">Tất cả</option>
+                {Object.entries(PREORDER_STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
       </div>
 
