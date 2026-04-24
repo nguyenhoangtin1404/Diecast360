@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 12 — Playwright baseline (Issue #44) để bổ sung regression gate cho các phase đã hoàn tất.
+**Current focus:** Phase 13 — Playwright Phase 2 (Issue #33) extended coverage and quality-gate hardening.
 
 ## Current Position
 
-Phase: **11 of 14**
-Plan: Phase 11 **đã hoàn thành** (11-01, 11-02)
-Status: Phase 11 complete (2026-04-23). Next phase: 12 (Playwright Phase 1).
-Last activity: 2026-04-23 — Hoàn tất membership schema/rules + members API/UI + smoke test scaffold.
+Phase: **12 of 14**
+Plan: Phase 12 **đã hoàn thành** (12-01, 12-02, 12-03)
+Status: Phase 12 complete (2026-04-24). Next phase: 13 (Playwright Phase 2).
+Last activity: 2026-04-24 — Fixtures baseline, auth/items/public-catalog smoke specs, CI artifact upload.
 
-Progress: [##########] 100% (Phase 11)
+Progress: [##########] 100% (Phase 12)
 
 ## Performance Metrics
 
@@ -50,11 +50,12 @@ Progress: [##########] 100% (Phase 11)
 - (2026-04-20) Signed media URLs (`/api/v1/media`), optional `MEDIA_SIGNING_SECRET`, CSRF double-submit + client retry, stricter JWT/cookie secrets, `TenantGuard` trên AI, throttle auth/upload/AI — nhánh `feat/security-signed-media-csrf-throttle`.
 - (2026-04-20) Pre-order Phase 9 closure: public `/preorders` không phụ thuộc auth khi có `shop_id`/env; admin campaign selection ổn định; lỗi chuyển trạng thái hiển thị message backend; unit test cho extract message.
 - (2026-04-23) Completed Phase 11 membership foundation: tier/member/ledger schema + constraints, deterministic points/tier rule engine, tenant-scoped members APIs, admin members dashboard, and members Playwright smoke scenario.
+- (2026-04-24) Completed Phase 12 Playwright baseline: shared fixture layer (`fixtures/index.ts`), auth/items/public-catalog smoke specs (10 passing E2E tests total with 32 across full suite), CI Playwright report artifact upload on failure, HTML reporter, QA workflow docs.
 
 ### Pending Todos
 
 - Merge nhánh `feat/security-signed-media-csrf-throttle` + cập nhật `docs/API_CONTRACT.md` / `ENV.md` nếu chưa làm.
-- Chọn sprint tiếp: **12-01** (Playwright infra baseline và CI integration).
+- Phase 13: Playwright Phase 2 — extended coverage and quality-gate hardening (Issue #33).
 
 ### Blockers/Concerns
 

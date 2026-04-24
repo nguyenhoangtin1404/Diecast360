@@ -17,7 +17,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 9: Issue #13 - Pre-Order Management** - Pre-order lifecycle management for model products.
 - [x] **Phase 10: Issue #49 - Reporting and Analytics** - KPI dashboard and analytics APIs.
 - [x] **Phase 11: Issue #48 - Membership and Points** - Member tiers and points ledger system.
-- [ ] **Phase 12: Issue #44 - Playwright Phase 1** - E2E smoke automation setup and CI integration.
+- [x] **Phase 12: Issue #44 - Playwright Phase 1** - E2E smoke automation setup and CI integration. *(2026-04-24)*
 - [ ] **Phase 13: Issue #33 - Playwright Phase 2** - Extended E2E coverage and quality-gate hardening.
 - [x] **Phase 14: Multi-Tenant Shop** - Support multiple isolated diecast shops on a single deployment with scoped access.
 
@@ -141,9 +141,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 12-01: Setup Playwright infra and fixtures baseline
-- [ ] 12-02: Add smoke E2E coverage for critical user flows
-- [ ] 12-03: Integrate Playwright job and artifacts in CI
+- [x] 12-01: Setup Playwright infra and fixtures baseline
+- [x] 12-02: Add smoke E2E coverage for critical user flows
+- [x] 12-03: Integrate Playwright job and artifacts in CI
 
 ### Phase 13: Issue #33 - Playwright Phase 2
 **Goal**: Expand Playwright coverage and enforce quality gates.
@@ -293,7 +293,6 @@ Implemented in codebase for Phase 11:
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet complete and pending tasks:
-- Phase 12: `12-01`, `12-02`, `12-03` Playwright baseline and CI integration.
 - Phase 13: `13-01`, `13-02`, `13-03` Extended E2E coverage and quality gates.
 
 Partially executed phases (still pending full completion):
