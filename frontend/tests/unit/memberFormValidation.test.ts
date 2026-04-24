@@ -18,6 +18,12 @@ describe('memberFormValidation', () => {
         phone: 'abc',
       }),
     ).toBe('Số điện thoại không hợp lệ.');
+    expect(
+      validateCreateMemberInput({
+        full_name: 'User D',
+        email: `${'a'.repeat(191)}@example.com`,
+      }),
+    ).toBe('Email không được vượt quá 190 ký tự.');
   });
 
   it('accepts valid create member input', () => {

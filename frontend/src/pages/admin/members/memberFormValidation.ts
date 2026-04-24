@@ -8,10 +8,13 @@ export function validateCreateMemberInput(input: {
   const phone = (input.phone || '').trim();
 
   if (!name) return 'Họ tên là bắt buộc.';
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (email && email.length > 190) {
+    return 'Email không được vượt quá 190 ký tự.';
+  }
+  if (email && !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)) {
     return 'Email không hợp lệ.';
   }
-  if (phone && !/^[0-9+()\-\s]{8,20}$/.test(phone)) {
+  if (phone && !/^\+?[0-9()\-.\s]{8,20}$/.test(phone)) {
     return 'Số điện thoại không hợp lệ.';
   }
   return null;

@@ -22,9 +22,11 @@ type LedgerPayload = {
   pagination: Pagination;
 };
 
-export async function fetchMembers(keyword?: string) {
+export async function fetchMembers(options?: { keyword?: string; page?: number; pageSize?: number }) {
   const params = new URLSearchParams();
-  if (keyword?.trim()) params.set('keyword', keyword.trim());
+  if (options?.keyword?.trim()) params.set('keyword', options.keyword.trim());
+  if (options?.page != null) params.set('page', String(options.page));
+  if (options?.pageSize != null) params.set('page_size', String(options.pageSize));
   const response = (await apiClient.get(`/members?${params.toString()}`)) as ApiResponse<MembersListPayload>;
   return response.data;
 }
