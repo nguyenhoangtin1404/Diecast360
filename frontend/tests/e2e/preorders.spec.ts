@@ -1,20 +1,4 @@
-import { expect, test, type Route } from '@playwright/test';
-
-const authMeResponse = {
-  ok: true,
-  data: {
-    user: {
-      id: 'u1',
-      email: 'admin@example.com',
-      full_name: 'Admin',
-      role: 'shop_admin',
-      active_shop_id: 'shop-1',
-      allowed_shop_ids: ['shop-1'],
-      allowed_shops: [{ id: 'shop-1', name: 'Main Shop', slug: 'main-shop', is_active: true, role: 'shop_admin' }],
-    },
-  },
-  message: '',
-};
+import { test, expect, authMePayload, type Route } from './fixtures';
 
 const adminListResponse = {
   ok: true,
@@ -156,7 +140,7 @@ const myOrdersResponse = {
 
 async function mockBase(page: import('@playwright/test').Page) {
   await page.route('**/api/v1/auth/me', (route: Route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(authMeResponse) }),
+    route.fulfill({ json: authMePayload() }),
   );
 }
 

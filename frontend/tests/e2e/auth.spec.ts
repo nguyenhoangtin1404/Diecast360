@@ -1,12 +1,11 @@
-import { test, expect, type Route } from '@playwright/test';
-import { authMePayload, authLoginPayload, apiError } from './fixtures';
+import { test, expect, authMePayload, authLoginPayload, apiError, type Route } from './fixtures';
 
-const unauthFulfill = { status: 401, json: { ok: false, data: null, message: 'Unauthenticated' } };
+const unauthResponse = { status: 401, json: { ok: false, data: null, message: 'Unauthenticated' } };
 
 test.describe('Authentication smoke', () => {
   test('login page renders form and branding', async ({ page }) => {
     await page.route('**/api/v1/auth/me', (route: Route) =>
-      route.fulfill(unauthFulfill),
+      route.fulfill(unauthResponse),
     );
 
     await page.goto('/admin/login');
@@ -20,7 +19,7 @@ test.describe('Authentication smoke', () => {
   test('successful login redirects to admin reports', async ({ page }) => {
     // Phase 1: user is unauthenticated — render login page
     await page.route('**/api/v1/auth/me', (route: Route) =>
-      route.fulfill(unauthFulfill),
+      route.fulfill(unauthResponse),
     );
 
     await page.goto('/admin/login');
@@ -47,13 +46,16 @@ test.describe('Authentication smoke', () => {
 
   test('shows error message on bad credentials', async ({ page }) => {
     await page.route('**/api/v1/auth/me', (route: Route) =>
-      route.fulfill(unauthFulfill),
+      route.fulfill(unauthResponse),
     );
+
+    await page.goto('/admin/login');
+
+    // Register login error AFTER goto — consistent with LIFO route pattern in this suite
     await page.route('**/api/v1/auth/login', (route: Route) =>
       route.fulfill(apiError('Email hoặc mật khẩu không đúng', 401)),
     );
 
-    await page.goto('/admin/login');
     await page.locator('#email').fill('wrong@example.com');
     await page.locator('#password').fill('wrong');
     await page.getByRole('button', { name: /Đăng nhập/i }).click();
@@ -63,7 +65,7 @@ test.describe('Authentication smoke', () => {
 
   test('protected route redirects unauthenticated user to login', async ({ page }) => {
     await page.route('**/api/v1/auth/me', (route: Route) =>
-      route.fulfill(unauthFulfill),
+      route.fulfill(unauthResponse),
     );
 
     await page.goto('/admin/items');

@@ -1,5 +1,7 @@
 import { test as base, expect, type Page, type Route } from '@playwright/test';
 
+export type { Route };
+
 // ---------------------------------------------------------------------------
 // Shared mock data shapes
 // ---------------------------------------------------------------------------
@@ -61,9 +63,15 @@ export function authMePayload(user: MockUser = ADMIN_USER) {
   return apiOk({ user });
 }
 
-/** Builds the standard `/auth/login` success response envelope. */
+/**
+ * Builds the standard `/auth/login` success response envelope.
+ *
+ * Intentionally separate from `authMePayload` so future fields specific to
+ * the login response (e.g. `expires_at`, MFA status) can be added here
+ * without affecting the `/auth/me` mock shape.
+ */
 export function authLoginPayload(user: MockUser = ADMIN_USER) {
-  return apiOk({ user, token: 'test-token' });
+  return apiOk({ user });
 }
 
 // ---------------------------------------------------------------------------
@@ -94,6 +102,7 @@ export const test = base.extend<TestFixtures>({
     await page.route('**/api/v1/auth/me', (route: Route) =>
       route.fulfill({ json: authMePayload() }),
     );
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- `use` is Playwright's fixture callback, not a React Hook
     await use(page);
   },
 });

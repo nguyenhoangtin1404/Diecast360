@@ -1,5 +1,4 @@
-import { test, expect, type Route } from '@playwright/test';
-import { apiOk } from './fixtures';
+import { test, expect, apiOk, type Route } from './fixtures';
 
 const publicItemsResponse = apiOk({
   items: [
@@ -44,13 +43,37 @@ test.describe('Public catalog smoke', () => {
   test('renders search input on catalog page', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.locator('input').first()).toBeVisible();
+    await expect(page.getByPlaceholder('Tìm kiếm theo tên...')).toBeVisible();
   });
 
-  test('public catalog is accessible without authentication', async ({ page }) => {
-    // No auth/me mock — public pages must not require login
+  test('public catalog stays on root URL — no redirect to login', async ({ page }) => {
+    // Public pages must not redirect unauthenticated users to /admin/login.
+    // No /auth/me mock — verify URL is stable after page settles.
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    await expect(page).toHaveURL('/');
+  });
+
+  test('shows empty state when catalog has no products', async ({ page }) => {
+    // LIFO: this override takes priority over the beforeEach public/items mock
+    await page.route('**/api/v1/public/items**', (route: Route) =>
+      route.fulfill({
+        json: apiOk({ items: [], pagination: { total: 0, page: 1, page_size: 20, total_pages: 0 } }),
+      }),
+    );
     await page.goto('/');
 
-    await expect(page.getByText('Porsche 911 GT3 1:18')).toBeVisible();
+    await expect(page.getByText('Không tìm thấy sản phẩm nào.')).toBeVisible();
+  });
+
+  test('shows error state when API fails', async ({ page }) => {
+    // LIFO: this override takes priority over the beforeEach public/items mock
+    await page.route('**/api/v1/public/items**', (route: Route) =>
+      route.fulfill({ status: 500, json: { ok: false, message: 'Internal error' } }),
+    );
+    await page.goto('/');
+
+    await expect(page.getByText('Không tải được catalog')).toBeVisible();
   });
 });

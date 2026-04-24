@@ -1,22 +1,4 @@
-import { expect, test, type Route } from '@playwright/test';
-
-const authMeResponse = {
-  ok: true,
-  data: {
-    user: {
-      id: 'u1',
-      email: 'admin@example.com',
-      full_name: 'Admin',
-      role: 'shop_admin',
-      active_shop_id: 'shop-1',
-      allowed_shop_ids: ['shop-1'],
-      allowed_shops: [
-        { id: 'shop-1', name: 'Main Shop', slug: 'main-shop', is_active: true, role: 'shop_admin' },
-      ],
-    },
-  },
-  message: '',
-};
+import { test, expect, authMePayload, type Route } from './fixtures';
 
 const reportSummaryResponse = {
   ok: true,
@@ -70,11 +52,7 @@ const reportTrendsResponse = {
 
 async function mockAuth(page: import('@playwright/test').Page) {
   await page.route('**/api/v1/auth/me', (route: Route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(authMeResponse),
-    }),
+    route.fulfill({ json: authMePayload() }),
   );
 }
 
@@ -83,18 +61,10 @@ test.describe('Reports dashboard', () => {
     await mockAuth(page);
 
     await page.route('**/api/v1/reports/summary**', (route: Route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(reportSummaryResponse),
-      }),
+      route.fulfill({ json: reportSummaryResponse }),
     );
     await page.route('**/api/v1/reports/trends**', (route: Route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(reportTrendsResponse),
-      }),
+      route.fulfill({ json: reportTrendsResponse }),
     );
 
     await page.goto('/admin/reports');
@@ -111,22 +81,10 @@ test.describe('Reports dashboard', () => {
   test('shows empty state when trends have no data', async ({ page }) => {
     await mockAuth(page);
     await page.route('**/api/v1/reports/summary**', (route: Route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(reportSummaryResponse),
-      }),
+      route.fulfill({ json: reportSummaryResponse }),
     );
     await page.route('**/api/v1/reports/trends**', (route: Route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          ok: true,
-          data: { range: '30d', bucket: 'day', series: [] },
-          message: '',
-        }),
-      }),
+      route.fulfill({ json: { ok: true, data: { range: '30d', bucket: 'day', series: [] }, message: '' } }),
     );
 
     await page.goto('/admin/reports');
@@ -136,18 +94,10 @@ test.describe('Reports dashboard', () => {
   test('shows error state when API fails', async ({ page }) => {
     await mockAuth(page);
     await page.route('**/api/v1/reports/summary**', (route: Route) =>
-      route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: false, message: 'Internal error' }),
-      }),
+      route.fulfill({ status: 500, json: { ok: false, message: 'Internal error' } }),
     );
     await page.route('**/api/v1/reports/trends**', (route: Route) =>
-      route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: false, message: 'Internal error' }),
-      }),
+      route.fulfill({ status: 500, json: { ok: false, message: 'Internal error' } }),
     );
 
     await page.goto('/admin/reports');

@@ -55,8 +55,11 @@ Public:
 ### Chạy local
 ```bash
 cd frontend
-npm run test:e2e              # chạy toàn bộ
-npm run test:e2e -- tests/e2e/auth.spec.ts  # chạy 1 file
+npm run test:e2e                                       # chạy toàn bộ (headless)
+npm run test:e2e -- tests/e2e/auth.spec.ts             # chạy 1 file
+npm run test:e2e -- --ui                               # giao diện trực quan (UI mode)
+npm run test:e2e -- --headed                           # chạy trên browser thật
+npm run test:e2e -- --debug                            # step-through với Playwright Inspector (chỉ dùng local, không dùng trong CI)
 ```
 
 ### Cấu trúc thư mục test
