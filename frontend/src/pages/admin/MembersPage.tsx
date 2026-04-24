@@ -13,8 +13,9 @@ import {
   updateMember,
 } from '../../api/members';
 import type { Member, MemberPointsMutationType } from '../../types/member';
-import { CreateMemberForm } from './members/CreateMemberForm';
 import { LedgerPanel } from './members/LedgerPanel';
+import { MemberCreateModal } from './members/MemberCreateModal';
+import { MemberEditModal } from './members/MemberEditModal';
 import { MemberListPanel } from './members/MemberListPanel';
 import { PointsAdjustmentForm } from './members/PointsAdjustmentForm';
 import { TierManagementPanel } from './members/TierManagementPanel';
@@ -39,6 +40,7 @@ export const MembersPage = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editMember, setEditMember] = useState<Member | null>(null);
   const [deleteMemberCandidate, setDeleteMemberCandidate] = useState<Member | null>(null);
+  const [membersPage, setMembersPage] = useState(1);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [createForm, setCreateForm] = useState({ full_name: '', email: '', phone: '' });
   const [adjustForm, setAdjustForm] = useState({
@@ -54,8 +56,8 @@ export const MembersPage = () => {
   const [tierForm, setTierForm] = useState({ name: '', rank: '1', min_points: '0' });
 
   const membersQuery = useQuery({
-    queryKey: ['members', keyword],
-    queryFn: async () => fetchMembers(keyword),
+    queryKey: ['members', keyword, membersPage],
+    queryFn: async () => fetchMembers({ keyword, page: membersPage, pageSize: 20 }),
   });
   const tiersQuery = useQuery({
     queryKey: ['member-tiers'],
@@ -153,6 +155,7 @@ export const MembersPage = () => {
   });
 
   const members = useMemo(() => membersQuery.data?.members ?? [], [membersQuery.data?.members]);
+  const memberPagination = useMemo(() => membersQuery.data?.pagination ?? null, [membersQuery.data?.pagination]);
   const tiers = useMemo(() => tiersQuery.data ?? [], [tiersQuery.data]);
   const ledgerEntries = useMemo(() => ledgerQuery.data?.entries ?? [], [ledgerQuery.data?.entries]);
   const ledgerPagination = useMemo(() => ledgerQuery.data?.pagination ?? null, [ledgerQuery.data?.pagination]);
@@ -195,8 +198,7 @@ export const MembersPage = () => {
     });
   };
 
-  const onAdjustSubmit = (event: FormEvent) => {
-    event.preventDefault();
+  const onAdjustSubmit = () => {
     if (!selectedMemberId) return;
     const parsed = Number(adjustForm.points);
     const validationError = validateAdjustPointsInput({
@@ -223,7 +225,10 @@ export const MembersPage = () => {
   };
 
   useEffect(() => {
-    const timeout = setTimeout(() => setKeyword(keywordInput.trim()), 350);
+    const timeout = setTimeout(() => {
+      setKeyword(keywordInput.trim());
+      setMembersPage(1);
+    }, 350);
     return () => clearTimeout(timeout);
   }, [keywordInput]);
 
@@ -244,6 +249,7 @@ export const MembersPage = () => {
           selectedMemberId={selectedMemberId}
           isLoading={membersQuery.isLoading}
           errorMessage={membersLoadError}
+          pagination={memberPagination}
           onKeywordChange={setKeywordInput}
           onOpenCreateModal={() => setIsCreateModalOpen(true)}
           onEditMember={(member) => {
@@ -257,6 +263,12 @@ export const MembersPage = () => {
           }}
           onDeleteMember={(member) => setDeleteMemberCandidate(member)}
           isDeletingMember={deleteMemberMutation.isPending}
+          onPrevPage={() => setMembersPage((prev) => Math.max(1, prev - 1))}
+          onNextPage={() =>
+            setMembersPage((prev) =>
+              memberPagination ? Math.min(memberPagination.total_pages, prev + 1) : prev + 1,
+            )
+          }
           onSelectMember={(memberId) => {
             setSelectedMemberId(memberId);
             setLedgerPage(1);
@@ -304,82 +316,25 @@ export const MembersPage = () => {
         onDelete={(tierId) => deleteTierMutation.mutate(tierId)}
       />
 
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="relative w-full max-w-xl">
-            <div className="absolute -top-3 -right-3 z-10">
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow"
-                aria-label="Đóng modal tạo hội viên"
-              >
-                ×
-              </button>
-            </div>
-            <CreateMemberForm
-              form={createForm}
-              isSubmitting={createMutation.isPending}
-              errorMessage={createMemberError}
-              onFormChange={setCreateForm}
-              onSubmit={onCreateSubmit}
-            />
-          </div>
-        </div>
-      )}
+      <MemberCreateModal
+        open={isCreateModalOpen}
+        form={createForm}
+        isSubmitting={createMutation.isPending}
+        errorMessage={createMemberError}
+        onClose={() => setIsCreateModalOpen(false)}
+        onFormChange={setCreateForm}
+        onSubmit={onCreateSubmit}
+      />
 
-      {editMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="relative w-full max-w-xl">
-            <div className="absolute -top-3 -right-3 z-10">
-              <button
-                type="button"
-                onClick={() => setEditMember(null)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow"
-                aria-label="Đóng modal sửa hội viên"
-              >
-                ×
-              </button>
-            </div>
-            <form onSubmit={onEditSubmit} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="mb-3 text-lg font-semibold text-slate-900">Sửa thông tin hội viên</h2>
-              <div className="grid gap-2">
-                <input
-                  required
-                  value={editForm.full_name}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, full_name: event.target.value }))}
-                  placeholder="Họ tên"
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-                <input
-                  value={editForm.email}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, email: event.target.value }))}
-                  placeholder="Email (tuỳ chọn)"
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-                <input
-                  value={editForm.phone}
-                  onChange={(event) => setEditForm((prev) => ({ ...prev, phone: event.target.value }))}
-                  placeholder="Số điện thoại (tuỳ chọn)"
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-indigo-400"
-                  disabled={updateMemberMutation.isPending}
-                >
-                  {updateMemberMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
-                </button>
-                {updateMemberError && (
-                  <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                    {updateMemberError}
-                  </p>
-                )}
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <MemberEditModal
+        open={Boolean(editMember)}
+        form={editForm}
+        isSubmitting={updateMemberMutation.isPending}
+        errorMessage={updateMemberError}
+        onClose={() => setEditMember(null)}
+        onFormChange={setEditForm}
+        onSubmit={onEditSubmit}
+      />
 
       {deleteMemberCandidate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">

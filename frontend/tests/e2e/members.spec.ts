@@ -20,6 +20,13 @@ const authMeResponse = {
 
 test.describe('Members dashboard', () => {
   test('renders list and ledger areas', async ({ page }) => {
+    await page.route('**/api/v1/auth/csrf', (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, data: { csrf_token: 'test-csrf-token' }, message: '' }),
+      }),
+    );
     let createTierCalled = false;
     let deleteTierCalled = false;
     await page.route('**/api/v1/auth/me', (route: Route) =>
@@ -118,10 +125,11 @@ test.describe('Members dashboard', () => {
     await expect(page.getByRole('heading', { name: /Hội viên và điểm thưởng/i })).toBeVisible();
     await expect(page.getByTestId('members-list')).toBeVisible();
     await expect(page.getByTestId('member-tier-list')).toBeVisible();
-    await page.getByPlaceholder('Tên hạng (ví dụ: Silver)').fill('Gold');
+    await page.getByPlaceholder('Ví dụ: Silver').fill('Gold');
     await page.getByRole('button', { name: /Thêm hạng/i }).click();
     expect(createTierCalled).toBeTruthy();
     await page.getByRole('button', { name: /Xoá/i }).first().click();
+    await page.getByRole('button', { name: /Xoá hạng/i }).click();
     expect(deleteTierCalled).toBeTruthy();
     await page.getByText('Nguyen Van A').click();
     await expect(page.getByTestId('members-ledger-list')).toBeVisible();
@@ -129,6 +137,13 @@ test.describe('Members dashboard', () => {
 
   test('creates a member from modal flow', async ({ page }) => {
     let createMemberCalled = false;
+    await page.route('**/api/v1/auth/csrf', (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, data: { csrf_token: 'test-csrf-token' }, message: '' }),
+      }),
+    );
     await page.route('**/api/v1/auth/me', (route: Route) =>
       route.fulfill({
         status: 200,
@@ -182,7 +197,7 @@ test.describe('Members dashboard', () => {
     });
 
     await page.goto('/admin/members');
-    await page.getByRole('button', { name: '+' }).click();
+    await page.getByRole('button', { name: /Tạo hội viên mới/i }).click();
     await page.getByPlaceholder('Họ tên').fill('Tran Thi B');
     await page.getByPlaceholder('Email (tuỳ chọn)').fill('b@example.com');
     await page.getByRole('button', { name: /Tạo hội viên/i }).click();
