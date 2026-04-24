@@ -8,6 +8,7 @@ import { CurrentTenantId } from '../common/decorators/tenant.decorator';
 import { CurrentUserId } from '../common/decorators/current-user-id.decorator';
 import { MembersService } from './members.service';
 import { QueryMembersDto } from './dto/query-members.dto';
+import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { AdjustMemberPointsDto } from './dto/adjust-member-points.dto';
@@ -77,7 +78,7 @@ export class MembersController {
   listLedger(
     @Param('id') memberId: string,
     @CurrentTenantId() tenantId: string,
-    @Query() query: QueryMembersDto,
+    @Query() query: PaginationQueryDto,
   ) {
     return this.membersService.listLedger(memberId, tenantId, query);
   }

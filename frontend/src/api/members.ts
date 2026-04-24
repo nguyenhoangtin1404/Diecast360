@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 import type { ApiResponse } from '../types/category';
 import type {
+  AdjustPointsResult,
   Member,
   MemberLedgerEntry,
   MemberPointsMutationType,
@@ -27,7 +28,8 @@ export async function fetchMembers(options?: { keyword?: string; page?: number; 
   if (options?.keyword?.trim()) params.set('keyword', options.keyword.trim());
   if (options?.page != null) params.set('page', String(options.page));
   if (options?.pageSize != null) params.set('page_size', String(options.pageSize));
-  const response = (await apiClient.get(`/members?${params.toString()}`)) as ApiResponse<MembersListPayload>;
+  const qs = params.toString();
+  const response = (await apiClient.get(qs ? `/members?${qs}` : '/members')) as ApiResponse<MembersListPayload>;
   return response.data;
 }
 
@@ -84,9 +86,10 @@ export async function deleteMember(memberId: string) {
 export async function adjustMemberPoints(
   memberId: string,
   payload: { type: MemberPointsMutationType; points: number; reason: string; note?: string },
-) {
-  const response = (await apiClient.post(`/members/${memberId}/points-adjustments`, payload)) as ApiResponse<{
-    member: Member;
-  }>;
-  return response.data.member;
+): Promise<AdjustPointsResult> {
+  const response = (await apiClient.post(
+    `/members/${memberId}/points-adjustments`,
+    payload,
+  )) as ApiResponse<AdjustPointsResult>;
+  return response.data;
 }

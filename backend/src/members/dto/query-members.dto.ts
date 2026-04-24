@@ -1,20 +1,7 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
+import { PaginationQueryDto } from './pagination-query.dto';
 
-export class QueryMembersDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  page_size?: number;
-
+export class QueryMembersDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   keyword?: string;

@@ -35,3 +35,14 @@ export type Pagination = {
   total: number;
   total_pages: number;
 };
+
+export type TierTransition = {
+  upgraded: boolean;
+  downgraded: boolean;
+};
+
+export type AdjustPointsResult = {
+  member: Member;
+  ledger: MemberLedgerEntry;
+  tier_transition: TierTransition;
+};
