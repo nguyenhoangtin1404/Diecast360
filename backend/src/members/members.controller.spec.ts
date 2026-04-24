@@ -11,6 +11,7 @@ describe('MembersController', () => {
     getMember: jest.fn(),
     createMember: jest.fn(),
     updateMember: jest.fn(),
+    deleteMember: jest.fn(),
     listLedger: jest.fn(),
     adjustPoints: jest.fn(),
   };
@@ -69,5 +70,12 @@ describe('MembersController', () => {
     });
     expect(service.updateTier).toHaveBeenCalledWith('shop-1', 't1', { name: 'Silver+' });
     expect(service.deleteTier).toHaveBeenCalledWith('shop-1', 't1');
+  });
+
+  it('passes member delete payload to service', async () => {
+    service.deleteMember.mockResolvedValue({ ok: true });
+    const result = await controller.deleteMember('member-1', 'shop-1');
+    expect(result).toEqual({ ok: true });
+    expect(service.deleteMember).toHaveBeenCalledWith('member-1', 'shop-1');
   });
 });

@@ -13,6 +13,8 @@ import { resolvePointsAdjustment } from './rules/points-adjustment.resolver';
 @Injectable()
 export class MembersService {
   private readonly logger = new Logger(MembersService.name);
+  private readonly tierCache = new Map<string, { tiers: Awaited<ReturnType<PrismaService['membershipTier']['findMany']>>; expiresAt: number }>();
+  private readonly tierCacheTtlMs = 60_000;
   constructor(private readonly prisma: PrismaService) {}
 
   async listMembers(tenantId: string, query: QueryMembersDto) {
@@ -188,6 +190,12 @@ export class MembersService {
     }
   }
 
+  async deleteMember(memberId: string, tenantId: string) {
+    await this.ensureMemberExists(memberId, tenantId);
+    await this.prisma.member.delete({ where: { id: memberId } });
+    return { ok: true };
+  }
+
   async listLedger(memberId: string, tenantId: string, query: QueryMembersDto) {
     await this.ensureMemberExists(memberId, tenantId);
     const page = query.page ?? 1;
@@ -283,9 +291,18 @@ export class MembersService {
   }
 
   async listTiers(tenantId: string) {
+    const cached = this.tierCache.get(tenantId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return { tiers: cached.tiers };
+    }
+
     const tiers = await this.prisma.membershipTier.findMany({
       where: { shop_id: tenantId },
       orderBy: [{ rank: 'asc' }],
+    });
+    this.tierCache.set(tenantId, {
+      tiers,
+      expiresAt: Date.now() + this.tierCacheTtlMs,
     });
     return { tiers };
   }
@@ -299,6 +316,7 @@ export class MembersService {
         min_points: dto.min_points,
       },
     });
+    this.clearTierCache(tenantId);
     return { tier };
   }
 
@@ -312,12 +330,14 @@ export class MembersService {
         min_points: dto.min_points,
       },
     });
+    this.clearTierCache(tenantId);
     return { tier };
   }
 
   async deleteTier(tenantId: string, tierId: string) {
     await this.ensureTierExists(tenantId, tierId);
     await this.prisma.membershipTier.delete({ where: { id: tierId } });
+    this.clearTierCache(tenantId);
     return { ok: true };
   }
 
@@ -338,5 +358,9 @@ export class MembersService {
     if (!tier) {
       throw new AppException(ErrorCode.NOT_FOUND, 'Membership tier not found');
     }
+  }
+
+  private clearTierCache(tenantId: string) {
+    this.tierCache.delete(tenantId);
   }
 }

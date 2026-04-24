@@ -68,6 +68,11 @@ export class MembersController {
     return this.membersService.updateMember(memberId, dto, tenantId);
   }
 
+  @Delete(':id')
+  deleteMember(@Param('id') memberId: string, @CurrentTenantId() tenantId: string) {
+    return this.membersService.deleteMember(memberId, tenantId);
+  }
+
   @Get(':id/ledger')
   listLedger(
     @Param('id') memberId: string,

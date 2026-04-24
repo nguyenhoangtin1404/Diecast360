@@ -12,6 +12,7 @@ describe('MembersService', () => {
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
     },
     membershipTier: {
       findMany: jest.fn(),
@@ -195,5 +196,33 @@ describe('MembersService', () => {
         member: expect.objectContaining({ id: 'm3' }),
       }),
     );
+  });
+
+  it('caches tiers per tenant and invalidates after tier mutation', async () => {
+    prisma.membershipTier.findMany.mockResolvedValue([{ id: 't1', name: 'Bronze', rank: 1, min_points: 0 }]);
+    prisma.membershipTier.create.mockResolvedValue({ id: 't2', name: 'Silver', rank: 2, min_points: 1000 });
+
+    const first = await service.listTiers('shop-1');
+    const second = await service.listTiers('shop-1');
+    await service.createTier('shop-1', { name: 'Silver', rank: 2, min_points: 1000 });
+    await service.listTiers('shop-1');
+
+    expect(first.tiers).toEqual(second.tiers);
+    expect(prisma.membershipTier.findMany).toHaveBeenCalledTimes(2);
+    expect(prisma.membershipTier.create).toHaveBeenCalled();
+  });
+
+  it('deletes member by id in tenant', async () => {
+    prisma.member.findFirst.mockResolvedValue({ id: 'm1' });
+    prisma.member.delete.mockResolvedValue({ id: 'm1' });
+
+    const result = await service.deleteMember('m1', 'shop-1');
+
+    expect(prisma.member.findFirst).toHaveBeenCalledWith({
+      where: { id: 'm1', shop_id: 'shop-1' },
+      select: { id: true },
+    });
+    expect(prisma.member.delete).toHaveBeenCalledWith({ where: { id: 'm1' } });
+    expect(result).toEqual({ ok: true });
   });
 });
