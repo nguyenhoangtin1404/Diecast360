@@ -50,6 +50,39 @@ Public:
 - [ ] #33 - Playwright hardening/coverage (giai đoạn 2).
   Kế hoạch: `.planning/issues/33-playwright-phase-2.md`
 
+## Playwright E2E — Quy trình chạy và đọc kết quả
+
+### Chạy local
+```bash
+cd frontend
+npm run test:e2e              # chạy toàn bộ
+npm run test:e2e -- tests/e2e/auth.spec.ts  # chạy 1 file
+```
+
+### Cấu trúc thư mục test
+```
+frontend/tests/e2e/
+  fixtures/index.ts          # mock helpers dùng chung (auth, apiOk, ...)
+  auth.spec.ts               # smoke: login, redirect, bad credentials
+  items.spec.ts              # smoke: admin items page
+  members.spec.ts            # smoke: members & tiers
+  public-catalog.spec.ts     # smoke: public catalog (không cần auth)
+  preorders.spec.ts          # smoke: pre-order admin
+  reports.spec.ts            # smoke: reports page
+```
+
+### Đọc báo cáo CI
+- CI tự động chạy E2E sau khi build và unit test.
+- Nếu có test fail → artifact `playwright-report` được upload trong GitHub Actions.
+- Download artifact → mở `index.html` để xem trace, screenshot, và log chi tiết.
+- Trace file có thể xem bằng `npx playwright show-trace trace.zip`.
+
+### Tips debug
+- Thêm `await page.waitForTimeout(2000)` để xem UI tại điểm đó.
+- Dùng `page.screenshot({ path: 'debug.png' })` để chụp màn hình.
+- Các selector dùng role/text thay vì CSS class (CSS Modules sinh tên ngẫu nhiên).
+- Mock `/api/v1/auth/csrf` để tránh Vite proxy 502 làm chậm auth trong test.
+
 ## Ghi chú
 - #44 và #33 được tách thành 2 giai đoạn để triển khai an toàn.
 - #57 là nền tảng dữ liệu cho #46, #13 và #49.
