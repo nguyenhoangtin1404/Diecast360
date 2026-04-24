@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Playwright generated output — do not commit
+playwright-report/
+test-results/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
