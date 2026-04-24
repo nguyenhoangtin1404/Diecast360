@@ -1,6 +1,12 @@
 import { apiClient } from './client';
 import type { ApiResponse } from '../types/category';
-import type { Member, MemberLedgerEntry, MemberTier, Pagination } from '../types/member';
+import type {
+  Member,
+  MemberLedgerEntry,
+  MemberPointsMutationType,
+  MemberTier,
+  Pagination,
+} from '../types/member';
 
 type MembersListPayload = {
   members: Member[];
@@ -23,8 +29,12 @@ export async function fetchMembers(keyword?: string) {
   return response.data;
 }
 
-export async function fetchMemberLedger(memberId: string) {
-  const response = (await apiClient.get(`/members/${memberId}/ledger`)) as ApiResponse<LedgerPayload>;
+export async function fetchMemberLedger(memberId: string, options?: { page?: number; pageSize?: number }) {
+  const params = new URLSearchParams();
+  if (options?.page != null) params.set('page', String(options.page));
+  if (options?.pageSize != null) params.set('page_size', String(options.pageSize));
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  const response = (await apiClient.get(`/members/${memberId}/ledger${suffix}`)) as ApiResponse<LedgerPayload>;
   return response.data;
 }
 
@@ -58,7 +68,7 @@ export async function createMember(payload: { full_name: string; email?: string;
 
 export async function adjustMemberPoints(
   memberId: string,
-  payload: { type: 'earn' | 'redeem' | 'adjust'; points: number; reason: string; note?: string },
+  payload: { type: MemberPointsMutationType; points: number; reason: string; note?: string },
 ) {
   const response = (await apiClient.post(`/members/${memberId}/points-adjustments`, payload)) as ApiResponse<{
     member: Member;

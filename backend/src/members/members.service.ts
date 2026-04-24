@@ -1,8 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import {
-  MemberPointsMutationType,
-  Prisma,
-} from '../generated/prisma/client';
+import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { QueryMembersDto } from './dto/query-members.dto';
@@ -11,11 +8,11 @@ import { UpdateMemberDto } from './dto/update-member.dto';
 import { AdjustMemberPointsDto } from './dto/adjust-member-points.dto';
 import { CreateMembershipTierDto } from './dto/create-membership-tier.dto';
 import { UpdateMembershipTierDto } from './dto/update-membership-tier.dto';
-import { applyPointsMutation } from './rules/points-rule.engine';
-import { evaluateTierForBalance } from './rules/tier-rule.engine';
+import { resolvePointsAdjustment } from './rules/points-adjustment.resolver';
 
 @Injectable()
 export class MembersService {
+  private readonly logger = new Logger(MembersService.name);
   constructor(private readonly prisma: PrismaService) {}
 
   async listMembers(tenantId: string, query: QueryMembersDto) {
@@ -67,60 +64,128 @@ export class MembersService {
   }
 
   async createMember(dto: CreateMemberDto, tenantId: string) {
-    const normalizedEmail = dto.email?.trim().toLowerCase() || null;
-    const normalizedPhone = dto.phone?.trim() || null;
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const normalizedEmail = dto.email?.trim().toLowerCase() || null;
+        const normalizedPhone = dto.phone?.trim() || null;
 
-    if (normalizedEmail || normalizedPhone) {
-      const existing = await this.prisma.member.findFirst({
-        where: {
-          shop_id: tenantId,
-          OR: [
-            ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
-            ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
-          ],
-        },
-        select: { id: true },
+        if (normalizedEmail || normalizedPhone) {
+          const candidates = await tx.member.findMany({
+            where: {
+              shop_id: tenantId,
+              OR: [
+                ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
+                ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+              ],
+            },
+            select: { id: true, email: true, phone: true },
+          });
+          const emailConflict = normalizedEmail
+            ? candidates.some((candidate) => candidate.email === normalizedEmail)
+            : false;
+          const phoneConflict = normalizedPhone
+            ? candidates.some((candidate) => candidate.phone === normalizedPhone)
+            : false;
+
+          if (emailConflict && phoneConflict) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, 'Both email and phone already exist in this shop.');
+          }
+          if (emailConflict) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, 'Email already exists in this shop.');
+          }
+          if (phoneConflict) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, 'Phone already exists in this shop.');
+          }
+        }
+
+        const baseTier = await tx.membershipTier.findFirst({
+          where: { shop_id: tenantId },
+          orderBy: [{ min_points: 'asc' }, { rank: 'asc' }],
+          select: { id: true },
+        });
+
+        const member = await tx.member.create({
+          data: {
+            shop_id: tenantId,
+            full_name: dto.full_name.trim(),
+            email: normalizedEmail,
+            phone: normalizedPhone,
+            tier_id: baseTier?.id ?? null,
+          },
+          include: { tier: true },
+        });
+
+        return { member };
       });
-      if (existing) {
-        throw new AppException(
-          ErrorCode.VALIDATION_ERROR,
-          'Member with email/phone already exists in this shop.',
-        );
-      }
+    } catch (error) {
+      this.logger.error(`createMember failed for tenant=${tenantId}`, error instanceof Error ? error.stack : undefined);
+      throw error;
     }
-
-    const baseTier = await this.prisma.membershipTier.findFirst({
-      where: { shop_id: tenantId },
-      orderBy: [{ min_points: 'asc' }, { rank: 'asc' }],
-      select: { id: true },
-    });
-
-    const member = await this.prisma.member.create({
-      data: {
-        shop_id: tenantId,
-        full_name: dto.full_name.trim(),
-        email: normalizedEmail,
-        phone: normalizedPhone,
-        tier_id: baseTier?.id ?? null,
-      },
-      include: { tier: true },
-    });
-
-    return { member };
   }
 
   async updateMember(memberId: string, dto: UpdateMemberDto, tenantId: string) {
-    await this.ensureMemberExists(memberId, tenantId);
-    const member = await this.prisma.member.update({
-      where: { id: memberId },
-      data: {
-        full_name: dto.full_name?.trim(),
-        email: dto.email === undefined ? undefined : dto.email?.trim().toLowerCase() || null,
-        phone: dto.phone === undefined ? undefined : dto.phone?.trim() || null,
-      },
-      include: { tier: true },
-    });
-    return { member };
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const existingMember = await tx.member.findFirst({
+          where: { id: memberId, shop_id: tenantId },
+          select: { id: true, email: true, phone: true },
+        });
+        if (!existingMember) {
+          throw new AppException(ErrorCode.NOT_FOUND, 'Member not found');
+        }
+        if (dto.email !== undefined && dto.email !== null && dto.email.trim() === '') {
+          throw new AppException(
+            ErrorCode.VALIDATION_ERROR,
+            'Email must be a valid value or null. Empty string is not allowed.',
+          );
+        }
+        if (dto.phone !== undefined && dto.phone !== null && dto.phone.trim() === '') {
+          throw new AppException(
+            ErrorCode.VALIDATION_ERROR,
+            'Phone must be a valid value or null. Empty string is not allowed.',
+          );
+        }
+
+        const nextEmail = dto.email === undefined ? undefined : dto.email?.trim().toLowerCase() || null;
+        const nextPhone = dto.phone === undefined ? undefined : dto.phone?.trim() || null;
+        if (nextEmail || nextPhone) {
+          const candidates = await tx.member.findMany({
+            where: {
+              shop_id: tenantId,
+              id: { not: memberId },
+              OR: [
+                ...(nextEmail ? [{ email: nextEmail }] : []),
+                ...(nextPhone ? [{ phone: nextPhone }] : []),
+              ],
+            },
+            select: { email: true, phone: true },
+          });
+          if (nextEmail && candidates.some((candidate) => candidate.email === nextEmail)) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, 'Email already exists in this shop.');
+          }
+          if (nextPhone && candidates.some((candidate) => candidate.phone === nextPhone)) {
+            throw new AppException(ErrorCode.VALIDATION_ERROR, 'Phone already exists in this shop.');
+          }
+        }
+
+        const member = await tx.member.update({
+          where: { id: memberId },
+          data: {
+            full_name: dto.full_name?.trim(),
+            email: nextEmail,
+            phone: nextPhone,
+          },
+          include: { tier: true },
+        });
+        return { member };
+      });
+    } catch (error) {
+      this.logger.error(
+        `updateMember failed for member=${memberId} tenant=${tenantId}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
   }
 
   async listLedger(memberId: string, tenantId: string, query: QueryMembersDto) {
@@ -157,67 +222,64 @@ export class MembersService {
     tenantId: string,
     actorUserId: string | null,
   ) {
-    return this.prisma.$transaction(async (tx) => {
-      const member = await tx.member.findFirst({
-        where: { id: memberId, shop_id: tenantId },
-      });
-      if (!member) {
-        throw new AppException(ErrorCode.NOT_FOUND, 'Member not found');
-      }
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const member = await tx.member.findFirst({
+          where: { id: memberId, shop_id: tenantId },
+        });
+        if (!member) {
+          throw new AppException(ErrorCode.NOT_FOUND, 'Member not found');
+        }
 
-      const tiers = await tx.membershipTier.findMany({
-        where: { shop_id: tenantId },
-        select: { id: true, rank: true, min_points: true },
-        orderBy: [{ rank: 'asc' }],
-      });
-      const currentRank = tiers.find((tier) => tier.id === member.tier_id)?.rank ?? 0;
-
-      const { delta, nextBalance } = applyPointsMutation({
-        currentBalance: member.points_balance,
-        type: this.mapMutation(dto.type),
-        points: dto.points,
-      });
-
-      const tierEval = evaluateTierForBalance({
-        currentTierId: member.tier_id,
-        currentRank,
-        currentBalance: member.points_balance,
-        nextBalance,
-        tiers,
-      });
-
-      const updated = await tx.member.update({
-        where: { id: member.id },
-        data: {
-          points_balance: nextBalance,
-          tier_id: tierEval.nextTierId,
-        },
-        include: { tier: true },
-      });
-
-      const ledger = await tx.memberPointsLedger.create({
-        data: {
-          member_id: member.id,
-          shop_id: tenantId,
-          actor_user_id: actorUserId,
+        const tiers = await tx.membershipTier.findMany({
+          where: { shop_id: tenantId },
+          select: { id: true, rank: true, min_points: true },
+          orderBy: [{ rank: 'asc' }],
+        });
+        const pointsResolution = resolvePointsAdjustment({
           type: dto.type,
-          points: Math.abs(dto.points),
-          delta,
-          balance_after: nextBalance,
-          reason: dto.reason.trim(),
-          note: dto.note?.trim() || null,
-        },
-      });
+          points: dto.points,
+          currentBalance: member.points_balance,
+          currentTierId: member.tier_id,
+          tiers,
+        });
 
-      return {
-        member: updated,
-        ledger,
-        tier_transition: {
-          upgraded: tierEval.upgraded,
-          downgraded: tierEval.downgraded,
-        },
-      };
-    });
+        const updated = await tx.member.update({
+          where: { id: member.id },
+          data: {
+            points_balance: pointsResolution.nextBalance,
+            tier_id: pointsResolution.nextTierId,
+          },
+          include: { tier: true },
+        });
+
+        const ledger = await tx.memberPointsLedger.create({
+          data: {
+            member_id: member.id,
+            shop_id: tenantId,
+            actor_user_id: actorUserId,
+            type: dto.type,
+            points: Math.abs(dto.points),
+            delta: pointsResolution.delta,
+            balance_after: pointsResolution.nextBalance,
+            reason: dto.reason.trim(),
+            note: dto.note?.trim() || null,
+          },
+        });
+
+        return {
+          member: updated,
+          ledger,
+          tier_transition: pointsResolution.tierTransition,
+        };
+      });
+    } catch (error) {
+      this.logger.error(
+        `adjustPoints failed for member=${memberId} tenant=${tenantId}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
   }
 
   async listTiers(tenantId: string) {
@@ -268,13 +330,6 @@ export class MembersService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Member not found');
     }
   }
-
-  private mapMutation(type: MemberPointsMutationType): 'earn' | 'redeem' | 'adjust' {
-    if (type === MemberPointsMutationType.redeem) return 'redeem';
-    if (type === MemberPointsMutationType.earn) return 'earn';
-    return 'adjust';
-  }
-
   private async ensureTierExists(tenantId: string, tierId: string) {
     const tier = await this.prisma.membershipTier.findFirst({
       where: { id: tierId, shop_id: tenantId },

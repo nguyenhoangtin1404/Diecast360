@@ -1,3 +1,5 @@
+export type MemberPointsMutationType = 'earn' | 'redeem' | 'adjust';
+
 export type MemberTier = {
   id: string;
   name: string;
@@ -18,7 +20,7 @@ export type Member = {
 
 export type MemberLedgerEntry = {
   id: string;
-  type: 'earn' | 'redeem' | 'adjust';
+  type: MemberPointsMutationType;
   points: number;
   delta: number;
   balance_after: number;
