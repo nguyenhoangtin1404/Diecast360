@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { FormEvent } from 'react';
 import type { MemberTier } from '../../../types/member';
 
@@ -21,6 +22,8 @@ type TierManagementPanelProps = {
 };
 
 export function TierManagementPanel(props: TierManagementPanelProps) {
+  const [confirmTier, setConfirmTier] = useState<MemberTier | null>(null);
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="mb-3 text-lg font-semibold text-slate-900">Quản lý hạng hội viên</h2>
@@ -94,7 +97,7 @@ export function TierManagementPanel(props: TierManagementPanelProps) {
             <button
               type="button"
               className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700"
-              onClick={() => props.onDelete(tier.id)}
+              onClick={() => setConfirmTier(tier)}
               disabled={props.isDeleting}
             >
               Xoá
@@ -102,6 +105,39 @@ export function TierManagementPanel(props: TierManagementPanelProps) {
           </div>
         ))}
       </div>
+
+      {confirmTier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-base font-semibold text-slate-900">Xác nhận xoá hạng hội viên</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Bạn có chắc muốn xoá hạng <span className="font-semibold text-slate-900">"{confirmTier.name}"</span>? Hành
+              động này không thể hoàn tác.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                onClick={() => setConfirmTier(null)}
+                disabled={props.isDeleting}
+              >
+                Huỷ
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
+                onClick={() => {
+                  props.onDelete(confirmTier.id);
+                  setConfirmTier(null);
+                }}
+                disabled={props.isDeleting}
+              >
+                {props.isDeleting ? 'Đang xoá...' : 'Xoá hạng'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
