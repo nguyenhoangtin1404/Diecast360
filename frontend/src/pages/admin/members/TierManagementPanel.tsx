@@ -24,31 +24,48 @@ export function TierManagementPanel(props: TierManagementPanelProps) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="mb-3 text-lg font-semibold text-slate-900">Quản lý hạng hội viên</h2>
-      <form onSubmit={props.onSubmit} className="grid gap-2 md:grid-cols-4">
-        <input
-          required
-          value={props.form.name}
-          onChange={(event) => props.onFormChange({ ...props.form, name: event.target.value })}
-          placeholder="Tên hạng (ví dụ: Silver)"
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        />
-        <input
-          type="number"
-          min={1}
-          value={props.form.rank}
-          onChange={(event) => props.onFormChange({ ...props.form, rank: event.target.value })}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        />
-        <input
-          type="number"
-          min={0}
-          value={props.form.min_points}
-          onChange={(event) => props.onFormChange({ ...props.form, min_points: event.target.value })}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-        />
+      <form onSubmit={props.onSubmit} className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+        <label className="grid gap-1 text-sm">
+          <span className="inline-flex items-center gap-1 font-medium text-slate-700">Tên hạng</span>
+          <input
+            required
+            value={props.form.name}
+            onChange={(event) => props.onFormChange({ ...props.form, name: event.target.value })}
+            placeholder="Ví dụ: Silver"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="grid gap-1 text-sm">
+          <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+            Điểm tối thiểu để đạt hạng
+            <InfoTooltip text="Thành viên đạt từ số điểm này trở lên sẽ vào hạng này." />
+          </span>
+          <input
+            type="number"
+            min={0}
+            value={props.form.min_points}
+            onChange={(event) => props.onFormChange({ ...props.form, min_points: event.target.value })}
+            placeholder="0"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="grid gap-1 text-sm">
+          <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+            Bậc hạng
+            <InfoTooltip text="Số bậc càng nhỏ thì hạng càng thấp (ví dụ Bạc = 1, Vàng = 2)." />
+          </span>
+          <input
+            type="number"
+            min={1}
+            value={props.form.rank}
+            onChange={(event) => props.onFormChange({ ...props.form, rank: event.target.value })}
+            placeholder="1"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+        </label>
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
+          className="mt-6 inline-flex min-h-[44px] self-start items-center justify-center rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-corporate-btn transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-corporate-card-hover disabled:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-500 disabled:shadow-none"
           disabled={props.isSubmitting}
         >
           {props.isSubmitting ? 'Đang thêm...' : 'Thêm hạng'}
@@ -71,7 +88,7 @@ export function TierManagementPanel(props: TierManagementPanelProps) {
             <div>
               <div className="font-semibold text-slate-900">{tier.name}</div>
               <div className="text-xs text-slate-500">
-                Rank {tier.rank} · Từ {tier.min_points.toLocaleString('vi-VN')} điểm
+                  Bậc hạng {tier.rank} · Từ {tier.min_points.toLocaleString('vi-VN')} điểm
               </div>
             </div>
             <button
@@ -86,5 +103,22 @@ export function TierManagementPanel(props: TierManagementPanelProps) {
         ))}
       </div>
     </section>
+  );
+}
+
+function InfoTooltip(props: { text: string }) {
+  return (
+    <span className="group relative inline-flex">
+      <span
+        className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-slate-300 text-[10px] font-bold text-slate-500"
+        tabIndex={0}
+        aria-label={props.text}
+      >
+        i
+      </span>
+      <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-20 w-56 -translate-x-1/2 rounded-md bg-slate-900 px-2 py-1 text-xs font-normal text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        {props.text}
+      </span>
+    </span>
   );
 }
