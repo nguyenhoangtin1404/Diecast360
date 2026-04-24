@@ -14,7 +14,7 @@ import { resolvePointsAdjustment } from './rules/points-adjustment.resolver';
 export class MembersService {
   private readonly logger = new Logger(MembersService.name);
   private readonly tierCache = new Map<string, { tiers: Awaited<ReturnType<PrismaService['membershipTier']['findMany']>>; expiresAt: number }>();
-  private readonly tierCacheTtlMs = 60_000;
+  private readonly tierCacheTtlMs = 300_000;
   constructor(private readonly prisma: PrismaService) {}
 
   async listMembers(tenantId: string, query: QueryMembersDto) {
@@ -117,6 +117,7 @@ export class MembersService {
           include: { tier: true },
         });
 
+        this.logger.log(`member.created tenant=${tenantId} member=${member.id} tier=${member.tier_id ?? 'none'}`);
         return { member };
       });
     } catch (error) {
@@ -179,6 +180,7 @@ export class MembersService {
           },
           include: { tier: true },
         });
+        this.logger.log(`member.updated tenant=${tenantId} member=${member.id}`);
         return { member };
       });
     } catch (error) {
@@ -193,6 +195,7 @@ export class MembersService {
   async deleteMember(memberId: string, tenantId: string) {
     await this.ensureMemberExists(memberId, tenantId);
     await this.prisma.member.delete({ where: { id: memberId } });
+    this.logger.log(`member.deleted tenant=${tenantId} member=${memberId}`);
     return { ok: true };
   }
 
@@ -275,6 +278,9 @@ export class MembersService {
           },
         });
 
+        this.logger.log(
+          `points.adjusted tenant=${tenantId} member=${member.id} actor=${actorUserId ?? 'system'} type=${dto.type} delta=${pointsResolution.delta} balance=${pointsResolution.nextBalance}`,
+        );
         return {
           member: updated,
           ledger,
@@ -293,8 +299,10 @@ export class MembersService {
   async listTiers(tenantId: string) {
     const cached = this.tierCache.get(tenantId);
     if (cached && cached.expiresAt > Date.now()) {
+      this.logger.debug(`tier.cache_hit tenant=${tenantId}`);
       return { tiers: cached.tiers };
     }
+    this.logger.debug(`tier.cache_miss tenant=${tenantId}`);
 
     const tiers = await this.prisma.membershipTier.findMany({
       where: { shop_id: tenantId },
@@ -317,6 +325,7 @@ export class MembersService {
       },
     });
     this.clearTierCache(tenantId);
+    this.logger.log(`tier.created tenant=${tenantId} tier=${tier.id} rank=${tier.rank}`);
     return { tier };
   }
 
@@ -331,6 +340,7 @@ export class MembersService {
       },
     });
     this.clearTierCache(tenantId);
+    this.logger.log(`tier.updated tenant=${tenantId} tier=${tier.id}`);
     return { tier };
   }
 
@@ -338,6 +348,7 @@ export class MembersService {
     await this.ensureTierExists(tenantId, tierId);
     await this.prisma.membershipTier.delete({ where: { id: tierId } });
     this.clearTierCache(tenantId);
+    this.logger.log(`tier.deleted tenant=${tenantId} tier=${tierId}`);
     return { ok: true };
   }
 
