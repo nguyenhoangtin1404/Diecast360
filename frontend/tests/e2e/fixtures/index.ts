@@ -71,7 +71,21 @@ export function authLoginPayload(user: MockUser = ADMIN_USER) {
 // ---------------------------------------------------------------------------
 
 type TestFixtures = {
-  /** A page already wired with a mock `/auth/me` returning ADMIN_USER. */
+  /**
+   * A page pre-wired with a mock `/auth/me` returning ADMIN_USER.
+   *
+   * Usage:
+   *   import { test, expect } from './fixtures';
+   *
+   *   test('my test', async ({ authenticatedPage }) => {
+   *     await authenticatedPage.goto('/admin/items');
+   *     ...
+   *   });
+   *
+   * For tests that need additional route mocks, set them up BEFORE calling
+   * `goto` and AFTER receiving the `authenticatedPage` fixture (routes
+   * registered later take priority — Playwright matches LIFO).
+   */
   authenticatedPage: Page;
 };
 

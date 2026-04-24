@@ -18,14 +18,16 @@ test.describe('Authentication smoke', () => {
   });
 
   test('successful login redirects to admin reports', async ({ page }) => {
-    // Start unauthenticated
+    // Phase 1: user is unauthenticated — render login page
     await page.route('**/api/v1/auth/me', (route: Route) =>
       route.fulfill(unauthFulfill),
     );
 
     await page.goto('/admin/login');
 
-    // After login: mock both endpoints to succeed
+    // Phase 2: add success routes AFTER navigation.
+    // Playwright routes are matched LIFO, so these override the 401 handler
+    // for all subsequent requests made after the login button is clicked.
     await page.route('**/api/v1/auth/login', (route: Route) =>
       route.fulfill({ json: authLoginPayload() }),
     );
