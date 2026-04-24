@@ -49,6 +49,12 @@ enum InventoryTransactionType {
   adjustment
 }
 
+enum MemberPointsMutationType {
+  earn
+  redeem
+  adjust
+}
+
 model Shop {
   id         String         @id @default(uuid())
   name       String
@@ -62,6 +68,9 @@ model Shop {
   user_roles UserShopRole[]
   audit_logs ShopAuditLog[]
   inventory_transactions InventoryTransaction[]
+  members    Member[]
+  membership_tiers MembershipTier[]
+  member_points_ledger MemberPointsLedger[]
 
   @@map("shops")
   @@index([is_active])
@@ -95,6 +104,7 @@ model User {
   audit_logs     ShopAuditLog[] @relation("ShopAuditActor")
   pre_orders     PreOrder[]
   inventory_transactions InventoryTransaction[]
+  member_points_ledger MemberPointsLedger[]
 
   @@map("users")
 }
@@ -228,6 +238,70 @@ model PreOrder {
   @@index([item_id])
   @@index([user_id])
   @@index([shop_id, expected_arrival_at])
+}
+
+model MembershipTier {
+  id         String   @id @default(uuid())
+  shop_id    String
+  name       String
+  rank       Int
+  min_points Int
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  shop    Shop     @relation(fields: [shop_id], references: [id], onDelete: Cascade)
+  members Member[]
+
+  @@map("membership_tiers")
+  @@index([shop_id, rank])
+  @@unique([shop_id, name])
+  @@unique([shop_id, rank])
+}
+
+model Member {
+  id             String   @id @default(uuid())
+  shop_id        String
+  full_name      String
+  email          String?
+  phone          String?
+  points_balance Int      @default(0)
+  tier_id        String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  shop   Shop            @relation(fields: [shop_id], references: [id], onDelete: Cascade)
+  tier   MembershipTier? @relation(fields: [tier_id], references: [id], onDelete: SetNull)
+  points MemberPointsLedger[]
+
+  @@map("members")
+  @@index([shop_id, created_at])
+  @@index([shop_id, points_balance])
+  @@index([shop_id, full_name])
+  @@unique([shop_id, email])
+  @@unique([shop_id, phone])
+}
+
+model MemberPointsLedger {
+  id            String                   @id @default(uuid())
+  member_id     String
+  shop_id       String
+  actor_user_id String?
+  type          MemberPointsMutationType
+  points        Int
+  delta         Int
+  balance_after Int
+  reason        String
+  note          String?
+  created_at    DateTime                 @default(now())
+
+  member Member @relation(fields: [member_id], references: [id], onDelete: Cascade)
+  shop   Shop   @relation(fields: [shop_id], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actor_user_id], references: [id], onDelete: SetNull)
+
+  @@map("member_points_ledger")
+  @@index([member_id, created_at])
+  @@index([shop_id, created_at])
+  @@index([shop_id, type, created_at])
 }
 
 model FacebookPost {
