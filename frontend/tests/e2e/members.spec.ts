@@ -126,4 +126,67 @@ test.describe('Members dashboard', () => {
     await page.getByText('Nguyen Van A').click();
     await expect(page.getByTestId('members-ledger-list')).toBeVisible();
   });
+
+  test('creates a member from modal flow', async ({ page }) => {
+    let createMemberCalled = false;
+    await page.route('**/api/v1/auth/me', (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(authMeResponse),
+      }),
+    );
+    await page.route('**/api/v1/members/tiers', (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, data: { tiers: [] }, message: '' }),
+      }),
+    );
+    await page.route('**/api/v1/members?**', (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          data: { members: [], pagination: { page: 1, page_size: 20, total: 0, total_pages: 1 } },
+          message: '',
+        }),
+      }),
+    );
+    await page.route('**/api/v1/members', async (route: Route) => {
+      if (route.request().method() === 'POST') {
+        createMemberCalled = true;
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ok: true,
+            data: {
+              member: {
+                id: 'm2',
+                full_name: 'Tran Thi B',
+                email: 'b@example.com',
+                phone: null,
+                points_balance: 0,
+                tier_id: null,
+                tier: null,
+                created_at: '2026-04-23T00:00:00.000Z',
+              },
+            },
+            message: '',
+          }),
+        });
+      }
+      return route.continue();
+    });
+
+    await page.goto('/admin/members');
+    await page.getByRole('button', { name: '+' }).click();
+    await page.getByPlaceholder('Họ tên').fill('Tran Thi B');
+    await page.getByPlaceholder('Email (tuỳ chọn)').fill('b@example.com');
+    await page.getByRole('button', { name: /Tạo hội viên/i }).click();
+
+    expect(createMemberCalled).toBeTruthy();
+  });
 });

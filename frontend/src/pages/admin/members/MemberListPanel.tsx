@@ -1,17 +1,42 @@
+import { UserPlus } from 'lucide-react';
 import type { Member } from '../../../types/member';
 
 type MemberListPanelProps = {
+  keywordInput: string;
+  summaryText: string;
   members: Member[];
   selectedMemberId: string | null;
   isLoading: boolean;
   errorMessage: string | null;
+  onKeywordChange: (value: string) => void;
   onSelectMember: (memberId: string) => void;
+  onOpenCreateModal: () => void;
 };
 
 export function MemberListPanel(props: MemberListPanelProps) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h2 className="mb-3 text-lg font-semibold text-slate-900">Danh sách hội viên</h2>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-slate-900">Danh sách hội viên</h2>
+        <button
+          type="button"
+          onClick={props.onOpenCreateModal}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm transition hover:bg-indigo-700"
+          aria-label="Tạo hội viên mới"
+          title="Tạo hội viên mới"
+        >
+          <UserPlus size={18} strokeWidth={2.25} />
+        </button>
+      </div>
+      <div className="mb-3 grid gap-2">
+        <input
+          value={props.keywordInput}
+          onChange={(event) => props.onKeywordChange(event.target.value)}
+          placeholder="Tìm theo tên/email/sđt"
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
+        <p className="text-sm text-slate-500">{props.summaryText}</p>
+      </div>
       {props.isLoading && (
         <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">Đang tải hội viên...</p>
       )}

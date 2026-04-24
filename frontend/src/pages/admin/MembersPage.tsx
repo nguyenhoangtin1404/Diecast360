@@ -30,6 +30,7 @@ export const MembersPage = () => {
   const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [createForm, setCreateForm] = useState({ full_name: '', email: '', phone: '' });
   const [adjustForm, setAdjustForm] = useState({
@@ -59,6 +60,7 @@ export const MembersPage = () => {
     mutationFn: createMember,
     onSuccess: async () => {
       setCreateForm({ full_name: '', email: '', phone: '' });
+      setIsCreateModalOpen(false);
       await queryClient.invalidateQueries({ queryKey: ['members'] });
     },
   });
@@ -178,44 +180,18 @@ export const MembersPage = () => {
         <p className="mt-1 text-sm text-slate-600">Quản lý thành viên, hạng và lịch sử biến động điểm.</p>
       </header>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-3">
-          <input
-            value={keywordInput}
-            onChange={(event) => setKeywordInput(event.target.value)}
-            placeholder="Tìm theo tên/email/sđt"
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-          <div className="md:col-span-2 text-sm text-slate-500">
-            {membersQuery.isLoading
-              ? 'Đang tải hội viên...'
-              : `${members.length} hội viên trong shop hiện tại`}
-          </div>
-        </div>
-      </section>
-
-      <TierManagementPanel
-        form={tierForm}
-        tiers={tiers}
-        isLoading={tiersQuery.isLoading}
-        loadError={tiersLoadError}
-        mutationError={tierMutationError}
-        isSubmitting={createTierMutation.isPending}
-        isDeleting={deleteTierMutation.isPending}
-        onFormChange={setTierForm}
-        onSubmit={(event) => {
-          event.preventDefault();
-          createTierMutation.mutate();
-        }}
-        onDelete={(tierId) => deleteTierMutation.mutate(tierId)}
-      />
-
       <section className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <MemberListPanel
+          keywordInput={keywordInput}
+          summaryText={
+            membersQuery.isLoading ? 'Đang tải hội viên...' : `${members.length} hội viên trong shop hiện tại`
+          }
           members={members}
           selectedMemberId={selectedMemberId}
           isLoading={membersQuery.isLoading}
           errorMessage={membersLoadError}
+          onKeywordChange={setKeywordInput}
+          onOpenCreateModal={() => setIsCreateModalOpen(true)}
           onSelectMember={(memberId) => {
             setSelectedMemberId(memberId);
             setLedgerPage(1);
@@ -223,13 +199,6 @@ export const MembersPage = () => {
         />
 
         <div className="space-y-4">
-          <CreateMemberForm
-            form={createForm}
-            isSubmitting={createMutation.isPending}
-            errorMessage={createMemberError}
-            onFormChange={setCreateForm}
-            onSubmit={onCreateSubmit}
-          />
           <PointsAdjustmentForm
             selectedMember={selectedMember}
             form={adjustForm}
@@ -253,6 +222,46 @@ export const MembersPage = () => {
           />
         </div>
       </section>
+
+      <TierManagementPanel
+        form={tierForm}
+        tiers={tiers}
+        isLoading={tiersQuery.isLoading}
+        loadError={tiersLoadError}
+        mutationError={tierMutationError}
+        isSubmitting={createTierMutation.isPending}
+        isDeleting={deleteTierMutation.isPending}
+        onFormChange={setTierForm}
+        onSubmit={(event) => {
+          event.preventDefault();
+          createTierMutation.mutate();
+        }}
+        onDelete={(tierId) => deleteTierMutation.mutate(tierId)}
+      />
+
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="relative w-full max-w-xl">
+            <div className="absolute -top-3 -right-3 z-10">
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(false)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow"
+                aria-label="Đóng modal tạo hội viên"
+              >
+                ×
+              </button>
+            </div>
+            <CreateMemberForm
+              form={createForm}
+              isSubmitting={createMutation.isPending}
+              errorMessage={createMemberError}
+              onFormChange={setCreateForm}
+              onSubmit={onCreateSubmit}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

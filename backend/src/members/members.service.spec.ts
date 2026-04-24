@@ -155,4 +155,45 @@ describe('MembersService', () => {
     expect(updated).toEqual(expect.objectContaining({ tier: expect.objectContaining({ name: 'Silver+' }) }));
     expect(deleted).toEqual({ ok: true });
   });
+
+  it('creates member inside transaction with default tier', async () => {
+    const tx = {
+      member: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockResolvedValue({
+          id: 'm3',
+          full_name: 'Le Van C',
+          email: 'c@example.com',
+          phone: null,
+          tier: { id: 'tier-bronze' },
+        }),
+      },
+      membershipTier: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'tier-bronze' }),
+      },
+    };
+    prisma.$transaction.mockImplementation(async (cb: (trx: typeof tx) => Promise<unknown>) => cb(tx));
+
+    const result = await service.createMember(
+      { full_name: 'Le Van C', email: 'c@example.com' },
+      'shop-1',
+    );
+
+    expect(tx.member.findMany).toHaveBeenCalled();
+    expect(tx.member.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          shop_id: 'shop-1',
+          full_name: 'Le Van C',
+          email: 'c@example.com',
+          tier_id: 'tier-bronze',
+        }),
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        member: expect.objectContaining({ id: 'm3' }),
+      }),
+    );
+  });
 });

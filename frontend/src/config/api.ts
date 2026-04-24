@@ -3,11 +3,9 @@
  */
 function resolveDefaultApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
-    const protocol = window.location.protocol || 'http:';
-    const hostname = window.location.hostname || 'localhost';
-    return `${protocol}//${hostname}:3000/api/v1`;
+    return '/api/v1';
   }
-  return 'http://localhost:3000/api/v1';
+  return '/api/v1';
 }
 
 const configuredBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
