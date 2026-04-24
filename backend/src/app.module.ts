@@ -20,6 +20,7 @@ import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.f
 import { MediaModule } from './common/media/media.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { ReportsModule } from './reports/reports.module';
+import { MembersModule } from './members/members.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { ReportsModule } from './reports/reports.module';
     MediaModule,
     InventoryModule,
     ReportsModule,
+    MembersModule,
   ],
   controllers: [AppController],
   providers: [
