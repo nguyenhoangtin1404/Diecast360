@@ -15,8 +15,8 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 7: Issue #57 - Quantity and Custom Attributes** - Extend product model with stock quantity and custom metadata.
 - [x] **Phase 8: Issue #46 - Advanced Inventory Management** - Transaction-based inventory and stock audit trail.
 - [x] **Phase 9: Issue #13 - Pre-Order Management** - Pre-order lifecycle management for model products.
-- [ ] **Phase 10: Issue #49 - Reporting and Analytics** - KPI dashboard and analytics APIs.
-- [ ] **Phase 11: Issue #48 - Membership and Points** - Member tiers and points ledger system.
+- [x] **Phase 10: Issue #49 - Reporting and Analytics** - KPI dashboard and analytics APIs.
+- [x] **Phase 11: Issue #48 - Membership and Points** - Member tiers and points ledger system.
 - [ ] **Phase 12: Issue #44 - Playwright Phase 1** - E2E smoke automation setup and CI integration.
 - [ ] **Phase 13: Issue #33 - Playwright Phase 2** - Extended E2E coverage and quality-gate hardening.
 - [x] **Phase 14: Multi-Tenant Shop** - Support multiple isolated diecast shops on a single deployment with scoped access.
@@ -121,8 +121,8 @@ Review status (2026-04-20): Các gap trong 09-03-SUMMARY đã xử lý trong cod
 **Plans**: 2 plans
 
 Plans:
-- [ ] 10-01: Build KPI aggregation APIs and fixture-based validation
-- [ ] 10-02: Build reports dashboard UI with filter and chart states
+- [x] 10-01: Build KPI aggregation APIs and fixture-based validation
+- [x] 10-02: Build reports dashboard UI with filter and chart states
 
 ### Phase 11: Issue #48 - Membership and Points
 **Goal**: Implement membership tiers and points management.
@@ -131,8 +131,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 11-01: Implement membership/points schema and core rules
-- [ ] 11-02: Build membership APIs and admin management UI
+- [x] 11-01: Implement membership/points schema and core rules
+- [x] 11-02: Build membership APIs and admin management UI
 
 ### Phase 12: Issue #44 - Playwright Phase 1
 **Goal**: Establish Playwright E2E automation baseline.
@@ -169,8 +169,8 @@ Plans:
 | 7. Issue #57 - Quantity and Custom Attributes | 3/3 | Complete | 2026-04-01 |
 | 8. Issue #46 - Advanced Inventory Management | 3/3 | Complete | 2026-04-20 |
 | 9. Issue #13 - Pre-Order Management | 4/4 | Complete | 2026-04-20 |
-| 10. Issue #49 - Reporting and Analytics | 0/2 | Not started | - |
-| 11. Issue #48 - Membership and Points | 0/2 | Not started | - |
+| 10. Issue #49 - Reporting and Analytics | 2/2 | Complete | 2026-04-23 |
+| 11. Issue #48 - Membership and Points | 2/2 | Complete | 2026-04-23 |
 | 12. Issue #44 - Playwright Phase 1 | 0/3 | Not started | - |
 | 13. Issue #33 - Playwright Phase 2 | 0/3 | Not started | - |
 | 14. Multi-Tenant Shop | 3/3 | Complete | 2026-03-23 |
@@ -281,11 +281,18 @@ Implemented in codebase for Phase 8:
 - **Lỗi transition:** `messageFromPreorderTransitionError` (`preorderApiError.ts`) + unit test Vitest; hook `usePreorderTransition` hiển thị message backend; E2E assert chuỗi `Invalid pre-order status transition`.
 - **Parity map:** Ghi chú đồng bộ với `backend/.../preorder-transition.ts` trong `status.ts`.
 
+## Execution Update (2026-04-23, Phase 11)
+
+Implemented in codebase for Phase 11:
+- Added membership tier, member profile, and points-ledger schema with constraints/indexes (`backend/prisma/schema.prisma`, migration `20260423090000_add_membership_and_points`).
+- Built deterministic points and tier rule engines with boundary coverage (`backend/src/members/rules/*`).
+- Delivered tenant-scoped members APIs (`/members`, `/members/:id/ledger`, `/members/:id/points-adjustments`) with admin role guards.
+- Added admin `MembersPage` for list/search, member creation, points adjustment, and ledger timeline.
+- Added frontend smoke coverage for members dashboard route and ledger rendering (`frontend/tests/e2e/members.spec.ts`).
+
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet complete and pending tasks:
-- Phase 10: `10-01`, `10-02` Analytics API and dashboard UI.
-- Phase 11: `11-01`, `11-02` Membership and points rules + admin tooling.
 - Phase 12: `12-01`, `12-02`, `12-03` Playwright baseline and CI integration.
 - Phase 13: `13-01`, `13-02`, `13-03` Extended E2E coverage and quality gates.
 
