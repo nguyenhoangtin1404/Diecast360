@@ -12,6 +12,7 @@ import { AiImportPage } from './pages/admin/AiImportPage';
 import { CategoriesPage } from './pages/admin/CategoriesPage';
 import { FacebookPostsPage } from './pages/admin/FacebookPostsPage';
 import { ReportsPage } from './pages/admin/ReportsPage';
+import { MembersPage } from './pages/admin/MembersPage';
 import ShopsPage from './pages/admin/ShopsPage';
 import { PublicCatalogPage } from './pages/PublicCatalogPage';
 import { PublicItemDetailPage } from './pages/PublicItemDetailPage';
@@ -120,6 +121,16 @@ function App() {
                   <ProtectedRoute>
                     <Layout>
                       <ReportsPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={ROUTES.admin.members}
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <MembersPage />
                     </Layout>
                   </ProtectedRoute>
                 }

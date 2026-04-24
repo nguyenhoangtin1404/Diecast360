@@ -17,6 +17,7 @@ import {
   ROUTES,
   isAdminItemsImportActive,
   isAdminReportsActive,
+  isAdminMembersActive,
   isAdminItemsSectionActive,
   isAdminPreordersHubActive,
 } from '../config/routes';
@@ -124,6 +125,16 @@ export const Layout = ({ children }: LayoutProps) => {
       >
         <ChartNoAxesColumn size={18} strokeWidth={2} />
         <span>Báo cáo</span>
+      </Link>
+      <Link
+        to={ROUTES.admin.members}
+        className={cn(adminSidebarNavLinkBase, isAdminMembersActive(pathname) && adminSidebarNavLinkActive)}
+        onClick={closeMobileMenu}
+      >
+        <span className="text-base" aria-hidden>
+          🎖️
+        </span>
+        <span>Hội viên</span>
       </Link>
       <Link
         to={ROUTES.admin.items}
