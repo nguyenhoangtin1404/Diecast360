@@ -12,6 +12,7 @@ export const ROUTES = {
     itemsImport: '/admin/items/import',
     categories: '/admin/categories',
     reports: '/admin/reports',
+    members: '/admin/members',
     preorders: '/admin/preorders',
     preordersCreate: '/admin/preorders/create',
     preordersManage: '/admin/preorders/manage',
@@ -43,4 +44,8 @@ export function isAdminPreordersManageActive(pathname: string): boolean {
 
 export function isAdminReportsActive(pathname: string): boolean {
   return pathname.startsWith(ROUTES.admin.reports);
+}
+
+export function isAdminMembersActive(pathname: string): boolean {
+  return pathname.startsWith(ROUTES.admin.members);
 }
