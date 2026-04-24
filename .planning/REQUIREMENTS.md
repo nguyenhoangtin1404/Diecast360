@@ -54,8 +54,8 @@
   - [ ] **PORD-01c**: Admin mobile page `Tao Pre-Order Moi` cho phep tao campaign voi form day du truong du lieu va validate.
   - [ ] **PORD-01d**: Admin mobile page `Quan ly Pre-order` hien thi tong quan campaign, danh sach nguoi tham gia, va thao tac quan ly co ban.
 - [ ] **RPTG-01**: Admin can view KPI dashboard with time-range filtering.
-- [ ] **MEMB-01**: Membership tiers are managed for customer groups.
-- [ ] **MEMB-02**: Points ledger records all earn/redeem/adjust events.
+- [x] **MEMB-01**: Membership tiers are managed for customer groups.
+- [x] **MEMB-02**: Points ledger records all earn/redeem/adjust events.
 - [ ] **QATE-01**: Playwright phase-1 smoke suite runs in local and CI.
 - [ ] **QATE-02**: Playwright phase-2 advanced coverage is enforced as release gate.
 
@@ -101,8 +101,8 @@
 | PORD-01c | Phase 9 | Pending |
 | PORD-01d | Phase 9 | Pending |
 | RPTG-01 | Phase 10 | Pending |
-| MEMB-01 | Phase 11 | Pending |
-| MEMB-02 | Phase 11 | Pending |
+| MEMB-01 | Phase 11 | Complete (2026-04-23) |
+| MEMB-02 | Phase 11 | Complete (2026-04-23) |
 | QATE-01 | Phase 12 | Pending |
 | QATE-02 | Phase 13 | Pending |
 

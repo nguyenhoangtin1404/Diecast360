@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 8 — Advanced Inventory Management (Issue #46), hoặc Phase 12 — Playwright baseline nếu ưu tiên chất lượng/E2E trước tính năng kho.
+**Current focus:** Phase 12 — Playwright baseline (Issue #44) để bổ sung regression gate cho các phase đã hoàn tất.
 
 ## Current Position
 
-Phase: **8 of 14** (đề xuất mặc định sau khi đóng Phase 9)
-Plan: Phase 9 **đã hoàn thành** (09-01 … 09-04)
-Status: Phase 9 complete (2026-04-20). Phase 10 vẫn phụ thuộc Phase 8 + 9 — có thể bắt đầu Phase 8 ngay.
-Last activity: 2026-04-20 — Hoàn tất 09-04 (public preorders UX, admin campaign, lỗi transition, docs plan)
+Phase: **11 of 14**
+Plan: Phase 11 **đã hoàn thành** (11-01, 11-02)
+Status: Phase 11 complete (2026-04-23). Next phase: 12 (Playwright Phase 1).
+Last activity: 2026-04-23 — Hoàn tất membership schema/rules + members API/UI + smoke test scaffold.
 
-Progress: [##########] 100% (Phase 9)
+Progress: [##########] 100% (Phase 11)
 
 ## Performance Metrics
 
@@ -49,11 +49,12 @@ Progress: [##########] 100% (Phase 9)
 - (2026-04-20) Completed Phase 8 implementation: inventory ledger schema/migration, tenant-scoped inventory APIs, `FOR UPDATE` locking, reconciliation/reverse safeguards, and admin inventory timeline UI.
 - (2026-04-20) Signed media URLs (`/api/v1/media`), optional `MEDIA_SIGNING_SECRET`, CSRF double-submit + client retry, stricter JWT/cookie secrets, `TenantGuard` trên AI, throttle auth/upload/AI — nhánh `feat/security-signed-media-csrf-throttle`.
 - (2026-04-20) Pre-order Phase 9 closure: public `/preorders` không phụ thuộc auth khi có `shop_id`/env; admin campaign selection ổn định; lỗi chuyển trạng thái hiển thị message backend; unit test cho extract message.
+- (2026-04-23) Completed Phase 11 membership foundation: tier/member/ledger schema + constraints, deterministic points/tier rule engine, tenant-scoped members APIs, admin members dashboard, and members Playwright smoke scenario.
 
 ### Pending Todos
 
 - Merge nhánh `feat/security-signed-media-csrf-throttle` + cập nhật `docs/API_CONTRACT.md` / `ENV.md` nếu chưa làm.
-- Chọn sprint tiếp: **08-01** (inventory transactions) hoặc **12-01** (Playwright infra).
+- Chọn sprint tiếp: **12-01** (Playwright infra baseline và CI integration).
 
 ### Blockers/Concerns
 
@@ -61,6 +62,6 @@ Progress: [##########] 100% (Phase 9)
 
 ## Session Continuity
 
-Last session: 2026-04-20 (Phase 9 — 09-04 implementation + planning close)
-Stopped at: Phase 9 marked complete; đề xuất bắt Phase 8 hoặc 12
-Resume file: `.planning/phases/08-issue-46-advanced-inventory-management/08-01-PLAN.md` hoặc `.planning/phases/12-issue-44-playwright-automation-phase-1/12-01-PLAN.md`
+Last session: 2026-04-23 (Phase 11 implementation)
+Stopped at: Phase 11 marked complete; ready to start Phase 12
+Resume file: `.planning/phases/12-issue-44-playwright-automation-phase-1/12-01-PLAN.md`
