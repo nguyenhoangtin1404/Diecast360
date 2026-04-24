@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -10,18 +10,35 @@ import {
   fetchMembers,
   fetchMemberTiers,
 } from '../../api/members';
+import type { MemberPointsMutationType } from '../../types/member';
+import { CreateMemberForm } from './members/CreateMemberForm';
+import { LedgerPanel } from './members/LedgerPanel';
+import { MemberListPanel } from './members/MemberListPanel';
+import { PointsAdjustmentForm } from './members/PointsAdjustmentForm';
+import { TierManagementPanel } from './members/TierManagementPanel';
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return (
+    (error as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+    (error as { message?: string })?.message ||
+    fallback
+  );
+}
 
 export const MembersPage = () => {
   const queryClient = useQueryClient();
+  const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [ledgerPage, setLedgerPage] = useState(1);
   const [createForm, setCreateForm] = useState({ full_name: '', email: '', phone: '' });
   const [adjustForm, setAdjustForm] = useState({
-    type: 'adjust' as 'earn' | 'redeem' | 'adjust',
+    type: 'adjust' as MemberPointsMutationType,
     points: '1',
     reason: '',
     note: '',
   });
+  const [adjustError, setAdjustError] = useState<string | null>(null);
   const [tierForm, setTierForm] = useState({ name: '', rank: '1', min_points: '0' });
 
   const membersQuery = useQuery({
@@ -33,8 +50,8 @@ export const MembersPage = () => {
     queryFn: fetchMemberTiers,
   });
   const ledgerQuery = useQuery({
-    queryKey: ['member-ledger', selectedMemberId],
-    queryFn: async () => fetchMemberLedger(selectedMemberId!),
+    queryKey: ['member-ledger', selectedMemberId, ledgerPage],
+    queryFn: async () => fetchMemberLedger(selectedMemberId!, { page: ledgerPage, pageSize: 10 }),
     enabled: Boolean(selectedMemberId),
   });
 
@@ -58,10 +75,19 @@ export const MembersPage = () => {
     },
     onSuccess: async () => {
       setAdjustForm((prev) => ({ ...prev, reason: '', note: '' }));
+      setAdjustError(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['members'] }),
         queryClient.invalidateQueries({ queryKey: ['member-ledger', selectedMemberId] }),
       ]);
+    },
+    onError: (error) => {
+      const message =
+        (error as { message?: string; response?: { data?: { message?: string } } })?.response?.data
+          ?.message ||
+        (error as { message?: string })?.message ||
+        'Không thể cập nhật điểm. Vui lòng thử lại.';
+      setAdjustError(message);
     },
   });
   const createTierMutation = useMutation({
@@ -84,10 +110,29 @@ export const MembersPage = () => {
   });
 
   const members = useMemo(() => membersQuery.data?.members ?? [], [membersQuery.data?.members]);
+  const tiers = useMemo(() => tiersQuery.data ?? [], [tiersQuery.data]);
+  const ledgerEntries = useMemo(() => ledgerQuery.data?.entries ?? [], [ledgerQuery.data?.entries]);
+  const ledgerPagination = useMemo(() => ledgerQuery.data?.pagination ?? null, [ledgerQuery.data?.pagination]);
   const selectedMember = useMemo(
     () => members.find((member) => member.id === selectedMemberId) ?? null,
     [members, selectedMemberId],
   );
+  const createMemberError = createMutation.isError
+    ? getErrorMessage(createMutation.error, 'Không thể tạo hội viên. Vui lòng thử lại.')
+    : null;
+  const membersLoadError = membersQuery.isError
+    ? getErrorMessage(membersQuery.error, 'Không thể tải danh sách hội viên.')
+    : null;
+  const tiersLoadError = tiersQuery.isError
+    ? getErrorMessage(tiersQuery.error, 'Không thể tải danh sách hạng.')
+    : null;
+  const tierMutationError =
+    (createTierMutation.isError && getErrorMessage(createTierMutation.error, 'Không thể tạo hạng mới.')) ||
+    (deleteTierMutation.isError && getErrorMessage(deleteTierMutation.error, 'Không thể xoá hạng.')) ||
+    null;
+  const ledgerLoadError = ledgerQuery.isError
+    ? getErrorMessage(ledgerQuery.error, 'Không thể tải lịch sử điểm.')
+    : null;
 
   const onCreateSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -101,8 +146,30 @@ export const MembersPage = () => {
   const onAdjustSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (!selectedMemberId) return;
+    const parsed = Number(adjustForm.points);
+    const isAdjust = adjustForm.type === 'adjust';
+    const isValidPositive = Number.isInteger(parsed) && parsed > 0;
+    const isValidSignedAdjust = Number.isInteger(parsed) && parsed !== 0 && parsed >= -1000000 && parsed <= 1000000;
+    if ((!isAdjust && !isValidPositive) || (isAdjust && !isValidSignedAdjust)) {
+      setAdjustError(
+        isAdjust
+          ? 'Điểm điều chỉnh phải là số nguyên khác 0 và trong khoảng -1,000,000 đến 1,000,000.'
+          : 'Điểm cộng/trừ phải là số nguyên dương.',
+      );
+      return;
+    }
+    setAdjustError(null);
     adjustMutation.mutate();
   };
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setKeyword(keywordInput.trim()), 350);
+    return () => clearTimeout(timeout);
+  }, [keywordInput]);
+
+  useEffect(() => {
+    setLedgerPage(1);
+  }, [selectedMemberId]);
 
   return (
     <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-4 px-4 py-5 md:py-6">
@@ -114,8 +181,8 @@ export const MembersPage = () => {
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-3">
           <input
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
+            value={keywordInput}
+            onChange={(event) => setKeywordInput(event.target.value)}
             placeholder="Tìm theo tên/email/sđt"
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
@@ -127,202 +194,63 @@ export const MembersPage = () => {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">Quản lý hạng hội viên</h2>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            createTierMutation.mutate();
-          }}
-          className="grid gap-2 md:grid-cols-4"
-        >
-          <input
-            required
-            value={tierForm.name}
-            onChange={(event) => setTierForm((prev) => ({ ...prev, name: event.target.value }))}
-            placeholder="Tên hạng (ví dụ: Silver)"
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-          <input
-            type="number"
-            min={1}
-            value={tierForm.rank}
-            onChange={(event) => setTierForm((prev) => ({ ...prev, rank: event.target.value }))}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-          <input
-            type="number"
-            min={0}
-            value={tierForm.min_points}
-            onChange={(event) => setTierForm((prev) => ({ ...prev, min_points: event.target.value }))}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
-            disabled={createTierMutation.isPending}
-          >
-            {createTierMutation.isPending ? 'Đang thêm...' : 'Thêm hạng'}
-          </button>
-        </form>
-        <div className="mt-3 space-y-2" data-testid="member-tier-list">
-          {(tiersQuery.data ?? []).map((tier) => (
-            <div key={tier.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-3 text-sm">
-              <div>
-                <div className="font-semibold text-slate-900">{tier.name}</div>
-                <div className="text-xs text-slate-500">
-                  Rank {tier.rank} · Từ {tier.min_points.toLocaleString('vi-VN')} điểm
-                </div>
-              </div>
-              <button
-                type="button"
-                className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700"
-                onClick={() => deleteTierMutation.mutate(tier.id)}
-                disabled={deleteTierMutation.isPending}
-              >
-                Xoá
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
+      <TierManagementPanel
+        form={tierForm}
+        tiers={tiers}
+        isLoading={tiersQuery.isLoading}
+        loadError={tiersLoadError}
+        mutationError={tierMutationError}
+        isSubmitting={createTierMutation.isPending}
+        isDeleting={deleteTierMutation.isPending}
+        onFormChange={setTierForm}
+        onSubmit={(event) => {
+          event.preventDefault();
+          createTierMutation.mutate();
+        }}
+        onDelete={(tierId) => deleteTierMutation.mutate(tierId)}
+      />
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-lg font-semibold text-slate-900">Danh sách hội viên</h2>
-          <div className="space-y-2" data-testid="members-list">
-            {members.map((member) => (
-              <button
-                key={member.id}
-                type="button"
-                onClick={() => setSelectedMemberId(member.id)}
-                className={`w-full rounded-lg border p-3 text-left transition ${
-                  selectedMemberId === member.id
-                    ? 'border-indigo-300 bg-indigo-50'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <div className="font-semibold text-slate-900">{member.full_name}</div>
-                <div className="text-xs text-slate-500">{member.email || member.phone || 'Không có liên hệ'}</div>
-                <div className="mt-1 text-sm text-slate-700">
-                  {member.points_balance.toLocaleString('vi-VN')} điểm · {member.tier?.name || 'Chưa xếp hạng'}
-                </div>
-              </button>
-            ))}
-            {!membersQuery.isLoading && members.length === 0 && (
-              <div className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-500">
-                Chưa có hội viên.
-              </div>
-            )}
-          </div>
-        </div>
+        <MemberListPanel
+          members={members}
+          selectedMemberId={selectedMemberId}
+          isLoading={membersQuery.isLoading}
+          errorMessage={membersLoadError}
+          onSelectMember={(memberId) => {
+            setSelectedMemberId(memberId);
+            setLedgerPage(1);
+          }}
+        />
 
         <div className="space-y-4">
-          <form onSubmit={onCreateSubmit} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-lg font-semibold text-slate-900">Tạo hội viên mới</h2>
-            <div className="grid gap-2">
-              <input
-                required
-                value={createForm.full_name}
-                onChange={(event) => setCreateForm((prev) => ({ ...prev, full_name: event.target.value }))}
-                placeholder="Họ tên"
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                value={createForm.email}
-                onChange={(event) => setCreateForm((prev) => ({ ...prev, email: event.target.value }))}
-                placeholder="Email (tuỳ chọn)"
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-              <input
-                value={createForm.phone}
-                onChange={(event) => setCreateForm((prev) => ({ ...prev, phone: event.target.value }))}
-                placeholder="Số điện thoại (tuỳ chọn)"
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-              <button
-                type="submit"
-                className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white"
-                disabled={createMutation.isPending}
-              >
-                {createMutation.isPending ? 'Đang tạo...' : 'Tạo hội viên'}
-              </button>
-            </div>
-          </form>
-
-          <form onSubmit={onAdjustSubmit} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-lg font-semibold text-slate-900">Điều chỉnh điểm</h2>
-            {!selectedMember && <p className="text-sm text-slate-500">Chọn hội viên để điều chỉnh điểm.</p>}
-            {selectedMember && (
-              <div className="grid gap-2">
-                <div className="text-sm text-slate-700">
-                  <strong>{selectedMember.full_name}</strong> — {selectedMember.points_balance.toLocaleString('vi-VN')} điểm
-                </div>
-                <select
-                  value={adjustForm.type}
-                  onChange={(event) =>
-                    setAdjustForm((prev) => ({ ...prev, type: event.target.value as 'earn' | 'redeem' | 'adjust' }))
-                  }
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                >
-                  <option value="earn">Cộng điểm</option>
-                  <option value="redeem">Trừ điểm</option>
-                  <option value="adjust">Điều chỉnh</option>
-                </select>
-                <input
-                  type="number"
-                  min={adjustForm.type === 'adjust' ? -999999 : 1}
-                  value={adjustForm.points}
-                  onChange={(event) => setAdjustForm((prev) => ({ ...prev, points: event.target.value }))}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-                <input
-                  required
-                  value={adjustForm.reason}
-                  onChange={(event) => setAdjustForm((prev) => ({ ...prev, reason: event.target.value }))}
-                  placeholder="Lý do"
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-                <input
-                  value={adjustForm.note}
-                  onChange={(event) => setAdjustForm((prev) => ({ ...prev, note: event.target.value }))}
-                  placeholder="Ghi chú"
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white"
-                  disabled={adjustMutation.isPending}
-                >
-                  {adjustMutation.isPending ? 'Đang cập nhật...' : 'Lưu biến động điểm'}
-                </button>
-              </div>
-            )}
-          </form>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-lg font-semibold text-slate-900">Lịch sử điểm</h2>
-            {ledgerQuery.isLoading && selectedMember && <p className="text-sm text-slate-500">Đang tải ledger...</p>}
-            {!selectedMember && <p className="text-sm text-slate-500">Chọn hội viên để xem lịch sử.</p>}
-            {selectedMember && (ledgerQuery.data?.entries ?? []).length === 0 && (
-              <p className="text-sm text-slate-500">Chưa có biến động điểm.</p>
-            )}
-            <ul className="space-y-2" data-testid="members-ledger-list">
-              {(ledgerQuery.data?.entries ?? []).map((entry) => (
-                <li key={entry.id} className="rounded-lg border border-slate-200 p-3 text-sm">
-                  <div className="font-semibold text-slate-800">
-                    {entry.type.toUpperCase()} · {entry.delta > 0 ? '+' : ''}
-                    {entry.delta} điểm
-                  </div>
-                  <div className="text-xs text-slate-500">{new Date(entry.created_at).toLocaleString('vi-VN')}</div>
-                  <div className="mt-1 text-slate-700">{entry.reason}</div>
-                  <div className="text-xs text-slate-500">
-                    Số dư sau giao dịch: {entry.balance_after.toLocaleString('vi-VN')} điểm
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <CreateMemberForm
+            form={createForm}
+            isSubmitting={createMutation.isPending}
+            errorMessage={createMemberError}
+            onFormChange={setCreateForm}
+            onSubmit={onCreateSubmit}
+          />
+          <PointsAdjustmentForm
+            selectedMember={selectedMember}
+            form={adjustForm}
+            isSubmitting={adjustMutation.isPending}
+            errorMessage={adjustError}
+            onFormChange={setAdjustForm}
+            onSubmit={onAdjustSubmit}
+          />
+          <LedgerPanel
+            entries={ledgerEntries}
+            selectedMemberId={selectedMemberId}
+            isLoading={ledgerQuery.isLoading}
+            errorMessage={ledgerLoadError}
+            pagination={ledgerPagination}
+            onPrevPage={() => setLedgerPage((prev) => Math.max(1, prev - 1))}
+            onNextPage={() =>
+              setLedgerPage((prev) =>
+                ledgerPagination ? Math.min(ledgerPagination.total_pages, prev + 1) : prev + 1,
+              )
+            }
+          />
         </div>
       </section>
     </div>
