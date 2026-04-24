@@ -12,7 +12,7 @@ import {
   fetchMemberTiers,
   updateMember,
 } from '../../api/members';
-import type { Member, MemberPointsMutationType } from '../../types/member';
+import type { AdjustPointsResult, Member, MemberPointsMutationType } from '../../types/member';
 import { LedgerPanel } from './members/LedgerPanel';
 import { MemberCreateModal } from './members/MemberCreateModal';
 import { MemberEditModal } from './members/MemberEditModal';
@@ -89,13 +89,16 @@ export const MembersPage = () => {
         note: adjustForm.note || undefined,
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (result: AdjustPointsResult | null) => {
       setAdjustForm((prev) => ({ ...prev, reason: '', note: '' }));
       setAdjustError(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['members'] }),
         queryClient.invalidateQueries({ queryKey: ['member-ledger', selectedMemberId] }),
       ]);
+      if (result?.tier_transition.upgraded) {
+        // TODO: surface tier upgrade notification to user
+      }
     },
     onError: (error) => {
       const message =

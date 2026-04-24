@@ -3,6 +3,7 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { QueryMembersDto } from './dto/query-members.dto';
+import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { AdjustMemberPointsDto } from './dto/adjust-member-points.dto';
@@ -13,6 +14,8 @@ import { resolvePointsAdjustment } from './rules/points-adjustment.resolver';
 @Injectable()
 export class MembersService {
   private readonly logger = new Logger(MembersService.name);
+  // NOTE: in-memory cache — works correctly for single-instance deployments only.
+  // For horizontal scaling, replace with a shared cache (e.g. Redis via CacheModule).
   private readonly tierCache = new Map<string, { tiers: Awaited<ReturnType<PrismaService['membershipTier']['findMany']>>; expiresAt: number }>();
   private readonly tierCacheTtlMs = 300_000;
   constructor(private readonly prisma: PrismaService) {}
@@ -199,7 +202,7 @@ export class MembersService {
     return { ok: true };
   }
 
-  async listLedger(memberId: string, tenantId: string, query: QueryMembersDto) {
+  async listLedger(memberId: string, tenantId: string, query: PaginationQueryDto) {
     await this.ensureMemberExists(memberId, tenantId);
     const page = query.page ?? 1;
     const pageSize = query.page_size ?? 20;
@@ -346,6 +349,7 @@ export class MembersService {
 
   async deleteTier(tenantId: string, tierId: string) {
     await this.ensureTierExists(tenantId, tierId);
+    // ON DELETE SET NULL: members assigned to this tier will have tier_id set to null by the DB.
     await this.prisma.membershipTier.delete({ where: { id: tierId } });
     this.clearTierCache(tenantId);
     this.logger.log(`tier.deleted tenant=${tenantId} tier=${tierId}`);
