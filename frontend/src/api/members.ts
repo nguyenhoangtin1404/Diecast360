@@ -66,6 +66,19 @@ export async function createMember(payload: { full_name: string; email?: string;
   return response.data.member;
 }
 
+export async function updateMember(
+  memberId: string,
+  payload: Partial<{ full_name: string; email: string | null; phone: string | null }>,
+) {
+  const response = (await apiClient.patch(`/members/${memberId}`, payload)) as ApiResponse<MemberPayload>;
+  return response.data.member;
+}
+
+export async function deleteMember(memberId: string) {
+  const response = (await apiClient.delete(`/members/${memberId}`)) as ApiResponse<{ ok: true }>;
+  return response.data.ok;
+}
+
 export async function adjustMemberPoints(
   memberId: string,
   payload: { type: MemberPointsMutationType; points: number; reason: string; note?: string },

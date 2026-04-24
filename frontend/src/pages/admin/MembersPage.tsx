@@ -5,17 +5,23 @@ import {
   adjustMemberPoints,
   createMember,
   createMemberTier,
+  deleteMember,
   deleteMemberTier,
   fetchMemberLedger,
   fetchMembers,
   fetchMemberTiers,
+  updateMember,
 } from '../../api/members';
-import type { MemberPointsMutationType } from '../../types/member';
+import type { Member, MemberPointsMutationType } from '../../types/member';
 import { CreateMemberForm } from './members/CreateMemberForm';
 import { LedgerPanel } from './members/LedgerPanel';
 import { MemberListPanel } from './members/MemberListPanel';
 import { PointsAdjustmentForm } from './members/PointsAdjustmentForm';
 import { TierManagementPanel } from './members/TierManagementPanel';
+import {
+  validateAdjustPointsInput,
+  validateCreateMemberInput,
+} from './members/memberFormValidation';
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return (
@@ -31,6 +37,8 @@ export const MembersPage = () => {
   const [keyword, setKeyword] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editMember, setEditMember] = useState<Member | null>(null);
+  const [deleteMemberCandidate, setDeleteMemberCandidate] = useState<Member | null>(null);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [createForm, setCreateForm] = useState({ full_name: '', email: '', phone: '' });
   const [adjustForm, setAdjustForm] = useState({
@@ -40,6 +48,9 @@ export const MembersPage = () => {
     note: '',
   });
   const [adjustError, setAdjustError] = useState<string | null>(null);
+  const [createMemberErrorInline, setCreateMemberErrorInline] = useState<string | null>(null);
+  const [editMemberErrorInline, setEditMemberErrorInline] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ full_name: '', email: '', phone: '' });
   const [tierForm, setTierForm] = useState({ name: '', rank: '1', min_points: '0' });
 
   const membersQuery = useQuery({
@@ -60,6 +71,7 @@ export const MembersPage = () => {
     mutationFn: createMember,
     onSuccess: async () => {
       setCreateForm({ full_name: '', email: '', phone: '' });
+      setCreateMemberErrorInline(null);
       setIsCreateModalOpen(false);
       await queryClient.invalidateQueries({ queryKey: ['members'] });
     },
@@ -92,6 +104,35 @@ export const MembersPage = () => {
       setAdjustError(message);
     },
   });
+  const updateMemberMutation = useMutation({
+    mutationFn: async () => {
+      if (!editMember) return null;
+      return updateMember(editMember.id, {
+        full_name: editForm.full_name.trim(),
+        email: editForm.email.trim() || null,
+        phone: editForm.phone.trim() || null,
+      });
+    },
+    onSuccess: async () => {
+      setEditMember(null);
+      setEditMemberErrorInline(null);
+      await queryClient.invalidateQueries({ queryKey: ['members'] });
+    },
+  });
+  const deleteMemberMutation = useMutation({
+    mutationFn: async (memberId: string) => deleteMember(memberId),
+    onSuccess: async () => {
+      const deletedId = deleteMemberCandidate?.id ?? null;
+      setDeleteMemberCandidate(null);
+      if (deletedId && selectedMemberId === deletedId) {
+        setSelectedMemberId(null);
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['members'] }),
+        queryClient.invalidateQueries({ queryKey: ['member-ledger'] }),
+      ]);
+    },
+  });
   const createTierMutation = useMutation({
     mutationFn: async () =>
       createMemberTier({
@@ -121,7 +162,10 @@ export const MembersPage = () => {
   );
   const createMemberError = createMutation.isError
     ? getErrorMessage(createMutation.error, 'Không thể tạo hội viên. Vui lòng thử lại.')
-    : null;
+    : createMemberErrorInline;
+  const updateMemberError = updateMemberMutation.isError
+    ? getErrorMessage(updateMemberMutation.error, 'Không thể cập nhật hội viên. Vui lòng thử lại.')
+    : editMemberErrorInline;
   const membersLoadError = membersQuery.isError
     ? getErrorMessage(membersQuery.error, 'Không thể tải danh sách hội viên.')
     : null;
@@ -138,6 +182,12 @@ export const MembersPage = () => {
 
   const onCreateSubmit = (event: FormEvent) => {
     event.preventDefault();
+    const validationError = validateCreateMemberInput(createForm);
+    if (validationError) {
+      setCreateMemberErrorInline(validationError);
+      return;
+    }
+    setCreateMemberErrorInline(null);
     createMutation.mutate({
       full_name: createForm.full_name.trim(),
       email: createForm.email.trim() || undefined,
@@ -149,29 +199,33 @@ export const MembersPage = () => {
     event.preventDefault();
     if (!selectedMemberId) return;
     const parsed = Number(adjustForm.points);
-    const isAdjust = adjustForm.type === 'adjust';
-    const isValidPositive = Number.isInteger(parsed) && parsed > 0;
-    const isValidSignedAdjust = Number.isInteger(parsed) && parsed !== 0 && parsed >= -1000000 && parsed <= 1000000;
-    if ((!isAdjust && !isValidPositive) || (isAdjust && !isValidSignedAdjust)) {
-      setAdjustError(
-        isAdjust
-          ? 'Điểm điều chỉnh phải là số nguyên khác 0 và trong khoảng -1,000,000 đến 1,000,000.'
-          : 'Điểm cộng/trừ phải là số nguyên dương.',
-      );
+    const validationError = validateAdjustPointsInput({
+      type: adjustForm.type,
+      points: parsed,
+    });
+    if (validationError) {
+      setAdjustError(validationError);
       return;
     }
     setAdjustError(null);
     adjustMutation.mutate();
+  };
+  const onEditSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!editMember) return;
+    const validationError = validateCreateMemberInput(editForm);
+    if (validationError) {
+      setEditMemberErrorInline(validationError);
+      return;
+    }
+    setEditMemberErrorInline(null);
+    updateMemberMutation.mutate();
   };
 
   useEffect(() => {
     const timeout = setTimeout(() => setKeyword(keywordInput.trim()), 350);
     return () => clearTimeout(timeout);
   }, [keywordInput]);
-
-  useEffect(() => {
-    setLedgerPage(1);
-  }, [selectedMemberId]);
 
   return (
     <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-4 px-4 py-5 md:py-6">
@@ -192,6 +246,17 @@ export const MembersPage = () => {
           errorMessage={membersLoadError}
           onKeywordChange={setKeywordInput}
           onOpenCreateModal={() => setIsCreateModalOpen(true)}
+          onEditMember={(member) => {
+            setEditMember(member);
+            setEditMemberErrorInline(null);
+            setEditForm({
+              full_name: member.full_name ?? '',
+              email: member.email ?? '',
+              phone: member.phone ?? '',
+            });
+          }}
+          onDeleteMember={(member) => setDeleteMemberCandidate(member)}
+          isDeletingMember={deleteMemberMutation.isPending}
           onSelectMember={(memberId) => {
             setSelectedMemberId(memberId);
             setLedgerPage(1);
@@ -259,6 +324,90 @@ export const MembersPage = () => {
               onFormChange={setCreateForm}
               onSubmit={onCreateSubmit}
             />
+          </div>
+        </div>
+      )}
+
+      {editMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="relative w-full max-w-xl">
+            <div className="absolute -top-3 -right-3 z-10">
+              <button
+                type="button"
+                onClick={() => setEditMember(null)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow"
+                aria-label="Đóng modal sửa hội viên"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={onEditSubmit} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="mb-3 text-lg font-semibold text-slate-900">Sửa thông tin hội viên</h2>
+              <div className="grid gap-2">
+                <input
+                  required
+                  value={editForm.full_name}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, full_name: event.target.value }))}
+                  placeholder="Họ tên"
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+                <input
+                  value={editForm.email}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, email: event.target.value }))}
+                  placeholder="Email (tuỳ chọn)"
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+                <input
+                  value={editForm.phone}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, phone: event.target.value }))}
+                  placeholder="Số điện thoại (tuỳ chọn)"
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-indigo-400"
+                  disabled={updateMemberMutation.isPending}
+                >
+                  {updateMemberMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+                {updateMemberError && (
+                  <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                    {updateMemberError}
+                  </p>
+                )}
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteMemberCandidate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-base font-semibold text-slate-900">Xác nhận xoá hội viên</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Bạn có chắc muốn xoá hội viên{' '}
+              <span className="font-semibold text-slate-900">"{deleteMemberCandidate.full_name}"</span>? Thao tác này
+              sẽ xoá cả lịch sử điểm liên quan.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                onClick={() => setDeleteMemberCandidate(null)}
+                disabled={deleteMemberMutation.isPending}
+              >
+                Huỷ
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
+                onClick={() => deleteMemberMutation.mutate(deleteMemberCandidate.id)}
+                disabled={deleteMemberMutation.isPending}
+              >
+                {deleteMemberMutation.isPending ? 'Đang xoá...' : 'Xoá hội viên'}
+              </button>
+            </div>
           </div>
         </div>
       )}

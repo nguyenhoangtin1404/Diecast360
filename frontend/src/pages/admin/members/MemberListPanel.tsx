@@ -11,6 +11,9 @@ type MemberListPanelProps = {
   onKeywordChange: (value: string) => void;
   onSelectMember: (memberId: string) => void;
   onOpenCreateModal: () => void;
+  onEditMember: (member: Member) => void;
+  onDeleteMember: (member: Member) => void;
+  isDeletingMember?: boolean;
 };
 
 export function MemberListPanel(props: MemberListPanelProps) {
@@ -47,22 +50,39 @@ export function MemberListPanel(props: MemberListPanelProps) {
       )}
       <div className="space-y-2" data-testid="members-list">
         {props.members.map((member) => (
-          <button
+          <div
             key={member.id}
-            type="button"
-            onClick={() => props.onSelectMember(member.id)}
             className={`w-full rounded-lg border p-3 text-left transition ${
               props.selectedMemberId === member.id
                 ? 'border-indigo-300 bg-indigo-50'
                 : 'border-slate-200 hover:border-slate-300'
             }`}
           >
-            <div className="font-semibold text-slate-900">{member.full_name}</div>
-            <div className="text-xs text-slate-500">{member.email || member.phone || 'Không có liên hệ'}</div>
-            <div className="mt-1 text-sm text-slate-700">
-              {member.points_balance.toLocaleString('vi-VN')} điểm · {member.tier?.name || 'Chưa xếp hạng'}
+            <button type="button" onClick={() => props.onSelectMember(member.id)} className="w-full text-left">
+              <div className="font-semibold text-slate-900">{member.full_name}</div>
+              <div className="text-xs text-slate-500">{member.email || member.phone || 'Không có liên hệ'}</div>
+              <div className="mt-1 text-sm text-slate-700">
+                {member.points_balance.toLocaleString('vi-VN')} điểm · {member.tier?.name || 'Chưa xếp hạng'}
+              </div>
+            </button>
+            <div className="mt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => props.onEditMember(member)}
+                className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-white"
+              >
+                Sửa
+              </button>
+              <button
+                type="button"
+                onClick={() => props.onDeleteMember(member)}
+                className="rounded-md border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={props.isDeletingMember}
+              >
+                Xoá
+              </button>
             </div>
-          </button>
+          </div>
         ))}
         {!props.isLoading && props.members.length === 0 && (
           <div className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-500">
