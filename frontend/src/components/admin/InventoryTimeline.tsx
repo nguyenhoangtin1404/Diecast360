@@ -114,6 +114,12 @@ export function InventoryTimeline({ itemId }: InventoryTimelineProps) {
               <div style={{ fontSize: '13px' }}>{txn.resulting_quantity}</div>
               <div style={{ fontSize: '12px', color: '#6b7280' }}>Lý do</div>
               <div style={{ fontSize: '13px' }}>{txn.reason}</div>
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>Người thực hiện</div>
+              <div style={{ fontSize: '13px', color: '#374151' }}>
+                {txn.actor_user_id
+                  ? `${txn.actor_user_id.slice(0, 8)}…`
+                  : 'Hệ thống'}
+              </div>
               <div style={{ fontSize: '12px', color: '#6b7280' }}>Thời điểm</div>
               <div style={{ fontSize: '13px' }}>{new Date(txn.created_at).toLocaleString('vi-VN')}</div>
             </div>
