@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '../../../api/client';
 import { useDebouncedValue } from './useDebouncedValue';
 import type { Shop, ShopItemRow } from './types';
@@ -33,7 +33,11 @@ export function useShopItems() {
   const [shopItems, setShopItems] = useState<ShopItemRow[]>([]);
   const [shopItemsLoading, setShopItemsLoading] = useState(false);
   const [shopItemsError, setShopItemsError] = useState<string | null>(null);
-  const [itemsQuery, setItemsQuery] = useState('');
+  // Use a ref instead of state: itemsQuery is only needed to track the last
+  // executed search (to avoid duplicate debounce triggers) and is never rendered.
+  // Using state would require calling setState inside the debounce effect, which
+  // triggers cascading renders and fails the react-hooks/set-state-in-effect rule.
+  const itemsQueryRef = useRef('');
   const [itemsDraftQuery, setItemsDraftQuery] = useState('');
   const [itemsPage, setItemsPage] = useState(1);
   const [itemsPageSize, setItemsPageSize] = useState<10 | 20 | 50 | 100>(20);
@@ -76,7 +80,7 @@ export function useShopItems() {
     setItemsListShopId(s.id);
     setItemsListShopName(s.name);
     setItemsDraftQuery('');
-    setItemsQuery('');
+    itemsQueryRef.current = '';
     setItemsPage(1);
     setItemsPageSize(20);
     setItemsTotal(0);
@@ -96,29 +100,29 @@ export function useShopItems() {
     e.preventDefault();
     if (!itemsListShopId) return;
     const nextQuery = itemsDraftQuery.trim();
-    setItemsQuery(nextQuery);
+    itemsQueryRef.current = nextQuery;
     await loadShopItems(itemsListShopId, 1, itemsPageSize, nextQuery);
   }, [itemsDraftQuery, itemsListShopId, itemsPageSize, loadShopItems]);
 
   const handleShopItemsPageSizeChange = useCallback(async (value: 10 | 20 | 50 | 100) => {
     if (!itemsListShopId) return;
     setItemsPageSize(value);
-    await loadShopItems(itemsListShopId, 1, value, itemsQuery);
-  }, [itemsListShopId, itemsQuery, loadShopItems]);
+    await loadShopItems(itemsListShopId, 1, value, itemsQueryRef.current);
+  }, [itemsListShopId, loadShopItems]);
 
   const handleShopItemsChangePage = useCallback(async (nextPage: number) => {
     if (!itemsListShopId) return;
     if (nextPage < 1 || nextPage > itemsTotalPages) return;
-    await loadShopItems(itemsListShopId, nextPage, itemsPageSize, itemsQuery);
-  }, [itemsListShopId, itemsTotalPages, itemsPageSize, itemsQuery, loadShopItems]);
+    await loadShopItems(itemsListShopId, nextPage, itemsPageSize, itemsQueryRef.current);
+  }, [itemsListShopId, itemsTotalPages, itemsPageSize, loadShopItems]);
 
   useEffect(() => {
     if (!itemsListShopId) return;
     const nextQuery = debouncedItemsQuery.trim();
-    if (nextQuery === itemsQuery) return;
-    setItemsQuery(nextQuery);
+    if (nextQuery === itemsQueryRef.current) return;
+    itemsQueryRef.current = nextQuery;
     void loadShopItems(itemsListShopId, 1, itemsPageSize, nextQuery);
-  }, [debouncedItemsQuery, itemsListShopId, itemsPageSize, itemsQuery, loadShopItems]);
+  }, [debouncedItemsQuery, itemsListShopId, itemsPageSize, loadShopItems]);
 
   return {
     itemsListShopId,

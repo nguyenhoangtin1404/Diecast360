@@ -1,13 +1,9 @@
-import { test, expect, authMePayload, type Route } from './fixtures';
+import { test, expect, authMePayload, apiOk, type Route } from './fixtures';
 
 test.describe('Members dashboard', () => {
   test('renders list and ledger areas', async ({ page }) => {
     await page.route('**/api/v1/auth/csrf', (route: Route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, data: { csrf_token: 'test-csrf-token' }, message: '' }),
-      }),
+      route.fulfill({ status: 200, json: {} }),
     );
     let createTierCalled = false;
     let deleteTierCalled = false;
@@ -19,57 +15,35 @@ test.describe('Members dashboard', () => {
       if (method === 'POST') {
         createTierCalled = true;
         return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            ok: true,
-            data: { tier: { id: 't2', name: 'Gold', rank: 3, min_points: 5000 } },
-            message: '',
-          }),
+          json: apiOk({ tier: { id: 't2', name: 'Gold', rank: 3, min_points: 5000 } }),
         });
       }
       return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          ok: true,
-          data: { tiers: [{ id: 't1', name: 'Silver', rank: 2, min_points: 1000 }] },
-          message: '',
-        }),
+        json: apiOk({ tiers: [{ id: 't1', name: 'Silver', rank: 2, min_points: 1000 }] }),
       });
     });
     await page.route('**/api/v1/members/tiers/*', (route: Route) => {
       if (route.request().method() === 'DELETE') {
         deleteTierCalled = true;
       }
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, data: { ok: true }, message: '' }),
-      });
+      return route.fulfill({ json: apiOk({ ok: true }) });
     });
     await page.route('**/api/v1/members/*/ledger**', (route: Route) =>
       route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          ok: true,
-          data: {
-            entries: [
-              {
-                id: 'l1',
-                type: 'earn',
-                points: 100,
-                delta: 100,
-                balance_after: 1200,
-                reason: 'Mua hang',
-                note: null,
-                created_at: '2026-04-22T03:00:00.000Z',
-              },
-            ],
-            pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
-          },
-          message: '',
+        json: apiOk({
+          entries: [
+            {
+              id: 'l1',
+              type: 'earn',
+              points: 100,
+              delta: 100,
+              balance_after: 1200,
+              reason: 'Mua hang',
+              note: null,
+              created_at: '2026-04-22T03:00:00.000Z',
+            },
+          ],
+          pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
         }),
       }),
     );
@@ -77,26 +51,20 @@ test.describe('Members dashboard', () => {
       (url) => new URL(url).pathname === '/api/v1/members',
       (route: Route) =>
         route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            ok: true,
-            data: {
-              members: [
-                {
-                  id: 'm1',
-                  full_name: 'Nguyen Van A',
-                  email: 'a@example.com',
-                  phone: null,
-                  points_balance: 1200,
-                  tier_id: null,
-                  tier: null,
-                  created_at: '2026-04-22T00:00:00.000Z',
-                },
-              ],
-              pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
-            },
-            message: '',
+          json: apiOk({
+            members: [
+              {
+                id: 'm1',
+                full_name: 'Nguyen Van A',
+                email: 'a@example.com',
+                phone: null,
+                points_balance: 1200,
+                tier_id: null,
+                tier: null,
+                created_at: '2026-04-22T00:00:00.000Z',
+              },
+            ],
+            pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
           }),
         }),
     );
@@ -123,21 +91,13 @@ test.describe('Members dashboard', () => {
   test('creates a member from modal flow', async ({ page }) => {
     let createMemberCalled = false;
     await page.route('**/api/v1/auth/csrf', (route: Route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, data: { csrf_token: 'test-csrf-token' }, message: '' }),
-      }),
+      route.fulfill({ status: 200, json: {} }),
     );
     await page.route('**/api/v1/auth/me', (route: Route) =>
       route.fulfill({ json: authMePayload() }),
     );
     await page.route('**/api/v1/members/tiers', (route: Route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, data: { tiers: [] }, message: '' }),
-      }),
+      route.fulfill({ json: apiOk({ tiers: [] }) }),
     );
     await page.route(
       (url) => new URL(url).pathname === '/api/v1/members',
@@ -145,34 +105,22 @@ test.describe('Members dashboard', () => {
         if (route.request().method() === 'POST') {
           createMemberCalled = true;
           return route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              ok: true,
-              data: {
-                member: {
-                  id: 'm2',
-                  full_name: 'Tran Thi B',
-                  email: 'b@example.com',
-                  phone: null,
-                  points_balance: 0,
-                  tier_id: null,
-                  tier: null,
-                  created_at: '2026-04-23T00:00:00.000Z',
-                },
+            json: apiOk({
+              member: {
+                id: 'm2',
+                full_name: 'Tran Thi B',
+                email: 'b@example.com',
+                phone: null,
+                points_balance: 0,
+                tier_id: null,
+                tier: null,
+                created_at: '2026-04-23T00:00:00.000Z',
               },
-              message: '',
             }),
           });
         }
         return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            ok: true,
-            data: { members: [], pagination: { page: 1, page_size: 20, total: 0, total_pages: 1 } },
-            message: '',
-          }),
+          json: apiOk({ members: [], pagination: { page: 1, page_size: 20, total: 0, total_pages: 1 } }),
         });
       },
     );

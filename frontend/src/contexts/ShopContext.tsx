@@ -117,6 +117,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [authCtx?.isAuthenticated, authCtx?.loading, switchToShop]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fn; setState happens after awaits, not synchronously
     void loadUserShops();
   }, [loadUserShops]);
 
