@@ -1,73 +1,56 @@
-# React + TypeScript + Vite
+# Diecast360 — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + Vite 7 + TanStack Query + Tailwind CSS 3.
 
-Currently, two official plugins are available:
+## Scripts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev          # Vite dev server (http://localhost:5173)
+npm run build        # TypeScript compile + Vite production build
+npm run preview      # Preview production build locally
+npm run lint         # ESLint
+npm run test         # Vitest unit tests
+npm run test:e2e     # Playwright E2E tests (xem bên dưới)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Biến môi trường
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Tạo `frontend/.env` từ `frontend/.env.example`:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Biến | Mô tả | Mặc định |
+|------|-------|----------|
+| `VITE_API_BASE_URL` | Base URL của backend API | `http://localhost:3000/api/v1` |
+| `VITE_MAX_SPINNER_FRAMES` | Số frame tối đa cho spinner 360° | `48` |
+| `VITE_PUBLIC_PREORDER_SHOP_ID` | Shop ID mặc định cho pre-order public (E2E) | — |
+
+## E2E Testing (Playwright)
+
+```bash
+# Cài browser (lần đầu)
+npx playwright install chromium
+
+# Chạy tests
+npm run test:e2e                              # toàn bộ suite (35 tests)
+npm run test:e2e -- tests/e2e/auth.spec.ts   # 1 file
+npm run test:e2e -- --ui                     # Playwright UI mode
+npm run test:e2e -- --headed                 # có browser head
+npm run test:e2e -- --debug                  # Playwright Inspector (local only)
+```
+
+Test files nằm trong `tests/e2e/`. Shared helpers (mock factories, `authenticatedPage` fixture) trong `tests/e2e/fixtures/index.ts`.
+
+## Cấu trúc thư mục
+
+```
+src/
+  api/            # fetch wrappers cho từng domain (items, members, reports, ...)
+  components/     # UI components dùng chung
+  config/         # cấu hình (api base URL, ...)
+  constants/      # hằng số (spinner limits, ...)
+  contexts/       # React contexts (AuthContext, ShopContext)
+  hooks/          # custom hooks
+  pages/          # pages (admin/, public/)
+  types/          # TypeScript types cho domain model
+tests/
+  e2e/            # Playwright E2E specs
 ```

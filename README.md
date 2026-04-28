@@ -14,6 +14,7 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 - [Docker Compose (full stack)](#docker-compose-full-stack)
 - [Dev Container](#dev-container)
 - [Cơ sở dữ liệu](#cơ-sở-dữ-liệu)
+- [E2E Testing (Playwright)](#e2e-testing-playwright)
 - [Tài liệu kỹ thuật](#tài-liệu-kỹ-thuật)
 - [Quy tắc thay đổi](#quy-tắc-thay-đổi)
 - [Phụ lục: ước lượng chi phí nội dung](#phụ-lục-ước-lượng-chi-phí-nội-dung)
@@ -23,31 +24,36 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 | Nhóm | Mô tả ngắn |
 |------|------------|
 | **Sản phẩm** | CRUD item, trạng thái `con_hang \| giu_cho \| da_ban`, cờ `is_public`, soft delete. |
-| **Media** | Nhiều ảnh, thumbnail, cover, sắp xếp; spinner 360° (nhiều spin set, một default; khuyến nghị 24 frame, tối đa 36). |
-| **Catalog công khai** | `GET /api/v1/public/items`, `GET /api/v1/public/items/:id` — JWT **tùy chọn** (`OptionalJwtAuthGuard`). Không token: trả mọi item `is_public` (không lọc `shop_id`). Có token hợp lệ: có thể scope theo shop đang chọn (`active_shop_id` trên payload JWT). Token sai/hết hạn: `401`. |
+| **Media** | Nhiều ảnh, thumbnail, cover, sắp xếp; spinner 360° (nhiều spin set, một default; khuyến nghị 24 frame, tối đa 48 frame — cấu hình qua `VITE_MAX_SPINNER_FRAMES`). |
+| **Catalog công khai** | `GET /api/v1/public/items`, `GET /api/v1/public/items/:id` — JWT **tùy chọn** (`OptionalJwtAuthGuard`). Không token: trả mọi item `is_public`. Có token hợp lệ: scope theo `active_shop_id`. Token sai/hết hạn: `401`. |
 | **Đa shop & quản trị** | Super admin: quản lý shop, thành viên, mặt hàng; nhật ký **audit** (MVP) cho thao tác nhạy cảm. Chi tiết route: `docs/API_CONTRACT.md`. |
 | **Kho nâng cao** | Ledger giao dịch tồn kho (import/export/adjust/reverse), timeline theo item, cập nhật tồn kho có khóa cạnh tranh (`FOR UPDATE`) để tránh lost update. |
 | **Pre-order** | Quản lý vòng đời pre-order theo trạng thái, campaign pre-order cho admin, luồng public mobile-first theo shop + trang "Đơn hàng của tôi". |
+| **Báo cáo & thống kê** | Dashboard KPI với 10 chỉ số (nhập kho, xuất kho, pre-order, doanh thu, tồn kho); trend chart theo ngày/tuần/tháng; filter range 7d / 30d / 90d. |
+| **Hội viên & điểm thưởng** | Hệ thống hạng hội viên (tier) với ngưỡng điểm; ledger điểm (earn/redeem/adjust); tự động nâng hạng; admin dashboard quản lý thành viên và lịch sử giao dịch. |
 | **Xác thực** | Access + refresh JWT, revoke qua refresh token; cookie-based session aspects — xem `docs/COOKIE_AUTH.md`; route admin kèm guard + kiểm tra vai trò. |
 | **Social / AI / tìm kiếm** | Copy caption + link; semantic search (Pinecone tùy chọn); OpenAI cho gợi ý / import; gợi ý SEO (xem guide); publish Facebook từ admin item detail. |
 | **Responsive UX** | Harden UI cho màn hình mobile/tablet ở các luồng admin/public cốt lõi (layout, navigation, item workflows). |
+| **E2E Testing** | Playwright smoke suite (35 tests): auth, items, members, pre-orders, reports, public catalog; shared fixture layer; CI artifact upload khi fail. |
 
 ## Tiến độ triển khai theo phase
 
 | Phase | Trạng thái | Nội dung đã triển khai |
-|------|------------|-------------------------|
-| **Phase 1 - Inventory Foundation** | ✅ Hoàn thành | Chuẩn hóa vòng đời item, rule validate trạng thái/giá/category, bộ lọc danh sách ổn định cho admin. |
-| **Phase 2 - Media Pipeline** | ✅ Hoàn thành | Upload/sắp xếp/xóa ảnh và frame 360 deterministic, rollback/cleanup an toàn khi lỗi xử lý media. |
-| **Phase 3 - Public Experience** | ✅ Hoàn thành | Catalog public ổn định (filter/sort/paging theo URL), detail page có fallback media rõ ràng. |
-| **Phase 4 - AI and Social Selling** | ✅ Hoàn thành | Luồng AI generate/import nội dung, copy caption/link và lưu lịch sử post thủ công cho social selling. |
-| **Phase 5 - Production and Integrations** | ✅ Hoàn thành | Docker Compose + CI hardening; tích hợp Facebook Graph API và endpoint publish từ admin. |
-| **Phase 6 - Mobile Responsive UI** | ✅ Hoàn thành | Tối ưu trải nghiệm mobile-first cho trang admin/public trọng yếu, kèm checklist smoke responsive. |
-| **Phase 7 - Quantity and Custom Attributes** | ✅ Hoàn thành | Thêm `quantity` + `attributes` (schema/API/UI), validate dữ liệu mở rộng và hiển thị tồn kho trên admin. |
-| **Phase 8 - Advanced Inventory Management** | ✅ Hoàn thành | Bổ sung ledger giao dịch tồn kho, API reconciliation/reverse và timeline tồn kho trong `ItemDetailPage`. |
-| **Phase 9 - Pre-Order Management** | ✅ Hoàn thành | Hoàn thiện pre-order lifecycle cho admin + public, vá review gaps và đồng bộ transition/error UX. |
-| **Phase 14 - Multi-Tenant Shop** | ✅ Hoàn thành | Multi-tenant theo shop với `TenantGuard`, `switch-shop`, quản trị shop cho super admin và cách ly dữ liệu. |
-
-Các phase chưa triển khai: **10, 11, 12, 13** (Reporting/Analytics, Membership/Points, Playwright phase 1-2).
+|-------|------------|------------------------|
+| **Phase 1 — Inventory Foundation** | ✅ Hoàn thành | Chuẩn hóa vòng đời item, rule validate trạng thái/giá/category, bộ lọc danh sách ổn định cho admin. |
+| **Phase 2 — Media Pipeline** | ✅ Hoàn thành | Upload/sắp xếp/xóa ảnh và frame 360 deterministic, rollback/cleanup an toàn khi lỗi xử lý media. |
+| **Phase 3 — Public Experience** | ✅ Hoàn thành | Catalog public ổn định (filter/sort/paging theo URL), detail page có fallback media rõ ràng. |
+| **Phase 4 — AI and Social Selling** | ✅ Hoàn thành | Luồng AI generate/import nội dung, copy caption/link và lưu lịch sử post thủ công cho social selling. |
+| **Phase 5 — Production and Integrations** | ✅ Hoàn thành | Docker Compose + CI hardening; tích hợp Facebook Graph API và endpoint publish từ admin. |
+| **Phase 6 — Mobile Responsive UI** | ✅ Hoàn thành | Tối ưu trải nghiệm mobile-first cho trang admin/public trọng yếu, kèm checklist smoke responsive. |
+| **Phase 7 — Quantity & Custom Attributes** | ✅ Hoàn thành | Thêm `quantity` + `attributes` (schema/API/UI), validate dữ liệu mở rộng và hiển thị tồn kho trên admin. |
+| **Phase 8 — Advanced Inventory Management** | ✅ Hoàn thành | Bổ sung ledger giao dịch tồn kho, API reconciliation/reverse và timeline tồn kho trong `ItemDetailPage`. |
+| **Phase 9 — Pre-Order Management** | ✅ Hoàn thành | Hoàn thiện pre-order lifecycle cho admin + public, vá review gaps và đồng bộ transition/error UX. |
+| **Phase 10 — Reporting & Analytics** | ✅ Hoàn thành | Dashboard KPI 10 chỉ số, trend chart theo ngày/tuần/tháng, filter range, API `/reports/summary` + `/reports/trends`. |
+| **Phase 11 — Membership & Points** | ✅ Hoàn thành | Schema tier/member/ledger, engine tính điểm và nâng hạng tự động, REST APIs đầy đủ, admin members dashboard. |
+| **Phase 12 — Playwright Phase 1** | ✅ Hoàn thành | Shared fixture layer, smoke E2E (35 tests passing), CI artifact upload khi fail, HTML reporter. |
+| **Phase 13 — Playwright Phase 2** | 🔲 Chưa triển khai | Extended coverage, stability tuning, quality gate bắt buộc trên CI. |
+| **Phase 14 — Multi-Tenant Shop** | ✅ Hoàn thành | Multi-tenant theo shop với `TenantGuard`, `switch-shop`, quản trị shop cho super admin và cách ly dữ liệu. |
 
 ## Cấu trúc repo
 
@@ -149,6 +155,48 @@ Workspace mount: `/workspaces/<tên-thư-mục-repo>`.
 - Luôn khai báo đủ **cả hai** biến khi dùng PostgreSQL qua Prisma.
 - **Không** sửa migration đã apply; mọi thay đổi schema → migration mới.
 
+## E2E Testing (Playwright)
+
+Playwright smoke suite bao gồm **35 tests** chạy trên Chromium, covering các luồng nghiệp vụ quan trọng.
+
+### Cài đặt browser (lần đầu)
+
+```bash
+cd frontend
+npx playwright install chromium
+```
+
+### Chạy tests
+
+```bash
+cd frontend
+npm run test:e2e                              # chạy toàn bộ (headless)
+npm run test:e2e -- tests/e2e/auth.spec.ts   # chạy 1 file cụ thể
+npm run test:e2e -- --ui                     # Playwright UI mode (trực quan)
+npm run test:e2e -- --headed                 # browser có head (thấy được)
+npm run test:e2e -- --debug                  # Playwright Inspector (chỉ local)
+```
+
+### Cấu trúc test
+
+```
+frontend/tests/e2e/
+  fixtures/index.ts          # shared mock helpers (authMePayload, apiOk, authenticatedPage fixture)
+  auth.spec.ts               # smoke: login, redirect, bad credentials
+  items.spec.ts              # smoke: admin items list (heading, data, search, error, empty)
+  members.spec.ts            # smoke: members & tiers management
+  public-catalog.spec.ts     # smoke: public catalog (không cần auth)
+  preorders.spec.ts          # smoke: pre-order admin flows
+  reports.spec.ts            # smoke: KPI dashboard
+  spinner-max-frames.spec.ts # smoke: spinner upload limits
+```
+
+### CI
+
+- E2E chạy tự động trong GitHub Actions sau build và unit tests.
+- Khi fail → artifact `playwright-report` được upload (trace + screenshot + HTML report).
+- Download artifact → mở `index.html` để xem trace và log chi tiết.
+
 ## Tài liệu kỹ thuật
 
 | Tài liệu | Nội dung |
@@ -162,7 +210,7 @@ Workspace mount: `/workspaces/<tên-thư-mục-repo>`.
 | [`docs/DEV.md`](docs/DEV.md) | Chạy dev local, Docker, Dev Container, test & troubleshooting |
 | [`docs/COOKIE_AUTH.md`](docs/COOKIE_AUTH.md) | Cookie & CORS liên quan auth |
 | [`docs/AI_RULES.md`](docs/AI_RULES.md) | Quy tắc tích hợp AI |
-| [`docs/TODO.md`](docs/TODO.md) | Lộ trình |
+| [`docs/TODO.md`](docs/TODO.md) | Lộ trình & E2E workflow |
 | [`docs/PROMPT_TEMPLATE.md`](docs/PROMPT_TEMPLATE.md) | Prompt mẫu |
 
 ## Quy tắc thay đổi

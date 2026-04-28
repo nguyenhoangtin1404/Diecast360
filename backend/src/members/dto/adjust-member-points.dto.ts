@@ -1,6 +1,5 @@
 import {
   IsEnum,
-  IsInt,
   IsOptional,
   IsString,
   MaxLength,
