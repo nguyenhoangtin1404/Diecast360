@@ -16,6 +16,8 @@ function shopRoleLabel(role: string): string {
   switch (role) {
     case 'shop_admin':
       return 'Quản trị shop';
+    case 'shop_staff':
+      return 'Nhân viên shop';
     case 'super_admin':
       return 'Super admin';
     default:
@@ -37,6 +39,10 @@ function shopAuditActionLabel(action: ShopAuditLogRow['action']): string {
       return 'Tắt shop';
     case 'activate_shop':
       return 'Mở lại shop';
+    case 'set_platform_role':
+      return 'Gán quyền platform';
+    case 'set_shop_member_role':
+      return 'Phân quyền thành viên shop';
     default:
       return action;
   }
@@ -168,6 +174,7 @@ const ShopsPage: React.FC = () => {
   const [memberSuccess, setMemberSuccess] = useState<string | null>(null);
   const [memberEmailError, setMemberEmailError] = useState<string | null>(null);
   const [memberPasswordError, setMemberPasswordError] = useState<string | null>(null);
+  const [memberRole, setMemberRole] = useState<'shop_admin' | 'shop_staff'>('shop_admin');
   const memberEmailInputRef = useRef<HTMLInputElement | null>(null);
   const memberPasswordInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -185,6 +192,7 @@ const ShopsPage: React.FC = () => {
     setMemberEmail('');
     setMemberPassword('');
     setMemberFullName('');
+    setMemberRole('shop_admin');
     setMemberEmailError(null);
     setMemberPasswordError(null);
     setMemberModalShopId(shopId);
@@ -470,14 +478,16 @@ const ShopsPage: React.FC = () => {
 
       const payload = {
         email,
+        role: memberRole,
         ...(password ? { password } : {}),
         ...(full_name ? { full_name } : {}),
       };
 
       await apiClient.post(`/admin/shops/${shopId}/members`, payload);
 
+      const roleSuccessLabel = memberRole === 'shop_staff' ? 'Nhân viên shop' : 'Quản trị shop';
       setShopActionError(null);
-      setShopActionSuccess('Đã cấp shop_admin thành công.');
+      setShopActionSuccess(`Đã thêm thành viên (${roleSuccessLabel}) thành công.`);
       setMemberModalShopId(null);
       setMemberEmailError(null);
       setMemberPasswordError(null);
@@ -828,6 +838,7 @@ const ShopsPage: React.FC = () => {
         memberFullName={memberFullName}
         memberEmail={memberEmail}
         memberEmailError={memberEmailError}
+        memberRole={memberRole}
         adding={Boolean(memberModalShopId && memberAddingForShopId === memberModalShopId)}
         memberEmailInputRef={memberEmailInputRef}
         onClose={closeMemberModal}
@@ -849,6 +860,7 @@ const ShopsPage: React.FC = () => {
             setMemberEmailError(null);
           }
         }}
+        onRoleChange={setMemberRole}
         onSubmit={() => {
           if (!memberModalShopId) return;
           void handleAddShopAdmin(memberModalShopId);

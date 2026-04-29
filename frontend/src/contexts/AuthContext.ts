@@ -14,16 +14,25 @@ export interface AllowedShopSummary {
   role?: string;
 }
 
+export type PlatformRole = 'platform_super' | null;
+
 export interface User {
   id: string;
   email: string;
   full_name?: string;
   role: string;
+  /** Platform-level authority (not tied to any specific shop). null = regular user. */
+  platform_role?: PlatformRole;
   allowed_shop_ids?: string[];
   shop_roles?: UserShopRole[];
   allowed_shops?: AllowedShopSummary[];
   /** Bound active tenant from JWT (set after switch-shop). */
   active_shop_id?: string | null;
+}
+
+/** Returns true if the user has platform operator access. */
+export function isPlatformSuper(user: User | null | undefined): boolean {
+  return user?.platform_role === 'platform_super';
 }
 
 export interface AuthContextType {
