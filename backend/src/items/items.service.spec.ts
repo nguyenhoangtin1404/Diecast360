@@ -510,6 +510,21 @@ describe('ItemsService', () => {
       expect(findManyCall.where.facebook_posts).toEqual({ none: {} });
     });
 
+    it('should report one total page when list is empty', async () => {
+      prisma.item.findMany.mockResolvedValue([]);
+      prisma.item.count.mockResolvedValue(0);
+
+      const result = await service.findAll({}, TEST_SHOP_ID);
+
+      expect(result.items).toHaveLength(0);
+      expect(result.pagination).toEqual({
+        page: 1,
+        page_size: 20,
+        total: 0,
+        total_pages: 1,
+      });
+    });
+
     it('should handle custom pagination', async () => {
       prisma.item.findMany.mockResolvedValue([]);
       prisma.item.count.mockResolvedValue(50);

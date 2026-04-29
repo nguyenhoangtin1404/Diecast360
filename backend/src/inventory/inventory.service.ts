@@ -7,6 +7,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { CreateInventoryTransactionDto } from './dto/create-inventory-transaction.dto';
 import { QueryInventoryTransactionsDto } from './dto/query-inventory-transactions.dto';
+import { totalPagesFromCount } from '../common/utils/pagination.utils';
 
 @Injectable()
 export class InventoryService {
@@ -167,7 +168,7 @@ export class InventoryService {
         page,
         page_size: pageSize,
         total,
-        total_pages: Math.ceil(total / pageSize),
+        total_pages: totalPagesFromCount(total, pageSize),
       },
       current_quantity: item?.quantity ?? 0,
     };

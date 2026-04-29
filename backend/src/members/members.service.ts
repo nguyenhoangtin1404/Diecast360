@@ -10,6 +10,7 @@ import { AdjustMemberPointsDto } from './dto/adjust-member-points.dto';
 import { CreateMembershipTierDto } from './dto/create-membership-tier.dto';
 import { UpdateMembershipTierDto } from './dto/update-membership-tier.dto';
 import { resolvePointsAdjustment } from './rules/points-adjustment.resolver';
+import { totalPagesFromCount } from '../common/utils/pagination.utils';
 
 @Injectable()
 export class MembersService {
@@ -52,7 +53,7 @@ export class MembersService {
         page,
         page_size: pageSize,
         total,
-        total_pages: Math.ceil(total / pageSize),
+        total_pages: totalPagesFromCount(total, pageSize),
       },
     };
   }
@@ -225,7 +226,7 @@ export class MembersService {
         page,
         page_size: pageSize,
         total,
-        total_pages: Math.ceil(total / pageSize),
+        total_pages: totalPagesFromCount(total, pageSize),
       },
     };
   }
