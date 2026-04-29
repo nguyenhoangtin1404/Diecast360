@@ -20,6 +20,7 @@
 
 - [x] **PBLC-01**: Visitor can browse public items and open item detail pages.
 - [x] **PBLC-02**: Public item detail shows cover/status and spinner when available.
+- [ ] **PBLC-03**: Public catalog and item URLs resolve to a single shop tenant (slug or id); visitors cannot infer or list other shops' inventory from public endpoints when shop context is set.
 
 ### AI and Social
 
@@ -83,6 +84,7 @@
 | MEDI-03 | Phase 3 | Complete (2026-03-10) |
 | PBLC-01 | Phase 3 | Complete (2026-03-10) |
 | PBLC-02 | Phase 3 | Complete (2026-03-10) |
+| PBLC-03 | Phase 16 | Pending |
 | AISO-01 | Phase 4 | Complete (2026-03-13) |
 | AISO-02 | Phase 4 | Complete (2026-03-13) |
 | AISO-03 | Phase 4 | Complete (2026-03-13) |
