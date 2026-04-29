@@ -98,8 +98,8 @@ const ShopCard: React.FC<Props> = ({
             }}
             disabled={memberAddingForShopId === shop.id}
             onClick={() => onOpenAddMember(shop.id)}
-            title="Thêm quản lý — gán shop_admin (email / tạo tài khoản)"
-            aria-label="Thêm quản lý cho shop"
+            title="Thêm thành viên — gán shop_admin hoặc shop_staff"
+            aria-label="Thêm thành viên cho shop"
           >
             {memberAddingForShopId === shop.id ? (
               <Loader2 size={18} className="animate-spin" aria-hidden />
@@ -147,8 +147,8 @@ const ShopCard: React.FC<Props> = ({
               style={{ ...styles.iconBtnSuccess, opacity: memberAddingForShopId === shop.id ? 0.7 : 1 }}
               disabled={memberAddingForShopId === shop.id}
               onClick={() => onOpenAddMember(shop.id)}
-              title="Thêm quản lý — gán shop_admin (email / tạo tài khoản)"
-              aria-label="Thêm quản lý cho shop"
+              title="Thêm thành viên — gán shop_admin hoặc shop_staff"
+              aria-label="Thêm thành viên cho shop"
             >
               {memberAddingForShopId === shop.id ? (
                 <Loader2 size={18} className="animate-spin" aria-hidden />
