@@ -6,8 +6,9 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ShopRole } from '../../generated/prisma/client';
+import { PlatformRole, ShopRole } from '../../generated/prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { PLATFORM_ROLES_KEY } from '../decorators/platform-roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface JwtUserShopRole {
@@ -15,12 +16,28 @@ export interface JwtUserShopRole {
   role: ShopRole;
 }
 
+/** HTTP methods that are considered safe/read-only for shop_staff enforcement. */
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
 /**
- * RolesGuard — enforces that a request's user has at least one of the required roles.
+ * RolesGuard — dual-layer authorization guard.
  *
- * Usage: Apply after JwtAuthGuard.
- * `JwtStrategy` does not attach `shop_roles` (see AuthService.validateUser). If missing, this guard
- * loads only `{ shop_id, role }` rows — only on routes decorated with `@Roles(...)`, not on every API call.
+ * ## Platform layer (@PlatformRoles decorator)
+ * Routes decorated with `@PlatformRoles(PlatformRole.platform_super)` require the user
+ * to have `User.platform_role === platform_super`. No shop context is needed.
+ * This replaces the old `@Roles(ShopRole.super_admin)` global shortcut.
+ *
+ * ## Tenant layer (@Roles decorator)
+ * Routes decorated with `@Roles(ShopRole.shop_admin)` (or shop_staff) require:
+ *   1. A valid `active_shop_id` in the JWT.
+ *   2. A matching `UserShopRole` row for that shop.
+ *   3. Option C: `shop_staff` users are automatically restricted to safe HTTP methods
+ *      (GET/HEAD/OPTIONS) — no individual controller needs to check this.
+ *
+ * ## Legacy compatibility
+ * Routes still using `@Roles(ShopRole.super_admin)` without `@PlatformRoles` are
+ * handled by checking `platform_role` first (strict — backfill in migration 15-01
+ * already assigned platform_role to all former super_admin users).
  */
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -38,13 +55,24 @@ export class RolesGuard implements CanActivate {
 
   private readonly shopRolesCacheTtlMs = 30_000;
 
+  /** Invalidate cached shop roles for a user after role mutations. */
+  invalidateShopRolesCache(userId: string): void {
+    this.shopRolesCache.delete(userId);
+  }
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const platformRoles = this.reflector.getAllAndOverride<PlatformRole[]>(PLATFORM_ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
     const requiredRoles = this.reflector.getAllAndOverride<ShopRole[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
-    if (!requiredRoles || requiredRoles.length === 0) {
+    // No authorization metadata — open route.
+    if ((!platformRoles || platformRoles.length === 0) && (!requiredRoles || requiredRoles.length === 0)) {
       return true;
     }
 
@@ -54,6 +82,37 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('A role is required to access this resource.');
     }
 
+    // ── Platform layer ───────────────────────────────────────────────────────
+    // Handle @PlatformRoles(...) explicitly, and handle legacy @Roles(super_admin)
+    // by mapping it to platform_role check (strict after migration backfill).
+    const requiresPlatform =
+      (platformRoles && platformRoles.length > 0) ||
+      (requiredRoles && requiredRoles.includes(ShopRole.super_admin));
+
+    if (requiresPlatform) {
+      const userPlatformRole = user.platform_role as PlatformRole | null | undefined;
+      if (userPlatformRole === PlatformRole.platform_super) {
+        return true;
+      }
+      // If only platform was required, deny immediately.
+      const onlyPlatformRequired =
+        !requiredRoles ||
+        requiredRoles.length === 0 ||
+        requiredRoles.every((r) => r === ShopRole.super_admin);
+      if (onlyPlatformRequired) {
+        throw new ForbiddenException('Platform operator access required.');
+      }
+      // Fall through to tenant layer if route also accepts tenant roles.
+    }
+
+    // ── Tenant layer ─────────────────────────────────────────────────────────
+    const tenantRoles = (requiredRoles || []).filter((r) => r !== ShopRole.super_admin);
+    if (tenantRoles.length === 0) {
+      // Only platform roles were requested and user didn't pass the platform check above.
+      throw new ForbiddenException('Platform operator access required.');
+    }
+
+    // Load shop roles (from request or cache).
     let shopRoles = user?.shop_roles as JwtUserShopRole[] | undefined;
     if (!Array.isArray(shopRoles) || shopRoles.length === 0) {
       const cached = this.shopRolesCache.get(user.id);
@@ -71,52 +130,39 @@ export class RolesGuard implements CanActivate {
         });
       }
 
-      request.user = {
-        ...user,
-        shop_roles: shopRoles,
-      };
+      request.user = { ...user, shop_roles: shopRoles };
     }
 
-    if (shopRoles.length === 0) {
+    if (!shopRoles || shopRoles.length === 0) {
       throw new ForbiddenException('A role is required to access this resource.');
     }
 
     const activeShopId = typeof user.active_shop_id === 'string' ? user.active_shop_id : undefined;
-
-    // super_admin is treated as a global permission: it should not depend on `active_shop_id`.
-    const hasGlobalSuperAdmin = shopRoles.some(
-      (ur) => ur.role === ShopRole.super_admin && requiredRoles.includes(ShopRole.super_admin),
-    );
-    if (hasGlobalSuperAdmin) {
-      return true;
-    }
-
-    // If the endpoint requires any non-global role, we must have an active shop context.
-    const requiresTenantScopedRole = requiredRoles.some((r) => r !== ShopRole.super_admin);
-    if (requiresTenantScopedRole) {
-      if (!activeShopId) {
-        throw new BadRequestException(
-          'Active shop is not selected. Call POST /auth/switch-shop with a shop_id you have access to, then retry.',
-        );
-      }
-
-      const hasTenantRole = shopRoles.some(
-        (userRole) =>
-          userRole?.role != null &&
-          requiredRoles.includes(userRole.role) &&
-          userRole.shop_id === activeShopId,
+    if (!activeShopId) {
+      throw new BadRequestException(
+        'Active shop is not selected. Call POST /auth/switch-shop with a shop_id you have access to, then retry.',
       );
-
-      if (!hasTenantRole) {
-        throw new ForbiddenException(
-          `Access forbidden. Required roles: ${requiredRoles.join(', ')}`,
-        );
-      }
-
-      return true;
     }
 
-    // Only global role(s) were requested but the user doesn't have global super_admin.
-    throw new ForbiddenException(`Access forbidden. Required roles: ${requiredRoles.join(', ')}`);
+    const matchingRole = shopRoles.find(
+      (ur) => ur?.role != null && (tenantRoles as ShopRole[]).includes(ur.role) && ur.shop_id === activeShopId,
+    );
+
+    if (!matchingRole) {
+      throw new ForbiddenException(`Access forbidden. Required roles: ${tenantRoles.join(', ')}`);
+    }
+
+    // ── Option C: shop_staff HTTP-method enforcement ─────────────────────────
+    // shop_staff is read-only. Deny any mutating method globally without needing
+    // per-controller checks. To allow a specific write for staff in the future,
+    // add an @AllowStaffWrite() escape-hatch decorator.
+    if (matchingRole.role === ShopRole.shop_staff) {
+      const method: string = request.method?.toUpperCase() ?? '';
+      if (!SAFE_METHODS.has(method)) {
+        throw new ForbiddenException('Shop staff accounts are read-only and cannot perform this action.');
+      }
+    }
+
+    return true;
   }
 }

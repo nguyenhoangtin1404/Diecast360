@@ -12,22 +12,24 @@ import { QueryShopItemsDto } from './dto/query-shop-items.dto';
 import { QueryShopAuditLogsDto } from './dto/query-shop-audit-logs.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
+import { PlatformRoles } from '../common/decorators/platform-roles.decorator';
 import { CurrentUserId } from '../common/decorators/current-user-id.decorator';
-import { ShopRole } from '../generated/prisma/client';
+import { PlatformRole } from '../generated/prisma/client';
 
 /**
- * ShopsController — Super-admin only.
+ * ShopsController — Platform operator only.
  * Routes: /admin/shops
  *
- * Authorization: Restricted to users with 'super_admin' ShopRole across all routes.
+ * Authorization: Restricted to users with platform_role = platform_super.
+ * Uses @PlatformRoles (not @Roles) because shop management is a platform-level
+ * capability that does not require an active tenant context.
  *
  * Route order: longer / static path segments must be declared *before* `@X(':id')`
  * so e.g. `GET /:id/members` is not swallowed by `GET /:id` (Nest/Express param matching).
  */
 @Controller('admin/shops')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(ShopRole.super_admin)
+@PlatformRoles(PlatformRole.platform_super)
 export class ShopsController {
   constructor(private readonly shopsService: ShopsService) {}
 

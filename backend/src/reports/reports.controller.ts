@@ -11,7 +11,7 @@ import { QueryReportTrendsDto } from './dto/query-report-trends.dto';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
-@Roles(ShopRole.shop_admin, ShopRole.super_admin)
+@Roles(ShopRole.shop_admin, ShopRole.shop_staff)
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 

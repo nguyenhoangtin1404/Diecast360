@@ -237,7 +237,7 @@ describe('AuthService', () => {
   });
 
   describe('getUserTenantAccess', () => {
-    it('should map user_shop_roles to tenant access payload', async () => {
+    it('should map user_shop_roles to tenant access payload including platform_role', async () => {
       prisma.userShopRole.findMany.mockResolvedValue([
         {
           shop_id: 'shop-1',
@@ -250,10 +250,12 @@ describe('AuthService', () => {
           },
         },
       ]);
+      prisma.user.findUnique.mockResolvedValue({ platform_role: 'platform_super' });
 
       const result = await service.getUserTenantAccess('user-1');
 
       expect(result).toEqual({
+        platform_role: 'platform_super',
         allowed_shop_ids: ['shop-1'],
         shop_roles: [{ shop_id: 'shop-1', role: 'shop_admin' }],
         allowed_shops: [
@@ -272,6 +274,15 @@ describe('AuthService', () => {
           shop: { select: { id: true, name: true, slug: true, is_active: true } },
         },
       });
+    });
+
+    it('should return platform_role null when user has no platform role', async () => {
+      prisma.userShopRole.findMany.mockResolvedValue([]);
+      prisma.user.findUnique.mockResolvedValue({ platform_role: null });
+
+      const result = await service.getUserTenantAccess('user-1');
+
+      expect(result.platform_role).toBeNull();
     });
   });
 

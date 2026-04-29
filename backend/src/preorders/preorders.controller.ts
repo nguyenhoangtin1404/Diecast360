@@ -56,21 +56,21 @@ export class PreordersController {
 
   @Get('admin')
   @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
-  @Roles(ShopRole.shop_admin, ShopRole.super_admin)
+  @Roles(ShopRole.shop_admin, ShopRole.shop_staff)
   findAdminList(@Query() query: QueryPreordersDto, @CurrentTenantId() tenantId: string) {
     return this.preordersService.findAdminList(query, tenantId);
   }
 
   @Get('admin/summary')
   @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
-  @Roles(ShopRole.shop_admin, ShopRole.super_admin)
+  @Roles(ShopRole.shop_admin, ShopRole.shop_staff)
   getAdminSummary(@CurrentTenantId() tenantId: string) {
     return this.preordersService.getAdminSummary(tenantId);
   }
 
   @Get('admin/campaigns/:itemId/participants')
   @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
-  @Roles(ShopRole.shop_admin, ShopRole.super_admin)
+  @Roles(ShopRole.shop_admin, ShopRole.shop_staff)
   getParticipants(
     @Param('itemId') itemId: string,
     @CurrentTenantId() tenantId: string,

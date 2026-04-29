@@ -43,6 +43,7 @@ export class AuthService {
         email: user.email,
         full_name: user.full_name,
         role: user.role,
+        platform_role: user.platform_role ?? null,
       },
     };
   }
@@ -127,11 +128,12 @@ export class AuthService {
   /**
    * JWT validation only — no `shop_roles` / `shops` join (avoids overhead on every authenticated request).
    * Full tenant payload: {@link getUserTenantAccess} (e.g. GET /auth/me). Per-shop: targeted query in {@link switchShop}.
+   * `platform_role` is included so RolesGuard can enforce platform-level access without an extra DB query.
    */
   async validateUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, full_name: true, role: true, is_active: true },
+      select: { id: true, email: true, full_name: true, role: true, platform_role: true, is_active: true },
     });
 
     if (!user || !user.is_active) {
@@ -143,19 +145,27 @@ export class AuthService {
       email: user.email,
       full_name: user.full_name,
       role: user.role,
+      platform_role: user.platform_role,
     };
   }
 
   /**
    * Load shop memberships + shop summaries — use for GET /auth/me only, not for JwtStrategy.
+   * Also returns `platform_role` so frontend can gate platform-only UI.
    */
   async getUserTenantAccess(userId: string) {
-    const roles = await this.prisma.userShopRole.findMany({
-      where: { user_id: userId },
-      include: {
-        shop: { select: { id: true, name: true, slug: true, is_active: true } },
-      },
-    });
+    const [roles, user] = await Promise.all([
+      this.prisma.userShopRole.findMany({
+        where: { user_id: userId },
+        include: {
+          shop: { select: { id: true, name: true, slug: true, is_active: true } },
+        },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { platform_role: true },
+      }),
+    ]);
 
     const shop_roles = roles.map((r) => ({
       shop_id: r.shop_id,
@@ -171,6 +181,7 @@ export class AuthService {
     }));
 
     return {
+      platform_role: user?.platform_role ?? null,
       allowed_shop_ids: shop_roles.map((r) => r.shop_id),
       shop_roles,
       allowed_shops,

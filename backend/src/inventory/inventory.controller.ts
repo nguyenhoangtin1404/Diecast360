@@ -13,7 +13,7 @@ import { ReverseInventoryTransactionDto } from './dto/reverse-inventory-transact
 
 @Controller('inventory/items/:itemId/transactions')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
-@Roles(ShopRole.shop_admin, ShopRole.super_admin)
+@Roles(ShopRole.shop_admin, ShopRole.shop_staff)
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 

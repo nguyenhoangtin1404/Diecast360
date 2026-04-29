@@ -330,7 +330,8 @@ export class ShopsService {
   }
 
   /**
-   * Add or update a user as `shop_admin` in a given shop.
+   * Add or update a user's role in a given shop.
+   * Accepts shop_admin or shop_staff (default: shop_admin).
    * Idempotent via `upsert` on composite key `(user_id, shop_id)`.
    */
   async addShopAdmin(shopId: string, dto: AddShopAdminDto, actorUserId?: string | null) {
@@ -339,6 +340,8 @@ export class ShopsService {
     if (dto.user_id && !isUUID(dto.user_id)) {
       throw new AppException(ErrorCode.VALIDATION_ERROR, 'user_id must be a valid UUID.');
     }
+
+    const assignedRole: ShopRole = dto.role ?? ShopRole.shop_admin;
 
     const user =
       dto.user_id != null
@@ -368,16 +371,16 @@ export class ShopsService {
 
         const upserted = await tx.userShopRole.upsert({
           where: { user_id_shop_id: { user_id: created.id, shop_id: shopId } },
-          create: { user_id: created.id, shop_id: shopId, role: ShopRole.shop_admin },
-          update: { role: ShopRole.shop_admin },
+          create: { user_id: created.id, shop_id: shopId, role: assignedRole },
+          update: { role: assignedRole },
         });
 
-        const safeMetadata = JSON.stringify({ email: dto.email, created_user: true });
+        const safeMetadata = JSON.stringify({ email: dto.email, created_user: true, role: assignedRole });
         await tx.shopAuditLog.create({
           data: {
             shop_id: shopId,
             actor_user_id: actorUserId ?? null,
-            action: ShopAuditAction.add_shop_admin,
+            action: ShopAuditAction.set_shop_member_role,
             target_type: 'user',
             target_id: created.id,
             metadata_json: safeMetadata,
@@ -390,16 +393,16 @@ export class ShopsService {
 
     const upserted = await this.prisma.userShopRole.upsert({
       where: { user_id_shop_id: { user_id: user.id, shop_id: shopId } },
-      create: { user_id: user.id, shop_id: shopId, role: ShopRole.shop_admin },
-      update: { role: ShopRole.shop_admin },
+      create: { user_id: user.id, shop_id: shopId, role: assignedRole },
+      update: { role: assignedRole },
     });
     await this.logAudit(
       shopId,
-      ShopAuditAction.add_shop_admin,
+      ShopAuditAction.set_shop_member_role,
       actorUserId ?? null,
       'user',
       user.id,
-      { email: dto.email ?? null, created_user: false },
+      { email: dto.email ?? null, created_user: false, role: assignedRole },
     );
     return upserted;
   }
