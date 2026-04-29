@@ -5,11 +5,11 @@
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Roadmap phases 1–14 complete in planning; Phase 13 (Playwright Phase 2) shipped 2026-04-29.
+**Current focus:** Phase 16 planning added (per-shop public catalog/homepage, PBLC-03); Phase 15 RBAC execution pending.
 
 ## Current Position
 
-Phase: **14 of 14** (roadmap complete)
+Phase: **16** planned (public shop-scoped homepage); **15** RBAC execution pending
 Plan: Phase 13 **đã hoàn thành** (13-01, 13-02, 13-03)
 Status: Phase 13 complete (2026-04-29). Advanced E2E, Playwright CI stability, documented E2E gate policy.
 Last activity: 2026-04-29 — spinner/social-selling/responsive E2E, `stubAuthCsrf`, CI retries/workers.

@@ -21,6 +21,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 13: Issue #33 - Playwright Phase 2** - Extended E2E coverage and quality-gate hardening. *(2026-04-29)*
 - [x] **Phase 14: Multi-Tenant Shop** - Support multiple isolated diecast shops on a single deployment with scoped access.
 - [ ] **Phase 15: Admin RBAC & Tenant Authorization** - Separate platform operator permissions from per-shop roles; extend shop roles (e.g. read-only staff) and align API + admin UI.
+- [ ] **Phase 16: Per-Shop Public Homepage** - Resolve public catalog and item detail to a single shop tenant via URL or explicit query param, aligned with existing multi-tenant isolation.
 
 ## Phase Details
 
@@ -176,6 +177,7 @@ Plans:
 | 13. Issue #33 - Playwright Phase 2 | 3/3 | Complete | 2026-04-29 |
 | 14. Multi-Tenant Shop | 3/3 | Complete | 2026-03-23 |
 | 15. Admin RBAC & Tenant Authorization | 0/3 | Planned | — |
+| 16. Per-Shop Public Homepage | 0/3 | Planned | — |
 
 ## Execution Update (2026-03-04)
 
@@ -304,6 +306,7 @@ Implemented in codebase for Phase 13:
 
 Phases not yet complete and pending tasks:
 - Phase 15: Admin RBAC & Tenant Authorization — plans authored; execution pending (`15-01` through `15-03`).
+- Phase 16: Per-Shop Public Homepage — plans authored; execution pending (`16-01` through `16-03`).
 
 Partially executed phases (still pending full completion):
 - None.
@@ -331,6 +334,18 @@ Plans:
 - [ ] 15-01: Schema — `PlatformRole`, `User.platform_role`, extend `ShopRole` / audit enums, backfill from legacy `super_admin` memberships
 - [ ] 15-02: Backend — `RolesGuard`, platform-only routes, `shop_staff` read/write matrix, shops member role DTOs, tests
 - [ ] 15-03: Frontend — capability-based admin UI, member role picker, automated regression tests
+
+### Phase 16: Per-Shop Public Homepage
+
+**Goal:** Public visitors always see catalog and item detail scoped to exactly one shop; shareable URLs identify the shop without relying on admin JWT `active_shop_id`.
+**Requirements:** PBLC-03, MULT-01, MULT-03
+**Depends on:** Phase 14 (multi-tenant foundation); coordinates with Phase 15 only if public resolution must respect new platform vs shop role semantics (prefer no hard dependency).
+**Plans:** 3 plans
+
+Plans:
+- [ ] 16-01: Backend — optional `shop_id` on public item list/detail; resolve by UUID or `Shop.slug`; 404 for unknown/inactive shop; tests + contract docs
+- [ ] 16-02: Frontend — route or query resolution for shop context; catalog + detail + deep links preserve `shop_id`; optional default shop env for single-tenant deploys
+- [ ] 16-03: E2E + regression — Playwright scenarios for two shops, cross-tenant negative case, link builder smoke for public nav
 
 ## Execution Update (2026-04-20) — Security / media follow-up (ngoài số phase)
 
