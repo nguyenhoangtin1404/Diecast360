@@ -43,5 +43,5 @@ export class AddShopAdminDto {
    */
   @IsOptional()
   @IsEnum([ShopRole.shop_admin, ShopRole.shop_staff])
-  role?: ShopRole.shop_admin | ShopRole.shop_staff;
+  role?: typeof ShopRole.shop_admin | typeof ShopRole.shop_staff;
 }
