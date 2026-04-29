@@ -16,7 +16,22 @@ export interface JwtUserShopRole {
   role: ShopRole;
 }
 
-/** HTTP methods that are considered safe/read-only for shop_staff enforcement. */
+/**
+ * HTTP methods considered safe/read-only for shop_staff enforcement (Option C).
+ *
+ * All controllers that include shop_staff in @Roles(...) use this set for
+ * enforcement at the guard level. There are no non-standard HTTP verbs in
+ * this codebase — all routes use the standard NestJS method decorators
+ * (@Get, @Post, @Patch, @Delete, @Put) which map 1:1 to HTTP methods.
+ * WebSocket / SSE / RPC routes do not use RolesGuard.
+ *
+ * Audit of @Roles(super_admin) usages NOT migrated to @PlatformRoles:
+ * None remain. All former @Roles(super_admin) routes have been converted:
+ *   - ShopsController    → @PlatformRoles(platform_super)  (class-level)
+ *   - CategoriesController → @PlatformRoles(platform_super) (per-route)
+ * Any new route using @Roles(ShopRole.super_admin) will be handled by the
+ * platform-role branch of this guard (see "Legacy compatibility" below).
+ */
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**

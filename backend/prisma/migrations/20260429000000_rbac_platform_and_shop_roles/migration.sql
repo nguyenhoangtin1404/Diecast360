@@ -9,6 +9,11 @@ CREATE TYPE "PlatformRole" AS ENUM ('platform_super');
 ALTER TABLE "users" ADD COLUMN "platform_role" "PlatformRole";
 
 -- 3. Backfill: any user with at least one super_admin shop row → platform_super
+--
+-- Safety note: user_shop_roles has NO soft-delete, NO deleted_at, NO is_active column.
+-- Rows only exist for active memberships — they are hard-deleted on CASCADE when a User
+-- or Shop is removed, and are never updated except via upsert (role change).
+-- Therefore this WHERE clause covers exactly the current active super_admin set.
 UPDATE "users"
 SET "platform_role" = 'platform_super'
 WHERE "id" IN (
