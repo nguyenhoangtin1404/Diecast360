@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Roadmap phases 1–14 complete in planning; Phase 13 (Playwright Phase 2) shipped 2026-04-29.
+**Current focus:** Roadmap phases 1–15 complete; Phase 15 (Admin RBAC & Tenant Authorization) shipped 2026-04-29.
 
 ## Current Position
 
-Phase: **14 of 14** (roadmap complete)
-Plan: Phase 13 **đã hoàn thành** (13-01, 13-02, 13-03)
-Status: Phase 13 complete (2026-04-29). Advanced E2E, Playwright CI stability, documented E2E gate policy.
-Last activity: 2026-04-29 — spinner/social-selling/responsive E2E, `stubAuthCsrf`, CI retries/workers.
+Phase: **15 of 15** (roadmap complete)
+Plan: Phase 15 **đã hoàn thành** (15-01, 15-02, 15-03)
+Status: Phase 15 complete (2026-04-29). Platform RBAC, shop_staff role, dual-layer guard, modal role picker.
+Last activity: 2026-04-29 — PlatformRole schema+migration, RolesGuard Option C, @PlatformRoles decorator, frontend platform gates.
 
 Progress: [##########] 100% (roadmap)
 
@@ -52,6 +52,7 @@ Progress: [##########] 100% (roadmap)
 - (2026-04-23) Completed Phase 11 membership foundation: tier/member/ledger schema + constraints, deterministic points/tier rule engine, tenant-scoped members APIs, admin members dashboard, and members Playwright smoke scenario.
 - (2026-04-24) Completed Phase 12 Playwright baseline: shared fixture layer (`fixtures/index.ts`), auth/items/public-catalog smoke specs (10 passing E2E tests total with 32 across full suite), CI Playwright report artifact upload on failure, HTML reporter, QA workflow docs.
 - (2026-04-29) Completed Phase 13: advanced Playwright specs (`spinner`, `social-selling`, `responsive`), CI runner tuning (retries/workers), E2E triage notes in `docs/TODO.md`, `stubAuthCsrf` helper for admin mocks.
+- (2026-04-29) Completed Phase 15: PlatformRole enum + User.platform_role migration+backfill; dual-layer RolesGuard (platform_role check + shop_staff HTTP-method enforcement — Option C); @PlatformRoles decorator; AddShopAdminDto extended with role field; frontend isPlatformSuper + useIsSuperAdmin updated; AddMemberModal role picker (shop_admin/shop_staff); audit labels for new actions.
 
 ### Pending Todos
 
@@ -63,6 +64,6 @@ Progress: [##########] 100% (roadmap)
 
 ## Session Continuity
 
-Last session: 2026-04-29 (Phase 13 Playwright Phase 2)
-Stopped at: Phase 13 complete; all roadmap phases through 14 are done in repo planning
-Resume file: `.planning/phases/13-issue-33-playwright-automation-phase-2/13-03-PLAN.md`
+Last session: 2026-04-29 (Phase 15 Admin RBAC & Tenant Authorization)
+Stopped at: Phase 15 complete; all 15 roadmap phases done
+Resume file: `.planning/phases/15-admin-rbac-tenant-refinement/15-03-PLAN.md`

@@ -20,7 +20,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 12: Issue #44 - Playwright Phase 1** - E2E smoke automation setup and CI integration. *(2026-04-24)*
 - [x] **Phase 13: Issue #33 - Playwright Phase 2** - Extended E2E coverage and quality-gate hardening. *(2026-04-29)*
 - [x] **Phase 14: Multi-Tenant Shop** - Support multiple isolated diecast shops on a single deployment with scoped access.
-- [ ] **Phase 15: Admin RBAC & Tenant Authorization** - Separate platform operator permissions from per-shop roles; extend shop roles (e.g. read-only staff) and align API + admin UI.
+- [x] **Phase 15: Admin RBAC & Tenant Authorization** - Separate platform operator permissions from per-shop roles; extend shop roles (e.g. read-only staff) and align API + admin UI.
 
 ## Phase Details
 
@@ -175,7 +175,7 @@ Plans:
 | 12. Issue #44 - Playwright Phase 1 | 3/3 | Complete | 2026-04-24 |
 | 13. Issue #33 - Playwright Phase 2 | 3/3 | Complete | 2026-04-29 |
 | 14. Multi-Tenant Shop | 3/3 | Complete | 2026-03-23 |
-| 15. Admin RBAC & Tenant Authorization | 0/3 | Planned | — |
+| 15. Admin RBAC & Tenant Authorization | 3/3 | Complete | 2026-04-29 |
 
 ## Execution Update (2026-03-04)
 
@@ -303,7 +303,7 @@ Implemented in codebase for Phase 13:
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet complete and pending tasks:
-- Phase 15: Admin RBAC & Tenant Authorization — plans authored; execution pending (`15-01` through `15-03`).
+- Phase 15: Admin RBAC & Tenant Authorization — **complete** (2026-04-29). All 3 plans executed.
 
 Partially executed phases (still pending full completion):
 - None.
@@ -328,9 +328,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 15-01: Schema — `PlatformRole`, `User.platform_role`, extend `ShopRole` / audit enums, backfill from legacy `super_admin` memberships
-- [ ] 15-02: Backend — `RolesGuard`, platform-only routes, `shop_staff` read/write matrix, shops member role DTOs, tests
-- [ ] 15-03: Frontend — capability-based admin UI, member role picker, automated regression tests
+- [x] 15-01: Schema — `PlatformRole`, `User.platform_role`, extend `ShopRole` / audit enums, backfill from legacy `super_admin` memberships
+- [x] 15-02: Backend — `RolesGuard`, platform-only routes, `shop_staff` read/write matrix, shops member role DTOs, tests
+- [x] 15-03: Frontend — capability-based admin UI, member role picker, automated regression tests
 
 ## Execution Update (2026-04-20) — Security / media follow-up (ngoài số phase)
 
