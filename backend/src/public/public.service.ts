@@ -5,6 +5,7 @@ import { AppException, ErrorCode } from '../common/exceptions/http-exception.fil
 import { QueryPublicItemsDto } from './dto/query-public-items.dto';
 import { Prisma } from '../generated/prisma/client';
 import { toNumber } from '../common/utils/decimal.utils';
+import { totalPagesFromCount } from '../common/utils/pagination.utils';
 
 @Injectable()
 export class PublicService {
@@ -153,7 +154,7 @@ export class PublicService {
         page,
         page_size: pageSize,
         total,
-        total_pages: Math.ceil(total / pageSize),
+        total_pages: totalPagesFromCount(total, pageSize),
       },
     };
   }

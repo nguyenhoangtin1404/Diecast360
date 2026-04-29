@@ -10,6 +10,7 @@ import { EmbeddingService, EmbeddingUnavailableError } from '../ai/embedding.ser
 import { QueryItemsDto } from './dto/query-items.dto';
 import type { VectorSyncItem, ItemWithCoverImage, CsvFieldValue } from '../common/types/item.types';
 import { toNumber } from '../common/utils/decimal.utils';
+import { totalPagesFromCount } from '../common/utils/pagination.utils';
 import { FacebookGraphService } from '../integrations/facebook/facebook-graph.service';
 import { FacebookConfigService } from '../integrations/facebook/facebook-config.service';
 import { PublishFacebookPostDto } from './dto/publish-facebook-post.dto';
@@ -278,7 +279,7 @@ Condition: ${item.condition || ''}`;
         page,
         page_size: pageSize,
         total,
-        total_pages: Math.ceil(total / pageSize),
+        total_pages: totalPagesFromCount(total, pageSize),
       },
     };
   }

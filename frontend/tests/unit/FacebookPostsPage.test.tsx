@@ -16,13 +16,13 @@ const h = vi.hoisted(() => ({
     get: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => ({
       data: {
         items: [],
-        pagination: { page: 1, page_size: 20, total: 0, total_pages: 0 },
+        pagination: { page: 1, page_size: 20, total: 0, total_pages: 1 },
       },
     })),
   },
   queryData: {
     items: [],
-    pagination: { page: 1, page_size: 20, total: 0, total_pages: 0 },
+    pagination: { page: 1, page_size: 20, total: 0, total_pages: 1 },
   } as FacebookPostsQueryData,
 }));
 
