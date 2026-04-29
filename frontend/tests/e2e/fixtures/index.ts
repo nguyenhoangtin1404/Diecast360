@@ -107,4 +107,11 @@ export const test = base.extend<TestFixtures>({
   },
 });
 
+/** Stub CSRF bootstrap so Vite proxy does not block admin flows in E2E. */
+export async function stubAuthCsrf(page: Page) {
+  await page.route('**/api/v1/auth/csrf', (route: Route) =>
+    route.fulfill({ status: 200, json: {} }),
+  );
+}
+
 export { expect };

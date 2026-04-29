@@ -72,6 +72,9 @@ frontend/tests/e2e/
   public-catalog.spec.ts     # smoke: public catalog (không cần auth)
   preorders.spec.ts          # smoke: pre-order admin
   reports.spec.ts            # smoke: reports page
+  spinner.spec.ts            # spinner reorder + upload (mocked API)
+  social-selling.spec.ts     # AI FB caption, save, link history
+  responsive.spec.ts         # admin items at mobile viewport
 ```
 
 ### Đọc báo cáo CI
@@ -85,6 +88,12 @@ frontend/tests/e2e/
 - Dùng `page.screenshot({ path: 'debug.png' })` để chụp màn hình.
 - Các selector dùng role/text thay vì CSS class (CSS Modules sinh tên ngẫu nhiên).
 - Mock `/api/v1/auth/csrf` để tránh Vite proxy 502 làm chậm auth trong test.
+
+### E2E gate trên PR (Phase 13 / Issue #33)
+- Job **Frontend** trong GitHub Actions là **required check** trên nhánh được bảo vệ: PR không merge nếu Playwright fail (cùng job với lint, `tsc`, unit test).
+- **Fail thật vs flaky:** xem trace/screenshot trong artifact `playwright-report`. Nếu chỉ fail trên một shard/lần chạy và pass khi re-run toàn job → nghi flaky; nếu fail lặp lại cùng spec → ưu tiên sửa code hoặc mock/route.
+- **Rerun:** trên PR dùng "Re-run failed jobs" hoặc "Re-run all jobs"; không merge khi job Frontend còn đỏ.
+- **Sửa test:** giữ mock API deterministic (`fixtures`, `stubAuthCsrf`); tránh `waitForTimeout` cố định, ưu tiên `expect(...).toBeVisible()` / `toHaveValue()` với timeout hợp lý.
 
 ## Ghi chú
 - #44 và #33 được tách thành 2 giai đoạn để triển khai an toàn.
