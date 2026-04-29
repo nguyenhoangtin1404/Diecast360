@@ -4,10 +4,14 @@ import { AiService } from './ai.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GenerateAiDescriptionDto, GenerateFbPostDto } from './dto/ai-description.dto';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { ShopRole } from '../generated/prisma/client';
 import { CurrentTenantId } from '../common/decorators/tenant.decorator';
 
 @Controller('items')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@Roles(ShopRole.shop_admin, ShopRole.shop_staff)
 export class AiController {
   constructor(private readonly aiService: AiService) {}
 

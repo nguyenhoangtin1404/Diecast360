@@ -83,8 +83,10 @@ export class RolesGuard implements CanActivate {
     }
 
     // ── Platform layer ───────────────────────────────────────────────────────
-    // Handle @PlatformRoles(...) explicitly, and handle legacy @Roles(super_admin)
-    // by mapping it to platform_role check (strict after migration backfill).
+    // `user.platform_role` is populated by AuthService.validateUser() which runs a
+    // fresh DB query on every authenticated request (JwtStrategy.validate → validateUser).
+    // It is NOT cached in the JWT token itself, so role changes take effect on the
+    // very next request without requiring a token refresh or re-login.
     const requiresPlatform =
       (platformRoles && platformRoles.length > 0) ||
       (requiredRoles && requiredRoles.includes(ShopRole.super_admin));
