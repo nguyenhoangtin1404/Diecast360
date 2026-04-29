@@ -32,7 +32,7 @@ export const FacebookPostsPage = () => {
   });
 
   const items: AdminItem[] = data?.items || [];
-  const pagination: Pagination = data?.pagination || { page: 1, page_size: 20, total: 0, total_pages: 0 };
+  const pagination: Pagination = data?.pagination || { page: 1, page_size: 20, total: 0, total_pages: 1 };
 
   return (
     <div className={styles.container}>

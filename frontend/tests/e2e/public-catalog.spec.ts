@@ -59,7 +59,7 @@ test.describe('Public catalog smoke', () => {
     // LIFO: this override takes priority over the beforeEach public/items mock
     await page.route('**/api/v1/public/items**', (route: Route) =>
       route.fulfill({
-        json: apiOk({ items: [], pagination: { total: 0, page: 1, page_size: 20, total_pages: 0 } }),
+        json: apiOk({ items: [], pagination: { total: 0, page: 1, page_size: 20, total_pages: 1 } }),
       }),
     );
     await page.goto('/');

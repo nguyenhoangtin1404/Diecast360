@@ -443,6 +443,17 @@ describe('ItemsService', () => {
       expect(result.items[0].attributes).toEqual({});
     });
 
+    it('should report total_pages as 1 when total is 0', async () => {
+      prisma.item.findMany.mockResolvedValue([]);
+      prisma.item.count.mockResolvedValue(0);
+
+      const result = await service.findAll({}, TEST_SHOP_ID);
+
+      expect(result.items).toHaveLength(0);
+      expect(result.pagination.total).toBe(0);
+      expect(result.pagination.total_pages).toBe(1);
+    });
+
     it('should filter by status', async () => {
       prisma.item.findMany.mockResolvedValue([]);
       prisma.item.count.mockResolvedValue(0);

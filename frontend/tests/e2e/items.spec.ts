@@ -73,7 +73,7 @@ test.describe('Admin items list smoke', () => {
     // LIFO: this override takes priority over the beforeEach items mock
     await authenticatedPage.route('**/api/v1/items*', (route: Route) =>
       route.fulfill({
-        json: apiOk({ items: [], pagination: { total: 0, page: 1, page_size: 20, total_pages: 0 } }),
+        json: apiOk({ items: [], pagination: { total: 0, page: 1, page_size: 20, total_pages: 1 } }),
       }),
     );
     await authenticatedPage.goto('/admin/items');

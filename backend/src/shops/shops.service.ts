@@ -13,6 +13,7 @@ import * as bcrypt from 'bcrypt';
 import { isUUID } from 'class-validator';
 import { IStorageService } from '../storage/storage.interface';
 import { toNumber } from '../common/utils/decimal.utils';
+import { totalPagesFromCount } from '../common/utils/pagination.utils';
 
 const MAX_SLUG_ALLOCATION_ATTEMPTS = 32;
 
@@ -217,7 +218,7 @@ export class ShopsService {
         page,
         page_size: pageSize,
         total,
-        total_pages: Math.ceil(total / pageSize),
+        total_pages: totalPagesFromCount(total, pageSize),
       },
     };
   }
@@ -275,7 +276,7 @@ export class ShopsService {
         page,
         page_size: pageSize,
         total,
-        total_pages: Math.ceil(total / pageSize),
+        total_pages: totalPagesFromCount(total, pageSize),
       },
     };
   }
@@ -323,7 +324,7 @@ export class ShopsService {
         page,
         page_size: pageSize,
         total,
-        total_pages: Math.ceil(total / pageSize),
+        total_pages: totalPagesFromCount(total, pageSize),
       },
     };
   }

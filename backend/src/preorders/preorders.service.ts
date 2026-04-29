@@ -9,6 +9,7 @@ import { PreOrderDomainException } from './domain/preorder-domain.exception';
 import { CreatePreorderDto } from './dto/create-preorder.dto';
 import { UpdatePreorderDto } from './dto/update-preorder.dto';
 import { QueryPreordersDto } from './dto/query-preorders.dto';
+import { totalPagesFromCount } from '../common/utils/pagination.utils';
 
 @Injectable()
 export class PreordersService {
@@ -310,7 +311,7 @@ export class PreordersService {
         page,
         page_size: pageSize,
         total,
-        total_pages: Math.ceil(total / pageSize),
+        total_pages: totalPagesFromCount(total, pageSize),
       },
     };
   }
@@ -400,7 +401,7 @@ export class PreordersService {
         page,
         page_size: pageSize,
         total,
-        total_pages: Math.ceil(total / pageSize),
+        total_pages: totalPagesFromCount(total, pageSize),
       },
     };
   }
@@ -457,7 +458,7 @@ export class PreordersService {
         page,
         page_size: pageSize,
         total,
-        total_pages: Math.ceil(total / pageSize),
+        total_pages: totalPagesFromCount(total, pageSize),
       },
     };
   }

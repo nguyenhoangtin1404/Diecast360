@@ -8,7 +8,7 @@ const h = vi.hoisted(() => ({
     get: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => ({
       data: {
         items: [],
-        pagination: { page: 1, page_size: 20, total: 0, total_pages: 0 },
+        pagination: { page: 1, page_size: 20, total: 0, total_pages: 1 },
       },
     })),
     patch: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => ({})),
@@ -36,7 +36,7 @@ vi.mock('@tanstack/react-query', () => ({
   useQuery: ({ queryFn }: { queryFn: () => Promise<unknown> }) => {
     void queryFn();
     return {
-      data: { items: [], pagination: { page: 1, page_size: 20, total: 0, total_pages: 0 } },
+      data: { items: [], pagination: { page: 1, page_size: 20, total: 0, total_pages: 1 } },
       isLoading: false,
       error: null,
     };
