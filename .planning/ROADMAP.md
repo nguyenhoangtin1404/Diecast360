@@ -18,7 +18,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 10: Issue #49 - Reporting and Analytics** - KPI dashboard and analytics APIs.
 - [x] **Phase 11: Issue #48 - Membership and Points** - Member tiers and points ledger system.
 - [x] **Phase 12: Issue #44 - Playwright Phase 1** - E2E smoke automation setup and CI integration. *(2026-04-24)*
-- [ ] **Phase 13: Issue #33 - Playwright Phase 2** - Extended E2E coverage and quality-gate hardening.
+- [x] **Phase 13: Issue #33 - Playwright Phase 2** - Extended E2E coverage and quality-gate hardening. *(2026-04-29)*
 - [x] **Phase 14: Multi-Tenant Shop** - Support multiple isolated diecast shops on a single deployment with scoped access.
 
 ## Phase Details
@@ -152,9 +152,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 13-01: Add advanced E2E coverage for feature-heavy flows
-- [ ] 13-02: Stabilize flaky tests with isolation and reliability tuning
-- [ ] 13-03: Promote E2E to required quality gate in CI
+- [x] 13-01: Add advanced E2E coverage for feature-heavy flows
+- [x] 13-02: Stabilize flaky tests with isolation and reliability tuning
+- [x] 13-03: Promote E2E to required quality gate in CI
 
 ## Progress
 
@@ -172,7 +172,7 @@ Plans:
 | 10. Issue #49 - Reporting and Analytics | 2/2 | Complete | 2026-04-23 |
 | 11. Issue #48 - Membership and Points | 2/2 | Complete | 2026-04-23 |
 | 12. Issue #44 - Playwright Phase 1 | 3/3 | Complete | 2026-04-24 |
-| 13. Issue #33 - Playwright Phase 2 | 0/3 | Not started | - |
+| 13. Issue #33 - Playwright Phase 2 | 3/3 | Complete | 2026-04-29 |
 | 14. Multi-Tenant Shop | 3/3 | Complete | 2026-03-23 |
 
 ## Execution Update (2026-03-04)
@@ -290,10 +290,18 @@ Implemented in codebase for Phase 11:
 - Added admin `MembersPage` for list/search, member creation, points adjustment, and ledger timeline.
 - Added frontend smoke coverage for members dashboard route and ledger rendering (`frontend/tests/e2e/members.spec.ts`).
 
+## Execution Update (2026-04-29, Phase 13)
+
+Implemented in codebase for Phase 13:
+- Added E2E specs: `spinner.spec.ts` (frame reorder + upload against mocked APIs), `social-selling.spec.ts` (AI FB caption, PATCH save, manual Facebook link), `responsive.spec.ts` (admin items at mobile viewport).
+- Shared item-detail mock helper `tests/e2e/utils/item-detail-mocks.ts` and `stubAuthCsrf` in fixtures for deterministic admin setup.
+- Playwright CI tuning: `retries: 2`, `workers: 2` on CI; workflow comment clarifies **Frontend** job as required gate (Playwright + lint + unit tests).
+- Documented E2E triage/rerun policy in `docs/TODO.md`.
+
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet complete and pending tasks:
-- Phase 13: `13-01`, `13-02`, `13-03` Extended E2E coverage and quality gates.
+- None.
 
 Partially executed phases (still pending full completion):
 - None.

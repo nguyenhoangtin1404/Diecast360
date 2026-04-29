@@ -69,6 +69,7 @@ jobs:
   # Frontend Job
   # ============================================
   frontend:
+    # Branch protection: require this job (includes lint, typecheck, unit tests, Playwright E2E).
     name: Frontend
     runs-on: ubuntu-latest
     defaults:

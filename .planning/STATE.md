@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 13 — Playwright Phase 2 (Issue #33) extended coverage and quality-gate hardening.
+**Current focus:** Roadmap phases 1–14 complete in planning; Phase 13 (Playwright Phase 2) shipped 2026-04-29.
 
 ## Current Position
 
-Phase: **12 of 14**
-Plan: Phase 12 **đã hoàn thành** (12-01, 12-02, 12-03)
-Status: Phase 12 complete (2026-04-24). Next phase: 13 (Playwright Phase 2).
-Last activity: 2026-04-24 — Fixtures baseline, auth/items/public-catalog smoke specs, CI artifact upload.
+Phase: **14 of 14** (roadmap complete)
+Plan: Phase 13 **đã hoàn thành** (13-01, 13-02, 13-03)
+Status: Phase 13 complete (2026-04-29). Advanced E2E, Playwright CI stability, documented E2E gate policy.
+Last activity: 2026-04-29 — spinner/social-selling/responsive E2E, `stubAuthCsrf`, CI retries/workers.
 
-Progress: [##########] 100% (Phase 12)
+Progress: [##########] 100% (roadmap)
 
 ## Performance Metrics
 
@@ -51,11 +51,11 @@ Progress: [##########] 100% (Phase 12)
 - (2026-04-20) Pre-order Phase 9 closure: public `/preorders` không phụ thuộc auth khi có `shop_id`/env; admin campaign selection ổn định; lỗi chuyển trạng thái hiển thị message backend; unit test cho extract message.
 - (2026-04-23) Completed Phase 11 membership foundation: tier/member/ledger schema + constraints, deterministic points/tier rule engine, tenant-scoped members APIs, admin members dashboard, and members Playwright smoke scenario.
 - (2026-04-24) Completed Phase 12 Playwright baseline: shared fixture layer (`fixtures/index.ts`), auth/items/public-catalog smoke specs (10 passing E2E tests total with 32 across full suite), CI Playwright report artifact upload on failure, HTML reporter, QA workflow docs.
+- (2026-04-29) Completed Phase 13: advanced Playwright specs (`spinner`, `social-selling`, `responsive`), CI runner tuning (retries/workers), E2E triage notes in `docs/TODO.md`, `stubAuthCsrf` helper for admin mocks.
 
 ### Pending Todos
 
 - Merge nhánh `feat/security-signed-media-csrf-throttle` + cập nhật `docs/API_CONTRACT.md` / `ENV.md` nếu chưa làm.
-- Phase 13: Playwright Phase 2 — extended coverage and quality-gate hardening (Issue #33).
 
 ### Blockers/Concerns
 
@@ -63,6 +63,6 @@ Progress: [##########] 100% (Phase 12)
 
 ## Session Continuity
 
-Last session: 2026-04-23 (Phase 11 implementation)
-Stopped at: Phase 11 marked complete; ready to start Phase 12
-Resume file: `.planning/phases/12-issue-44-playwright-automation-phase-1/12-01-PLAN.md`
+Last session: 2026-04-29 (Phase 13 Playwright Phase 2)
+Stopped at: Phase 13 complete; all roadmap phases through 14 are done in repo planning
+Resume file: `.planning/phases/13-issue-33-playwright-automation-phase-2/13-03-PLAN.md`
