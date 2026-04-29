@@ -20,6 +20,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 12: Issue #44 - Playwright Phase 1** - E2E smoke automation setup and CI integration. *(2026-04-24)*
 - [x] **Phase 13: Issue #33 - Playwright Phase 2** - Extended E2E coverage and quality-gate hardening. *(2026-04-29)*
 - [x] **Phase 14: Multi-Tenant Shop** - Support multiple isolated diecast shops on a single deployment with scoped access.
+- [ ] **Phase 15: Admin RBAC & Tenant Authorization** - Separate platform operator permissions from per-shop roles; extend shop roles (e.g. read-only staff) and align API + admin UI.
 
 ## Phase Details
 
@@ -174,6 +175,7 @@ Plans:
 | 12. Issue #44 - Playwright Phase 1 | 3/3 | Complete | 2026-04-24 |
 | 13. Issue #33 - Playwright Phase 2 | 3/3 | Complete | 2026-04-29 |
 | 14. Multi-Tenant Shop | 3/3 | Complete | 2026-03-23 |
+| 15. Admin RBAC & Tenant Authorization | 0/3 | Planned | — |
 
 ## Execution Update (2026-03-04)
 
@@ -301,7 +303,7 @@ Implemented in codebase for Phase 13:
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet complete and pending tasks:
-- None.
+- Phase 15: Admin RBAC & Tenant Authorization — plans authored; execution pending (`15-01` through `15-03`).
 
 Partially executed phases (still pending full completion):
 - None.
@@ -317,6 +319,18 @@ Plans:
 - [x] 14-01: Multi-tenant schema and data isolation
 - [x] 14-02: API scoping, tenant guard và shop management endpoints
 - [x] 14-03: Admin tenant selection UI và super-admin shop management
+
+### Phase 15: Admin RBAC & Tenant Authorization
+
+**Goal:** Clarify platform vs per-shop permissions, add a constrained tenant role (e.g. `shop_staff`), and align Nest guards, JWT payloads, shop member APIs, and admin UI.
+**Requirements:** MULT-04
+**Depends on:** Phase 14
+**Plans:** 3 plans
+
+Plans:
+- [ ] 15-01: Schema — `PlatformRole`, `User.platform_role`, extend `ShopRole` / audit enums, backfill from legacy `super_admin` memberships
+- [ ] 15-02: Backend — `RolesGuard`, platform-only routes, `shop_staff` read/write matrix, shops member role DTOs, tests
+- [ ] 15-03: Frontend — capability-based admin UI, member role picker, automated regression tests
 
 ## Execution Update (2026-04-20) — Security / media follow-up (ngoài số phase)
 

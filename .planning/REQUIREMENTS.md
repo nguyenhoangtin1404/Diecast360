@@ -40,6 +40,7 @@
 - [x] **MULT-01**: System supports multiple isolated shop tenants with distinct inventory, media, and settings.
 - [x] **MULT-02**: Admin users can be assigned to one or more shops with role-based access.
 - [x] **MULT-03**: API requests are scoped to the active tenant via header or token context.
+- [ ] **MULT-04**: Platform operators are distinguished from per-shop roles; tenant staff roles support read vs write separation without breaking isolation.
 
 ### UX and Operations
 
@@ -94,6 +95,7 @@
 | MULT-01 | Phase 14 | Complete (2026-03-23) |
 | MULT-02 | Phase 14 | Complete (2026-03-23) |
 | MULT-03 | Phase 14 | Complete (2026-03-23) |
+| MULT-04 | Phase 15 | Pending |
 | STOK-01 | Phase 8 | Pending |
 | PORD-01 | Phase 9 | Pending |
 | PORD-01a | Phase 9 | Pending |
@@ -108,8 +110,8 @@
 
 **Coverage:**
 - v1 requirements: 13 total
-- v2 actionable requirements: 10 total
-- Mapped to phases: 23
+- v2 actionable requirements: 11 total
+- Mapped to phases: 24
 - Unmapped: 0
 
 ---
