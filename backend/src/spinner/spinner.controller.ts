@@ -21,10 +21,14 @@ import { UploadFrameDto } from './dto/upload-frame.dto';
 import { ReorderFramesDto } from './dto/reorder-frames.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { ShopRole } from '../generated/prisma/client';
 import { CurrentTenantId } from '../common/decorators/tenant.decorator';
 
 @Controller('items/:itemId/spin-sets')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@Roles(ShopRole.shop_admin, ShopRole.shop_staff)
 export class SpinSetsController {
   constructor(private readonly spinnerService: SpinnerService) {}
 
@@ -47,7 +51,8 @@ export class SpinSetsController {
 }
 
 @Controller('spin-sets/:spinSetId')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@Roles(ShopRole.shop_admin, ShopRole.shop_staff)
 export class SpinSetController {
   constructor(private readonly spinnerService: SpinnerService) {}
 

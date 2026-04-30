@@ -17,8 +17,8 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { QueryCategoriesDto } from './dto/query-categories.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { ShopRole } from '../generated/prisma/client';
+import { PlatformRoles } from '../common/decorators/platform-roles.decorator';
+import { PlatformRole } from '../generated/prisma/client';
 
 @Controller('categories')
 export class CategoriesController {
@@ -38,28 +38,28 @@ export class CategoriesController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ShopRole.super_admin)
+  @PlatformRoles(PlatformRole.platform_super)
   create(@Body() createDto: CreateCategoryDto) {
     return this.categoriesService.create(createDto);
   }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ShopRole.super_admin)
+  @PlatformRoles(PlatformRole.platform_super)
   update(@Param('id') id: string, @Body() updateDto: UpdateCategoryDto) {
     return this.categoriesService.update(id, updateDto);
   }
 
   @Patch(':id/toggle')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ShopRole.super_admin)
+  @PlatformRoles(PlatformRole.platform_super)
   toggleActive(@Param('id') id: string) {
     return this.categoriesService.toggleActive(id);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(ShopRole.super_admin)
+  @PlatformRoles(PlatformRole.platform_super)
   @HttpCode(HttpStatus.OK)
   remove(@Param('id') id: string) {
     return this.categoriesService.remove(id);

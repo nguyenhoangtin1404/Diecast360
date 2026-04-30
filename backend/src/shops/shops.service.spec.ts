@@ -4,6 +4,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException } from '../common/exceptions/http-exception.filter';
 import { ShopRole } from '../generated/prisma/client';
 import { AddShopAdminDto } from './dto/add-shop-admin.dto';
+import { RolesGuard } from '../common/guards/roles.guard';
 import * as bcrypt from 'bcrypt';
 
 jest.mock('bcrypt', () => ({
@@ -179,6 +180,116 @@ describe('ShopsService', () => {
 
       expect(prisma.user.create).not.toHaveBeenCalled();
       expect(prisma.userShopRole.upsert).toHaveBeenCalled();
+    });
+
+    it('should assign shop_staff role when dto.role is shop_staff', async () => {
+      prisma.shop.findUnique.mockResolvedValue({ id: shopId });
+      prisma.user.findUnique.mockResolvedValue({ id: userId });
+      prisma.userShopRole.upsert.mockResolvedValue({
+        user_id: userId,
+        shop_id: shopId,
+        role: ShopRole.shop_staff,
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({});
+
+      const dto: AddShopAdminDto = { user_id: userId, role: ShopRole.shop_staff };
+      const result = await service.addShopAdmin(shopId, dto);
+
+      expect(result.role).toBe(ShopRole.shop_staff);
+      expect(prisma.userShopRole.upsert).toHaveBeenCalledWith({
+        where: { user_id_shop_id: { user_id: userId, shop_id: shopId } },
+        create: { user_id: userId, shop_id: shopId, role: ShopRole.shop_staff },
+        update: { role: ShopRole.shop_staff },
+      });
+    });
+
+    it('should default to shop_admin when dto.role is omitted', async () => {
+      prisma.shop.findUnique.mockResolvedValue({ id: shopId });
+      prisma.user.findUnique.mockResolvedValue({ id: userId });
+      prisma.userShopRole.upsert.mockResolvedValue({
+        user_id: userId,
+        shop_id: shopId,
+        role: ShopRole.shop_admin,
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({});
+
+      const dto: AddShopAdminDto = { user_id: userId };
+      await service.addShopAdmin(shopId, dto);
+
+      expect(prisma.userShopRole.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ role: ShopRole.shop_admin }),
+          update: { role: ShopRole.shop_admin },
+        }),
+      );
+    });
+
+    it('should invalidate the RolesGuard cache for the affected user after role upsert', async () => {
+      prisma.shop.findUnique.mockResolvedValue({ id: shopId });
+      prisma.user.findUnique.mockResolvedValue({ id: userId });
+      prisma.userShopRole.upsert.mockResolvedValue({
+        user_id: userId,
+        shop_id: shopId,
+        role: ShopRole.shop_staff,
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({});
+
+      // Pre-populate the shared cache to confirm it is cleared after addShopAdmin.
+      RolesGuard['shopRolesCache'].set(userId, {
+        expiresAt: Date.now() + 30_000,
+        shopRoles: [{ shop_id: shopId, role: ShopRole.shop_admin }],
+      });
+
+      await service.addShopAdmin(shopId, { user_id: userId, role: ShopRole.shop_staff });
+
+      expect(RolesGuard['shopRolesCache'].has(userId)).toBe(false);
+    });
+
+    it('should use set_shop_member_role audit action when assigning role', async () => {
+      prisma.shop.findUnique.mockResolvedValue({ id: shopId });
+      prisma.user.findUnique.mockResolvedValue({ id: userId });
+      prisma.userShopRole.upsert.mockResolvedValue({
+        user_id: userId,
+        shop_id: shopId,
+        role: ShopRole.shop_staff,
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({});
+
+      await service.addShopAdmin(shopId, { user_id: userId, role: ShopRole.shop_staff }, 'actor-1');
+
+      expect(prisma.shopAuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'set_shop_member_role',
+            actor_user_id: 'actor-1',
+          }),
+        }),
+      );
+    });
+
+    it('should create new user with shop_staff role and use set_shop_member_role audit action', async () => {
+      prisma.shop.findUnique.mockResolvedValue({ id: shopId });
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({ id: 'new-user-id' });
+      prisma.userShopRole.upsert.mockResolvedValue({
+        user_id: 'new-user-id',
+        shop_id: shopId,
+        role: ShopRole.shop_staff,
+      });
+
+      const dto: AddShopAdminDto = {
+        email: 'staff@test.com',
+        password: 'password123',
+        role: ShopRole.shop_staff,
+      };
+
+      await service.addShopAdmin(shopId, dto);
+
+      expect(prisma.userShopRole.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ role: ShopRole.shop_staff }),
+        }),
+      );
     });
   });
 

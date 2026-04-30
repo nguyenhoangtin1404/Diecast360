@@ -21,9 +21,14 @@ enum ItemStatus {
   da_ban
 }
 
+enum PlatformRole {
+  platform_super
+}
+
 enum ShopRole {
   super_admin
   shop_admin
+  shop_staff
 }
 
 enum ShopAuditAction {
@@ -33,6 +38,8 @@ enum ShopAuditAction {
   update_shop
   deactivate_shop
   activate_shop
+  set_platform_role
+  set_shop_member_role
 }
 
 enum PreOrderStatus {
@@ -95,6 +102,7 @@ model User {
   password_hash String
   full_name     String?
   role          String         @default("admin")
+  platform_role PlatformRole?
   is_active     Boolean        @default(true)
   created_at    DateTime       @default(now())
   updated_at    DateTime       @updatedAt

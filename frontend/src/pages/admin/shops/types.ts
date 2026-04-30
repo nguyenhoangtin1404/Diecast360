@@ -35,7 +35,9 @@ export interface ShopAuditLogRow {
     | 'set_member_active'
     | 'update_shop'
     | 'deactivate_shop'
-    | 'activate_shop';
+    | 'activate_shop'
+    | 'set_platform_role'
+    | 'set_shop_member_role';
   target_type: string;
   target_id: string | null;
   metadata: Record<string, unknown> | null;

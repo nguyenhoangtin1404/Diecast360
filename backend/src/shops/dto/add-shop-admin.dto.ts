@@ -1,4 +1,5 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, IsUUID, MinLength, ValidateIf } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MinLength, ValidateIf } from 'class-validator';
+import { ShopRole } from '../../generated/prisma/client';
 
 export class AddShopAdminDto {
   /**
@@ -34,5 +35,13 @@ export class AddShopAdminDto {
   @IsString()
   @IsNotEmpty()
   full_name?: string;
-}
 
+  /**
+   * Role to assign to the member in this shop.
+   * Defaults to shop_admin if not provided.
+   * Platform-level roles (platform_super) cannot be set via this endpoint.
+   */
+  @IsOptional()
+  @IsEnum([ShopRole.shop_admin, ShopRole.shop_staff])
+  role?: typeof ShopRole.shop_admin | typeof ShopRole.shop_staff;
+}

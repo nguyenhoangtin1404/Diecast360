@@ -1,8 +1,10 @@
 import { BadRequestException, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ShopRole } from '../../generated/prisma/client';
+import { PlatformRole, ShopRole } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { PLATFORM_ROLES_KEY } from '../decorators/platform-roles.decorator';
+import { ALLOW_STAFF_WRITE_KEY } from '../decorators/allow-staff-write.decorator';
 import { RolesGuard } from './roles.guard';
 
 describe('RolesGuard', () => {
@@ -10,105 +12,208 @@ describe('RolesGuard', () => {
   let reflector: Reflector;
   let prisma: { userShopRole: { findMany: jest.Mock } };
 
-  const createContext = (requestUser: unknown): ExecutionContext =>
+  const createContext = (requestUser: unknown, method = 'GET'): ExecutionContext =>
     ({
       getHandler: () => jest.fn(),
       getClass: () => class TestController {},
       switchToHttp: () => ({
-        getRequest: () => ({ user: requestUser }),
+        getRequest: () => ({ user: requestUser, method }),
       }),
     }) as unknown as ExecutionContext;
 
+  const mockReflector = (
+    platformRoles?: PlatformRole[],
+    shopRoles?: ShopRole[],
+    allowStaffWrite?: boolean,
+  ) => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key) => {
+      if (key === PLATFORM_ROLES_KEY) return platformRoles ?? null;
+      if (key === ROLES_KEY) return shopRoles ?? null;
+      if (key === ALLOW_STAFF_WRITE_KEY) return allowStaffWrite ?? null;
+      return null;
+    });
+  };
+
   beforeEach(() => {
     reflector = new Reflector();
-    prisma = {
-      userShopRole: {
-        findMany: jest.fn(),
-      },
-    };
+    prisma = { userShopRole: { findMany: jest.fn() } };
     guard = new RolesGuard(reflector, prisma as unknown as PrismaService);
+    // Clear the static cache between tests to prevent cross-test contamination.
+    RolesGuard['shopRolesCache'].clear();
   });
+
+  // ── No metadata ─────────────────────────────────────────────────────────────
 
   it('allows access when no roles metadata', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(undefined);
+    mockReflector();
     await expect(guard.canActivate(createContext(null))).resolves.toBe(true);
   });
 
-  it('allows access when required roles array is empty', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([]);
+  it('allows access when both role arrays are empty', async () => {
+    mockReflector([], []);
     await expect(guard.canActivate(createContext(null))).resolves.toBe(true);
   });
 
-  it('throws when user is missing', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([ShopRole.super_admin]);
+  // ── Platform layer ───────────────────────────────────────────────────────────
+
+  it('allows platform_super user on @PlatformRoles route', async () => {
+    mockReflector([PlatformRole.platform_super]);
+    const ctx = createContext({ id: 'u1', platform_role: PlatformRole.platform_super });
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+  });
+
+  it('denies user without platform_role on @PlatformRoles route', async () => {
+    mockReflector([PlatformRole.platform_super]);
+    const ctx = createContext({ id: 'u1', platform_role: null });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('throws ForbiddenException when user is missing on platform route', async () => {
+    mockReflector([PlatformRole.platform_super]);
     await expect(guard.canActivate(createContext(undefined))).rejects.toThrow(ForbiddenException);
   });
 
-  it('allows super_admin when already present on request user', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([ShopRole.super_admin]);
-    const context = createContext({
-      id: 'u1',
-      shop_roles: [{ shop_id: 's1', role: ShopRole.super_admin }],
-    });
+  // ── Legacy @Roles(super_admin) mapped to platform_role ──────────────────────
 
-    await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(prisma.userShopRole.findMany).not.toHaveBeenCalled();
+  it('allows platform_super user on legacy @Roles(super_admin) route', async () => {
+    mockReflector(undefined, [ShopRole.super_admin]);
+    const ctx = createContext({
+      id: 'u1',
+      platform_role: PlatformRole.platform_super,
+      shop_roles: [],
+    });
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
 
-  it('loads roles from db when request user has no shop_roles', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([ShopRole.super_admin]);
-    prisma.userShopRole.findMany.mockResolvedValue([{ shop_id: 's1', role: ShopRole.super_admin }]);
+  it('denies user without platform_role on legacy @Roles(super_admin) route', async () => {
+    mockReflector(undefined, [ShopRole.super_admin]);
+    prisma.userShopRole.findMany.mockResolvedValue([]);
+    const ctx = createContext({ id: 'u1', platform_role: null });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
 
-    await expect(guard.canActivate(createContext({ id: 'u1' }))).resolves.toBe(true);
+  // ── Tenant layer ─────────────────────────────────────────────────────────────
+
+  it('allows shop_admin with matching active_shop_id', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin]);
+    const ctx = createContext({
+      id: 'u1',
+      active_shop_id: 'shop-a',
+      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
+    });
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+  });
+
+  it('throws BadRequestException when active_shop_id is missing for tenant route', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin]);
+    const ctx = createContext({
+      id: 'u1',
+      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
+    });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(BadRequestException);
+  });
+
+  it('throws ForbiddenException when shop does not match active_shop_id', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin]);
+    const ctx = createContext({
+      id: 'u1',
+      active_shop_id: 'shop-b',
+      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
+    });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('loads roles from DB when shop_roles not on request', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin]);
+    prisma.userShopRole.findMany.mockResolvedValue([{ shop_id: 'shop-a', role: ShopRole.shop_admin }]);
+    const ctx = createContext({ id: 'u1', active_shop_id: 'shop-a' });
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
     expect(prisma.userShopRole.findMany).toHaveBeenCalledWith({
       where: { user_id: 'u1' },
       select: { shop_id: true, role: true },
     });
   });
 
-  it('throws when required role is not present after db lookup', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([ShopRole.super_admin]);
-    prisma.userShopRole.findMany.mockResolvedValue([{ shop_id: 's1', role: ShopRole.shop_admin }]);
+  // ── Option C: shop_staff HTTP method enforcement ─────────────────────────────
 
-    await expect(guard.canActivate(createContext({ id: 'u1' }))).rejects.toThrow(ForbiddenException);
+  it('allows shop_staff on GET tenant route (safe method)', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin, ShopRole.shop_staff]);
+    const ctx = createContext(
+      { id: 'u1', active_shop_id: 'shop-a', shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_staff }] },
+      'GET',
+    );
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
 
-  it('allows super_admin even when active_shop_id points to a different shop', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([ShopRole.super_admin]);
-    const context = createContext({
-      id: 'u1',
-      active_shop_id: 'shop-b',
-      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.super_admin }],
-    });
-
-    await expect(guard.canActivate(context)).resolves.toBe(true);
+  it('denies shop_staff on POST tenant route (mutating method)', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin, ShopRole.shop_staff]);
+    const ctx = createContext(
+      { id: 'u1', active_shop_id: 'shop-a', shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_staff }] },
+      'POST',
+    );
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
-  it('throws BadRequestException when tenant-scoped role is requested but active_shop_id is missing', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([ShopRole.shop_admin]);
-    const context = createContext({
-      id: 'u1',
-      // active_shop_id missing
-      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
-    });
-
-    await expect(guard.canActivate(context)).rejects.toThrow(BadRequestException);
+  it('denies shop_staff on PATCH tenant route', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin, ShopRole.shop_staff]);
+    const ctx = createContext(
+      { id: 'u1', active_shop_id: 'shop-a', shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_staff }] },
+      'PATCH',
+    );
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
-  it('allows tenant-scoped role when active_shop_id matches', async () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([ShopRole.shop_admin]);
-    const context = createContext({
-      id: 'u1',
-      active_shop_id: 'shop-a',
-      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
-    });
-
-    await expect(guard.canActivate(context)).resolves.toBe(true);
+  it('denies shop_staff on DELETE tenant route', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin, ShopRole.shop_staff]);
+    const ctx = createContext(
+      { id: 'u1', active_shop_id: 'shop-a', shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_staff }] },
+      'DELETE',
+    );
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
-  it('uses ROLES_KEY when reading metadata', async () => {
+  it('allows shop_staff on HEAD tenant route (safe method)', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin, ShopRole.shop_staff]);
+    const ctx = createContext(
+      { id: 'u1', active_shop_id: 'shop-a', shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_staff }] },
+      'HEAD',
+    );
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+  });
+
+  it('allows shop_admin on POST tenant route (full write access)', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin, ShopRole.shop_staff]);
+    const ctx = createContext(
+      { id: 'u1', active_shop_id: 'shop-a', shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }] },
+      'POST',
+    );
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+  });
+
+  it('allows shop_staff on POST when @AllowStaffWrite() is set', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin, ShopRole.shop_staff], true);
+    const ctx = createContext(
+      { id: 'u1', active_shop_id: 'shop-a', shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_staff }] },
+      'POST',
+    );
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+  });
+
+  it('still denies shop_staff on PATCH when @AllowStaffWrite() is NOT set', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin, ShopRole.shop_staff], false);
+    const ctx = createContext(
+      { id: 'u1', active_shop_id: 'shop-a', shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_staff }] },
+      'PATCH',
+    );
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  // ── Metadata key verification ────────────────────────────────────────────────
+
+  it('reads both PLATFORM_ROLES_KEY and ROLES_KEY from metadata', async () => {
     const spy = jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(undefined);
     await guard.canActivate(createContext({}));
+    expect(spy).toHaveBeenCalledWith(PLATFORM_ROLES_KEY, expect.any(Array));
     expect(spy).toHaveBeenCalledWith(ROLES_KEY, expect.any(Array));
   });
 });

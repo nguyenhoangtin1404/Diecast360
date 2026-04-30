@@ -17,7 +17,7 @@ import { UpdateMembershipTierDto } from './dto/update-membership-tier.dto';
 
 @Controller('members')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
-@Roles(ShopRole.shop_admin, ShopRole.super_admin)
+@Roles(ShopRole.shop_admin, ShopRole.shop_staff)
 export class MembersController {
   constructor(private readonly membersService: MembersService) {}
 
