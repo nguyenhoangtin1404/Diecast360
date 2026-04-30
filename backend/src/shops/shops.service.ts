@@ -14,6 +14,7 @@ import { isUUID } from 'class-validator';
 import { IStorageService } from '../storage/storage.interface';
 import { toNumber } from '../common/utils/decimal.utils';
 import { totalPagesFromCount } from '../common/utils/pagination.utils';
+import { RolesGuard } from '../common/guards/roles.guard';
 
 const MAX_SLUG_ALLOCATION_ATTEMPTS = 32;
 
@@ -387,6 +388,9 @@ export class ShopsService {
           },
         });
 
+        // Invalidate the shared shop-roles cache so the new user's role is enforced
+        // immediately on the next request rather than after the 30-second TTL expires.
+        RolesGuard.invalidateShopRolesCache(created.id);
         return upserted;
       });
     }
@@ -404,6 +408,8 @@ export class ShopsService {
       user.id,
       { email: dto.email ?? null, created_user: false, role: assignedRole },
     );
+    // Invalidate the shared shop-roles cache so the updated role is enforced immediately.
+    RolesGuard.invalidateShopRolesCache(user.id);
     return upserted;
   }
 

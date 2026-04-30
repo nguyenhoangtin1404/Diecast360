@@ -61,18 +61,20 @@ export class RolesGuard implements CanActivate {
     private prisma: PrismaService,
   ) {}
 
-  // In-process cache to avoid hitting DB on every request for @Roles(...) routes.
+  // Static (process-wide) cache shared across all RolesGuard instances.
+  // NestJS creates one guard instance per controller when @UseGuards(RolesGuard) is used
+  // directly on a controller class — a per-instance cache would not be invalidatable.
   // TTL is intentionally small because roles can change (e.g. user promoted/demoted).
-  private readonly shopRolesCache = new Map<
+  private static readonly shopRolesCache = new Map<
     string,
     { expiresAt: number; shopRoles: JwtUserShopRole[] }
   >();
 
-  private readonly shopRolesCacheTtlMs = 30_000;
+  private static readonly shopRolesCacheTtlMs = 30_000;
 
   /** Invalidate cached shop roles for a user after role mutations. */
-  invalidateShopRolesCache(userId: string): void {
-    this.shopRolesCache.delete(userId);
+  static invalidateShopRolesCache(userId: string): void {
+    RolesGuard.shopRolesCache.delete(userId);
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -132,7 +134,7 @@ export class RolesGuard implements CanActivate {
     // Load shop roles (from request or cache).
     let shopRoles = user?.shop_roles as JwtUserShopRole[] | undefined;
     if (!Array.isArray(shopRoles) || shopRoles.length === 0) {
-      const cached = this.shopRolesCache.get(user.id);
+      const cached = RolesGuard.shopRolesCache.get(user.id);
       if (cached && cached.expiresAt > Date.now()) {
         shopRoles = cached.shopRoles;
       } else {
@@ -141,8 +143,8 @@ export class RolesGuard implements CanActivate {
           select: { shop_id: true, role: true },
         });
         shopRoles = rows.map((r) => ({ shop_id: r.shop_id, role: r.role }));
-        this.shopRolesCache.set(user.id, {
-          expiresAt: Date.now() + this.shopRolesCacheTtlMs,
+        RolesGuard.shopRolesCache.set(user.id, {
+          expiresAt: Date.now() + RolesGuard.shopRolesCacheTtlMs,
           shopRoles,
         });
       }

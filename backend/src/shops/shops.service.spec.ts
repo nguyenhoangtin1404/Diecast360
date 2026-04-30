@@ -4,6 +4,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException } from '../common/exceptions/http-exception.filter';
 import { ShopRole } from '../generated/prisma/client';
 import { AddShopAdminDto } from './dto/add-shop-admin.dto';
+import { RolesGuard } from '../common/guards/roles.guard';
 import * as bcrypt from 'bcrypt';
 
 jest.mock('bcrypt', () => ({
@@ -221,6 +222,27 @@ describe('ShopsService', () => {
           update: { role: ShopRole.shop_admin },
         }),
       );
+    });
+
+    it('should invalidate the RolesGuard cache for the affected user after role upsert', async () => {
+      prisma.shop.findUnique.mockResolvedValue({ id: shopId });
+      prisma.user.findUnique.mockResolvedValue({ id: userId });
+      prisma.userShopRole.upsert.mockResolvedValue({
+        user_id: userId,
+        shop_id: shopId,
+        role: ShopRole.shop_staff,
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({});
+
+      // Pre-populate the shared cache to confirm it is cleared after addShopAdmin.
+      RolesGuard['shopRolesCache'].set(userId, {
+        expiresAt: Date.now() + 30_000,
+        shopRoles: [{ shop_id: shopId, role: ShopRole.shop_admin }],
+      });
+
+      await service.addShopAdmin(shopId, { user_id: userId, role: ShopRole.shop_staff });
+
+      expect(RolesGuard['shopRolesCache'].has(userId)).toBe(false);
     });
 
     it('should use set_shop_member_role audit action when assigning role', async () => {

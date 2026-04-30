@@ -32,6 +32,8 @@ describe('RolesGuard', () => {
     reflector = new Reflector();
     prisma = { userShopRole: { findMany: jest.fn() } };
     guard = new RolesGuard(reflector, prisma as unknown as PrismaService);
+    // Clear the static cache between tests to prevent cross-test contamination.
+    RolesGuard['shopRolesCache'].clear();
   });
 
   // ── No metadata ─────────────────────────────────────────────────────────────
