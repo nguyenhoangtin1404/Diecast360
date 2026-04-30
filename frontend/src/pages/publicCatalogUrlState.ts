@@ -1,7 +1,11 @@
+import { sanitizeShopIdQueryParam } from '../utils/sanitizeShopId';
+
 export type CatalogSortBy = 'name' | 'price' | 'created_at';
 export type CatalogSortOrder = 'asc' | 'desc';
 
 export interface CatalogUrlState {
+  /** Sanitized public shop scope; empty = omit from URL. */
+  shopId: string;
   search: string;
   carBrand: string | null;
   modelBrand: string | null;
@@ -51,6 +55,7 @@ export const parseCatalogUrlState = (searchParams: URLSearchParams): CatalogUrlS
   const rawSearch = searchParams.get('q');
 
   return {
+    shopId: sanitizeShopIdQueryParam(searchParams.get('shop_id')),
     search: (rawSearch?.trim() ?? '').slice(0, MAX_SEARCH_LENGTH),
     carBrand: toNullable(searchParams.get('car_brand')),
     modelBrand: toNullable(searchParams.get('model_brand')),
@@ -63,6 +68,10 @@ export const parseCatalogUrlState = (searchParams: URLSearchParams): CatalogUrlS
 export const buildCatalogSearchParams = (state: CatalogUrlState): URLSearchParams => {
   const params = new URLSearchParams();
   const trimmedSearch = state.search.trim();
+
+  if (state.shopId) {
+    params.set('shop_id', state.shopId);
+  }
 
   if (trimmedSearch) {
     params.set('q', trimmedSearch);

@@ -18,6 +18,10 @@ vi.mock('@tanstack/react-query', () => ({
   useInfiniteQuery: (options: unknown) => useInfiniteQueryMock(options),
 }));
 
+vi.mock('../../src/hooks/useAuth', () => ({
+  useAuth: () => ({ user: null, loading: false, isAuthenticated: false, login: vi.fn(), logout: vi.fn() }),
+}));
+
 vi.mock('../../src/components/catalog/ItemCard', () => ({
   ItemCard: () => <div>item-card</div>,
 }));
@@ -83,6 +87,7 @@ describe('PublicCatalogPage URL sync', () => {
     const firstCallArgs = useInfiniteQueryMock.mock.calls[0][0] as { queryKey: unknown[] };
     expect(firstCallArgs.queryKey).toEqual([
       'public-items',
+      '',
       'civic',
       'Toyota',
       null,

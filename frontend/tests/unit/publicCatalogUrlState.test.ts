@@ -20,6 +20,7 @@ describe('publicCatalogUrlState', () => {
     const parsed = parseCatalogUrlState(params);
 
     expect(parsed).toEqual({
+      shopId: '',
       search: 'civic',
       carBrand: 'Toyota',
       modelBrand: null,
@@ -31,6 +32,7 @@ describe('publicCatalogUrlState', () => {
 
   it('should build compact URL params and omit defaults', () => {
     const params = buildCatalogSearchParams({
+      shopId: '',
       search: '  skyline  ',
       carBrand: 'Nissan',
       modelBrand: null,
@@ -55,6 +57,14 @@ describe('publicCatalogUrlState', () => {
     );
   });
 
+  it('should round-trip shop_id in URL when present', () => {
+    const params = new URLSearchParams('shop_id=my-shop&q=test');
+    const parsed = parseCatalogUrlState(params);
+    const rebuilt = buildCatalogSearchParams(parsed);
+    expect(rebuilt.get('shop_id')).toBe('my-shop');
+    expect(rebuilt.get('q')).toBe('test');
+  });
+
   it('should truncate very long search query from URL', () => {
     const longQuery = 'a'.repeat(300);
     const parsed = parseCatalogUrlState(new URLSearchParams(`q=${longQuery}`));
@@ -67,6 +77,7 @@ describe('publicCatalogUrlState', () => {
     const parsed = parseCatalogUrlState(new URLSearchParams(''));
 
     expect(parsed).toEqual({
+      shopId: '',
       search: '',
       carBrand: null,
       modelBrand: null,
@@ -94,6 +105,7 @@ describe('publicCatalogUrlState', () => {
 
     const built = buildCatalogSearchParams({
       ...parsed,
+      shopId: '',
       carBrand: "' OR 1=1 --",
       modelBrand: null,
       condition: null,
