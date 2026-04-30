@@ -177,7 +177,7 @@ Plans:
 | 13. Issue #33 - Playwright Phase 2 | 3/3 | Complete | 2026-04-29 |
 | 14. Multi-Tenant Shop | 3/3 | Complete | 2026-03-23 |
 | 15. Admin RBAC & Tenant Authorization | 3/3 | Complete | 2026-04-29 |
-| 16. Per-Shop Public Homepage | 0/3 | Planned | — |
+| 16. Per-Shop Public Homepage | 1/3 | In Progress | — |
 
 ## Execution Update (2026-03-04)
 
@@ -339,10 +339,10 @@ Plans:
 **Goal:** Public visitors always see catalog and item detail scoped to exactly one shop; shareable URLs identify the shop without relying on admin JWT `active_shop_id`.
 **Requirements:** PBLC-03, MULT-01, MULT-03
 **Depends on:** Phase 14 (multi-tenant foundation); coordinates with Phase 15 only if public resolution must respect new platform vs shop role semantics (prefer no hard dependency).
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
-- [ ] 16-01: Backend — optional `shop_id` on public item list/detail; resolve by UUID or `Shop.slug`; 404 for unknown/inactive shop; tests + contract docs
+- [x] 16-01: Backend — optional `shop_id` on public item list/detail; resolve by UUID or `Shop.slug`; 404 for unknown/inactive shop; tests + contract docs
 - [ ] 16-02: Frontend — route or query resolution for shop context; catalog + detail + deep links preserve `shop_id`; optional default shop env for single-tenant deploys
 - [ ] 16-03: E2E + regression — Playwright scenarios for two shops, cross-tenant negative case, link builder smoke for public nav
 

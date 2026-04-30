@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-04)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 15 (Admin RBAC & Tenant Authorization) shipped 2026-04-29; Phase 16 (Per-Shop Public Homepage) planned and ready to execute.
+**Current focus:** Phase 16 (Per-Shop Public Homepage) in progress; plan 16-01 complete.
 
 ## Current Position
 
-Phase: **15 complete** → **16 next** (per-shop public catalog/homepage, PBLC-03)
-Plan: Phase 15 **đã hoàn thành** (15-01, 15-02, 15-03)
-Status: Phase 15 complete (2026-04-29). Platform RBAC, shop_staff role, dual-layer guard, modal role picker.
-Last activity: 2026-04-29 — PlatformRole schema+migration, RolesGuard Option C, @PlatformRoles decorator, frontend platform gates.
+Phase: **16 in progress** (per-shop public catalog — PBLC-03)
+Plan: **16-01 complete** → **16-02 next**
+Status: Wave 1 backend shipped; frontend wiring pending.
+Last activity: 2026-04-30 — Public API optional `shop_id`, resolver, contract docs.
 
 Progress: [##########] 100% (roadmap)
 
