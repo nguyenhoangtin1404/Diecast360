@@ -9,6 +9,7 @@ import { Reflector } from '@nestjs/core';
 import { PlatformRole, ShopRole } from '../../generated/prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { PLATFORM_ROLES_KEY } from '../decorators/platform-roles.decorator';
+import { ALLOW_STAFF_WRITE_KEY } from '../decorators/allow-staff-write.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface JwtUserShopRole {
@@ -24,6 +25,9 @@ export interface JwtUserShopRole {
  * this codebase — all routes use the standard NestJS method decorators
  * (@Get, @Post, @Patch, @Delete, @Put) which map 1:1 to HTTP methods.
  * WebSocket / SSE / RPC routes do not use RolesGuard.
+ *
+ * To exempt a specific route from this restriction, apply @AllowStaffWrite()
+ * on the route handler. The guard reads that metadata and skips the method check.
  *
  * Audit of @Roles(super_admin) usages NOT migrated to @PlatformRoles:
  * None remain. All former @Roles(super_admin) routes have been converted:
@@ -173,12 +177,18 @@ export class RolesGuard implements CanActivate {
 
     // ── Option C: shop_staff HTTP-method enforcement ─────────────────────────
     // shop_staff is read-only. Deny any mutating method globally without needing
-    // per-controller checks. To allow a specific write for staff in the future,
-    // add an @AllowStaffWrite() escape-hatch decorator.
+    // per-controller checks. Apply @AllowStaffWrite() to a specific route handler
+    // to grant staff write access to that route as an explicit exception.
     if (matchingRole.role === ShopRole.shop_staff) {
-      const method: string = request.method?.toUpperCase() ?? '';
-      if (!SAFE_METHODS.has(method)) {
-        throw new ForbiddenException('Shop staff accounts are read-only and cannot perform this action.');
+      const allowStaffWrite = this.reflector.getAllAndOverride<boolean>(ALLOW_STAFF_WRITE_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      if (!allowStaffWrite) {
+        const method: string = request.method?.toUpperCase() ?? '';
+        if (!SAFE_METHODS.has(method)) {
+          throw new ForbiddenException('Shop staff accounts are read-only and cannot perform this action.');
+        }
       }
     }
 

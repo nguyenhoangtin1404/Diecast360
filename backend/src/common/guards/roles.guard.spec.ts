@@ -4,6 +4,7 @@ import { PlatformRole, ShopRole } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { PLATFORM_ROLES_KEY } from '../decorators/platform-roles.decorator';
+import { ALLOW_STAFF_WRITE_KEY } from '../decorators/allow-staff-write.decorator';
 import { RolesGuard } from './roles.guard';
 
 describe('RolesGuard', () => {
@@ -20,10 +21,15 @@ describe('RolesGuard', () => {
       }),
     }) as unknown as ExecutionContext;
 
-  const mockReflector = (platformRoles?: PlatformRole[], shopRoles?: ShopRole[]) => {
+  const mockReflector = (
+    platformRoles?: PlatformRole[],
+    shopRoles?: ShopRole[],
+    allowStaffWrite?: boolean,
+  ) => {
     jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key) => {
       if (key === PLATFORM_ROLES_KEY) return platformRoles ?? null;
       if (key === ROLES_KEY) return shopRoles ?? null;
+      if (key === ALLOW_STAFF_WRITE_KEY) return allowStaffWrite ?? null;
       return null;
     });
   };
@@ -182,6 +188,24 @@ describe('RolesGuard', () => {
       'POST',
     );
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
+  });
+
+  it('allows shop_staff on POST when @AllowStaffWrite() is set', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin, ShopRole.shop_staff], true);
+    const ctx = createContext(
+      { id: 'u1', active_shop_id: 'shop-a', shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_staff }] },
+      'POST',
+    );
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+  });
+
+  it('still denies shop_staff on PATCH when @AllowStaffWrite() is NOT set', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin, ShopRole.shop_staff], false);
+    const ctx = createContext(
+      { id: 'u1', active_shop_id: 'shop-a', shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_staff }] },
+      'PATCH',
+    );
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
   // ── Metadata key verification ────────────────────────────────────────────────
