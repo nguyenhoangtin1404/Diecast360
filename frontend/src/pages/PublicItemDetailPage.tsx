@@ -1,7 +1,9 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { ROUTES } from '../config/routes';
 import { apiClient } from '../api/client';
+import { usePublicShopContext } from '../hooks/usePublicShopContext';
 import { Spinner360 } from '../components/Spinner360/Spinner360';
 import { Gallery } from '../components/Gallery';
 import { ItemCard } from '../components/catalog/ItemCard';
@@ -30,17 +32,28 @@ const MOBILE_SPINNER_HORIZONTAL_PADDING = 84;
 
 export const PublicItemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { effectiveShopId, shopContextReady } = usePublicShopContext();
   const isMobile = useIsMobile();
   const viewportWidth = useViewportWidth();
 
+  const shopQuery = useMemo(
+    () => (effectiveShopId ? `?shop_id=${encodeURIComponent(effectiveShopId)}` : ''),
+    [effectiveShopId],
+  );
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['public-item', id],
+    queryKey: ['public-item', id, effectiveShopId],
     queryFn: async () => {
-      const response = await apiClient.get(`/public/items/${id}`);
+      const path =
+        effectiveShopId.length > 0
+          ? `/public/items/${id}?shop_id=${encodeURIComponent(effectiveShopId)}`
+          : `/public/items/${id}`;
+      const response = await apiClient.get(path);
       return response.data;
     },
-    enabled: !!id,
+    enabled: !!id && shopContextReady,
   });
 
   // Response structure: {item, images, spinner} (already unwrapped by apiClient)
@@ -52,6 +65,10 @@ export const PublicItemDetailPage = () => {
         .filter((frame: SpinFrame) => Boolean(frame?.image_url)),
     [spinner],
   );
+
+  if (!shopContextReady) {
+    return <div style={{ padding: '40px', textAlign: 'center' }}>Đang tải...</div>;
+  }
 
   if (isLoading) return <div style={{ padding: '40px', textAlign: 'center' }}>Đang tải...</div>;
   if (error) {
@@ -90,7 +107,10 @@ export const PublicItemDetailPage = () => {
       {/* Back Button */}
       <div style={{ marginBottom: '24px' }}>
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            const catalogSearch = searchParams.toString();
+            navigate(catalogSearch ? `${ROUTES.home}?${catalogSearch}` : ROUTES.home);
+          }}
           style={{
             padding: isMobile ? '12px 16px' : '10px 20px',
             border: '1px solid #ddd',
@@ -430,23 +450,32 @@ export const PublicItemDetailPage = () => {
       <Gallery images={images} itemName={item.name} />
 
       {/* Related Items Section */}
-      <RelatedItemsSection 
-        currentItemId={item.id} 
-        carBrand={item.car_brand} 
+      <RelatedItemsSection
+        currentItemId={item.id}
+        carBrand={item.car_brand}
         modelBrand={item.model_brand}
+        effectiveShopId={effectiveShopId}
+        shopSearch={shopQuery}
+        shopContextReady={shopContextReady}
       />
     </div>
   );
 };
 
-const RelatedItemsSection = ({ 
-  currentItemId, 
-  carBrand, 
+const RelatedItemsSection = ({
+  currentItemId,
+  carBrand,
   modelBrand,
-}: { 
-  currentItemId: string; 
-  carBrand?: string | null; 
-  modelBrand?: string | null; 
+  effectiveShopId,
+  shopSearch,
+  shopContextReady,
+}: {
+  currentItemId: string;
+  carBrand?: string | null;
+  modelBrand?: string | null;
+  effectiveShopId: string;
+  shopSearch: string;
+  shopContextReady: boolean;
 }) => {
   const isMobile = useIsMobile();
   const shouldQueryCar = Boolean(currentItemId && carBrand);
@@ -454,38 +483,44 @@ const RelatedItemsSection = ({
 
   // Query 1: Items with same Car Brand
   const { data: carData, isLoading: carLoading, isFetched: carFetched } = useQuery({
-    queryKey: ['related-items-car', currentItemId, carBrand],
+    queryKey: ['related-items-car', currentItemId, carBrand, effectiveShopId],
     queryFn: async () => {
       if (!carBrand) return { items: [], pagination: { total: 0 } };
-      
+
       const params = new URLSearchParams({
         page_size: '6',
         sort_by: 'created_at',
         sort_order: 'desc',
         car_brand: carBrand,
       });
+      if (effectiveShopId) {
+        params.set('shop_id', effectiveShopId);
+      }
       const response = await apiClient.get(`/public/items?${params.toString()}`);
       return response.data;
     },
-    enabled: shouldQueryCar,
+    enabled: shopContextReady && shouldQueryCar,
   });
 
   // Query 2: Items with same Model Brand
   const { data: modelData, isLoading: modelLoading, isFetched: modelFetched } = useQuery({
-    queryKey: ['related-items-model', currentItemId, modelBrand],
+    queryKey: ['related-items-model', currentItemId, modelBrand, effectiveShopId],
     queryFn: async () => {
       if (!modelBrand) return { items: [], pagination: { total: 0 } };
-      
+
       const params = new URLSearchParams({
         page_size: '6',
         sort_by: 'created_at',
         sort_order: 'desc',
         model_brand: modelBrand,
       });
+      if (effectiveShopId) {
+        params.set('shop_id', effectiveShopId);
+      }
       const response = await apiClient.get(`/public/items?${params.toString()}`);
       return response.data;
     },
-    enabled: shouldQueryModel,
+    enabled: shopContextReady && shouldQueryModel,
   });
 
   const uniqueSeedCount = useMemo(() => {
@@ -510,17 +545,21 @@ const RelatedItemsSection = ({
 
   // Query 3: Fallback to recent items
   const { data: recentData, isLoading: recentLoading } = useQuery({
-    queryKey: ['related-items-recent', currentItemId],
+    queryKey: ['related-items-recent', currentItemId, effectiveShopId],
     queryFn: async () => {
       const params = new URLSearchParams({
         page_size: '6',
         sort_by: 'created_at',
         sort_order: 'desc',
       });
+      if (effectiveShopId) {
+        params.set('shop_id', effectiveShopId);
+      }
       const response = await apiClient.get(`/public/items?${params.toString()}`);
       return response.data;
     },
-    enabled: !!currentItemId && readyForFallbackQuery && uniqueSeedCount < 5,
+    enabled:
+      shopContextReady && !!currentItemId && readyForFallbackQuery && uniqueSeedCount < 5,
   });
 
   const finalItems = useMemo(() => {
@@ -573,7 +612,7 @@ const RelatedItemsSection = ({
         gap: isMobile ? '14px' : '20px' 
       }}>
         {finalItems.map((item: RelatedItem, index: number) => (
-          <ItemCard key={item.id} item={item} index={index} />
+          <ItemCard key={item.id} item={item} index={index} shopSearch={shopSearch} />
         ))}
       </div>
     </div>
