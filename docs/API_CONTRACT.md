@@ -392,14 +392,20 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 
 ## Public
 ### GET /api/v1/public/items
-- Query: `page`, `page_size`, `status` (optional), `q`.
-- Chỉ trả item `is_public=true` và chưa soft delete.
-- Response 200: `data: { items: Item[], pagination }` (kèm `has_spinner` và `cover_image_url`).
+- Query: `page`, `page_size`, `status` (optional), `q`, và các filter catalog khác như contract admin/public đã liệt kê.
+- **`shop_id` (optional):** giới hạn catalog theo một shop. Giá trị hợp lệ:
+  - UUID của `Shop.id`, hoặc
+  - Chuỗi **khớp chính xác** `Shop.slug` (phân biệt hoa thường).
+- Shop phải `is_active: true`. Slug/UUID không tồn tại hoặc shop không active → **`NOT_FOUND (404)`**, message ổn định (ví dụ shop không tìm thấy).
+- **Ưu tiên:** Nếu request có `shop_id` hợp lệ, server **bỏ qua** `active_shop_id` từ JWT khi lọc catalog (tránh lệch tenant khi admin đang switch shop trong cùng trình duyệt).
+- **Khi bỏ qua `shop_id`:** Hành vi như trước: nếu có JWT với `active_shop_id` thì lọc theo shop đó; nếu không (khách) thì trả **toàn bộ** item public trên deployment (aggregate). Single-tenant / dev có thể dùng biến frontend `VITE_PUBLIC_CATALOG_SHOP_ID` để luôn gửi `shop_id` (xem Phase 16 frontend).
 
 ### GET /api/v1/public/items/:id
+- Query: **`shop_id` (optional)** — cùng quy tắc như `GET /public/items` (UUID hoặc slug, shop active, 404 nếu không resolve được).
+- **Ưu tiên** giống list: `shop_id` query ghi đè `active_shop_id` của JWT cho việc lọc theo shop.
 - Response 200: `data: { item, images: ItemImage[], spinner: SpinSet|null }`.
 - `spinner` lấy spin set default (nếu có). Nếu `null` → client dùng gallery ảnh thường.
-- Errors: `NOT_FOUND (404)`.
+- Errors: `NOT_FOUND (404)` khi item không tồn tại, không public, đã xóa mềm, hoặc **không thuộc shop** đã chọn khi đang lọc theo shop.
 
 ## Pre-orders (planned - Phase 9, MVP scope)
 Ghi chu: nhom endpoint nay la ke hoach de trien khai MVP pre-order, chua mac dinh la da ton tai trong codebase hien tai.
