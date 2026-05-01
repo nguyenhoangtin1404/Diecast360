@@ -1,0 +1,57 @@
+# Runs Prisma migrations against production Neon when `main` is updated (e.g. after merge).
+#
+# Required repo secret:
+#   NEON_DATABASE_URL — pooled connection (…-pooler…), same role as app DATABASE_URL.
+#
+# Optional repo secret:
+#   NEON_DIRECT_URL — non-pooler host for Prisma migrate. If omitted, the workflow derives it
+#   from NEON_DATABASE_URL by stripping `-pooler` from the hostname (Neon’s usual pattern).
+#
+# Configure: GitHub → Settings → Secrets and variables → Actions → New repository secret.
+# Do not commit real URLs or passwords to the repository. Rotate credentials if they were exposed.
+
+name: Migrate Neon (main)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  migrate:
+    name: Prisma migrate deploy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.NEON_DIRECT_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "::error::Missing Actions secret NEON_DATABASE_URL (pooled Neon URL)."
+            exit 1
+          fi
+          DIRECT="${DIRECT_URL:-}"
+          if [ -z "${DIRECT}" ]; then
+            DIRECT="$(echo "${DATABASE_URL}" | sed 's/-pooler\.ap-/\.ap-/')"
+            echo "NEON_DIRECT_URL not set; using derived direct URL for Prisma CLI."
+          fi
+          export DIRECT_URL="${DIRECT}"
+          npx prisma migrate deploy
