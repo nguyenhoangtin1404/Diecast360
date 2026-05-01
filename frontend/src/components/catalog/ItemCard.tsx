@@ -12,9 +12,11 @@ interface ItemCardProps {
     condition?: string | null;
   };
   index?: number;
+  /** e.g. `?shop_id=slug` — appended to item link for public catalog scope */
+  shopSearch?: string;
 }
 
-export const ItemCard = ({ item, index = 0 }: ItemCardProps) => {
+export const ItemCard = ({ item, index = 0, shopSearch = '' }: ItemCardProps) => {
   const statusText =
     item.status === 'con_hang' ? 'Còn hàng' : item.status === 'giu_cho' ? 'Giữ chỗ' : 'Đã bán';
 
@@ -37,7 +39,7 @@ export const ItemCard = ({ item, index = 0 }: ItemCardProps) => {
 
   return (
     <Link
-      to={`/items/${item.id}`}
+      to={`/items/${item.id}${shopSearch}`}
       className="group relative block opacity-0 animate-fade-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
       style={{ animationDelay: `${index * 50}ms` }}
     >

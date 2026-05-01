@@ -321,6 +321,12 @@ describe('PublicService', () => {
       expect(findFirstCall.where.shop_id).toBeUndefined();
     });
 
+    it('should return NOT_FOUND when item exists in another shop than tenantId', async () => {
+      prisma.item.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne('item-1', 'other-shop-tenant')).rejects.toThrow(AppException);
+    });
+
     it('should scope item lookup by tenant when tenantId is provided', async () => {
       prisma.item.findFirst.mockResolvedValue(null);
 

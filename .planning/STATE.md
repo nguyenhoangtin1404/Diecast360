@@ -1,18 +1,31 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: complete
+last_updated: "2026-04-30T12:00:00.000Z"
+progress:
+  total_phases: 16
+  completed_phases: 16
+  total_plans: 36
+  completed_plans: 21
+---
+
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-04)
+See: .planning/PROJECT.md (updated 2026-04-30)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 15 (Admin RBAC & Tenant Authorization) shipped 2026-04-29; Phase 16 (Per-Shop Public Homepage) planned and ready to execute.
+**Current focus:** Phase 16 (Per-Shop Public Homepage) **complete** 2026-04-30; no further phases in v1.0 roadmap after 16.
 
 ## Current Position
 
-Phase: **15 complete** → **16 next** (per-shop public catalog/homepage, PBLC-03)
-Plan: Phase 15 **đã hoàn thành** (15-01, 15-02, 15-03)
-Status: Phase 15 complete (2026-04-29). Platform RBAC, shop_staff role, dual-layer guard, modal role picker.
-Last activity: 2026-04-29 — PlatformRole schema+migration, RolesGuard Option C, @PlatformRoles decorator, frontend platform gates.
+Phase: **16 complete** (per-shop public catalog / PBLC-03)
+Plan: **16-01, 16-02, 16-03** all delivered
+Status: Backend `shop_id` resolution, frontend `usePublicShopContext` + nav, Playwright multi-tenant catalog E2E, verification doc in phase folder.
+Last activity: 2026-04-30 — closed Phase 16, updated ROADMAP / REQUIREMENTS / PROJECT.
 
 Progress: [##########] 100% (roadmap)
 
@@ -53,6 +66,7 @@ Progress: [##########] 100% (roadmap)
 - (2026-04-24) Completed Phase 12 Playwright baseline: shared fixture layer (`fixtures/index.ts`), auth/items/public-catalog smoke specs (10 passing E2E tests total with 32 across full suite), CI Playwright report artifact upload on failure, HTML reporter, QA workflow docs.
 - (2026-04-29) Completed Phase 13: advanced Playwright specs (`spinner`, `social-selling`, `responsive`), CI runner tuning (retries/workers), E2E triage notes in `docs/TODO.md`, `stubAuthCsrf` helper for admin mocks.
 - (2026-04-29) Completed Phase 15: PlatformRole enum + User.platform_role migration+backfill; dual-layer RolesGuard (platform_role check + shop_staff HTTP-method enforcement — Option C); @PlatformRoles decorator; AddShopAdminDto extended with role field; frontend isPlatformSuper + useIsSuperAdmin updated; AddMemberModal role picker (shop_admin/shop_staff); audit labels for new actions.
+- (2026-04-30) **Phase 16:** Public catalog/detail accept optional `shop_id` (UUID or slug); explicit query overrides JWT for reads; frontend propagates `shop_id` via URL, `VITE_PUBLIC_CATALOG_SHOP_ID`, or JWT after auth settles (`shopContextReady`); Playwright two-shop mock proves UI isolation.
 
 ### Pending Todos
 
@@ -64,6 +78,6 @@ Progress: [##########] 100% (roadmap)
 
 ## Session Continuity
 
-Last session: 2026-04-29 (Phase 15 Admin RBAC & Tenant Authorization)
-Stopped at: Phase 15 complete; all 15 roadmap phases done
-Resume file: `.planning/phases/15-admin-rbac-tenant-refinement/15-03-PLAN.md`
+Last session: 2026-04-30 (Phase 16 Per-Shop Public Homepage — complete)
+Stopped at: **All roadmap phases through 16 shipped**; next work is product backlog / Phase 9+ items outside current roadmap numbering.
+Resume file: `.planning/phases/16-per-shop-public-homepage/16-VERIFICATION.md`

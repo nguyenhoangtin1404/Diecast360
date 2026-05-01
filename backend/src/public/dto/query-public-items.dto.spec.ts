@@ -60,4 +60,20 @@ describe('QueryPublicItemsDto', () => {
 
     expect(errors).toHaveLength(0);
   });
+
+  it('should accept optional shop_id (uuid or slug)', async () => {
+    const errorsUuid = await validateDto({
+      shop_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+    });
+    const errorsSlug = await validateDto({ shop_id: 'my-shop-slug' });
+
+    expect(errorsUuid).toHaveLength(0);
+    expect(errorsSlug).toHaveLength(0);
+  });
+
+  it('should reject shop_id longer than 200 chars', async () => {
+    const errors = await validateDto({ shop_id: 's'.repeat(201) });
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
 });

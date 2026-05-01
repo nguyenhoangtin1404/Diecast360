@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
+import { usePublicShopContext } from '../hooks/usePublicShopContext';
 import { ItemCard } from '../components/catalog/ItemCard';
 import { CatalogSearchInput } from '../components/catalog/CatalogSearchInput';
 import { CatalogFilters } from '../components/catalog/CatalogFilters';
@@ -18,6 +19,7 @@ import {
 
 export const PublicCatalogPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { effectiveShopId, shopContextReady } = usePublicShopContext();
   const urlState = useMemo(() => parseCatalogUrlState(searchParams), [searchParams]);
   const [searchInput, setSearchInput] = useState(() => urlState.search);
   const debouncedSearch = useDebounce(searchInput, 300);
@@ -51,6 +53,22 @@ export const PublicCatalogPage = () => {
     updateSearchInUrl(debouncedSearch);
   }, [debouncedSearch, updateSearchInUrl]);
 
+  useEffect(() => {
+    if (!effectiveShopId || urlState.shopId === effectiveShopId) {
+      return;
+    }
+    setSearchParams(
+      (prev) => {
+        const state = parseCatalogUrlState(prev);
+        if (state.shopId === effectiveShopId) {
+          return prev;
+        }
+        return buildCatalogSearchParams({ ...state, shopId: effectiveShopId });
+      },
+      { replace: true },
+    );
+  }, [effectiveShopId, urlState.shopId, setSearchParams]);
+
   const updateUrlState = useCallback((
     patch: Partial<{
       carBrand: string | null;
@@ -76,6 +94,7 @@ export const PublicCatalogPage = () => {
   } = useInfiniteQuery({
     queryKey: [
       'public-items',
+      effectiveShopId,
       urlState.search,
       urlState.carBrand,
       urlState.modelBrand,
@@ -88,6 +107,9 @@ export const PublicCatalogPage = () => {
         page: pageParam.toString(),
         page_size: '20',
       });
+      if (effectiveShopId) {
+        params.append('shop_id', effectiveShopId);
+      }
       if (urlState.search) params.append('q', urlState.search);
       if (urlState.carBrand) params.append('car_brand', urlState.carBrand);
       if (urlState.modelBrand) params.append('model_brand', urlState.modelBrand);
@@ -106,6 +128,7 @@ export const PublicCatalogPage = () => {
       return undefined;
     },
     initialPageParam: 1,
+    enabled: shopContextReady,
   });
 
   const items = useMemo(() => {
@@ -122,6 +145,8 @@ export const PublicCatalogPage = () => {
     });
   };
 
+  const waitingForShopContext = !shopContextReady;
+
   if (error) {
     console.error('Error loading catalog:', error);
     return (
@@ -130,6 +155,19 @@ export const PublicCatalogPage = () => {
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-rose-800 shadow-corporate-card">
             <p className="font-semibold">Không tải được catalog</p>
             <p className="mt-1 text-sm text-rose-700/90">Vui lòng thử lại sau.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (waitingForShopContext) {
+    return (
+      <div className="relative min-h-[50vh] px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-7xl">
+          <div className="py-16 text-center">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+            <p className="mt-4 text-sm font-medium text-slate-500">Đang tải catalog…</p>
           </div>
         </div>
       </div>
@@ -208,7 +246,12 @@ export const PublicCatalogPage = () => {
             <>
               <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
                 {items.map((item: PublicItem, index: number) => (
-                  <ItemCard key={item.id} item={item} index={index} />
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    shopSearch={effectiveShopId ? `?shop_id=${encodeURIComponent(effectiveShopId)}` : ''}
+                  />
                 ))}
               </div>
 

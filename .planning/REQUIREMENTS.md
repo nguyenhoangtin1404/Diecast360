@@ -20,7 +20,7 @@
 
 - [x] **PBLC-01**: Visitor can browse public items and open item detail pages.
 - [x] **PBLC-02**: Public item detail shows cover/status and spinner when available.
-- [ ] **PBLC-03**: Public catalog and item URLs resolve to a single shop tenant (slug or id); visitors cannot infer or list other shops' inventory from public endpoints when shop context is set.
+- [x] **PBLC-03**: Public catalog and item URLs resolve to a single shop tenant (slug or id); visitors cannot infer or list other shops' inventory from public endpoints when shop context is set.
 
 ### AI and Social
 
@@ -41,7 +41,7 @@
 - [x] **MULT-01**: System supports multiple isolated shop tenants with distinct inventory, media, and settings.
 - [x] **MULT-02**: Admin users can be assigned to one or more shops with role-based access.
 - [x] **MULT-03**: API requests are scoped to the active tenant via header or token context.
-- [ ] **MULT-04**: Platform operators are distinguished from per-shop roles; tenant staff roles support read vs write separation without breaking isolation.
+- [x] **MULT-04**: Platform operators are distinguished from per-shop roles; tenant staff roles support read vs write separation without breaking isolation.
 
 ### UX and Operations
 
@@ -84,7 +84,7 @@
 | MEDI-03 | Phase 3 | Complete (2026-03-10) |
 | PBLC-01 | Phase 3 | Complete (2026-03-10) |
 | PBLC-02 | Phase 3 | Complete (2026-03-10) |
-| PBLC-03 | Phase 16 | Pending |
+| PBLC-03 | Phase 16 | Complete (2026-04-30) |
 | AISO-01 | Phase 4 | Complete (2026-03-13) |
 | AISO-02 | Phase 4 | Complete (2026-03-13) |
 | AISO-03 | Phase 4 | Complete (2026-03-13) |
@@ -97,7 +97,7 @@
 | MULT-01 | Phase 14 | Complete (2026-03-23) |
 | MULT-02 | Phase 14 | Complete (2026-03-23) |
 | MULT-03 | Phase 14 | Complete (2026-03-23) |
-| MULT-04 | Phase 15 | Pending |
+| MULT-04 | Phase 15 | Complete |
 | STOK-01 | Phase 8 | Pending |
 | PORD-01 | Phase 9 | Pending |
 | PORD-01a | Phase 9 | Pending |
@@ -118,4 +118,4 @@
 
 ---
 *Requirements defined: 2026-03-04*
-*Last updated: 2026-04-08 after docs normalization*
+*Last updated: 2026-04-30 — PBLC-03 closed with Phase 16*

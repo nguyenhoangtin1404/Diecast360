@@ -24,6 +24,12 @@ export class QueryPublicItemsDto {
   @MaxLength(200)
   q?: string;
 
+  /** Optional shop scope: UUID (`Shop.id`) or exact `Shop.slug` for active shops only. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  shop_id?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(100)

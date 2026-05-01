@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ChartNoAxesColumn,
@@ -22,6 +22,7 @@ import {
   isAdminPreordersHubActive,
 } from '../config/routes';
 import { cn } from '../lib/utils';
+import { usePublicShopContext } from '../hooks/usePublicShopContext';
 import ShopSelector from './admin/ShopSelector';
 
 interface LayoutProps {
@@ -46,10 +47,19 @@ export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { effectiveShopId, shopContextReady } = usePublicShopContext();
   const isAdmin = location.pathname.startsWith('/admin');
   const isSuperAdmin = useIsSuperAdmin();
   const [menuState, setMenuState] = useState({ open: false, pathname: location.pathname });
   const isMenuOpen = menuState.open && menuState.pathname === location.pathname;
+
+  /** Same resolution as catalog (query / env / JWT), not only current URL — keeps nav aligned with VITE_PUBLIC_CATALOG_SHOP_ID. */
+  const publicShopNavSuffix = useMemo(() => {
+    if (!shopContextReady || !effectiveShopId) {
+      return '';
+    }
+    return `?shop_id=${encodeURIComponent(effectiveShopId)}`;
+  }, [shopContextReady, effectiveShopId]);
 
   const handleLogout = async () => {
     setMenuState({ open: false, pathname: location.pathname });
@@ -78,7 +88,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const renderPublicHeaderNav = () => (
     <>
       <Link
-        to={ROUTES.home}
+        to={`${ROUTES.home}${publicShopNavSuffix}`}
         className={cn(publicNavLinkBase, pathname === ROUTES.home && publicNavLinkActive)}
         onClick={closeMobileMenu}
       >
@@ -86,7 +96,7 @@ export const Layout = ({ children }: LayoutProps) => {
         <span>Trang chủ</span>
       </Link>
       <Link
-        to={ROUTES.preorders}
+        to={`${ROUTES.preorders}${publicShopNavSuffix}`}
         className={cn(publicNavLinkBase, pathname.startsWith(ROUTES.preorders) && publicNavLinkActive)}
         onClick={closeMobileMenu}
       >
@@ -96,7 +106,7 @@ export const Layout = ({ children }: LayoutProps) => {
         <span>Đặt trước</span>
       </Link>
       <Link
-        to={ROUTES.myOrders}
+        to={`${ROUTES.myOrders}${publicShopNavSuffix}`}
         className={cn(publicNavLinkBase, pathname.startsWith(ROUTES.myOrders) && publicNavLinkActive)}
         onClick={closeMobileMenu}
       >
@@ -106,7 +116,7 @@ export const Layout = ({ children }: LayoutProps) => {
         <span>Đơn hàng của tôi</span>
       </Link>
       <Link
-        to={ROUTES.contact}
+        to={`${ROUTES.contact}${publicShopNavSuffix}`}
         className={cn(publicNavLinkBase, pathname === ROUTES.contact && publicNavLinkActive)}
         onClick={closeMobileMenu}
       >

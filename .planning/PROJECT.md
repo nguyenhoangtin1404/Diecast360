@@ -24,7 +24,10 @@ A seller can create and publish a diecast listing with complete media and ready-
 - [ ] Pre-order lifecycle management (Issue #13, Phase 9)
 - [ ] Transaction-based inventory with audit trail (Issue #46, Phase 8)
 - [ ] Reporting and analytics dashboard (Issue #49, Phase 10)
-- [ ] Per-shop public homepage and catalog URLs (Phase 16 — PBLC-03)
+
+### Completed (milestone note)
+
+- [x] Per-shop public homepage and catalog URLs (Phase 16 — PBLC-03)
 
 ### Out of Scope
 

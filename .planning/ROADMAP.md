@@ -21,7 +21,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 13: Issue #33 - Playwright Phase 2** - Extended E2E coverage and quality-gate hardening. *(2026-04-29)*
 - [x] **Phase 14: Multi-Tenant Shop** - Support multiple isolated diecast shops on a single deployment with scoped access.
 - [x] **Phase 15: Admin RBAC & Tenant Authorization** - Separate platform operator permissions from per-shop roles; extend shop roles (e.g. read-only staff) and align API + admin UI.
-- [ ] **Phase 16: Per-Shop Public Homepage** - Resolve public catalog and item detail to a single shop tenant via URL or explicit query param, aligned with existing multi-tenant isolation.
+- [x] **Phase 16: Per-Shop Public Homepage** - Resolve public catalog and item detail to a single shop tenant via URL or explicit query param, aligned with existing multi-tenant isolation. (completed 2026-04-30)
 
 ## Phase Details
 
@@ -177,7 +177,7 @@ Plans:
 | 13. Issue #33 - Playwright Phase 2 | 3/3 | Complete | 2026-04-29 |
 | 14. Multi-Tenant Shop | 3/3 | Complete | 2026-03-23 |
 | 15. Admin RBAC & Tenant Authorization | 3/3 | Complete | 2026-04-29 |
-| 16. Per-Shop Public Homepage | 0/3 | Planned | — |
+| 16. Per-Shop Public Homepage | 3/3 | Complete | 2026-04-30 |
 
 ## Execution Update (2026-03-04)
 
@@ -305,7 +305,7 @@ Implemented in codebase for Phase 13:
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet complete and pending tasks:
-- Phase 16: Per-Shop Public Homepage — plans authored; execution pending (`16-01` through `16-03`).
+- None (Phase 16 shipped 2026-04-30).
 
 Partially executed phases (still pending full completion):
 - None.
@@ -339,12 +339,12 @@ Plans:
 **Goal:** Public visitors always see catalog and item detail scoped to exactly one shop; shareable URLs identify the shop without relying on admin JWT `active_shop_id`.
 **Requirements:** PBLC-03, MULT-01, MULT-03
 **Depends on:** Phase 14 (multi-tenant foundation); coordinates with Phase 15 only if public resolution must respect new platform vs shop role semantics (prefer no hard dependency).
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 16-01: Backend — optional `shop_id` on public item list/detail; resolve by UUID or `Shop.slug`; 404 for unknown/inactive shop; tests + contract docs
-- [ ] 16-02: Frontend — route or query resolution for shop context; catalog + detail + deep links preserve `shop_id`; optional default shop env for single-tenant deploys
-- [ ] 16-03: E2E + regression — Playwright scenarios for two shops, cross-tenant negative case, link builder smoke for public nav
+- [x] 16-01: Backend — optional `shop_id` on public item list/detail; resolve by UUID or `Shop.slug`; 404 for unknown/inactive shop; tests + contract docs
+- [x] 16-02: Frontend — route or query resolution for shop context; catalog + detail + deep links preserve `shop_id`; optional default shop env for single-tenant deploys
+- [x] 16-03: E2E + regression — Playwright scenarios for two shops, cross-tenant negative case, link builder smoke for public nav
 
 ## Execution Update (2026-04-20) — Security / media follow-up (ngoài số phase)
 
