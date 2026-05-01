@@ -1,4 +1,4 @@
-# Runs Prisma migrations against production Neon when `main` is updated (e.g. after merge).
+# Runs Prisma migrations against Neon only after the "CI" workflow completes successfully on `main`.
 #
 # Required repo secret:
 #   NEON_DATABASE_URL — pooled connection (…-pooler…), same role as app DATABASE_URL.
@@ -8,25 +8,30 @@
 #   from NEON_DATABASE_URL by stripping `-pooler` from the hostname (Neon’s usual pattern).
 #
 # Configure: GitHub → Settings → Secrets and variables → Actions → New repository secret.
-# Do not commit real URLs or passwords to the repository. Rotate credentials if they were exposed.
+# Do not commit real URLs or passwords to the repository.
 
 name: Migrate Neon (main)
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
 
 jobs:
   migrate:
     name: Prisma migrate deploy
     runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
     defaults:
       run:
         working-directory: ./backend
 
     steps:
-      - name: Checkout
+      - name: Checkout (same commit as green CI)
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
