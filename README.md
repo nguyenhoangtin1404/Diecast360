@@ -34,7 +34,7 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 | **Xác thực** | Access + refresh JWT, revoke qua refresh token; cookie-based session aspects — xem `docs/COOKIE_AUTH.md`; route admin kèm guard + kiểm tra vai trò. |
 | **Social / AI / tìm kiếm** | Copy caption + link; semantic search (Pinecone tùy chọn); OpenAI cho gợi ý / import; gợi ý SEO (xem guide); publish Facebook từ admin item detail. |
 | **Responsive UX** | Harden UI cho màn hình mobile/tablet ở các luồng admin/public cốt lõi (layout, navigation, item workflows). |
-| **E2E Testing** | Playwright smoke suite (35 tests): auth, items, members, pre-orders, reports, public catalog; shared fixture layer; CI artifact upload khi fail. |
+| **E2E Testing** | Playwright smoke suite (**50** test): auth, items, members, pre-orders, reports, public catalog, RBAC, responsive, social selling, spinner; shared fixture layer; CI upload báo cáo khi fail. |
 
 ## Tiến độ triển khai theo phase
 
@@ -51,8 +51,8 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 | **Phase 9 — Pre-Order Management** | ✅ Hoàn thành | Hoàn thiện pre-order lifecycle cho admin + public, vá review gaps và đồng bộ transition/error UX. |
 | **Phase 10 — Reporting & Analytics** | ✅ Hoàn thành | Dashboard KPI 10 chỉ số, trend chart theo ngày/tuần/tháng, filter range, API `/reports/summary` + `/reports/trends`. |
 | **Phase 11 — Membership & Points** | ✅ Hoàn thành | Schema tier/member/ledger, engine tính điểm và nâng hạng tự động, REST APIs đầy đủ, admin members dashboard. |
-| **Phase 12 — Playwright Phase 1** | ✅ Hoàn thành | Shared fixture layer, smoke E2E (35 tests passing), CI artifact upload khi fail, HTML reporter. |
-| **Phase 13 — Playwright Phase 2** | 🔲 Chưa triển khai | Extended coverage, stability tuning, quality gate bắt buộc trên CI. |
+| **Phase 12 — Playwright Phase 1** | ✅ Hoàn thành | Shared fixture layer, smoke E2E (50 tests), CI artifact upload khi fail, HTML reporter. |
+| **Phase 13 — Playwright Phase 2** | ✅ Hoàn thành | Spec nâng cao (`spinner`, `social-selling`, `responsive`), tinh chỉnh CI (retry/worker), ghi chú triage E2E trong `docs/TODO.md`, helper `stubAuthCsrf`; job Frontend trên GitHub Actions là quality gate (xem `.planning/ROADMAP.md`). |
 | **Phase 14 — Multi-Tenant Shop** | ✅ Hoàn thành | Multi-tenant theo shop với `TenantGuard`, `switch-shop`, quản trị shop cho super admin và cách ly dữ liệu. |
 
 ## Cấu trúc repo
@@ -69,7 +69,7 @@ docker-compose.yml    Postgres + backend + frontend (Dockerfile dev targets)
 
 ## Stack & quy ước API
 
-- **Monorepo:** [pnpm](https://pnpm.io/) (`pnpm install` ở root; script `pnpm dev` chạy song song backend + frontend nhờ `concurrently`).
+- **Monorepo:** [pnpm](https://pnpm.io/) ở root (`pnpm install`, `pnpm dev` chạy song song backend + frontend nhờ `concurrently`). **GitHub Actions** hiện dùng `npm ci` theo `package-lock.json` trong `backend/` và `frontend/` (xem [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); cập nhật lockfile khi đổi dependency để CI khớp.
 - **Backend:** Node.js, NestJS 11, Prisma 6, PostgreSQL, Sharp, upload local trong dev; tùy chọn OpenAI, Pinecone.
 - **Frontend:** React 19, Vite 7, React Router 7, TanStack Query, Tailwind CSS 3, Radix Slot; test: Vitest + Playwright.
 - **API:** prefix toàn cục `/api/v1`; payload JSON **snake_case**; envelope `{ ok, data, message }` hoặc `{ ok, error, message }` ([`docs/ERROR_HANDLING.md`](docs/ERROR_HANDLING.md)).
@@ -139,11 +139,11 @@ Trong container backend vẫn dùng `npm run start:dev` / frontend `npm run dev`
 
 ## Dev Container
 
-Thư mục [`.devcontainer/`](.devcontainer/): service `app` (Node) + `db` (Postgres, volume `postgres-data`). `devcontainer.json` forward port **3000** và **5432**; sau khi tạo container chạy:
+Thư mục [`.devcontainer/`](.devcontainer/): image **Node 24** ([`Dockerfile`](.devcontainer/Dockerfile)) + Postgres **`postgres:latest`** ([`docker-compose.yml`](.devcontainer/docker-compose.yml), volume `postgres-data`). `devcontainer.json` forward port **3000** và **5432**; `postCreateCommand` mặc định:
 
 `pnpm install && pnpm --filter ./backend exec prisma migrate dev --name init`
 
-Workspace mount: `/workspaces/<tên-thư-mục-repo>`.
+Thư mục làm việc trong container: `/workspaces/${localWorkspaceFolderBasename}` (biến Dev Containers — thường trùng tên thư mục repo trên máy host).
 
 ## Cơ sở dữ liệu
 
@@ -157,7 +157,7 @@ Workspace mount: `/workspaces/<tên-thư-mục-repo>`.
 
 ## E2E Testing (Playwright)
 
-Playwright smoke suite bao gồm **35 tests** chạy trên Chromium, covering các luồng nghiệp vụ quan trọng.
+Playwright smoke suite gồm **50** test chạy trên Chromium, bao phủ các luồng nghiệp vụ chính (auth, kho, báo cáo, pre-order, catalog public, hội viên, RBAC, responsive, social selling, spinner).
 
 ### Cài đặt browser (lần đầu)
 
@@ -182,20 +182,24 @@ npm run test:e2e -- --debug                  # Playwright Inspector (chỉ local
 ```
 frontend/tests/e2e/
   fixtures/index.ts          # shared mock helpers (authMePayload, apiOk, authenticatedPage fixture)
-  auth.spec.ts               # smoke: login, redirect, bad credentials
-  items.spec.ts              # smoke: admin items list (heading, data, search, error, empty)
-  members.spec.ts            # smoke: members & tiers management
-  public-catalog.spec.ts     # smoke: public catalog (không cần auth)
-  preorders.spec.ts          # smoke: pre-order admin flows
-  reports.spec.ts            # smoke: KPI dashboard
-  spinner-max-frames.spec.ts # smoke: spinner upload limits
+  auth.spec.ts               # login, redirect, thông tin đăng nhập sai
+  items.spec.ts              # danh sách admin: heading, dữ liệu, tìm kiếm, lỗi, empty
+  members.spec.ts            # hội viên & tier
+  public-catalog.spec.ts     # catalog công khai (JWT/shop_id tùy chọn)
+  preorders.spec.ts          # pre-order admin + public + đơn của tôi
+  reports.spec.ts            # dashboard KPI & trend
+  rbac.spec.ts               # quyền super admin / shop admin, modal thêm thành viên
+  responsive.spec.ts         # layout items trên chiều rộng mobile
+  social-selling.spec.ts     # AI caption + lưu link / Facebook posts
+  spinner.spec.ts            # upload frame & sắp xếp frame 360°
+  spinner-max-frames.spec.ts # giới hạn số frame spinner
 ```
 
 ### CI
 
-- E2E chạy tự động trong GitHub Actions sau build và unit tests.
-- Khi fail → artifact `playwright-report` được upload (trace + screenshot + HTML report).
-- Download artifact → mở `index.html` để xem trace và log chi tiết.
+- Workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml): **Node 20**, job `backend` (lint, build, Jest) và `frontend` (lint, `tsc`, build, Vitest, Playwright `npm run test:e2e`).
+- Khi E2E fail → artifact **`playwright-report`** (HTML + trace/screenshot tùy cấu hình).
+- Tải artifact → mở `index.html` trong thư mục báo cáo để xem chi tiết.
 
 ## Tài liệu kỹ thuật
 
