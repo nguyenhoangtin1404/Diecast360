@@ -4,6 +4,9 @@
 - Full-stack: Backend (Node.js/NestJS theo docs không phụ thuộc framework), DB PostgreSQL + Prisma ORM, Frontend React + Vite + TanStack Query.
 - Mục tiêu: quản lý kho diecast, public catalog, viewer spinner 360° và công cụ hỗ trợ bán Facebook.
 
+## Triển khai (tham chiếu)
+- Hướng dẫn tách tầng: static frontend (Vercel / Cloudflare Pages / tương đương), API trên máy chủ tự quản (ví dụ Raspberry Pi) với tunnel HTTPS khi không có IP tĩnh, DB managed Neon — xem [`docs/DEPLOYMENT.md`](DEPLOYMENT.md).
+
 ## Lựa chọn Database
 
 | Database mode | RAM | Phù hợp cho |
