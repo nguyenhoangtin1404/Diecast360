@@ -52,7 +52,7 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 | **Phase 10 — Reporting & Analytics** | ✅ Hoàn thành | Dashboard KPI 10 chỉ số, trend chart theo ngày/tuần/tháng, filter range, API `/reports/summary` + `/reports/trends`. |
 | **Phase 11 — Membership & Points** | ✅ Hoàn thành | Schema tier/member/ledger, engine tính điểm và nâng hạng tự động, REST APIs đầy đủ, admin members dashboard. |
 | **Phase 12 — Playwright Phase 1** | ✅ Hoàn thành | Shared fixture layer, smoke E2E (50 tests), CI artifact upload khi fail, HTML reporter. |
-| **Phase 13 — Playwright Phase 2** | 🔲 Chưa triển khai | Mở rộng coverage ngoài smoke hiện tại, tinh chỉnh ổn định (flaky), scenario regression sâu hơn — E2E đã là quality gate trên CI. |
+| **Phase 13 — Playwright Phase 2** | ✅ Hoàn thành | Spec nâng cao (`spinner`, `social-selling`, `responsive`), tinh chỉnh CI (retry/worker), ghi chú triage E2E trong `docs/TODO.md`, helper `stubAuthCsrf`; job Frontend trên GitHub Actions là quality gate (xem `.planning/ROADMAP.md`). |
 | **Phase 14 — Multi-Tenant Shop** | ✅ Hoàn thành | Multi-tenant theo shop với `TenantGuard`, `switch-shop`, quản trị shop cho super admin và cách ly dữ liệu. |
 
 ## Cấu trúc repo
