@@ -120,4 +120,8 @@ jobs:
             sudo systemctl restart diecast360-api
             sleep 3
             systemctl is-active --quiet diecast360-api
-            curl -sfS "http://127.0.0.1:${PORT}/api/v1" >/dev/null
+            curl -sfS "http://127.0.0.1:${PORT}/api/v1/health" >/dev/null
+
+      - name: Remove deploy key from runner
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
