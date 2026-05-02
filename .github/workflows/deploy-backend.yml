@@ -1,0 +1,92 @@
+# Build backend on GitHub Actions (linux/amd64), ship dist + lockfile + Prisma to Raspberry Pi.
+# On the Pi: npm ci --omit=dev rebuilds native deps (bcrypt, sharp) for ARM — do not copy node_modules from the runner.
+#
+# Secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY
+# Optional: DEPLOY_REMOTE_PATH (default /opt/diecast360-backend)
+
+name: Deploy backend (Pi)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      # Forward optional deploy path to rsync + SSH steps (default on Pi: /opt/diecast360-backend)
+      DEPLOY_REMOTE_PATH: ${{ secrets.DEPLOY_REMOTE_PATH }}
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install & build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Rsync artifact to Pi
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          REMOTE="${DEPLOY_REMOTE_PATH:-/opt/diecast360-backend}"
+          RSYNC_SSH='ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes'
+          # Ship compiled app + manifests; .env and uploads stay on the Pi.
+          rsync -avz --delete \
+            -e "$RSYNC_SSH" \
+            ./dist/ "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE}/dist/"
+          rsync -avz \
+            -e "$RSYNC_SSH" \
+            ./package.json ./package-lock.json "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE}/"
+          rsync -avz --delete \
+            -e "$RSYNC_SSH" \
+            ./prisma/ "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE}/prisma/"
+
+      - name: Install prod deps, migrate, restart
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_REMOTE_PATH: ${{ env.DEPLOY_REMOTE_PATH }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: DEPLOY_REMOTE_PATH
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_REMOTE_PATH:-/opt/diecast360-backend}"
+            npm ci --omit=dev
+            npx prisma generate
+            npx prisma migrate deploy
+            sudo systemctl restart diecast360-api
