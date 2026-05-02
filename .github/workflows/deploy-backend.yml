@@ -6,6 +6,9 @@
 #
 # rsync --delete: Pi mirrors the repo (dist + prisma). Do not keep unique files only on the Pi.
 # Optional: create a GitHub Environment named "production" and add required reviewers to gate deploys.
+#
+# Merge vào `main` kích hoạt deploy — nên bật branch protection: PR bắt buộc, CI pass,
+# và (tuỳ chọn) CODEOWNERS review — xem `.github/CODEOWNERS`.
 
 name: Deploy backend (Pi)
 
@@ -124,4 +127,7 @@ jobs:
 
       - name: Remove deploy key from runner
         if: always()
-        run: rm -f ~/.ssh/deploy_key
+        run: |
+          rm -f ~/.ssh/deploy_key
+          chmod 700 ~/.ssh 2>/dev/null || true
+

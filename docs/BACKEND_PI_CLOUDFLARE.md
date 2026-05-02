@@ -103,6 +103,14 @@ File: [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backe
 - Không copy `node_modules` từ runner → Pi luôn `npm ci --omit=dev` đúng kiến trúc ARM.
 - **`rsync --delete`** cho `dist/` và `prisma/`: Pi được **đồng bộ đúng repo** — không giữ file chỉ có trên Pi (tránh drift). Migration chỉ nên có trong Git.
 - Job dùng GitHub **Environment** tên `production` (tự tạo lần đầu). Vào **Settings → Environments → production** để bật **Required reviewers** nếu muốn chặn migrate/restart cho đến khi duyệt (khuyến nghị cho DB production). Có thể bật **Restrict deployments** (chỉ `main`) để tránh deploy nhầm nhánh.
+
+### Branch protection (khuyến nghị)
+
+Vì **merge vào `main`** (sau khi CI xanh) sẽ trigger deploy khi có thay đổi `backend/**`, nên cấu hình **Settings → Rules → Rulesets** (hoặc branch protection cũ):
+
+- Bắt buộc **pull request** trước khi merge.
+- Bắt buộc **status check** (job CI Success / backend / frontend tùy repo).
+- (Tuỳ chọn) **Require review from Code Owners** — file [`.github/CODEOWNERS`](../.github/CODEOWNERS) gán owner cho `backend/` và workflow deploy (chỉnh `@username` cho đúng team).
 - Sau deploy: **`systemctl is-active`** và **`curl`** tới `http://127.0.0.1:$PORT/api/v1/health` (endpoint **`GET /api/v1/health`**) — kiểm tra **DB** (`SELECT 1`); trả **503** nếu Neon không kết nối được. **`PORT`** lấy từ `.env` trước migrate/restart.
 - **Rollback:** redeploy commit cũ trên `main` hoặc chạy workflow trên commit/tag trước; migration đã apply lên Neon cần xử lý tay hoặc migration down (Prisma không auto rollback).
 
