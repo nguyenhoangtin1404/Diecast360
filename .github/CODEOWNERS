@@ -1,0 +1,5 @@
+# Require review on backend + deploy paths when branch protection uses CODEOWNERS.
+# Replace @nguyenhoangtin1404 with your team/org handles if needed.
+/backend/ @nguyenhoangtin1404
+/.github/workflows/deploy-backend.yml @nguyenhoangtin1404
+/docs/BACKEND_PI_CLOUDFLARE.md @nguyenhoangtin1404
