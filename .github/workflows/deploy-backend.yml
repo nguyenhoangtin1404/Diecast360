@@ -37,10 +37,30 @@ jobs:
         working-directory: backend
 
     steps:
+      - name: Check required secrets
+        id: secrets_check
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          missing=()
+          [ -z "$DEPLOY_HOST" ]    && missing+=("DEPLOY_HOST")
+          [ -z "$DEPLOY_USER" ]    && missing+=("DEPLOY_USER")
+          [ -z "$DEPLOY_SSH_KEY" ] && missing+=("DEPLOY_SSH_KEY")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::warning::Deployment secrets not configured (${missing[*]}). Skipping deploy."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.secrets_check.outputs.skip != 'true'
         uses: actions/checkout@v4
 
       - name: Setup Node.js
+        if: steps.secrets_check.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -48,16 +68,19 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - name: Install & build
+        if: steps.secrets_check.outputs.skip != 'true'
         run: |
           npm ci
           npm run build
 
       - name: Verify build output
+        if: steps.secrets_check.outputs.skip != 'true'
         run: |
           test -d dist
           test -n "$(find dist -type f -print -quit)" || (echo "::error::dist/ has no files — aborting deploy"; exit 1)
 
       - name: Install SSH key
+        if: steps.secrets_check.outputs.skip != 'true'
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -82,6 +105,7 @@ jobs:
           rm -f "$KEYSCAN_OUT" "${KEYSCAN_OUT}.err"
 
       - name: Rsync artifact to Pi
+        if: steps.secrets_check.outputs.skip != 'true'
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -101,6 +125,7 @@ jobs:
             ./prisma/ "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE}/prisma/"
 
       - name: Install prod deps, migrate, restart
+        if: steps.secrets_check.outputs.skip != 'true'
         uses: appleboy/ssh-action@v1.2.0
         env:
           DEPLOY_REMOTE_PATH: ${{ env.DEPLOY_REMOTE_PATH }}
