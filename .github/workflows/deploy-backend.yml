@@ -60,6 +60,7 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
           echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           set -euo pipefail
@@ -109,14 +110,14 @@ jobs:
           script: |
             set -euo pipefail
             cd "${DEPLOY_REMOTE_PATH:-/opt/diecast360-backend}"
+            set -a
+            [ -f .env ] && . ./.env
+            set +a
+            PORT="${PORT:-3000}"
             npm ci --omit=dev
             npx prisma generate
             npx prisma migrate deploy
             sudo systemctl restart diecast360-api
             sleep 3
             systemctl is-active --quiet diecast360-api
-            set -a
-            [ -f .env ] && . ./.env
-            set +a
-            PORT="${PORT:-3000}"
             curl -sfS "http://127.0.0.1:${PORT}/api/v1" >/dev/null

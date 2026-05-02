@@ -60,6 +60,19 @@ sudo chmod 440 /etc/sudoers.d/diecast360-api
 | `DEPLOY_SSH_KEY` | Private key (toàn bộ PEM), khớp `authorized_keys` trên Pi. |
 | `DEPLOY_REMOTE_PATH` | (Tuỳ chọn) Đường dẫn deploy; mặc định `/opt/diecast360-backend`. |
 
+### SSH key cho GitHub → Pi
+
+Trên máy dev (không commit private key):
+
+```bash
+ssh-keygen -t ed25519 -f ./diecast360-deploy -N ""
+```
+
+- Public key (`diecast360-deploy.pub`): thêm vào Pi — `~/.ssh/authorized_keys` của user deploy (một dòng).
+- Private key (`diecast360-deploy`): nội dung file → GitHub Secret **`DEPLOY_SSH_KEY`**.
+
+Luân phiên key định kỳ: tạo cặp mới, cập nhật secret + `authorized_keys`, xoá key cũ.
+
 ## 3. Cloudflare Tunnel (public API, không cần mở 443 trên router)
 
 1. Domain dùng DNS Cloudflare.
@@ -90,7 +103,7 @@ File: [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backe
 - Không copy `node_modules` từ runner → Pi luôn `npm ci --omit=dev` đúng kiến trúc ARM.
 - **`rsync --delete`** cho `dist/` và `prisma/`: Pi được **đồng bộ đúng repo** — không giữ file chỉ có trên Pi (tránh drift). Migration chỉ nên có trong Git.
 - Job dùng GitHub **Environment** tên `production` (tự tạo lần đầu). Vào **Settings → Environments → production** để bật **Required reviewers** nếu muốn chặn migrate/restart cho đến khi duyệt (khuyến nghị cho DB production).
-- Sau deploy: kiểm tra **`systemctl is-active`** và **`curl`** tới `http://127.0.0.1:$PORT/api/v1` (đọc `PORT` từ `.env` trên Pi).
+- Sau deploy: kiểm tra **`systemctl is-active`** và **`curl`** tới `http://127.0.0.1:$PORT/api/v1` — **`PORT` đọc từ `.env` trước khi migrate/restart** để khớp cổng thực tế của service.
 - **Rollback:** redeploy commit cũ trên `main` hoặc chạy workflow trên commit/tag trước; migration đã apply lên Neon cần xử lý tay hoặc migration down (Prisma không auto rollback).
 
 ### Tunnel — systemd (tham khảo Cloudflare)
