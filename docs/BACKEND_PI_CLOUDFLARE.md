@@ -88,3 +88,15 @@ File: [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backe
 
 - Trigger: push `main` khi đổi `backend/**`, hoặc **Run workflow** thủ công.
 - Không copy `node_modules` từ runner → Pi luôn `npm ci --omit=dev` đúng kiến trúc ARM.
+- **`rsync --delete`** cho `dist/` và `prisma/`: Pi được **đồng bộ đúng repo** — không giữ file chỉ có trên Pi (tránh drift). Migration chỉ nên có trong Git.
+- Job dùng GitHub **Environment** tên `production` (tự tạo lần đầu). Vào **Settings → Environments → production** để bật **Required reviewers** nếu muốn chặn migrate/restart cho đến khi duyệt (khuyến nghị cho DB production).
+- Sau deploy: kiểm tra **`systemctl is-active`** và **`curl`** tới `http://127.0.0.1:$PORT/api/v1` (đọc `PORT` từ `.env` trên Pi).
+- **Rollback:** redeploy commit cũ trên `main` hoặc chạy workflow trên commit/tag trước; migration đã apply lên Neon cần xử lý tay hoặc migration down (Prisma không auto rollback).
+
+### Tunnel — systemd (tham khảo Cloudflare)
+
+```bash
+sudo cloudflared service install
+```
+
+Chi tiết và template service: [Cloudflare Tunnel · Run as a service](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/configure-tunnels/local-management/as-a-service/).

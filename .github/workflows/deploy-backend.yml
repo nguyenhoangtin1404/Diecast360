@@ -3,6 +3,9 @@
 #
 # Secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY
 # Optional: DEPLOY_REMOTE_PATH (default /opt/diecast360-backend)
+#
+# rsync --delete: Pi mirrors the repo (dist + prisma). Do not keep unique files only on the Pi.
+# Optional: create a GitHub Environment named "production" and add required reviewers to gate deploys.
 
 name: Deploy backend (Pi)
 
@@ -21,6 +24,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Optional protection: Settings → Environments → production → Required reviewers
+    environment: production
     env:
       # Forward optional deploy path to rsync + SSH steps (default on Pi: /opt/diecast360-backend)
       DEPLOY_REMOTE_PATH: ${{ secrets.DEPLOY_REMOTE_PATH }}
@@ -44,6 +49,11 @@ jobs:
           npm ci
           npm run build
 
+      - name: Verify build output
+        run: |
+          test -d dist
+          test -n "$(find dist -type f -print -quit)" || (echo "::error::dist/ has no files — aborting deploy"; exit 1)
+
       - name: Install SSH key
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -52,7 +62,20 @@ jobs:
           mkdir -p ~/.ssh
           echo "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          set -euo pipefail
+          KEYSCAN_OUT="$(mktemp)"
+          if ! ssh-keyscan -H "$DEPLOY_HOST" >"$KEYSCAN_OUT" 2>"${KEYSCAN_OUT}.err"; then
+            echo "::error::ssh-keyscan failed for host $DEPLOY_HOST"
+            cat "${KEYSCAN_OUT}.err" >&2
+            exit 1
+          fi
+          if ! grep -q . "$KEYSCAN_OUT"; then
+            echo "::error::ssh-keyscan returned no keys for $DEPLOY_HOST"
+            cat "${KEYSCAN_OUT}.err" >&2
+            exit 1
+          fi
+          cat "$KEYSCAN_OUT" >> ~/.ssh/known_hosts
+          rm -f "$KEYSCAN_OUT" "${KEYSCAN_OUT}.err"
 
       - name: Rsync artifact to Pi
         env:
@@ -90,3 +113,10 @@ jobs:
             npx prisma generate
             npx prisma migrate deploy
             sudo systemctl restart diecast360-api
+            sleep 3
+            systemctl is-active --quiet diecast360-api
+            set -a
+            [ -f .env ] && . ./.env
+            set +a
+            PORT="${PORT:-3000}"
+            curl -sfS "http://127.0.0.1:${PORT}/api/v1" >/dev/null
