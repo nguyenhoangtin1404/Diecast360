@@ -1,4 +1,4 @@
-# Build backend on GitHub Actions (linux/amd64), ship dist + lockfile + Prisma to Raspberry Pi.
+# Build backend on a self-hosted runner, ship dist + lockfile + Prisma to Raspberry Pi.
 # On the Pi: npm ci --omit=dev rebuilds native deps (bcrypt, sharp) for ARM — do not copy node_modules from the runner.
 #
 # Secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY
@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     # Optional protection: Settings → Environments → production → Required reviewers
     environment: production
     env:
