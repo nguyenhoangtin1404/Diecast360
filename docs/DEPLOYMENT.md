@@ -130,11 +130,13 @@ Chi tiết Facebook, OpenAI, Pinecone: tùy tính năng bật — vẫn trong [`
 4. Cập nhật `VITE_API_BASE_URL` trên host frontend, deploy lại frontend.
 5. Kiểm tra đăng nhập, upload nhỏ, catalog; đọc [`COOKIE_AUTH.md`](COOKIE_AUTH.md) nếu cookie cross-site lỗi.
 
+Tự động deploy backend khi merge `main`: cài [GitHub self-hosted runner trên Pi](BACKEND_SELF_HOSTED_RUNNER.md) và dùng workflow [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml).
+
 ---
 
 ## 6. CI và migration
 
-Workflow CI mặc định: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Nếu repository có thêm workflow migrate Neon kích hoạt sau CI xanh trên `main`, cấu hình secret `NEON_DATABASE_URL` (và tùy chọn `NEON_DIRECT_URL`) trong GitHub Actions — không ghi secret vào git.
+Workflow CI mặc định: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Deploy backend lên Pi (self-hosted runner): [`BACKEND_SELF_HOSTED_RUNNER.md`](BACKEND_SELF_HOSTED_RUNNER.md) và [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml). Nếu repository có thêm workflow migrate Neon kích hoạt sau CI xanh trên `main`, cấu hình secret `NEON_DATABASE_URL` (và tùy chọn `NEON_DIRECT_URL`) trong GitHub Actions — không ghi secret vào git.
 
 ---
 
@@ -142,4 +144,4 @@ Workflow CI mặc định: [`.github/workflows/ci.yml`](../.github/workflows/ci.
 
 - Xoay mật khẩu Neon nếu từng lộ URL trong chat / log công khai.
 - Sao lưu định kỳ thư mục upload trên Pi; Neon có backup theo gói dịch vụ.
-- Cập nhật code: `git pull` trên Pi → `npm ci --omit=dev` → `npm run build` → `systemctl restart …`.
+- Cập nhật code: merge `main` (workflow self-hosted trên Pi) hoặc tay: `git pull` trên Pi → `npm ci --omit=dev` → `npm run build` → `systemctl restart …`.
