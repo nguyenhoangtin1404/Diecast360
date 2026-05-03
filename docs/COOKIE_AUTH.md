@@ -27,7 +27,7 @@ FRONTEND_URL=http://localhost:5173
 |------|-------------|--------------|-------|
 | `COOKIE_SECRET` | random string | **MUST CHANGE** | Khóa bí mật để ký cookies |
 | `COOKIE_SECURE` | `false` | `true` | Chỉ gửi cookies qua HTTPS |
-| `COOKIE_SAME_SITE` | `lax` | `strict` | Chống CSRF attacks |
+| `COOKIE_SAME_SITE` | `lax` | `strict`, `lax`, hoặc **`none`** | `none` chỉ khi **frontend và API khác domain** (vd UI `www.shop.com`, API `api.shop.com`); bắt buộc `COOKIE_SECURE=true` và CORS đúng. Cùng site (subpath / reverse proxy) dùng `lax` hoặc `strict`. |
 | `FRONTEND_URL` | `http://localhost:5173` | Your domain | CORS origin |
 
 ## Cookies được sử dụng
@@ -160,6 +160,21 @@ async function bootstrap() {
 
 ## Troubleshooting
 
+### Vào admin ~1 giây rồi bị đá về login (UI và API khác domain)
+
+Khi trang web chạy trên **domain A** (vd `https://www.dhtoys.store`) còn API trên **domain B** (vd `https://nhtin.name.vn`), request XHR là **cross-site**. Cookie `SameSite=Lax` hoặc `Strict` **không** được gửi kèm các request đó → API trả 401 → frontend thử refresh → không có `refresh_token` trong request → chuyển về `/admin/login`.
+
+**Cách sửa trên backend (`.env` production):**
+
+```env
+COOKIE_SECURE=true
+COOKIE_SAME_SITE=none
+```
+
+Rồi restart API. Giữ `FRONTEND_URL` / `FRONTEND_URLS` khớp origin thật của UI (đã có CORS `credentials: true`). CSRF double-submit vẫn bảo vệ các request đổi trạng thái.
+
+**Cách khác (không cần `SameSite=None`):** phục vụ UI và API **cùng một site** (cùng eTLD+1 hoặc reverse proxy một domain, vd `https://www.dhtoys.store` + API `https://www.dhtoys.store/api`).
+
 ### Cookies không được set
 - Kiểm tra CORS: `credentials: true` ở cả backend và frontend
 - Kiểm tra `FRONTEND_URL` khớp với origin của frontend
@@ -171,7 +186,7 @@ async function bootstrap() {
 ### Production checklist
 - [ ] `COOKIE_SECRET` là chuỗi ngẫu nhiên dài > 32 ký tự
 - [ ] `COOKIE_SECURE=true`
-- [ ] `COOKIE_SAME_SITE=strict` hoặc `lax`
+- [ ] `COOKIE_SAME_SITE` phù hợp: **`none`** nếu frontend và API **khác domain**, ngược lại `lax` hoặc `strict`
 - [ ] HTTPS được sử dụng
 - [ ] `FRONTEND_URL` là domain production
 

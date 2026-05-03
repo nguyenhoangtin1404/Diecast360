@@ -13,8 +13,13 @@ export function validateRuntimeSecurityConfig(env: NodeJS.ProcessEnv = process.e
   }
 
   const sameSite = (env.COOKIE_SAME_SITE || 'lax').trim().toLowerCase();
-  if (!['lax', 'strict'].includes(sameSite)) {
-    throw new Error('COOKIE_SAME_SITE must be "lax" or "strict" in production');
+  if (!['lax', 'strict', 'none'].includes(sameSite)) {
+    throw new Error(
+      'COOKIE_SAME_SITE must be "lax", "strict", or "none" in production',
+    );
+  }
+  if (sameSite === 'none' && !cookieSecure) {
+    throw new Error('COOKIE_SAME_SITE "none" requires COOKIE_SECURE=true (browser rule)');
   }
 
   const allowLanCors = normalizeEnvBoolean(env.CORS_ALLOW_LAN);
