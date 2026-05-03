@@ -8,13 +8,19 @@ export function validateRuntimeSecurityConfig(env: NodeJS.ProcessEnv = process.e
   if (!isProduction) return;
 
   const cookieSecure = normalizeEnvBoolean(env.COOKIE_SECURE);
+  const sameSite = (env.COOKIE_SAME_SITE || 'lax').trim().toLowerCase();
+  if (!['lax', 'strict', 'none'].includes(sameSite)) {
+    throw new Error(
+      'COOKIE_SAME_SITE must be "lax", "strict", or "none" in production',
+    );
+  }
+  // Browsers reject SameSite=None without Secure — check before generic COOKIE_SECURE rule
+  // so tests and operators get an actionable message.
+  if (sameSite === 'none' && !cookieSecure) {
+    throw new Error('COOKIE_SAME_SITE "none" requires COOKIE_SECURE=true (browser rule)');
+  }
   if (!cookieSecure) {
     throw new Error('COOKIE_SECURE must be true in production');
-  }
-
-  const sameSite = (env.COOKIE_SAME_SITE || 'lax').trim().toLowerCase();
-  if (!['lax', 'strict'].includes(sameSite)) {
-    throw new Error('COOKIE_SAME_SITE must be "lax" or "strict" in production');
   }
 
   const allowLanCors = normalizeEnvBoolean(env.CORS_ALLOW_LAN);

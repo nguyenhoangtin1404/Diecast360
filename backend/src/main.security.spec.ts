@@ -20,7 +20,18 @@ describe('validateRuntimeSecurityConfig', () => {
     ).toThrow('COOKIE_SECURE must be true in production');
   });
 
-  it('rejects production when COOKIE_SAME_SITE is none', () => {
+  it('rejects production when COOKIE_SAME_SITE is none but COOKIE_SECURE is false', () => {
+    expect(() =>
+      validateRuntimeSecurityConfig({
+        NODE_ENV: 'production',
+        COOKIE_SECURE: 'false',
+        COOKIE_SAME_SITE: 'none',
+        CORS_ALLOW_LAN: 'false',
+      }),
+    ).toThrow('COOKIE_SAME_SITE "none" requires COOKIE_SECURE=true');
+  });
+
+  it('allows production when COOKIE_SAME_SITE is none with secure cookies', () => {
     expect(() =>
       validateRuntimeSecurityConfig({
         NODE_ENV: 'production',
@@ -28,7 +39,18 @@ describe('validateRuntimeSecurityConfig', () => {
         COOKIE_SAME_SITE: 'none',
         CORS_ALLOW_LAN: 'false',
       }),
-    ).toThrow('COOKIE_SAME_SITE must be "lax" or "strict" in production');
+    ).not.toThrow();
+  });
+
+  it('rejects production when COOKIE_SAME_SITE is invalid', () => {
+    expect(() =>
+      validateRuntimeSecurityConfig({
+        NODE_ENV: 'production',
+        COOKIE_SECURE: 'true',
+        COOKIE_SAME_SITE: 'invalid',
+        CORS_ALLOW_LAN: 'false',
+      }),
+    ).toThrow('COOKIE_SAME_SITE must be "lax", "strict", or "none" in production');
   });
 
   it('rejects production when LAN CORS is enabled', () => {

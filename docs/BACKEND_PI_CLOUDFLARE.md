@@ -83,7 +83,7 @@ Luân phiên key định kỳ: tạo cặp mới, cập nhật secret + `authori
 HTTPS và certificate do Cloudflare lo; trên backend production nên:
 
 - `COOKIE_SECURE=true`
-- `COOKIE_SAME_SITE` phù hợp (thường `lax` hoặc `strict` tùy subdomain/cookie cross-site)
+- `COOKIE_SAME_SITE`: nếu UI (Vercel/domain shop) và API **khác site** → `none` + `COOKIE_SECURE=true`; cùng site → `lax` hoặc `strict`
 
 ## 4. Frontend (hosting khác)
 
