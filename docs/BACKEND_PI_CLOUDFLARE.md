@@ -51,27 +51,17 @@ echo 'pi ALL=(ALL) NOPASSWD: /bin/systemctl restart diecast360-api' | sudo tee /
 sudo chmod 440 /etc/sudoers.d/diecast360-api
 ```
 
-## 2. GitHub Actions — Secrets
+## 2. GitHub Actions — deploy backend (self-hosted runner trên Pi)
 
-| Secret | Mô tả |
-|--------|--------|
-| `DEPLOY_HOST` | Hostname hoặc IP Pi (**phải SSH được từ internet** tới Pi: port forward 22 hoặc SSH qua Cloudflare / Tailscale tùy bạn). |
-| `DEPLOY_USER` | User SSH (vd `pi`). |
-| `DEPLOY_SSH_KEY` | Private key (toàn bộ PEM), khớp `authorized_keys` trên Pi. |
-| `DEPLOY_REMOTE_PATH` | (Tuỳ chọn) Đường dẫn deploy; mặc định `/opt/diecast360-backend`. |
+Workflow [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml) chạy trên runner **đặt trên Pi** (`runs-on: [self-hosted, diecast360-pi]`), **không** SSH từ internet vào nhà.
 
-### SSH key cho GitHub → Pi
+**Hướng dẫn từng bước cài runner + nhãn:** [`BACKEND_SELF_HOSTED_RUNNER.md`](BACKEND_SELF_HOSTED_RUNNER.md).
 
-Trên máy dev (không commit private key):
+| Secret / biến | Mô tả |
+|----------------|--------|
+| `DEPLOY_REMOTE_PATH` | (Tuỳ chọn) Đường dẫn deploy; mặc định `/opt/diecast360-backend`. Ví dụ `/opt/diecast360-api` → set secret = `/opt/diecast360-api`. Có thể đặt trong Environment `production` thay vì secret. |
 
-```bash
-ssh-keygen -t ed25519 -f ./diecast360-deploy -N ""
-```
-
-- Public key (`diecast360-deploy.pub`): thêm vào Pi — `~/.ssh/authorized_keys` của user deploy (một dòng).
-- Private key (`diecast360-deploy`): nội dung file → GitHub Secret **`DEPLOY_SSH_KEY`**.
-
-Luân phiên key định kỳ: tạo cặp mới, cập nhật secret + `authorized_keys`, xoá key cũ.
+Không cần `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` khi dùng self-hosted trên Pi như hiện tại.
 
 ## 3. Cloudflare Tunnel (public API, không cần mở 443 trên router)
 
@@ -100,8 +90,9 @@ Origin frontend phải nằm trong `FRONTEND_URL` / `FRONTEND_URLS` của backen
 File: [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml)
 
 - Trigger: push `main` khi đổi `backend/**`, hoặc **Run workflow** thủ công.
-- Không copy `node_modules` từ runner → Pi luôn `npm ci --omit=dev` đúng kiến trúc ARM.
-- **`rsync --delete`** cho `dist/` và `prisma/`: Pi được **đồng bộ đúng repo** — không giữ file chỉ có trên Pi (tránh drift). Migration chỉ nên có trong Git.
+- Job chạy trên **self-hosted runner trên Pi** (label `diecast360-pi`): checkout → build ARM → `rsync` vào `DEPLOY_REMOTE_PATH` → `npm ci --omit=dev` → migrate → restart.
+- Không copy `node_modules` giữa máy khác và Pi: luôn `npm ci --omit=dev` tại thư mục deploy.
+- **`rsync --delete`** cho `dist/` và `prisma/`: thư mục deploy **khớp repo** — không giữ file chỉ có local (tránh drift). Migration chỉ nên có trong Git.
 - Job dùng GitHub **Environment** tên `production` (tự tạo lần đầu). Vào **Settings → Environments → production** để bật **Required reviewers** nếu muốn chặn migrate/restart cho đến khi duyệt (khuyến nghị cho DB production). Có thể bật **Restrict deployments** (chỉ `main`) để tránh deploy nhầm nhánh.
 
 ### Branch protection (khuyến nghị)
