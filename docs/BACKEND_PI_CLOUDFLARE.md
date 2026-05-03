@@ -93,7 +93,18 @@ Trong `.env` build frontend (vd `VITE_API_BASE_URL`):
 VITE_API_BASE_URL=https://api.example.com/api/v1
 ```
 
-Origin frontend phải nằm trong `FRONTEND_URL` / `FRONTEND_URLS` của backend.
+Origin frontend phải nằm trong `FRONTEND_URL` / `FRONTEND_URLS` của backend (khớp **scheme + host + port**, không có path). Ví dụ Vercel:
+
+```env
+FRONTEND_URL=https://diecast360-frontend.vercel.app
+# Hoặc nhiều origin (preview + production), cách nhau bằng dấu phẩy:
+# FRONTEND_URL=https://www.example.com
+# FRONTEND_URLS=https://diecast360-git-main-team.vercel.app
+```
+
+Lưu ý: mỗi origin preview Vercel là URL riêng; thêm từng URL vào `FRONTEND_URLS` nếu cần (không có wildcard).
+
+Sau khi sửa `.env` trên Pi: `sudo systemctl restart diecast360-api` (hoặc service tương đương).
 
 ## 5. Workflow
 
