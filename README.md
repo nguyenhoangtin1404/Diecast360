@@ -11,6 +11,7 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 - [Yêu cầu môi trường](#yêu-cầu-môi-trường)
 - [Cài đặt & chạy dev](#cài-đặt--chạy-dev)
 - [Hướng dẫn dev chi tiết](docs/DEV.md)
+- [Triển khai production (Vercel / Pi / Neon)](docs/DEPLOYMENT.md)
 - [Docker Compose (full stack)](#docker-compose-full-stack)
 - [Dev Container](#dev-container)
 - [Cơ sở dữ liệu](#cơ-sở-dữ-liệu)
@@ -212,6 +213,7 @@ frontend/tests/e2e/
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kiến trúc hệ thống |
 | [`docs/ENV.md`](docs/ENV.md) | Biến môi trường |
 | [`docs/DEV.md`](docs/DEV.md) | Chạy dev local, Docker, Dev Container, test & troubleshooting |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Triển khai: frontend CDN, backend Pi + tunnel, Neon — tham chiếu issue #111 |
 | [`docs/COOKIE_AUTH.md`](docs/COOKIE_AUTH.md) | Cookie & CORS liên quan auth |
 | [`docs/AI_RULES.md`](docs/AI_RULES.md) | Quy tắc tích hợp AI |
 | [`docs/TODO.md`](docs/TODO.md) | Lộ trình & E2E workflow |

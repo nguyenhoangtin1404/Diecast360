@@ -1,6 +1,6 @@
 # Hướng dẫn phát triển local (Diecast360)
 
-Tài liệu này bổ sung [`README.md`](../README.md): nhiều luồng chạy dev, cổng dịch vụ, Prisma, test và xử lý sự cố thường gặp. Biến môi trường đầy đủ: [`docs/ENV.md`](ENV.md).
+Tài liệu này bổ sung [`README.md`](../README.md): nhiều luồng chạy dev, cổng dịch vụ, Prisma, test và xử lý sự cố thường gặp. Biến môi trường đầy đủ: [`docs/ENV.md`](ENV.md). Triển khai production (Vercel/Pages, Pi, Neon): [`docs/DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ## Chọn luồng dev
 
