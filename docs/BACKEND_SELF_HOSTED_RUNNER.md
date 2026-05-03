@@ -9,6 +9,7 @@ Khi runner chạy **trực tiếp trên Pi**, workflow **không** SSH từ inter
 ## Yêu cầu trước
 
 - Pi **64-bit** (khuyến nghị), **Node 20** (`node -v`).
+- **`git`** đã cài (`sudo apt install git`) — `actions/checkout` cần.
 - Thư mục deploy (mặc định `/opt/diecast360-backend`) có `.env`, `uploads/`, và service `diecast360-api` như [`BACKEND_PI_CLOUDFLARE.md`](BACKEND_PI_CLOUDFLARE.md).
 - User chạy runner (thường `pi`) có quyền:
   - **Ghi** vào `DEPLOY_REMOTE_PATH` (sở hữu thư mục hoặc ACL phù hợp).
@@ -73,6 +74,8 @@ User runner phải ghi được `dist/`, `prisma/`, `package.json` trong `DEPLOY
 sudo chown -R pi:pi /opt/diecast360-backend
 ```
 
+(Thay bằng đường dẫn thật của bạn, ví dụ `/opt/diecast360-api`, nếu dùng `DEPLOY_REMOTE_PATH` khác mặc định.)
+
 Sudoers (một dòng, đã có trong doc Pi — chỉnh user nếu khác):
 
 ```bash
@@ -86,7 +89,15 @@ sudo chmod 440 /etc/sudoers.d/diecast360-api
 
 | Secret | Mô tả |
 |--------|--------|
-| `DEPLOY_REMOTE_PATH` | (Tuỳ chọn) Đường dẫn deploy; nếu **không** set → mặc định `/opt/diecast360-backend`. |
+| `DEPLOY_REMOTE_PATH` | (Tuỳ chọn) Đường dẫn deploy; nếu **không** set → mặc định `/opt/diecast360-backend`. Ví dụ bạn dùng `/opt/diecast360-api` → đặt secret này thành **`/opt/diecast360-api`** (đúng dấu `/` đầu). |
+
+### Thư mục deploy là `/opt/diecast360-api` (không phải `-backend`)
+
+1. GitHub → **Settings → Secrets and variables → Actions** (hoặc Environment **production**): tạo secret **`DEPLOY_REMOTE_PATH`** = `/opt/diecast360-api`.
+2. Trên Pi: tạo thư mục, `.env`, `uploads/`, quyền sở hữu — thay mọi chỗ doc viết `/opt/diecast360-backend` bằng **`/opt/diecast360-api`**.
+3. **systemd** (`diecast360-api.service`): `WorkingDirectory` và `EnvironmentFile` phải trỏ tới **`/opt/diecast360-api`** (và `ExecStart` vẫn `node dist/main.js` trong thư mục đó).
+
+Workflow chỉ đọc biến này; **không** bắt buộc đổi tên service `diecast360-api`.
 
 **Không cần** `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` khi chỉ dùng self-hosted như workflow mới.
 

@@ -59,7 +59,7 @@ Workflow [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-ba
 
 | Secret / biến | Mô tả |
 |----------------|--------|
-| `DEPLOY_REMOTE_PATH` | (Tuỳ chọn) Đường dẫn deploy; mặc định `/opt/diecast360-backend`. Có thể đặt trong Environment `production` thay vì secret. |
+| `DEPLOY_REMOTE_PATH` | (Tuỳ chọn) Đường dẫn deploy; mặc định `/opt/diecast360-backend`. Ví dụ `/opt/diecast360-api` → set secret = `/opt/diecast360-api`. Có thể đặt trong Environment `production` thay vì secret. |
 
 Không cần `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` khi dùng self-hosted trên Pi như hiện tại.
 
