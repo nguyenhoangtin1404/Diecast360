@@ -109,9 +109,13 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   // Default 0.0.0.0 so IPv4 probes (curl 127.0.0.1) work; some Node/OS combos only open :: otherwise.
-  const host = (process.env.HOST || '0.0.0.0').trim();
+  const rawHost = (process.env.HOST ?? '0.0.0.0').trim();
+  const host = rawHost.length > 0 ? rawHost : '0.0.0.0';
   await app.listen(port, host);
   console.log(`Application is running on: http://${host}:${port}`);
+  if (host === '0.0.0.0') {
+    console.log(`Also reachable at: http://127.0.0.1:${port} (and other interfaces)`);
+  }
 }
 export { validateRuntimeSecurityConfig } from './common/security/runtime-security';
 

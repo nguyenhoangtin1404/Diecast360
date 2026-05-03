@@ -71,17 +71,19 @@ jobs:
           set -a
           [ -f .env ] && . ./.env
           set +a
+          # Default when .env omits PORT or sets it empty.
           PORT="${PORT:-3000}"
           npm ci --omit=dev
           npx prisma generate
           npx prisma migrate deploy
           sudo systemctl restart diecast360-api
           systemctl is-active --quiet diecast360-api
+          # Post-restart probe: Pi/Node may need several seconds before accepting IPv4.
           HEALTH_RETRIES="${HEALTH_RETRIES:-30}"
           HEALTH_INTERVAL_SEC="${HEALTH_INTERVAL_SEC:-2}"
           for i in $(seq 1 "$HEALTH_RETRIES"); do
             if curl -sfS "http://127.0.0.1:${PORT}/api/v1/health" >/dev/null; then
-              exit 0
+              break
             fi
             if [ "$i" -eq "$HEALTH_RETRIES" ]; then
               echo "::error::Health check failed after ${HEALTH_RETRIES} attempts (${HEALTH_INTERVAL_SEC}s interval)" >&2
