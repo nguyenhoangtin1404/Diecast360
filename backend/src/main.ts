@@ -108,8 +108,10 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 3000;
-  await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
+  // Default 0.0.0.0 so IPv4 probes (curl 127.0.0.1) work; some Node/OS combos only open :: otherwise.
+  const host = (process.env.HOST || '0.0.0.0').trim();
+  await app.listen(port, host);
+  console.log(`Application is running on: http://${host}:${port}`);
 }
 export { validateRuntimeSecurityConfig } from './common/security/runtime-security';
 
