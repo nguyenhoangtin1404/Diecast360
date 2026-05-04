@@ -1,11 +1,6 @@
 import axios from 'axios';
 import { API_CONFIG } from '../config/api';
-import {
-  csrfHeaderPair,
-  ensureCsrfBootstrap,
-  fetchWithCsrfRetry,
-  rememberCsrfFromResponseBody,
-} from './csrf';
+import { csrfHeaderPair, ensureCsrfBootstrap, fetchWithCsrfRetry } from './csrf';
 
 export const apiClient = axios.create({
   baseURL: API_CONFIG.BASE_URL,
@@ -39,7 +34,6 @@ apiClient.interceptors.response.use(
   (response) => {
     // Backend returns {ok: true, data: {...}, message: ''}
     // Unwrap response.data for convenience
-    rememberCsrfFromResponseBody(response.data);
     return response.data;
   },
   async (error) => {
@@ -108,7 +102,6 @@ apiClient.interceptors.response.use(
 
         // Check if refresh was successful
         if (refreshResponse.status === 200) {
-          rememberCsrfFromResponseBody(refreshResponse.data);
           await ensureCsrfBootstrap();
           // Retry the original request - new access_token cookie will be sent automatically
           return apiClient(originalRequest);
