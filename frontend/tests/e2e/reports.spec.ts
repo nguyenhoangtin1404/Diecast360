@@ -1,4 +1,4 @@
-import { test, expect, authMePayload, type Route } from './fixtures';
+import { test, expect, authMePayload, stubAuthCsrf, type Route } from './fixtures';
 
 const reportSummaryResponse = {
   ok: true,
@@ -51,6 +51,7 @@ const reportTrendsResponse = {
 };
 
 async function mockAuth(page: import('@playwright/test').Page) {
+  await stubAuthCsrf(page);
   await page.route('**/api/v1/auth/me', (route: Route) =>
     route.fulfill({ json: authMePayload() }),
   );

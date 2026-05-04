@@ -19,19 +19,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const authSessionRevRef = useRef(readAuthSessionRevision());
-  const fetchUserSeqRef = useRef(0);
 
   /**
    * Fetch current user info from the server
    * The access_token cookie is sent automatically
    */
   const fetchUser = useCallback(async (): Promise<boolean> => {
-    const seq = ++fetchUserSeqRef.current;
     try {
       const response = await apiClient.get('/auth/me') as ApiResponse<{ user: User }>;
-      if (seq !== fetchUserSeqRef.current) {
-        return false;
-      }
       setUser(response.data?.user);
       if (response.data?.user) {
         try {
@@ -42,9 +37,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return true;
     } catch {
-      if (seq !== fetchUserSeqRef.current) {
-        return false;
-      }
       setUser(null);
       return false;
     }
