@@ -73,12 +73,15 @@ describe('PublicController', () => {
       resolver.resolveCanonicalShopId.mockResolvedValue(null);
       const req = { user: undefined } as never;
 
-      await expect(controller.findAll({} as QueryPublicItemsDto, req)).rejects.toSatisfy((e: unknown) => {
-        expect(e).toBeInstanceOf(AppException);
-        expect((e as AppException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
-        expect((e as AppException).errorCode).toBe(ErrorCode.PUBLIC_SHOP_REQUIRED);
-        return true;
-      });
+      let caught: unknown;
+      try {
+        await controller.findAll({} as QueryPublicItemsDto, req);
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeInstanceOf(AppException);
+      expect((caught as AppException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+      expect((caught as AppException).errorCode).toBe(ErrorCode.PUBLIC_SHOP_REQUIRED);
       expect(publicService.findAll).not.toHaveBeenCalled();
     });
 
@@ -109,12 +112,15 @@ describe('PublicController', () => {
       resolver.resolveCanonicalShopId.mockResolvedValue(null);
       const req = { user: undefined } as never;
 
-      await expect(controller.findOne('item-1', undefined, req)).rejects.toSatisfy((e: unknown) => {
-        expect(e).toBeInstanceOf(AppException);
-        expect((e as AppException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
-        expect((e as AppException).errorCode).toBe(ErrorCode.PUBLIC_SHOP_REQUIRED);
-        return true;
-      });
+      let caught: unknown;
+      try {
+        await controller.findOne('item-1', undefined, req);
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeInstanceOf(AppException);
+      expect((caught as AppException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+      expect((caught as AppException).errorCode).toBe(ErrorCode.PUBLIC_SHOP_REQUIRED);
       expect(publicService.findOne).not.toHaveBeenCalled();
     });
 

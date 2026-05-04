@@ -31,8 +31,9 @@ vi.mock('../../src/hooks/useAuth', () => ({
 vi.mock('../../src/hooks/usePublicShopContext', () => ({
   usePublicShopContext: () => ({
     effectiveShopId: 'test-shop',
-    queryShopId: '',
-    envShopId: 'test-shop',
+    /** Match URL when tests use ?shop_id= — avoids replace effect overwriting filter params. */
+    queryShopId: 'test-shop',
+    envShopId: '',
     authLoading: false,
     shopContextReady: true,
     publicApiShopReady: true,
@@ -92,7 +93,7 @@ describe('PublicCatalogPage URL sync', () => {
 
   it('should derive state from URL params on mount', () => {
     currentSearchParams = new URLSearchParams(
-      'q=%20civic%20&car_brand=Toyota&condition=old&sort_by=name&sort_order=asc',
+      'shop_id=test-shop&q=%20civic%20&car_brand=Toyota&condition=old&sort_by=name&sort_order=asc',
     );
 
     render(<PublicCatalogPage />);
@@ -115,7 +116,7 @@ describe('PublicCatalogPage URL sync', () => {
   });
 
   it('should update URL when filters, sort, and search input change', () => {
-    currentSearchParams = new URLSearchParams('q=civic');
+    currentSearchParams = new URLSearchParams('shop_id=test-shop&q=civic');
 
     render(<PublicCatalogPage />);
 
@@ -129,21 +130,23 @@ describe('PublicCatalogPage URL sync', () => {
       vi.advanceTimersByTime(300);
     });
 
-    expect(appliedSearchParams).toContain('q=civic&car_brand=Honda');
-    expect(appliedSearchParams).toContain('q=civic&car_brand=Honda&sort_by=price&sort_order=asc');
-    expect(appliedSearchParams).toContain('q=mx5&car_brand=Honda&sort_by=price&sort_order=asc');
-    expect(appliedSearchParams.at(-1)).toBe('q=mx5&car_brand=Honda&sort_by=price&sort_order=asc');
+    expect(appliedSearchParams).toContain('shop_id=test-shop&q=civic&car_brand=Honda');
+    expect(appliedSearchParams).toContain('shop_id=test-shop&q=civic&car_brand=Honda&sort_by=price&sort_order=asc');
+    expect(appliedSearchParams).toContain('shop_id=test-shop&q=mx5&car_brand=Honda&sort_by=price&sort_order=asc');
+    expect(appliedSearchParams.at(-1)).toBe(
+      'shop_id=test-shop&q=mx5&car_brand=Honda&sort_by=price&sort_order=asc',
+    );
   });
 
   it('should not reset search input when URL q changes from external navigation', () => {
-    currentSearchParams = new URLSearchParams('q=civic');
+    currentSearchParams = new URLSearchParams('shop_id=test-shop&q=civic');
 
     const { rerender } = render(<PublicCatalogPage />);
     fireEvent.change(screen.getByPlaceholderText('Tìm kiếm theo tên...'), {
       target: { value: 'supra ' },
     });
 
-    currentSearchParams = new URLSearchParams('q=skyline');
+    currentSearchParams = new URLSearchParams('shop_id=test-shop&q=skyline');
     rerender(<PublicCatalogPage />);
 
     expect(

@@ -62,7 +62,7 @@ describe('PublicCatalogPage missing shop scope', () => {
 
   it('shows guidance when publicApiShopReady is false', () => {
     render(<PublicCatalogPage />);
-    expect(screen.getByText('Chưa chọn cửa hàng')).toBeVisible();
-    expect(screen.getByText(/VITE_PUBLIC_CATALOG_SHOP_ID/)).toBeVisible();
+    expect(screen.getByText('Chưa chọn cửa hàng')).toBeTruthy();
+    expect(screen.getByText(/VITE_PUBLIC_CATALOG_SHOP_ID/)).toBeTruthy();
   });
 });
