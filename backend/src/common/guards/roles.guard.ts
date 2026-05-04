@@ -41,17 +41,16 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 /**
  * Legacy shop membership role: before RBAC migration, `user_shop_roles.role` used
  * `super_admin` for full shop access. Those rows may still exist in production DBs.
- * Tenant routes that list only {@link ShopRole.shop_admin} / {@link ShopRole.shop_staff}
- * must still accept `super_admin` so authenticated users are not denied with 403.
+ *
+ * We only equate `super_admin` to **shop_admin** eligibility: if a route were ever
+ * decorated with `@Roles(ShopRole.shop_staff)` alone, legacy `super_admin` would not
+ * satisfy it (avoids widening access on hypothetical staff-only surfaces).
  */
 function userRoleSatisfiesTenantRequirement(userRole: ShopRole, tenantRoles: ShopRole[]): boolean {
-  if (!tenantRoles.includes(userRole)) {
-    if (userRole === ShopRole.super_admin) {
-      return tenantRoles.some((r) => r === ShopRole.shop_admin || r === ShopRole.shop_staff);
-    }
-    return false;
+  if (tenantRoles.includes(userRole)) {
+    return true;
   }
-  return true;
+  return userRole === ShopRole.super_admin && tenantRoles.includes(ShopRole.shop_admin);
 }
 
 /**

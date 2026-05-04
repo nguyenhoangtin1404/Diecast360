@@ -127,6 +127,16 @@ describe('RolesGuard', () => {
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
 
+  it('denies legacy super_admin when route requires shop_staff only', async () => {
+    mockReflector(undefined, [ShopRole.shop_staff]);
+    const ctx = createContext({
+      id: 'u1',
+      active_shop_id: 'shop-a',
+      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.super_admin }],
+    });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
   it('throws BadRequestException when active_shop_id is missing for tenant route', async () => {
     mockReflector(undefined, [ShopRole.shop_admin]);
     const ctx = createContext({
