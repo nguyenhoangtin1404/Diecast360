@@ -20,6 +20,8 @@ export function usePublicShopContext(): {
   authLoading: boolean;
   /** When false, defer public catalog/detail API calls until auth settles or URL/env fixes shop. */
   shopContextReady: boolean;
+  /** When true, `effectiveShopId` is non-empty — safe to call scoped public APIs. */
+  publicApiShopReady: boolean;
 } {
   const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();

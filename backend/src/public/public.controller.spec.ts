@@ -1,8 +1,9 @@
+import { HttpStatus } from '@nestjs/common';
 import { PublicController } from './public.controller';
 import { PublicService } from './public.service';
 import { PublicShopResolverService } from './public-shop-resolver.service';
 import { QueryPublicItemsDto } from './dto/query-public-items.dto';
-import { ErrorCode } from '../common/exceptions/http-exception.filter';
+import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 
 describe('PublicController', () => {
   const publicService = {
@@ -68,12 +69,15 @@ describe('PublicController', () => {
       process.env.NODE_ENV = 'production';
     });
 
-    it('rejects list when anonymous and no shop in JWT', async () => {
+    it('rejects list when anonymous and no shop in JWT (422 PUBLIC_SHOP_REQUIRED)', async () => {
       resolver.resolveCanonicalShopId.mockResolvedValue(null);
       const req = { user: undefined } as never;
 
-      await expect(controller.findAll({} as QueryPublicItemsDto, req)).rejects.toMatchObject({
-        errorCode: ErrorCode.PUBLIC_SHOP_REQUIRED,
+      await expect(controller.findAll({} as QueryPublicItemsDto, req)).rejects.toSatisfy((e: unknown) => {
+        expect(e).toBeInstanceOf(AppException);
+        expect((e as AppException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+        expect((e as AppException).errorCode).toBe(ErrorCode.PUBLIC_SHOP_REQUIRED);
+        return true;
       });
       expect(publicService.findAll).not.toHaveBeenCalled();
     });
@@ -101,12 +105,15 @@ describe('PublicController', () => {
       expect(publicService.findAll).toHaveBeenCalledWith({}, 'shop-jwt');
     });
 
-    it('rejects detail when anonymous and no shop in JWT', async () => {
+    it('rejects detail when anonymous and no shop in JWT (422 PUBLIC_SHOP_REQUIRED)', async () => {
       resolver.resolveCanonicalShopId.mockResolvedValue(null);
       const req = { user: undefined } as never;
 
-      await expect(controller.findOne('item-1', undefined, req)).rejects.toMatchObject({
-        errorCode: ErrorCode.PUBLIC_SHOP_REQUIRED,
+      await expect(controller.findOne('item-1', undefined, req)).rejects.toSatisfy((e: unknown) => {
+        expect(e).toBeInstanceOf(AppException);
+        expect((e as AppException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+        expect((e as AppException).errorCode).toBe(ErrorCode.PUBLIC_SHOP_REQUIRED);
+        return true;
       });
       expect(publicService.findOne).not.toHaveBeenCalled();
     });
