@@ -19,14 +19,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const authSessionRevRef = useRef(readAuthSessionRevision());
+  const fetchUserSeqRef = useRef(0);
 
   /**
    * Fetch current user info from the server
    * The access_token cookie is sent automatically
    */
   const fetchUser = useCallback(async (): Promise<boolean> => {
+    const seq = ++fetchUserSeqRef.current;
     try {
       const response = await apiClient.get('/auth/me') as ApiResponse<{ user: User }>;
+      if (seq !== fetchUserSeqRef.current) {
+        return false;
+      }
       setUser(response.data?.user);
       if (response.data?.user) {
         try {
@@ -37,6 +42,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return true;
     } catch {
+      if (seq !== fetchUserSeqRef.current) {
+        return false;
+      }
       setUser(null);
       return false;
     }
@@ -95,9 +103,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    /** SPA history back (e.g. Home → logout → login URL, then Back to cached Home). */
+    /** Align with focus/visibility: refetch only when session revision changed (other tab login/logout). */
     const onPopState = () => {
-      void fetchUser();
+      syncFromStorageRevision();
     };
 
     window.addEventListener('storage', onStorage);
@@ -186,7 +194,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         login,
         logout,
-        refreshUser: fetchUser,
         isAuthenticated: !!user,
         loading,
       }}

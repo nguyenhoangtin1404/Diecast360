@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ChartNoAxesColumn,
@@ -46,19 +46,12 @@ const adminSidebarNavLinkActive =
 export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout } = useAuth();
   const { effectiveShopId, shopContextReady } = usePublicShopContext();
   const isAdmin = location.pathname.startsWith('/admin');
   const isSuperAdmin = useIsSuperAdmin();
   const [menuState, setMenuState] = useState({ open: false, pathname: location.pathname });
   const isMenuOpen = menuState.open && menuState.pathname === location.pathname;
-
-  /** SPA navigation can restore a stale in-memory user after logout + login elsewhere; re-check cookies on each public route. */
-  useEffect(() => {
-    if (!isAdmin) {
-      void refreshUser();
-    }
-  }, [isAdmin, location.pathname, refreshUser]);
 
   /** Same resolution as catalog (query / env / JWT), not only current URL — keeps nav aligned with VITE_PUBLIC_CATALOG_SHOP_ID. */
   const publicShopNavSuffix = useMemo(() => {

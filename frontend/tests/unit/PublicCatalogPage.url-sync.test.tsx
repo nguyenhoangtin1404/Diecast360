@@ -25,7 +25,6 @@ vi.mock('../../src/hooks/useAuth', () => ({
     isAuthenticated: false,
     login: vi.fn(),
     logout: vi.fn(),
-    refreshUser: vi.fn(),
   }),
 }));
 
