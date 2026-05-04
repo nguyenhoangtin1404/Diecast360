@@ -39,6 +39,8 @@ export interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Re-validate session from cookies (e.g. after BFCache back or SPA return to public pages). */
+  refreshUser: () => Promise<boolean>;
   isAuthenticated: boolean;
   loading: boolean;
 }

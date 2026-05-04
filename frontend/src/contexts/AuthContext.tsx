@@ -88,13 +88,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
+    /** BFCache / browser Back: React state can be restored while cookies were cleared at logout. */
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        void fetchUser();
+      }
+    };
+
+    /** SPA history back (e.g. Home → logout → login URL, then Back to cached Home). */
+    const onPopState = () => {
+      void fetchUser();
+    };
+
     window.addEventListener('storage', onStorage);
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pageshow', onPageShow);
+    window.addEventListener('popstate', onPopState);
     return () => {
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('popstate', onPopState);
     };
   }, [fetchUser]);
 
@@ -170,6 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         login,
         logout,
+        refreshUser: fetchUser,
         isAuthenticated: !!user,
         loading,
       }}
