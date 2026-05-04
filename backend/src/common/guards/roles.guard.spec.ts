@@ -104,6 +104,49 @@ describe('RolesGuard', () => {
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
 
+  it('allows legacy super_admin shop row when route requires shop_admin', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin, ShopRole.shop_staff]);
+    const ctx = createContext({
+      id: 'u1',
+      active_shop_id: 'shop-a',
+      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.super_admin }],
+    });
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+  });
+
+  it('allows legacy super_admin on POST when route lists shop_admin (full write)', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin, ShopRole.shop_staff]);
+    const ctx = createContext(
+      {
+        id: 'u1',
+        active_shop_id: 'shop-a',
+        shop_roles: [{ shop_id: 'shop-a', role: ShopRole.super_admin }],
+      },
+      'POST',
+    );
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+  });
+
+  it('denies legacy super_admin when route requires shop_staff only', async () => {
+    mockReflector(undefined, [ShopRole.shop_staff]);
+    const ctx = createContext({
+      id: 'u1',
+      active_shop_id: 'shop-a',
+      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.super_admin }],
+    });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('denies legacy super_admin when membership is for a different shop than active_shop_id', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin, ShopRole.shop_staff]);
+    const ctx = createContext({
+      id: 'u1',
+      active_shop_id: 'shop-b',
+      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.super_admin }],
+    });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
   it('throws BadRequestException when active_shop_id is missing for tenant route', async () => {
     mockReflector(undefined, [ShopRole.shop_admin]);
     const ctx = createContext({

@@ -39,6 +39,24 @@ export interface JwtUserShopRole {
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
+ * Legacy shop membership role: before RBAC migration, `user_shop_roles.role` used
+ * `super_admin` for full shop access. Those rows may still exist in production DBs.
+ *
+ * We only equate `super_admin` to **shop_admin** eligibility: if a route were ever
+ * decorated with `@Roles(ShopRole.shop_staff)` alone, legacy `super_admin` would not
+ * satisfy it (avoids widening access on hypothetical staff-only surfaces).
+ *
+ * Prefer a data migration (`super_admin` → `shop_admin` per shop row) so this branch
+ * can be removed once production rows are normalized.
+ */
+function userRoleSatisfiesTenantRequirement(userRole: ShopRole, tenantRoles: ShopRole[]): boolean {
+  if (tenantRoles.includes(userRole)) {
+    return true;
+  }
+  return userRole === ShopRole.super_admin && tenantRoles.includes(ShopRole.shop_admin);
+}
+
+/**
  * RolesGuard — dual-layer authorization guard.
  *
  * ## Platform layer (@PlatformRoles decorator)
@@ -168,7 +186,10 @@ export class RolesGuard implements CanActivate {
     }
 
     const matchingRole = shopRoles.find(
-      (ur) => ur?.role != null && (tenantRoles as ShopRole[]).includes(ur.role) && ur.shop_id === activeShopId,
+      (ur) =>
+        ur?.role != null &&
+        ur.shop_id === activeShopId &&
+        userRoleSatisfiesTenantRequirement(ur.role, tenantRoles as ShopRole[]),
     );
 
     if (!matchingRole) {
