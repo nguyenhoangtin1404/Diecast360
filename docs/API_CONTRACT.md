@@ -13,6 +13,7 @@
     {"ok": false, "error": {"code": "ERROR_CODE", "details": []}, "message": ""}
     ```
 - Auth: HttpOnly Cookie (chính) hoặc Bearer Access Token (fallback) cho endpoint admin; chi tiết xem `COOKIE_AUTH.md`. Public endpoints không cần auth.
+- CSRF: với cookie auth, mọi request thay đổi trạng thái (`POST`/`PATCH`/`DELETE`) cần header `X-CSRF-Token` khớp cookie đọc được `csrf_token`, trừ `POST /api/v1/auth/login`. Lấy/rotate token qua `GET /api/v1/auth/csrf`.
 - ID: UUID.
 - Upload: `multipart/form-data`, field file là `file` (ảnh thường) hoặc `frame` (ảnh spinner). Server dùng Sharp tạo thumbnail.
 
@@ -27,20 +28,33 @@
 - `SpinSet`: `{ id, item_id, label, is_default, frames: SpinFrame[], created_at, updated_at }`.
 - Pagination: `{ page, page_size, total, total_pages }`.
 
+## Health
+### GET /api/v1/health
+- Public, không auth, không CSRF; dùng cho liveness + deploy probe.
+- Response 200: `data: { status: "healthy" }`.
+- Response 503 khi DB probe `SELECT 1` lỗi.
+
 ## Auth
+### GET /api/v1/auth/csrf
+- Public safe method; issue cookie đọc được `csrf_token` và trả cùng giá trị để client gửi lại trong header `X-CSRF-Token` cho request mutating sau đó.
+- Response 200: `data: { csrf_token }`.
+
 ### POST /api/v1/auth/login
 - Body JSON: `{ "email": "string", "password": "string" }`.
-- Response 200: `data: { access_token, refresh_token, user }`.
+- CSRF: exempt để bootstrap phiên đăng nhập.
+- Response 200: set cookie HttpOnly `access_token`, HttpOnly `refresh_token` (path `/api/v1/auth`) và cookie đọc được `csrf_token`; `data: { user, message }`. Token không trả trong body.
 - Errors: `AUTH_INVALID_CREDENTIALS (401)`, `VALIDATION_ERROR (422)`.
 
 ### POST /api/v1/auth/refresh
-- Body JSON: `{ "refresh_token": "string" }`.
-- Response 200: `data: { access_token, refresh_token }`.
+- Auth: đọc `refresh_token` từ cookie path `/api/v1/auth`.
+- CSRF: cần `X-CSRF-Token`.
+- Response 200: rotate refresh/access cookies, issue lại `csrf_token`; `data: { message }`.
 - Errors: `AUTH_TOKEN_EXPIRED (401)`, `AUTH_FORBIDDEN (403)` nếu token bị revoke.
 
 ### POST /api/v1/auth/logout
-- Body JSON: `{ "refresh_token": "string" }`.
-- Response 200: `data: {}`.
+- Auth: đọc `refresh_token` từ cookie nếu có, revoke token, clear `access_token`, `refresh_token`, `csrf_token`.
+- CSRF: cần `X-CSRF-Token`.
+- Response 200: `data: { message }`.
 
 ### GET /api/v1/auth/me
 - Auth: Bearer access token hoặc Cookie.
@@ -48,6 +62,7 @@
 
 ### POST /api/v1/auth/switch-shop
 - Body JSON: `{ "shop_id": "UUID" }`.
+- CSRF: cần `X-CSRF-Token` khi dùng cookie auth.
 - Thay đổi `active_shop_id` trong session, server issue lại HTTP-only cookie mới.
 - Response 200: `data: { active_shop: { id, name, slug, is_active, role }, message?: string }`.
 - Errors: `VALIDATION (400)` nếu `shop_id` không phải UUID; `AUTH_FORBIDDEN (403)` nếu user không thuộc shop hoặc shop không active.
@@ -461,6 +476,6 @@ Ghi chu: nhom endpoint nay la ke hoach de trien khai MVP pre-order, chua mac din
 - Spinner: `frame_index` phải trong khoảng 0..n và không trùng; order phải đủ tất cả `frame_ids` hiện có.
 
 ## Lưu ý response
-- URL trả về cho ảnh/frame phải là public URL (ghép `PUBLIC_BASE_URL` + path lưu trữ).
+- URL trả về cho ảnh/frame là signed media URL dạng `GET /api/v1/media?d=...&s=...`; backend ghép từ `BACKEND_URL` + `/api/v1` và ký bằng `MEDIA_SIGNING_SECRET` (fallback `JWT_SECRET`).
 - Không trả password_hash/token_hash.
 - Khi thay đổi API/DB, phải cập nhật docs trước rồi mới code.

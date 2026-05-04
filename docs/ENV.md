@@ -23,11 +23,16 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 | UPLOAD_DIR | Thư mục lưu file local | `./uploads` | Phải tồn tại/ghi được |
 | MAX_UPLOAD_MB | Giới hạn kích thước upload | `10` | Áp dụng cho ảnh thường và frame spinner |
 | ALLOWED_MIME | MIME type cho upload | `image/jpeg,image/png` | Server validate trước khi lưu |
-| PUBLIC_BASE_URL | Base public URL | `http://localhost:5173` | Dùng để ghép URL ảnh/thumbnail |
+| BACKEND_URL | Base public URL của backend | `http://localhost:3000` | Dùng để ghép signed media URL (`/api/v1/media?...`); production nên đặt URL public của API. |
+| PUBLIC_BASE_URL | Base public URL cũ | `http://localhost:5173` | Legacy/doc compatibility; code signed media hiện đọc `BACKEND_URL`. |
 | FRONTEND_URL | Frontend origin cho CORS | `http://localhost:5173` | Phải khớp với origin frontend |
 | COOKIE_SECRET | Secret ký cookies | random 32+ chars | Bắt buộc, đổi trong production |
 | COOKIE_SECURE | Chỉ gửi cookies qua HTTPS | `false` (dev) / `true` (prod) | Bật khi deploy HTTPS |
 | COOKIE_SAME_SITE | SameSite attribute cho cookies | `lax` (dev) / `strict` hoặc `none` (prod) | Dùng **`none`** khi frontend và API **khác domain**; bắt buộc `COOKIE_SECURE=true` |
+| FRONTEND_URLS | Danh sách origin frontend bổ sung | `https://preview.example.com,https://admin.example.com` | Tùy chọn; tách bằng dấu phẩy. Backend tự thêm biến thể `localhost`/`127.0.0.1` cùng port từ `FRONTEND_URL`. |
+| CORS_ALLOW_LAN | Cho phép origin LAN private trong dev | `true` (dev LAN) / `false` (prod) | Chỉ dùng khi test UI qua Vite `--host`; production boot sẽ reject nếu `true`. |
+| MEDIA_SIGNING_SECRET | Secret ký URL media | random 32+ chars | Tùy chọn nhưng khuyến nghị; nếu bỏ trống dùng `JWT_SECRET`, làm xoay JWT có thể vô hiệu link ảnh cũ. |
+| MEDIA_URL_TTL_MS | TTL signed media URL | `604800000` | Tùy chọn; mặc định 7 ngày. |
 | FACEBOOK_PAGE_ID | Facebook Page ID cho publish | `123456789` | Tùy chọn (bắt buộc cho FB publish) |
 | FACEBOOK_PAGE_ACCESS_TOKEN | Long-lived Page Access Token | `EAA...` | Tùy chọn (bắt buộc cho FB publish) |
 
@@ -64,6 +69,8 @@ Lưu ý:
 > **Quan trọng:** Khi deploy lên production, bắt buộc phải bật HTTPS trước ingress/reverse proxy:
 >
 > - `COOKIE_SECURE=true` — cookie auth chỉ gửi qua HTTPS, ngăn chặn session hijacking.
+> - Nếu dùng `COOKIE_SAME_SITE=none` cho UI/API khác domain, browser bắt buộc `COOKIE_SECURE=true`; backend cũng kiểm tra điều này khi `NODE_ENV=production`.
+> - `CORS_ALLOW_LAN` phải tắt trong production; chỉ set các origin thật qua `FRONTEND_URL` / `FRONTEND_URLS`.
 > - `FACEBOOK_PAGE_ACCESS_TOKEN` được gửi trong **request body** đến Graph API (không phải URL param) để tránh token bị ghi vào access log của server. Tuy nhiên reverse proxy (Nginx, Caddy...) mặc định không log request body — cần đảm bảo config log không bật `$request_body`. HTTPS ngăn body bị sniff trên đường truyền.
 > - Thiếu HTTPS trong production là lỗ hổng bảo mật nghiêm trọng.
 

@@ -1,11 +1,12 @@
 # Backend trên Raspberry Pi + Cloudflare Tunnel + GitHub Actions
 
-Luồng: **build trên GitHub (`ubuntu-latest`)** → **rsync `dist/`, `package.json`, `package-lock.json`, `prisma/`** lên Pi → trên Pi **`npm ci --omit=dev`** (native modules build đúng ARM) → **`prisma migrate deploy`** → **`systemctl restart`**.  
+Luồng hiện tại: **self-hosted GitHub Actions runner chạy trực tiếp trên Pi** → `checkout` → build NestJS trên ARM → `rsync` `dist/`, `package.json`, `package-lock.json`, `prisma/` vào `DEPLOY_REMOTE_PATH` → `npm ci --omit=dev` → `prisma generate` → `prisma migrate deploy` → `systemctl restart` → probe `GET /api/v1/health`.
+
 API ra ngoài qua **Cloudflare Tunnel** trỏ tới `http://127.0.0.1:3000` (hoặc cổng `PORT` trong `.env`).
 
 ## 1. Chuẩn bị Pi (một lần)
 
-- Node **không bắt buộc** trên Pi cho bước build (build xong trên GitHub); vẫn cần **Node 20** để chạy `node dist/main.js` và `npm ci`.
+- Pi cần **Node 20**, `git`, `rsync`, quyền ghi vào `DEPLOY_REMOTE_PATH`, và quyền `sudo systemctl restart diecast360-api` không mật khẩu cho user chạy runner.
 - Thư mục deploy (mặc định): `/opt/diecast360-backend`. Clone repo hoặc tạo thư mục và `git init` + remote — workflow **không** tự clone lần đầu; rsync tạo/tệp tin trong thư mục đó.
 
 ```bash
@@ -14,7 +15,7 @@ sudo chown -R "$USER:$USER" /opt/diecast360-backend
 ```
 
 - Copy **`.env`** production trên Pi (Neon `DATABASE_URL` / `DIRECT_URL`, `JWT_SECRET`, `COOKIE_SECRET`, `FRONTEND_URL` = origin frontend hosting, v.v.). Xem [`ENV.md`](ENV.md).
-- **`PUBLIC_BASE_URL`**: nên là URL public của API (vd `https://api.example.com`) để ghép link ảnh đúng.
+- **`BACKEND_URL`**: đặt URL public của API (vd `https://api.example.com`) để ký và trả link ảnh qua `GET /api/v1/media`.
 
 ### systemd
 
