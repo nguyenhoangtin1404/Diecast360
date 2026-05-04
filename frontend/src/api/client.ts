@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { API_CONFIG } from '../config/api';
-import { csrfHeaderPair, ensureCsrfBootstrap, fetchWithCsrfRetry } from './csrf';
+import { csrfHeaderPair, clearMemoryCsrfToken, ensureCsrfBootstrap, fetchWithCsrfRetry } from './csrf';
 
 export const apiClient = axios.create({
   baseURL: API_CONFIG.BASE_URL,
@@ -102,10 +102,12 @@ apiClient.interceptors.response.use(
 
         // Check if refresh was successful
         if (refreshResponse.status === 200) {
+          await ensureCsrfBootstrap();
           // Retry the original request - new access_token cookie will be sent automatically
           return apiClient(originalRequest);
         }
       } catch (refreshError) {
+        clearMemoryCsrfToken();
         // Refresh failed - only redirect if user is trying to access protected page
         // Don't redirect if:
         // 1. Already on login page

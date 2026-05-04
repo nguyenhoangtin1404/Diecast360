@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { apiClient } from '../api/client';
+import { ensureCsrfBootstrap } from '../api/csrf';
 import { ShopContext } from './ShopContext';
 import type { Shop } from './ShopContext';
 import { AuthContext } from './AuthContext';
@@ -23,6 +24,11 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const switchToShop = useCallback(async (shopId: string) => {
     const response = await apiClient.post('/auth/switch-shop', { shop_id: shopId });
+    try {
+      await ensureCsrfBootstrap();
+    } catch {
+      /* ignore: switch-shop already rotated server cookie; bootstrap refills header token */
+    }
     const data = response?.data || response;
     const shop: Shop = data?.active_shop;
     if (shop) {

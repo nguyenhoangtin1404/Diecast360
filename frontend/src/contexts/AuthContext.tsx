@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '../api/client';
+import { clearMemoryCsrfToken, ensureCsrfBootstrap } from '../api/csrf';
 import { AuthContext } from './AuthContext';
 import type { User } from './AuthContext';
 
@@ -23,9 +24,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(response.data?.user);
       if (response.data?.user) {
         try {
-          await apiClient.get('/auth/csrf');
+          await ensureCsrfBootstrap();
         } catch {
-          /* cookie may still be set; ignore */
+          /* ignore */
         }
       }
       return true;
@@ -88,6 +89,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       /* keep partial user from login if /auth/me fails */
     }
+
+    try {
+      await ensureCsrfBootstrap();
+    } catch {
+      /* cross-site: cookie on API host; body of /auth/csrf fills in-memory CSRF header */
+    }
   };
 
   /**
@@ -99,6 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // Logout API call failed, clearing local state anyway
     } finally {
+      clearMemoryCsrfToken();
       setUser(null);
     }
   };
