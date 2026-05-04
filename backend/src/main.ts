@@ -22,6 +22,8 @@ function buildCorsAllowedOrigins(): string[] {
     out.add(raw);
     try {
       const u = new URL(raw);
+      // Normalize so trailing slash in env (e.g. https://app.com/) still matches browser Origin.
+      out.add(u.origin);
       if (u.hostname === 'localhost') {
         u.hostname = '127.0.0.1';
         out.add(u.origin);
@@ -68,7 +70,6 @@ async function bootstrap() {
     throw new Error('COOKIE_SECRET must be set and at least 32 characters long');
   }
   app.use(cookieParser(cookieSecret));
-  app.use(createCsrfMiddleware());
 
   app.setGlobalPrefix('api/v1');
   
@@ -106,6 +107,9 @@ async function bootstrap() {
     },
     credentials: true,
   });
+
+  // Run after CORS so error responses (e.g. CSRF 403) still get Access-Control-Allow-Origin.
+  app.use(createCsrfMiddleware());
 
   const port = process.env.PORT || 3000;
   // Default 0.0.0.0 so IPv4 probes (curl 127.0.0.1) work; some Node/OS combos only open :: otherwise.
