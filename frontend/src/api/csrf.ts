@@ -34,8 +34,8 @@ export function rememberCsrfFromResponseBody(body: unknown): void {
 
 /**
  * Double-submit CSRF: readable cookie + X-CSRF-Token header (must match).
- * Same-origin: cookie is readable from document.cookie.
- * Cross-site API: use memory filled from GET /auth/csrf (and login/refresh responses if present).
+ * Prefer the cookie when document.cookie can read it (same-origin dev); otherwise use memory
+ * filled from GET /auth/csrf (and login/refresh responses) for cross-site API hosts.
  */
 export function readCsrfTokenFromCookie(): string | undefined {
   if (typeof document === 'undefined') return undefined;
@@ -56,7 +56,7 @@ export function readCsrfTokenFromCookie(): string | undefined {
 }
 
 export function csrfHeaderPair(): Record<string, string> {
-  const token = memoryCsrfToken || readCsrfTokenFromCookie();
+  const token = readCsrfTokenFromCookie() || memoryCsrfToken;
   return token ? { 'X-CSRF-Token': token } : {};
 }
 
