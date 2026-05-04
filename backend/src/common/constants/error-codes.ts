@@ -4,6 +4,8 @@ export enum ErrorCode {
   AUTH_FORBIDDEN = 'AUTH_FORBIDDEN',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   NOT_FOUND = 'NOT_FOUND',
+  /** Public catalog/detail requires shop scope (e.g. ?shop_id=) when unauthenticated in production. */
+  PUBLIC_SHOP_REQUIRED = 'PUBLIC_SHOP_REQUIRED',
   UPLOAD_INVALID_TYPE = 'UPLOAD_INVALID_TYPE',
   UPLOAD_TOO_LARGE = 'UPLOAD_TOO_LARGE',
   SPIN_FRAME_INDEX_CONFLICT = 'SPIN_FRAME_INDEX_CONFLICT',
@@ -24,6 +26,7 @@ export const HTTP_STATUS_MAP: Record<ErrorCode, number> = {
   [ErrorCode.AUTH_FORBIDDEN]: 403,
   [ErrorCode.VALIDATION_ERROR]: 422,
   [ErrorCode.NOT_FOUND]: 404,
+  [ErrorCode.PUBLIC_SHOP_REQUIRED]: 422,
   [ErrorCode.UPLOAD_INVALID_TYPE]: 400,
   [ErrorCode.UPLOAD_TOO_LARGE]: 413,
   [ErrorCode.SPIN_FRAME_INDEX_CONFLICT]: 409,

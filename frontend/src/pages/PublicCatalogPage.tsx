@@ -19,7 +19,7 @@ import {
 
 export const PublicCatalogPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { effectiveShopId, shopContextReady } = usePublicShopContext();
+  const { effectiveShopId, shopContextReady, publicApiShopReady } = usePublicShopContext();
   const urlState = useMemo(() => parseCatalogUrlState(searchParams), [searchParams]);
   const [searchInput, setSearchInput] = useState(() => urlState.search);
   const debouncedSearch = useDebounce(searchInput, 300);
@@ -128,7 +128,7 @@ export const PublicCatalogPage = () => {
       return undefined;
     },
     initialPageParam: 1,
-    enabled: shopContextReady,
+    enabled: shopContextReady && publicApiShopReady,
   });
 
   const items = useMemo(() => {
@@ -146,6 +146,7 @@ export const PublicCatalogPage = () => {
   };
 
   const waitingForShopContext = !shopContextReady;
+  const missingShopScope = shopContextReady && !publicApiShopReady;
 
   if (error) {
     console.error('Error loading catalog:', error);
@@ -155,6 +156,22 @@ export const PublicCatalogPage = () => {
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-rose-800 shadow-corporate-card">
             <p className="font-semibold">Không tải được catalog</p>
             <p className="mt-1 text-sm text-rose-700/90">Vui lòng thử lại sau.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (missingShopScope) {
+    return (
+      <div className="relative min-h-[50vh] px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-7xl">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-amber-900 shadow-corporate-card">
+            <p className="font-semibold">Chưa chọn cửa hàng</p>
+            <p className="mt-1 text-sm text-amber-800/90">
+              Thêm <code className="rounded bg-amber-100/80 px-1">?shop_id=</code> vào URL (UUID hoặc slug cửa hàng), hoặc cấu hình biến build{' '}
+              <code className="rounded bg-amber-100/80 px-1">VITE_PUBLIC_CATALOG_SHOP_ID</code> cho bản triển khai một-cửa-hàng.
+            </p>
           </div>
         </div>
       </div>

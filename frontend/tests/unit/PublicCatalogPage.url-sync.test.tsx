@@ -28,6 +28,17 @@ vi.mock('../../src/hooks/useAuth', () => ({
   }),
 }));
 
+vi.mock('../../src/hooks/usePublicShopContext', () => ({
+  usePublicShopContext: () => ({
+    effectiveShopId: 'test-shop',
+    queryShopId: '',
+    envShopId: 'test-shop',
+    authLoading: false,
+    shopContextReady: true,
+    publicApiShopReady: true,
+  }),
+}));
+
 vi.mock('../../src/components/catalog/ItemCard', () => ({
   ItemCard: () => <div>item-card</div>,
 }));
@@ -93,7 +104,7 @@ describe('PublicCatalogPage URL sync', () => {
     const firstCallArgs = useInfiniteQueryMock.mock.calls[0][0] as { queryKey: unknown[] };
     expect(firstCallArgs.queryKey).toEqual([
       'public-items',
-      '',
+      'test-shop',
       'civic',
       'Toyota',
       null,

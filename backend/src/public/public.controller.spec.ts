@@ -2,6 +2,7 @@ import { PublicController } from './public.controller';
 import { PublicService } from './public.service';
 import { PublicShopResolverService } from './public-shop-resolver.service';
 import { QueryPublicItemsDto } from './dto/query-public-items.dto';
+import { ErrorCode } from '../common/exceptions/http-exception.filter';
 
 describe('PublicController', () => {
   const publicService = {
@@ -17,7 +18,16 @@ describe('PublicController', () => {
     resolver as unknown as PublicShopResolverService,
   );
 
-  beforeEach(() => jest.clearAllMocks());
+  const prevNodeEnv = process.env.NODE_ENV;
+
+  afterAll(() => {
+    process.env.NODE_ENV = prevNodeEnv;
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.NODE_ENV = 'test';
+  });
 
   it('uses explicit shop_id over JWT active_shop_id for list', async () => {
     resolver.resolveCanonicalShopId.mockResolvedValue('shop-from-query');
@@ -51,5 +61,75 @@ describe('PublicController', () => {
 
     expect(resolver.resolveCanonicalShopId).toHaveBeenCalledWith('my-slug');
     expect(publicService.findOne).toHaveBeenCalledWith('item-1', 'shop-a');
+  });
+
+  describe('production public shop scope', () => {
+    beforeEach(() => {
+      process.env.NODE_ENV = 'production';
+    });
+
+    it('rejects list when anonymous and no shop in JWT', async () => {
+      resolver.resolveCanonicalShopId.mockResolvedValue(null);
+      const req = { user: undefined } as never;
+
+      await expect(controller.findAll({} as QueryPublicItemsDto, req)).rejects.toMatchObject({
+        errorCode: ErrorCode.PUBLIC_SHOP_REQUIRED,
+      });
+      expect(publicService.findAll).not.toHaveBeenCalled();
+    });
+
+    it('allows list when explicit shop_id resolves', async () => {
+      resolver.resolveCanonicalShopId.mockResolvedValue('shop-x');
+      publicService.findAll.mockResolvedValue({ items: [] });
+      const req = { user: undefined } as never;
+
+      await controller.findAll({ shop_id: 'my-slug' } as QueryPublicItemsDto, req);
+
+      expect(publicService.findAll).toHaveBeenCalledWith(
+        expect.objectContaining({ shop_id: 'my-slug' }),
+        'shop-x',
+      );
+    });
+
+    it('allows list when JWT supplies active_shop_id and query omits shop', async () => {
+      resolver.resolveCanonicalShopId.mockResolvedValue(null);
+      publicService.findAll.mockResolvedValue({ items: [] });
+      const req = { user: { active_shop_id: 'shop-jwt' } } as never;
+
+      await controller.findAll({} as QueryPublicItemsDto, req);
+
+      expect(publicService.findAll).toHaveBeenCalledWith({}, 'shop-jwt');
+    });
+
+    it('rejects detail when anonymous and no shop in JWT', async () => {
+      resolver.resolveCanonicalShopId.mockResolvedValue(null);
+      const req = { user: undefined } as never;
+
+      await expect(controller.findOne('item-1', undefined, req)).rejects.toMatchObject({
+        errorCode: ErrorCode.PUBLIC_SHOP_REQUIRED,
+      });
+      expect(publicService.findOne).not.toHaveBeenCalled();
+    });
+
+    it('allows detail when explicit shop_id resolves', async () => {
+      resolver.resolveCanonicalShopId.mockResolvedValue('shop-x');
+      publicService.findOne.mockResolvedValue({ item: {} });
+      const req = { user: undefined } as never;
+
+      await controller.findOne('item-1', 'slug', req);
+
+      expect(publicService.findOne).toHaveBeenCalledWith('item-1', 'shop-x');
+    });
+  });
+
+  it('allows anonymous aggregate in non-production (no tenant)', async () => {
+    process.env.NODE_ENV = 'test';
+    resolver.resolveCanonicalShopId.mockResolvedValue(null);
+    publicService.findAll.mockResolvedValue({ items: [] });
+    const req = { user: undefined } as never;
+
+    await controller.findAll({} as QueryPublicItemsDto, req);
+
+    expect(publicService.findAll).toHaveBeenCalledWith({}, null);
   });
 });
