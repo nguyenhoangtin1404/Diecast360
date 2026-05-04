@@ -1,4 +1,4 @@
-import { test, expect, authMePayload, type Route } from './fixtures';
+import { test, expect, authMePayload, stubAuthCsrf, type Route } from './fixtures';
 import { MAX_SPINNER_FRAMES } from '../../src/constants/spinner';
 
 // Helper to create a fake item response with max frames
@@ -45,6 +45,7 @@ function createItemResponseWithFrames(frameCount = MAX_SPINNER_FRAMES) {
 
 test.describe('Spinner upload limits', () => {
   test('disables upload and shows warning when max frames are already present', async ({ page }) => {
+    await stubAuthCsrf(page);
     // Ensure auth check passes
     await page.route('**/api/v1/auth/me', (route: Route) => {
       route.fulfill({ json: authMePayload() });
@@ -76,6 +77,7 @@ test.describe('Spinner upload limits', () => {
       };
     });
 
+    await stubAuthCsrf(page);
     await page.route('**/api/v1/auth/me', (route: Route) => {
       route.fulfill({ json: authMePayload() });
     });

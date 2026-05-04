@@ -1,6 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiClient } from '../api/client';
 import { clearMemoryCsrfToken, ensureCsrfBootstrap } from '../api/csrf';
+import {
+  AUTH_SESSION_STORAGE_KEY,
+  bumpAuthSessionRevision,
+  readAuthSessionRevision,
+} from '../utils/authSessionSync';
 import { AuthContext } from './AuthContext';
 import type { User } from './AuthContext';
 
@@ -13,6 +18,7 @@ interface ApiResponse<T> {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const authSessionRevRef = useRef(readAuthSessionRevision());
 
   /**
    * Fetch current user info from the server
@@ -55,6 +61,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, [fetchUser]);
 
+  /** Other tabs / windows: after logout elsewhere, re-fetch /auth/me so UI matches server cookies. */
+  useEffect(() => {
+    const syncFromStorageRevision = () => {
+      const next = readAuthSessionRevision();
+      if (next !== authSessionRevRef.current) {
+        authSessionRevRef.current = next;
+        void fetchUser();
+      }
+    };
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== AUTH_SESSION_STORAGE_KEY || e.storageArea !== localStorage) {
+        return;
+      }
+      syncFromStorageRevision();
+    };
+
+    const onFocus = () => {
+      syncFromStorageRevision();
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncFromStorageRevision();
+      }
+    };
+
+    /** BFCache / browser Back: React state can be restored while cookies were cleared at logout. */
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        void fetchUser();
+      }
+    };
+
+    /** Align with focus/visibility: refetch only when session revision changed (other tab login/logout). */
+    const onPopState = () => {
+      syncFromStorageRevision();
+    };
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pageshow', onPageShow);
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, [fetchUser]);
+
   /**
    * Login with email and password
    * Server will set HttpOnly cookies automatically
@@ -95,6 +154,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       /* cross-site: cookie on API host; body of /auth/csrf fills in-memory CSRF header */
     }
+
+    bumpAuthSessionRevision();
+    authSessionRevRef.current = readAuthSessionRevision();
   };
 
   /**
@@ -102,12 +164,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    */
   const logout = async () => {
     try {
+      await ensureCsrfBootstrap();
+    } catch {
+      /* align header with server csrf cookie (e.g. other tab rotated or cleared cookies) */
+    }
+    try {
       await apiClient.post('/auth/logout', {});
     } catch {
       // Logout API call failed, clearing local state anyway
     } finally {
       clearMemoryCsrfToken();
       setUser(null);
+      bumpAuthSessionRevision();
+      authSessionRevRef.current = readAuthSessionRevision();
     }
   };
 

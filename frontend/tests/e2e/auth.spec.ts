@@ -34,7 +34,7 @@ test.describe('Authentication smoke', () => {
       route.fulfill({ json: authMePayload() }),
     );
     await page.route('**/api/v1/auth/csrf', (route: Route) =>
-      route.fulfill({ status: 200, json: {} }),
+      route.fulfill({ status: 200, json: { csrf_token: 'e2e-test-csrf-token' } }),
     );
 
     await page.locator('#email').fill('admin@example.com');

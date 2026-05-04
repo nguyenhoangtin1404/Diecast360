@@ -19,7 +19,13 @@ vi.mock('@tanstack/react-query', () => ({
 }));
 
 vi.mock('../../src/hooks/useAuth', () => ({
-  useAuth: () => ({ user: null, loading: false, isAuthenticated: false, login: vi.fn(), logout: vi.fn() }),
+  useAuth: () => ({
+    user: null,
+    loading: false,
+    isAuthenticated: false,
+    login: vi.fn(),
+    logout: vi.fn(),
+  }),
 }));
 
 vi.mock('../../src/components/catalog/ItemCard', () => ({

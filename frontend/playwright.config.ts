@@ -39,6 +39,8 @@ export default defineConfig({
     stderr: 'pipe',
     env: {
       ...process.env,
+      // Same-origin /api/v1 so Playwright **/api/v1/** route mocks match (ignore host .env).
+      VITE_API_BASE_URL: 'auto',
       // Lets anonymous `/preorders` E2E resolve shop without `?shop_id=` (see public PreOrdersPage).
       VITE_PUBLIC_PREORDER_SHOP_ID: 'shop-1',
     },
