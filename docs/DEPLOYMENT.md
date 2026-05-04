@@ -70,33 +70,37 @@ Lợi ích: không cần mở cổng inbound trên router, không phụ thuộc 
 
 ### Pi 4 (2 GB): gợi ý vận hành
 
-- Dùng OS 64-bit; Node LTS (khớp `engines` trong `frontend/package.json` / thực tế build backend).
+- Dùng OS 64-bit; Node 20 (khớp workflow deploy hiện tại).
 - **Chỉ chạy backend trên Pi**; database để trên Neon để tránh Postgres + Nest tranh RAM.
 - Tạo thư mục `UPLOAD_DIR` trên ổ đủ dung lượng (USB nếu cần); giới hạn `MAX_UPLOAD_MB` hợp lý — xử lý ảnh (Sharp) có thể tốn RAM khi upload đồng thời.
-- Cài dependency và build:
+- Nếu deploy thủ công, cài dependency, build, migrate rồi restart:
 
   ```bash
   cd /path/to/Diecast360/backend
-  npm ci --omit=dev
+  npm ci
   npm run build
+  npm ci --omit=dev
+  npx prisma generate
+  npx prisma migrate deploy
+  sudo systemctl restart diecast360-api
   ```
 
-- Chạy production: `node dist/main` (hoặc `npm run start:prod`) dưới **systemd** để tự khởi động lại và ghi log (`journalctl`).
+- Chạy production: `node dist/main.js` dưới **systemd** để tự khởi động lại và ghi log (`journalctl`).
 
 Ví dụ unit systemd (chỉnh `User`, `WorkingDirectory`, `EnvironmentFile`):
 
 ```ini
 [Unit]
-Description=Diecast360 API
+Description=Diecast360 Backend API
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/Diecast360/backend
-EnvironmentFile=/home/pi/Diecast360/backend/.env
-ExecStart=/usr/bin/node dist/main
+WorkingDirectory=/opt/diecast360-backend
+EnvironmentFile=/opt/diecast360-backend/.env
+ExecStart=/usr/bin/node dist/main.js
 Restart=on-failure
 RestartSec=5
 
@@ -113,7 +117,8 @@ WantedBy=multi-user.target
 | **Pi / `backend/.env`** | `DATABASE_URL`, `DIRECT_URL` | Neon pooled + direct — xem [`ENV.md`](ENV.md) |
 | **Pi** | `JWT_SECRET`, `COOKIE_SECRET` | Đủ entropy, không tái sử dụng từ dev |
 | **Pi** | `FRONTEND_URL` | Origin chính xác của frontend (ví dụ `https://xxx.vercel.app`) — CORS |
-| **Pi** | `PUBLIC_BASE_URL` | URL public của API (HTTPS), dùng ghép link ảnh/thumbnail nếu cần |
+| **Pi** | `BACKEND_URL` | URL public của API (HTTPS), dùng làm base cho signed media URL `/api/v1/media` |
+| **Pi** | `MEDIA_SIGNING_SECRET`, `MEDIA_URL_TTL_MS` | Tùy chọn cho signed media URL; nếu không set secret riêng, backend fallback sang `JWT_SECRET` |
 | **Pi** | `COOKIE_SECURE=true`, `COOKIE_SAME_SITE` | Production HTTPS — xem [`ENV.md`](ENV.md) |
 | **Pi** | `UPLOAD_DIR` | Đường dẫn tuyệt đối trên Pi, thư mục tồn tại và ghi được |
 | **Vercel / Pages** (build) | `VITE_API_BASE_URL` | `https://<api-host>/api/v1` |
@@ -130,13 +135,13 @@ Chi tiết Facebook, OpenAI, Pinecone: tùy tính năng bật — vẫn trong [`
 4. Cập nhật `VITE_API_BASE_URL` trên host frontend, deploy lại frontend.
 5. Kiểm tra đăng nhập, upload nhỏ, catalog; đọc [`COOKIE_AUTH.md`](COOKIE_AUTH.md) nếu cookie cross-site lỗi.
 
-Tự động deploy backend khi merge `main`: cài [GitHub self-hosted runner trên Pi](BACKEND_SELF_HOSTED_RUNNER.md) và dùng workflow [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml).
+Tự động deploy backend khi merge `main`: cài [GitHub self-hosted runner trên Pi](BACKEND_SELF_HOSTED_RUNNER.md) và dùng workflow [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml). Workflow checkout/build trực tiếp trên Pi, sync `dist/`, `prisma/`, `package.json`, `package-lock.json` vào `DEPLOY_REMOTE_PATH` (mặc định `/opt/diecast360-backend`), chạy `npm ci --omit=dev`, `npx prisma generate`, `npx prisma migrate deploy`, restart `diecast360-api`, rồi probe `GET /api/v1/health`.
 
 ---
 
 ## 6. CI và migration
 
-Workflow CI mặc định: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Deploy backend lên Pi (self-hosted runner): [`BACKEND_SELF_HOSTED_RUNNER.md`](BACKEND_SELF_HOSTED_RUNNER.md) và [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml). Nếu repository có thêm workflow migrate Neon kích hoạt sau CI xanh trên `main`, cấu hình secret `NEON_DATABASE_URL` (và tùy chọn `NEON_DIRECT_URL`) trong GitHub Actions — không ghi secret vào git.
+Workflow CI mặc định: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Deploy backend lên Pi (self-hosted runner): [`BACKEND_SELF_HOSTED_RUNNER.md`](BACKEND_SELF_HOSTED_RUNNER.md) và [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml). Migration production hiện chạy trong deploy job bằng `DIRECT_URL` từ `.env` trên Pi; không cần secret SSH cho workflow hiện tại.
 
 ---
 
@@ -144,4 +149,5 @@ Workflow CI mặc định: [`.github/workflows/ci.yml`](../.github/workflows/ci.
 
 - Xoay mật khẩu Neon nếu từng lộ URL trong chat / log công khai.
 - Sao lưu định kỳ thư mục upload trên Pi; Neon có backup theo gói dịch vụ.
-- Cập nhật code: merge `main` (workflow self-hosted trên Pi) hoặc tay: `git pull` trên Pi → `npm ci --omit=dev` → `npm run build` → `systemctl restart …`.
+- Sau deploy: kiểm tra `sudo systemctl status diecast360-api`, `journalctl -u diecast360-api -n 100 --no-pager`, và `curl -sfS http://127.0.0.1:$PORT/api/v1/health`.
+- Cập nhật code: merge `main` (workflow self-hosted trên Pi) hoặc tay: build theo mục Pi ở trên rồi `systemctl restart …`.
