@@ -2,9 +2,21 @@ import axios from 'axios';
 import { API_CONFIG } from '../config/api';
 
 /**
- * In-memory CSRF value for cross-site setups (e.g. UI on www.shop.com, API on api.shop.com).
- * The csrf_token cookie is set on the API host; browsers do not expose third-party cookies to
- * document.cookie, so the double-submit header must be filled from the GET /auth/csrf JSON body.
+ * Cross-site CSRF header support for cookie-based API auth.
+ *
+ * **Double-submit:** The API expects `X-CSRF-Token` to match the `csrf_token` cookie on each
+ * mutating request. When the UI and API are on different sites, the cookie is set on the API
+ * host and is not visible to `document.cookie` here, so we must copy the token from the JSON
+ * body of `GET /api/v1/auth/csrf` into {@link memoryCsrfToken}.
+ *
+ * **XSS trade-off:** Any value used to build `X-CSRF-Token` is reachable from page JS if XSS
+ * exists. Same-origin setups could already read the non-HttpOnly `csrf_token` from
+ * `document.cookie`; cross-site relies on memory instead. Mitigate XSS (CSP, sanitization) —
+ * this module does not widen impact beyond the need to send the header at all.
+ *
+ * **Per-tab state:** `memoryCsrfToken` and {@link csrfBootstrapInFlight} live in this JS realm
+ * (typically one browser tab). Other tabs have their own copy; each tab should bootstrap after
+ * auth. Concurrent calls within one tab share one in-flight bootstrap via {@link csrfBootstrapInFlight}.
  */
 let memoryCsrfToken: string | undefined;
 
@@ -76,6 +88,17 @@ export function readCsrfTokenFromCookie(): string | undefined {
 }
 
 export function csrfHeaderPair(): Record<string, string> {
+  /**
+   * Token source order (do not reverse without security review):
+   * 1. **Cookie** when readable — same-origin dev; matches the cookie the server sees.
+   * 2. **Memory** — cross-site production; cookie is not in `document.cookie`.
+   *
+   * Edge case (same-origin only): if the server rotated `csrf_token` and the browser still
+   * exposes an older first-party cookie value until the next response, cookie could briefly win
+   * over a fresher `memoryCsrfToken`. Production cross-site UI never reads the API cookie from
+   * JS, so only memory applies. Call {@link ensureCsrfBootstrap} after login / refresh / switch-shop
+   * so memory stays aligned.
+   */
   const token = readCsrfTokenFromCookie() || memoryCsrfToken;
   return token ? { 'X-CSRF-Token': token } : {};
 }
