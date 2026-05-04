@@ -8,6 +8,26 @@ import { API_CONFIG } from '../config/api';
  */
 let memoryCsrfToken: string | undefined;
 
+/** Coalesce concurrent bootstraps; one GET /auth/csrf in flight at a time. */
+let csrfBootstrapInFlight: Promise<void> | null = null;
+
+const CSRF_BOOTSTRAP_ATTEMPTS = 3;
+const CSRF_BOOTSTRAP_BASE_DELAY_MS = 200;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Retry on network errors, 5xx, or missing token in body; do not spin on 401/403. */
+function shouldRetryCsrfBootstrap(err: unknown, attemptIndex: number): boolean {
+  if (attemptIndex >= CSRF_BOOTSTRAP_ATTEMPTS - 1) return false;
+  if (!axios.isAxiosError(err)) return true;
+  const status = err.response?.status;
+  if (status === 401 || status === 403) return false;
+  if (!err.response) return true;
+  return status >= 500;
+}
+
 export function clearMemoryCsrfToken(): void {
   memoryCsrfToken = undefined;
 }
@@ -62,8 +82,41 @@ export function csrfHeaderPair(): Record<string, string> {
 
 /** Lấy CSRF từ backend (GET an toàn) và lưu token vào memory khi cookie là cross-site. */
 export async function ensureCsrfBootstrap(): Promise<void> {
-  const res = await axios.get(`${API_CONFIG.BASE_URL}/auth/csrf`, { withCredentials: true });
-  rememberCsrfFromResponseBody(res.data);
+  if (csrfBootstrapInFlight) {
+    return csrfBootstrapInFlight;
+  }
+
+  csrfBootstrapInFlight = (async () => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < CSRF_BOOTSTRAP_ATTEMPTS; attempt++) {
+      try {
+        const res = await axios.get(`${API_CONFIG.BASE_URL}/auth/csrf`, {
+          withCredentials: true,
+          timeout: 15000,
+        });
+        const token = extractCsrfTokenFromBody(res.data);
+        if (token) {
+          memoryCsrfToken = token;
+          return;
+        }
+        lastError = new Error('CSRF bootstrap: missing csrf_token in response');
+        if (!shouldRetryCsrfBootstrap(lastError, attempt)) break;
+      } catch (e) {
+        lastError = e;
+        if (!shouldRetryCsrfBootstrap(e, attempt)) break;
+      }
+      await sleep(CSRF_BOOTSTRAP_BASE_DELAY_MS * (attempt + 1));
+    }
+    clearMemoryCsrfToken();
+    if (import.meta.env.DEV) {
+      console.warn('[csrf] ensureCsrfBootstrap failed after retries', lastError);
+    }
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  })().finally(() => {
+    csrfBootstrapInFlight = null;
+  });
+
+  return csrfBootstrapInFlight;
 }
 
 function isCsrfInvalidAxiosError(err: unknown): boolean {
