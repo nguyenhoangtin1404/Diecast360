@@ -273,8 +273,6 @@ export const ItemDetailPage = () => {
     // data structure: {item: {...}, images: [...], spin_sets: [...]}
     if (data?.item) {
       const item = data.item;
-      /* eslint-disable react-hooks/set-state-in-effect -- initializing controlled form fields
-         from server data; React 18 batches all these calls into a single re-render. */
       setName(item.name || '');
       setDescription(item.description || '');
       setStatus(item.status || 'con_hang');
@@ -292,7 +290,6 @@ export const ItemDetailPage = () => {
         typeof q === 'number' && Number.isFinite(q) ? String(Math.max(0, Math.floor(q))) : '',
       );
       setAttributeRows(attributeRowsFromApi((item as { attributes?: unknown }).attributes));
-      /* eslint-enable react-hooks/set-state-in-effect */
     }
     if (data?.facebook_posts) {
       setFacebookPosts(data.facebook_posts || []);
@@ -339,7 +336,6 @@ export const ItemDetailPage = () => {
     if (!stepFromQuery) return;
     const parsed = Number(stepFromQuery);
     if ([1, 2, 3, 4].includes(parsed)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing URL ?step= param to state is intentional
       setCurrentStep(parsed as ProductStep);
     }
   }, [searchParams]);
@@ -356,11 +352,9 @@ export const ItemDetailPage = () => {
 
   useEffect(() => {
     if (id === 'new') {
-      /* eslint-disable react-hooks/set-state-in-effect -- resetting form for /new route; React 18 batches these */
       setCondition('new');
       setQuantity('');
       setAttributeRows([{ id: newAttributeRowId(), key: '', value: '' }]);
-      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [id]);
 
