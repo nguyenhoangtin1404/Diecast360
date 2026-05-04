@@ -45,6 +45,9 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
  * We only equate `super_admin` to **shop_admin** eligibility: if a route were ever
  * decorated with `@Roles(ShopRole.shop_staff)` alone, legacy `super_admin` would not
  * satisfy it (avoids widening access on hypothetical staff-only surfaces).
+ *
+ * Prefer a data migration (`super_admin` → `shop_admin` per shop row) so this branch
+ * can be removed once production rows are normalized.
  */
 function userRoleSatisfiesTenantRequirement(userRole: ShopRole, tenantRoles: ShopRole[]): boolean {
   if (tenantRoles.includes(userRole)) {
