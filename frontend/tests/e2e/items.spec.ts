@@ -29,11 +29,6 @@ const itemsListResponse = apiOk({
 test.describe('Admin items list smoke', () => {
   // authenticatedPage fixture pre-wires /auth/me → ADMIN_USER (see fixtures/index.ts)
   test.beforeEach(async ({ authenticatedPage }) => {
-    // Silence CSRF bootstrap — Vite proxy returns 502 when backend is absent,
-    // which delays auth resolution in the test environment.
-    await authenticatedPage.route('**/api/v1/auth/csrf', (route: Route) =>
-      route.fulfill({ status: 200, json: {} }),
-    );
     await authenticatedPage.route('**/api/v1/items*', (route: Route) =>
       route.fulfill({ json: itemsListResponse }),
     );

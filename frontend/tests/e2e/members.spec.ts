@@ -3,7 +3,7 @@ import { test, expect, authMePayload, apiOk, type Route } from './fixtures';
 test.describe('Members dashboard', () => {
   test('renders list and ledger areas', async ({ page }) => {
     await page.route('**/api/v1/auth/csrf', (route: Route) =>
-      route.fulfill({ status: 200, json: {} }),
+      route.fulfill({ status: 200, json: { csrf_token: 'e2e-test-csrf-token' } }),
     );
     let createTierCalled = false;
     let deleteTierCalled = false;
@@ -91,7 +91,7 @@ test.describe('Members dashboard', () => {
   test('creates a member from modal flow', async ({ page }) => {
     let createMemberCalled = false;
     await page.route('**/api/v1/auth/csrf', (route: Route) =>
-      route.fulfill({ status: 200, json: {} }),
+      route.fulfill({ status: 200, json: { csrf_token: 'e2e-test-csrf-token' } }),
     );
     await page.route('**/api/v1/auth/me', (route: Route) =>
       route.fulfill({ json: authMePayload() }),

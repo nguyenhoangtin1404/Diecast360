@@ -99,6 +99,7 @@ type TestFixtures = {
 
 export const test = base.extend<TestFixtures>({
   authenticatedPage: async ({ page }, use) => {
+    await stubAuthCsrf(page);
     await page.route('**/api/v1/auth/me', (route: Route) =>
       route.fulfill({ json: authMePayload() }),
     );
@@ -110,7 +111,7 @@ export const test = base.extend<TestFixtures>({
 /** Stub CSRF bootstrap so Vite proxy does not block admin flows in E2E. */
 export async function stubAuthCsrf(page: Page) {
   await page.route('**/api/v1/auth/csrf', (route: Route) =>
-    route.fulfill({ status: 200, json: {} }),
+    route.fulfill({ status: 200, json: { csrf_token: 'e2e-test-csrf-token' } }),
   );
 }
 
