@@ -25,7 +25,7 @@ function shouldRetryCsrfBootstrap(err: unknown, attemptIndex: number): boolean {
   const status = err.response?.status;
   if (status === 401 || status === 403) return false;
   if (!err.response) return true;
-  return status >= 500;
+  return typeof status === 'number' && status >= 500;
 }
 
 export function clearMemoryCsrfToken(): void {
