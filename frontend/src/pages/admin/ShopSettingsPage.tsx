@@ -106,14 +106,12 @@ export const ShopSettingsPage = () => {
   });
 
   /* Sync form from server when GET /shop-settings resolves (or refetches) */
-  /* eslint-disable react-hooks/set-state-in-effect -- hydrate local form from query result */
   useEffect(() => {
     const row = settingsQuery.data;
     if (!row) return;
     setContact(parseShopContactFormDefaults(row.contact_json));
     setAppearance(parseAppearanceFormDefaults(row.appearance_json));
   }, [settingsQuery.data]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const saveMutation = useMutation({
     mutationFn: async () => {

@@ -33,7 +33,7 @@ function renderInlineBold(text: string): ReactNode {
 }
 
 export const ContactPage = () => {
-  const { effectiveShopId, shopContextReady, publicApiShopReady } = usePublicShopContext();
+  const { shopContextReady, publicApiShopReady } = usePublicShopContext();
 
   const { data, isLoading, error } = usePublicShopContact();
 
