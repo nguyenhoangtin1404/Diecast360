@@ -457,11 +457,12 @@ export class ShopsService {
     }
 
     if (appearanceChanged) {
+      // Delete prior hosting blob before audit so a rare audit failure cannot skip cleanup.
+      await this.tryDeletePriorShopBrandingFile(previousUrl);
       await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
         field: 'appearance_json',
         via: `upload_${kind}`,
       });
-      await this.tryDeletePriorShopBrandingFile(previousUrl);
     }
 
     return {
