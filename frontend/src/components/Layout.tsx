@@ -75,6 +75,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const publicShopName = publicShopContact.data?.shop?.name?.trim() ?? '';
 
   const adminLogoUrl = safeHttpUrlForAttribute(adminShopBranding.data?.logo_url);
+  const adminFaviconUrl = safeHttpUrlForAttribute(adminShopBranding.data?.favicon_url);
 
   useEffect(() => {
     if (isAdmin) return undefined;
@@ -97,6 +98,28 @@ export const Layout = ({ children }: LayoutProps) => {
       document.querySelectorAll('link[data-shop-branding="1"]').forEach((el) => el.remove());
     };
   }, [isAdmin, publicShopName, publicFaviconUrl]);
+
+  useEffect(() => {
+    if (!isAdmin) return undefined;
+    const defaultTitle = 'Diecast360 — Mô hình xe 1:64';
+    const shopLabel = activeShop?.name?.trim();
+    document.title = shopLabel ? `${shopLabel} — Quản trị` : 'Diecast360 — Quản trị';
+
+    let appended: HTMLLinkElement | null = null;
+    if (adminFaviconUrl) {
+      appended = document.createElement('link');
+      appended.rel = 'icon';
+      appended.href = adminFaviconUrl;
+      appended.setAttribute('data-admin-shop-branding', '1');
+      document.head.appendChild(appended);
+    }
+
+    return () => {
+      document.title = defaultTitle;
+      appended?.remove();
+      document.querySelectorAll('link[data-admin-shop-branding="1"]').forEach((el) => el.remove());
+    };
+  }, [isAdmin, adminFaviconUrl, activeShop?.name]);
 
   const renderPublicBrandMark = (size: 'lg' | 'sm') => {
     const isLg = size === 'lg';
