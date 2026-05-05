@@ -15,7 +15,6 @@ import { publicShopContactQueryKey } from '../../hooks/usePublicShopContact';
 import {
   fetchShopSettings,
   shopSettingsQueryKey,
-  type ShopSettingsApiRow,
 } from '../../hooks/shopSettingsQuery';
 
 const card: CSSProperties = {
