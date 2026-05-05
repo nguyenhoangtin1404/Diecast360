@@ -8,8 +8,9 @@ export const adminShopBrandingQueryKey = (shopId: string | null) =>
   ['admin-shop-branding', shopId] as const;
 
 /**
- * Active shop logo URL for admin chrome (sidebar / mobile header).
- * Uses GET /shop-settings (same auth as admin); separate cache key from ShopSettingsPage form query.
+ * Active shop logo/favicon for admin chrome (sidebar / mobile header).
+ * Uses GET /shop-settings — tenant shop comes from JWT + TenantGuard (same as ShopSettingsPage),
+ * not from a path param; `shopId` in the query key only scopes React Query cache per shop.
  */
 export function useAdminShopBranding(enabled: boolean) {
   const { activeShop } = useShop();

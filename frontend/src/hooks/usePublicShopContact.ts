@@ -16,9 +16,11 @@ export function usePublicShopContact(queryEnabled = true) {
   return useQuery({
     queryKey: publicShopContactQueryKey(effectiveShopId),
     queryFn: async () => {
-      const res = await apiClient.get(
-        `/public/shops/${encodeURIComponent(effectiveShopId)}/contact`,
-      );
+      const shopId = effectiveShopId.trim();
+      if (!shopId) {
+        throw new Error('public shop contact requires a shop id');
+      }
+      const res = await apiClient.get(`/public/shops/${encodeURIComponent(shopId)}/contact`);
       return res.data as PublicShopContactResponse;
     },
     enabled: queryEnabled && shopContextReady && publicApiShopReady && Boolean(effectiveShopId),

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ChartNoAxesColumn,
@@ -28,7 +28,7 @@ import { usePublicShopContext } from '../hooks/usePublicShopContext';
 import { usePublicShopContact } from '../hooks/usePublicShopContact';
 import { useAdminShopBranding } from '../hooks/useAdminShopBranding';
 import { useShop } from '../hooks/useShop';
-import { safeHttpUrlForAttribute } from '../utils/safeHttpUrl';
+import { useDocumentTitleAndFavicon, DEFAULT_DOCUMENT_TITLE } from '../hooks/useDocumentTitleAndFavicon';
 import ShopSelector from './admin/ShopSelector';
 
 interface LayoutProps {
@@ -48,6 +48,20 @@ const adminSidebarNavLinkBase =
 
 const adminSidebarNavLinkActive =
   'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100 shadow-sm hover:bg-indigo-50/90 hover:text-indigo-800';
+
+/** Shared gradient tile when no custom logo (public + admin). */
+function BrandFallbackTile({ className }: { className: string }) {
+  return (
+    <div
+      className={cn(
+        'flex shrink-0 items-center justify-center bg-gradient-to-br from-indigo-600 to-violet-600 font-extrabold tracking-tight text-white shadow-corporate-btn',
+        className,
+      )}
+    >
+      360°
+    </div>
+  );
+}
 
 export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
@@ -77,49 +91,24 @@ export const Layout = ({ children }: LayoutProps) => {
   const adminLogoUrl = safeHttpUrlForAttribute(adminShopBranding.data?.logo_url);
   const adminFaviconUrl = safeHttpUrlForAttribute(adminShopBranding.data?.favicon_url);
 
-  useEffect(() => {
-    if (isAdmin) return undefined;
-    const defaultTitle = 'Diecast360 — Mô hình xe 1:64';
-    const title = publicShopName ? `${publicShopName} — Catalog` : defaultTitle;
-    document.title = title;
+  const publicBrandTitle = publicShopName || 'Diecast360';
+  const publicBrandSubtitle = publicShopName ? 'Catalog công khai' : 'Mô hình xe thu nhỏ · 1:64';
 
-    let appended: HTMLLinkElement | null = null;
-    if (publicFaviconUrl) {
-      appended = document.createElement('link');
-      appended.rel = 'icon';
-      appended.href = publicFaviconUrl;
-      appended.setAttribute('data-shop-branding', '1');
-      document.head.appendChild(appended);
-    }
+  useDocumentTitleAndFavicon({
+    enabled: !isAdmin,
+    title: publicShopName ? `${publicShopName} — Catalog` : DEFAULT_DOCUMENT_TITLE,
+    faviconUrl: publicFaviconUrl,
+    markerAttr: 'data-shop-branding',
+  });
 
-    return () => {
-      document.title = defaultTitle;
-      appended?.remove();
-      document.querySelectorAll('link[data-shop-branding="1"]').forEach((el) => el.remove());
-    };
-  }, [isAdmin, publicShopName, publicFaviconUrl]);
-
-  useEffect(() => {
-    if (!isAdmin) return undefined;
-    const defaultTitle = 'Diecast360 — Mô hình xe 1:64';
-    const shopLabel = activeShop?.name?.trim();
-    document.title = shopLabel ? `${shopLabel} — Quản trị` : 'Diecast360 — Quản trị';
-
-    let appended: HTMLLinkElement | null = null;
-    if (adminFaviconUrl) {
-      appended = document.createElement('link');
-      appended.rel = 'icon';
-      appended.href = adminFaviconUrl;
-      appended.setAttribute('data-admin-shop-branding', '1');
-      document.head.appendChild(appended);
-    }
-
-    return () => {
-      document.title = defaultTitle;
-      appended?.remove();
-      document.querySelectorAll('link[data-admin-shop-branding="1"]').forEach((el) => el.remove());
-    };
-  }, [isAdmin, adminFaviconUrl, activeShop?.name]);
+  useDocumentTitleAndFavicon({
+    enabled: isAdmin,
+    title: activeShop?.name?.trim()
+      ? `${activeShop.name.trim()} — Quản trị`
+      : 'Diecast360 — Quản trị',
+    faviconUrl: adminFaviconUrl,
+    markerAttr: 'data-admin-shop-branding',
+  });
 
   const renderPublicBrandMark = (size: 'lg' | 'sm') => {
     const isLg = size === 'lg';
@@ -137,22 +126,16 @@ export const Layout = ({ children }: LayoutProps) => {
       );
     }
     return (
-      <div
+      <BrandFallbackTile
         className={
           isLg
-            ? 'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-lg font-extrabold tracking-tight text-white shadow-corporate-btn transition-transform duration-200 ease-out group-hover:-translate-y-0.5'
-            : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-xs font-extrabold text-white shadow-corporate-btn'
+            ? 'h-12 w-12 rounded-xl text-lg transition-transform duration-200 ease-out group-hover:-translate-y-0.5'
+            : 'h-9 w-9 rounded-lg text-xs'
         }
-      >
-        360°
-      </div>
+      />
     );
   };
 
-  const publicBrandTitle = publicShopName || 'Diecast360';
-  const publicBrandSubtitle = publicShopName ? 'Catalog công khai' : 'Mô hình xe thu nhỏ · 1:64';
-
-  const renderAdminBrandMark = (size: 'sidebar' | 'compact') => {
     const isSidebar = size === 'sidebar';
     const altText = activeShop?.name ? `Logo ${activeShop.name}` : 'Logo shop';
     if (adminLogoUrl) {
@@ -169,15 +152,13 @@ export const Layout = ({ children }: LayoutProps) => {
       );
     }
     return (
-      <div
+      <BrandFallbackTile
         className={
           isSidebar
-            ? 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-base font-extrabold tracking-tight text-white shadow-corporate-btn transition-transform duration-200 ease-out group-hover:-translate-y-0.5'
-            : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-xs font-extrabold text-white shadow-corporate-btn'
+            ? 'h-11 w-11 rounded-xl text-base transition-transform duration-200 ease-out group-hover:-translate-y-0.5'
+            : 'h-9 w-9 rounded-lg text-xs'
         }
-      >
-        360°
-      </div>
+      />
     );
   };
 
