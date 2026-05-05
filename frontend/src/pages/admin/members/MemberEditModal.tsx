@@ -56,7 +56,7 @@ export function MemberEditModal(props: MemberEditModalProps) {
             />
             <button
               type="submit"
-              className="rounded-lg bg-shop px-3 py-2 text-sm font-semibold text-white hover:bg-shop/90 disabled:cursor-not-allowed disabled:bg-shop/50"
+              className="rounded-lg bg-shop px-3 py-2 text-sm font-semibold text-white hover:bg-shop/90 active:bg-shop/80 disabled:cursor-not-allowed disabled:bg-shop/50"
               disabled={props.isSubmitting}
             >
               {props.isSubmitting ? 'Đang lưu...' : 'Lưu thay đổi'}

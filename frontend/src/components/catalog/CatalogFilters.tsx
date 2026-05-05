@@ -17,9 +17,10 @@ interface CatalogFiltersProps {
 const chipBase =
   'min-h-[44px] rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2';
 
-const chipInactive = 'border-slate-200 bg-white text-slate-700 shadow-sm hover:border-shop/25 hover:bg-shop/5 hover:text-shop';
+const chipInactive =
+  'border-slate-200 bg-white text-slate-700 shadow-sm hover:border-shop/25 hover:bg-shop/5 active:bg-shop/10 hover:text-shop';
 const chipActive =
-  'border-transparent bg-gradient-to-r from-shop to-shopAccent text-white shadow-corporate-btn hover:-translate-y-0.5 hover:shadow-corporate-card-hover';
+  'border-transparent bg-gradient-to-r from-shop to-shopAccent text-white shadow-corporate-btn hover:-translate-y-0.5 hover:shadow-corporate-card-hover active:translate-y-0 active:brightness-95';
 
 export const CatalogFilters = ({
   shopId,

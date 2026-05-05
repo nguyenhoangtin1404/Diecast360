@@ -9,8 +9,10 @@ interface CatalogSortProps {
 const btn =
   'min-h-[44px] rounded-lg border px-4 py-2 text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2';
 
-const btnOff = 'border-slate-200 bg-white text-slate-700 shadow-sm hover:border-shop/25 hover:bg-slate-50';
-const btnOn = 'border-transparent bg-shop/10 text-shop ring-1 ring-shop/20';
+const btnOff =
+  'border-slate-200 bg-white text-slate-700 shadow-sm hover:border-shop/25 hover:bg-slate-50 active:bg-slate-100';
+const btnOn =
+  'border-transparent bg-shop/10 text-shop ring-1 ring-shop/20 hover:bg-shop/15 active:bg-shop/15';
 
 export const CatalogSort = ({ sortBy, sortOrder, onSortChange }: CatalogSortProps) => {
   const handleSortClick = (field: 'name' | 'price' | 'created_at') => {
