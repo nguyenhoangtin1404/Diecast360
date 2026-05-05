@@ -81,6 +81,8 @@ export class CategoriesController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @PlatformRoles(PlatformRole.platform_super)
+  @Roles(ShopRole.shop_admin, ShopRole.shop_staff)
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateDto: UpdateCategoryDto,
@@ -99,6 +101,8 @@ export class CategoriesController {
 
   @Patch(':id/toggle')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @PlatformRoles(PlatformRole.platform_super)
+  @Roles(ShopRole.shop_admin, ShopRole.shop_staff)
   async toggleActive(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request) {
     const user = req.user as JwtUser | undefined;
     const platformSuper = user?.platform_role === PlatformRole.platform_super;
@@ -113,6 +117,8 @@ export class CategoriesController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @PlatformRoles(PlatformRole.platform_super)
+  @Roles(ShopRole.shop_admin, ShopRole.shop_staff)
   @HttpCode(HttpStatus.OK)
   async remove(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request) {
     const user = req.user as JwtUser | undefined;
