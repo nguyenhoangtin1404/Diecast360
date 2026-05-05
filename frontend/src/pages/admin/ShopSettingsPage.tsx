@@ -6,9 +6,10 @@ import { useAuth } from '../../hooks/useAuth';
 import { useShop } from '../../hooks/useShop';
 import { jsonStableStringify } from '../../utils/jsonStableStringify';
 import { buildShopContactPatch, parseShopContactFormDefaults } from './shops/shopContactForm';
-import { buildAppearancePatch, parseAppearanceFormDefaults } from './shops/shopSettingsForm';
+import { buildAppearancePatch } from './shops/shopSettingsForm';
 import type { ShopContactFormState } from './shops/types/shopContact';
-import type { ShopAppearanceFormState } from './shops/types/shopSettings';
+import type { ShopAppearanceFormState } from '@/types/shopAppearance';
+import { parseAppearanceFormDefaults } from '@/utils/shopAppearance';
 import { ShopContactFields } from './shops/ShopContactFields';
 import { publicShopContactQueryKey } from '../../hooks/usePublicShopContact';
 import {

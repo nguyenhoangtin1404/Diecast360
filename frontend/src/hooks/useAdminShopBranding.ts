@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useShop } from './useShop';
-import { parseAppearanceFormDefaults } from '../pages/admin/shops/shopSettingsForm';
 import { fetchShopSettings, shopSettingsQueryKey } from './shopSettingsQuery';
-import type { ShopAppearanceFormState } from '../pages/admin/shops/types/shopSettings';
+import type { ShopAppearanceFormState } from '@/types/shopAppearance';
+import { parseAppearanceFormDefaults } from '@/utils/shopAppearance';
 
 /**
  * Active shop logo/favicon for admin chrome — shares React Query cache with ShopSettingsPage
