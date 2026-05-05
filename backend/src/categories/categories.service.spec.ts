@@ -78,6 +78,31 @@ describe('CategoriesService', () => {
   });
 
   describe('findAll', () => {
+    it('falls back to global-only when shop_id query does not resolve', async () => {
+      prisma.shop.findFirst.mockResolvedValue(null);
+      prisma.category.findMany.mockResolvedValue([mockGlobalCategory]);
+
+      await service.findAll({ shop_id: 'no-such-slug' }, {});
+
+      expect(prisma.category.findMany).toHaveBeenCalledWith({
+        where: {
+          shop_id: null,
+        },
+        orderBy: [{ display_order: 'asc' }, { name: 'asc' }],
+      });
+    });
+
+    it('anonymous without shop uses global-only rows', async () => {
+      prisma.category.findMany.mockResolvedValue([]);
+
+      await service.findAll({}, {});
+
+      expect(prisma.category.findMany).toHaveBeenCalledWith({
+        where: { shop_id: null },
+        orderBy: [{ display_order: 'asc' }, { name: 'asc' }],
+      });
+    });
+
     it('merges global + shop rows when shop_id query resolves', async () => {
       prisma.shop.findFirst.mockResolvedValue({ id: SHOP_A });
       prisma.category.findMany.mockResolvedValue([mockGlobalCategory]);
@@ -159,7 +184,17 @@ describe('CategoriesService', () => {
     it('platform super can rename global category', async () => {
       prisma.category.findUnique.mockResolvedValueOnce(mockGlobalCategory);
       prisma.category.findFirst.mockResolvedValue(null);
-      prisma.$transaction.mockResolvedValue([{ ...mockGlobalCategory, name: 'BMW Group' }, { count: 1 }]);
+      prisma.$transaction.mockImplementation(async (ops: unknown) => {
+        if (Array.isArray(ops)) {
+          for (const op of ops as Promise<unknown>[]) {
+            await op;
+          }
+          return [{ ...mockGlobalCategory, name: 'BMW Group' }, { count: 1 }];
+        }
+        return undefined;
+      });
+      prisma.category.update.mockResolvedValue({ ...mockGlobalCategory, name: 'BMW Group' });
+      prisma.item.updateMany.mockResolvedValue({ count: 1 });
       prisma.item.count.mockResolvedValue(1);
 
       const result = await service.update(
@@ -169,6 +204,14 @@ describe('CategoriesService', () => {
       );
 
       expect(result.category.name).toBe('BMW Group');
+      expect(prisma.item.updateMany).toHaveBeenCalledWith({
+        where: {
+          car_brand: 'BMW',
+          deleted_at: null,
+          shop_id: null,
+        },
+        data: { car_brand: 'BMW Group' },
+      });
     });
   });
 });

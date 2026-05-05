@@ -47,6 +47,10 @@ export class CategoriesService {
 
     const where: Prisma.CategoryWhereInput = {};
 
+    if (shopScope.mode === 'global_only') {
+      where.shop_id = null;
+    }
+
     if (shopScope.mode === 'shop_merge' && shopScope.shopIds.length > 0) {
       where.OR = [
         { shop_id: null },
@@ -77,7 +81,10 @@ export class CategoriesService {
     const trimmed = rawShopId?.trim();
     if (trimmed) {
       const id = await this.resolveShopIdFromQuery(trimmed);
-      return { mode: 'shop_merge', shopIds: id ? [id] : [] };
+      // Invalid or unknown shop → do not return every row (treat as global-only filter).
+      return id
+        ? { mode: 'shop_merge' as const, shopIds: [id] }
+        : { mode: 'global_only' as const, shopIds: [] };
     }
 
     if (ctx.isPlatformSuper) {
@@ -223,6 +230,9 @@ export class CategoriesService {
       };
       if (existing.shop_id !== null) {
         itemWhere.shop_id = existing.shop_id;
+      } else {
+        // Global seed row: only cascade rename to legacy items without tenant (avoid rewriting every shop).
+        itemWhere.shop_id = null;
       }
 
       const [category] = await this.prisma.$transaction([
@@ -237,7 +247,9 @@ export class CategoriesService {
         where: {
           [itemField]: dto.name,
           deleted_at: null,
-          ...(existing.shop_id !== null ? { shop_id: existing.shop_id } : {}),
+          ...(existing.shop_id !== null
+            ? { shop_id: existing.shop_id }
+            : { shop_id: null }),
         },
       });
 
