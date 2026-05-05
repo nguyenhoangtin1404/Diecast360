@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Palette } from 'lucide-react';
 import { apiClient, uploadFile } from '../../api/client';
@@ -14,41 +14,8 @@ import { ShopContactFields } from './shops/ShopContactFields';
 import { publicShopContactQueryKey } from '../../hooks/usePublicShopContact';
 import { fetchShopSettings, shopSettingsQueryKey } from '../../hooks/shopSettingsQuery';
 import { notifyShopAppearanceUpdated } from '../../utils/shopThemeBridge';
-
-const card: CSSProperties = {
-  background: '#fff',
-  border: '1px solid #e2e8f0',
-  borderRadius: '12px',
-  padding: '24px',
-  marginBottom: '20px',
-  boxShadow: '0 4px 14px rgba(15,23,42,0.06)',
-};
-
-const label: CSSProperties = {
-  fontSize: '13px',
-  fontWeight: 500,
-  color: '#374151',
-};
-
-const input: CSSProperties = {
-  padding: '8px 12px',
-  border: '1px solid #d1d5db',
-  borderRadius: '8px',
-  fontSize: '14px',
-  color: '#111827',
-  width: '100%',
-  boxSizing: 'border-box',
-};
-
-const formRow: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '6px' };
-const sectionTitle: CSSProperties = {
-  fontSize: '14px',
-  fontWeight: 600,
-  color: '#111827',
-  marginTop: '8px',
-  marginBottom: '4px',
-};
-const hint: CSSProperties = { fontSize: '12px', color: '#6b7280', margin: 0, lineHeight: 1.45 };
+import styles from './shopSettingsPage.module.css';
+import { cn } from '@/lib/utils';
 
 /** Match backend shop-branding upload cap (see ShopsService.uploadAppearanceAsset). */
 const MAX_BRANDING_UPLOAD_BYTES = 2 * 1024 * 1024;
@@ -65,24 +32,6 @@ function normalizeHexForColorInput(raw: string): string | null {
   }
   return null;
 }
-
-const colorPicker: CSSProperties = {
-  width: '44px',
-  height: '40px',
-  padding: 0,
-  border: '1px solid #d1d5db',
-  borderRadius: '8px',
-  cursor: 'pointer',
-  flexShrink: 0,
-  background: 'transparent',
-};
-
-const colorRow: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '10px',
-  flexWrap: 'wrap',
-};
 
 function extractApiErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'message' in err) {
@@ -126,8 +75,11 @@ export const ShopSettingsPage = () => {
   useEffect(() => {
     const row = settingsQuery.data;
     if (!row) return;
+    /* Draft form mirrors React Query cache when the row loads or refetches */
+    /* eslint-disable react-hooks/set-state-in-effect -- intentional server → local form sync */
     setContact(parseShopContactFormDefaults(row.contact_json));
     setAppearance(parseAppearanceFormDefaults(row.appearance_json));
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [settingsQuery.data]);
 
   const saveMutation = useMutation({
@@ -215,249 +167,235 @@ export const ShopSettingsPage = () => {
     }
   };
 
+  const contactFieldStyles = {
+    formRow: {},
+    modalLabel: {},
+    modalInput: {},
+    modalHint: {},
+    sectionTitle: {},
+  };
+
   if (settingsQuery.isLoading) {
     return (
-      <div style={{ padding: '32px', maxWidth: '720px', margin: '0 auto' }}>
-        <p style={{ color: '#64748b' }}>Đang tải cấu hình...</p>
+      <div className={styles.container}>
+        <p className={styles.mutedCenter}>Đang tải cấu hình...</p>
       </div>
     );
   }
 
   if (settingsQuery.isError) {
     return (
-      <div style={{ padding: '32px', maxWidth: '720px', margin: '0 auto' }}>
-        <p style={{ color: '#b91c1c' }}>Không tải được cấu hình. Kiểm tra đã chọn shop và đăng nhập.</p>
+      <div className={styles.container}>
+        <p className={styles.errorCenter}>Không tải được cấu hình. Kiểm tra đã chọn shop và đăng nhập.</p>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '24px 16px 48px', maxWidth: '720px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-        <Palette size={28} style={{ color: 'var(--ct-primary)' }} />
-        <h1 style={{ fontSize: '24px', fontWeight: 800, margin: 0, color: '#0f172a' }}>Cấu hình shop</h1>
-      </div>
-      <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px', lineHeight: 1.5 }}>
-        Chỉnh nội dung trang liên hệ công khai và giao diện (mở rộng) cho shop:{' '}
-        <strong>{activeShop?.name ?? settingsQuery.data?.name}</strong>
-        <span style={{ color: '#94a3b8' }}> · slug {activeShop?.slug ?? settingsQuery.data?.slug}</span>
-      </p>
+    <div className={styles.container}>
+      <header className={styles.pageHeader}>
+        <div className={styles.titleRow}>
+          <div className={styles.titleIcon} aria-hidden>
+            <Palette size={22} strokeWidth={2} />
+          </div>
+          <h1 className={styles.title}>Cấu hình shop</h1>
+        </div>
+        <p className={styles.subtitle}>
+          Chỉnh nội dung trang liên hệ công khai và giao diện (mở rộng) cho shop:{' '}
+          <strong>{activeShop?.name ?? settingsQuery.data?.name}</strong>
+          <span className={styles.shopMetaSlug}> · slug {activeShop?.slug ?? settingsQuery.data?.slug}</span>
+        </p>
+      </header>
 
       {!canEditSettings && activeShop?.id ? (
-        <p
-          style={{
-            ...hint,
-            marginBottom: '16px',
-            padding: '12px 14px',
-            background: '#fef9c3',
-            border: '1px solid #fde047',
-            borderRadius: '8px',
-            color: '#713f12',
-          }}
-        >
+        <p className={styles.alertReadonly}>
           Bạn không có quyền chỉnh sửa cấu hình shop này (chỉ <strong>quản trị shop</strong> được lưu; tài khoản nhân
           viên chỉ xem).
         </p>
       ) : null}
 
-      {saveOk && <p style={{ color: '#15803d', marginBottom: '12px' }}>{saveOk}</p>}
-      {saveError && <p style={{ color: '#b91c1c', marginBottom: '12px' }}>{saveError}</p>}
+      {saveOk ? <p className={styles.alertSuccess}>{saveOk}</p> : null}
+      {saveError ? <p className={styles.alertError}>{saveError}</p> : null}
 
-      <form onSubmit={onSubmit}>
-        <div style={card}>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 12px', color: '#111827' }}>
-            Trang liên hệ (công khai)
-          </h2>
-          <p style={{ ...hint, marginBottom: '16px' }}>
-            Hiển thị tại <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>/contact</code>{' '}
-            với <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>?shop_id=</code> (slug
-            hoặc UUID). Để trống rồi lưu để xóa giá trị.
+      <form onSubmit={onSubmit} className={styles.formStack}>
+        <section className={styles.card}>
+          <h2 className={styles.cardTitle}>Trang liên hệ (công khai)</h2>
+          <p className={styles.cardIntro}>
+            Hiển thị tại <code className={styles.inlineCode}>/contact</code> với{' '}
+            <code className={styles.inlineCode}>?shop_id=</code> (slug hoặc UUID). Để trống rồi lưu để xóa giá trị.
           </p>
           <ShopContactFields
             idPrefix="shop-settings"
             value={contact}
             onChange={setContact}
             disabled={!canEditSettings}
-            styles={{
-              formRow,
-              modalLabel: label,
-              modalInput: input,
-              modalHint: hint,
-              sectionTitle: { ...sectionTitle, marginTop: '12px' },
+            styles={contactFieldStyles}
+            classNames={{
+              root: styles.contactFieldsGrid,
+              sectionTitle: styles.contactSectionTitle,
+              hoursScheduleRow: styles.contactRowFull,
             }}
           />
-        </div>
+        </section>
 
-        <div style={card}>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 8px', color: '#111827' }}>
-            Giao diện (chuẩn bị mở rộng)
-          </h2>
-          <p style={{ ...hint, marginBottom: '16px' }}>
-            Dữ liệu lưu trong <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>appearance_json</code>
-            . Áp dụng lên catalog công khai có thể làm ở bước sau.
+        <section className={styles.card}>
+          <h2 className={styles.cardTitle}>Giao diện (chuẩn bị mở rộng)</h2>
+          <p className={styles.cardIntro}>
+            Dữ liệu lưu trong <code className={styles.inlineCode}>appearance_json</code>. Áp dụng lên catalog công
+            khai có thể làm ở bước sau.
           </p>
 
-          <div style={formRow}>
-            <label style={label} htmlFor="appearance-logo">
-              URL logo (https)
-            </label>
-            <input
-              id="appearance-logo"
-              style={input}
-              value={appearance.logo_url}
-              onChange={(e) => setAppearance((a) => ({ ...a, logo_url: e.target.value }))}
-              placeholder="https://..."
-              disabled={!canEditSettings}
-            />
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+          <div className={styles.brandingRow}>
+            <div className={styles.formRow}>
+              <label className={styles.label} htmlFor="appearance-logo">
+                URL logo (https)
+              </label>
               <input
-                id="appearance-logo-file"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                disabled={!canEditSettings || uploadingLogo}
-                style={{ fontSize: '13px', maxWidth: '100%' }}
-                onChange={(e) => {
-                  void handleBrandingFile('logo', e.target.files);
-                  e.target.value = '';
-                }}
-              />
-              {uploadingLogo ? (
-                <span style={{ ...hint, margin: 0 }}>Đang upload logo...</span>
-              ) : (
-                <span style={{ ...hint, margin: 0 }}>Hoặc chọn ảnh: JPEG, PNG, WebP · tối đa 2MB.</span>
-              )}
-            </div>
-            {appearance.logo_url.trim() ? (
-              <img
-                src={appearance.logo_url.trim()}
-                alt="Logo xem trước"
-                style={{ marginTop: '8px', maxHeight: '56px', maxWidth: '220px', objectFit: 'contain' }}
-              />
-            ) : null}
-          </div>
-          <div style={formRow}>
-            <label style={label} htmlFor="appearance-favicon">
-              URL favicon (https)
-            </label>
-            <input
-              id="appearance-favicon"
-              style={input}
-              value={appearance.favicon_url}
-              onChange={(e) => setAppearance((a) => ({ ...a, favicon_url: e.target.value }))}
-              placeholder="https://..."
-              disabled={!canEditSettings}
-            />
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
-              <input
-                id="appearance-favicon-file"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                disabled={!canEditSettings || uploadingFavicon}
-                style={{ fontSize: '13px', maxWidth: '100%' }}
-                onChange={(e) => {
-                  void handleBrandingFile('favicon', e.target.files);
-                  e.target.value = '';
-                }}
-              />
-              {uploadingFavicon ? (
-                <span style={{ ...hint, margin: 0 }}>Đang upload favicon...</span>
-              ) : (
-                <span style={{ ...hint, margin: 0 }}>Hoặc chọn ảnh: JPEG, PNG, WebP · tối đa 2MB.</span>
-              )}
-            </div>
-            {appearance.favicon_url.trim() ? (
-              <img
-                src={appearance.favicon_url.trim()}
-                alt="Favicon xem trước"
-                style={{ marginTop: '8px', width: '32px', height: '32px', objectFit: 'contain' }}
-              />
-            ) : null}
-          </div>
-          <div style={formRow}>
-            <label style={label} htmlFor="appearance-primary">
-              Màu chủ (hex #RRGGBB hoặc tên màu đơn giản, ví dụ #4f46e5 hoặc indigo)
-            </label>
-            <div style={colorRow}>
-              <input
-                id="appearance-primary"
-                style={{ ...input, flex: '1 1 220px', minWidth: '140px', width: 'auto' }}
-                value={appearance.primary_color}
-                onChange={(e) => setAppearance((a) => ({ ...a, primary_color: e.target.value }))}
+                id="appearance-logo"
+                className={styles.input}
+                value={appearance.logo_url}
+                onChange={(e) => setAppearance((a) => ({ ...a, logo_url: e.target.value }))}
+                placeholder="https://..."
                 disabled={!canEditSettings}
-                autoComplete="off"
               />
+              <div className={styles.brandingUploadRow}>
+                <input
+                  id="appearance-logo-file"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={!canEditSettings || uploadingLogo}
+                  className={styles.fileInput}
+                  onChange={(e) => {
+                    void handleBrandingFile('logo', e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+                {uploadingLogo ? (
+                  <span className={styles.hint}>Đang upload logo...</span>
+                ) : (
+                  <span className={styles.hint}>Hoặc chọn ảnh: JPEG, PNG, WebP · tối đa 2MB.</span>
+                )}
+              </div>
+              {appearance.logo_url.trim() ? (
+                <img
+                  src={appearance.logo_url.trim()}
+                  alt="Logo xem trước"
+                  className={styles.previewLogo}
+                />
+              ) : null}
+            </div>
+            <div className={styles.formRow}>
+              <label className={styles.label} htmlFor="appearance-favicon">
+                URL favicon (https)
+              </label>
               <input
-                type="color"
-                aria-label="Chọn màu chủ bằng bảng màu"
-                title="Chọn màu chủ"
-                value={normalizeHexForColorInput(appearance.primary_color) ?? '#4f46e5'}
-                onChange={(e) => setAppearance((a) => ({ ...a, primary_color: e.target.value }))}
+                id="appearance-favicon"
+                className={styles.input}
+                value={appearance.favicon_url}
+                onChange={(e) => setAppearance((a) => ({ ...a, favicon_url: e.target.value }))}
+                placeholder="https://..."
                 disabled={!canEditSettings}
-                style={{
-                  ...colorPicker,
-                  cursor: canEditSettings ? 'pointer' : 'not-allowed',
-                  opacity: canEditSettings ? 1 : 0.55,
-                }}
               />
+              <div className={styles.brandingUploadRow}>
+                <input
+                  id="appearance-favicon-file"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={!canEditSettings || uploadingFavicon}
+                  className={styles.fileInput}
+                  onChange={(e) => {
+                    void handleBrandingFile('favicon', e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+                {uploadingFavicon ? (
+                  <span className={styles.hint}>Đang upload favicon...</span>
+                ) : (
+                  <span className={styles.hint}>Hoặc chọn ảnh: JPEG, PNG, WebP · tối đa 2MB.</span>
+                )}
+              </div>
+              {appearance.favicon_url.trim() ? (
+                <img
+                  src={appearance.favicon_url.trim()}
+                  alt="Favicon xem trước"
+                  className={styles.previewFavicon}
+                />
+              ) : null}
             </div>
           </div>
-          <div style={formRow}>
-            <label style={label} htmlFor="appearance-accent">
-              Màu nhấn
-            </label>
-            <div style={colorRow}>
-              <input
-                id="appearance-accent"
-                style={{ ...input, flex: '1 1 220px', minWidth: '140px', width: 'auto' }}
-                value={appearance.accent_color}
-                onChange={(e) => setAppearance((a) => ({ ...a, accent_color: e.target.value }))}
-                disabled={!canEditSettings}
-                autoComplete="off"
-              />
-              <input
-                type="color"
-                aria-label="Chọn màu nhấn bằng bảng màu"
-                title="Chọn màu nhấn"
-                value={normalizeHexForColorInput(appearance.accent_color) ?? '#7c3aed'}
-                onChange={(e) => setAppearance((a) => ({ ...a, accent_color: e.target.value }))}
-                disabled={!canEditSettings}
-                style={{
-                  ...colorPicker,
-                  cursor: canEditSettings ? 'pointer' : 'not-allowed',
-                  opacity: canEditSettings ? 1 : 0.55,
-                }}
-              />
+
+          <div className={styles.colorPairRow}>
+            <div className={styles.formRow}>
+              <label className={styles.label} htmlFor="appearance-primary">
+                Màu chủ (hex hoặc tên màu)
+              </label>
+              <div className={styles.colorRow}>
+                <input
+                  id="appearance-primary"
+                  className={cn(styles.input, styles.inputGrow)}
+                  value={appearance.primary_color}
+                  onChange={(e) => setAppearance((a) => ({ ...a, primary_color: e.target.value }))}
+                  disabled={!canEditSettings}
+                  autoComplete="off"
+                />
+                <input
+                  type="color"
+                  aria-label="Chọn màu chủ bằng bảng màu"
+                  title="Chọn màu chủ"
+                  value={normalizeHexForColorInput(appearance.primary_color) ?? '#4f46e5'}
+                  onChange={(e) => setAppearance((a) => ({ ...a, primary_color: e.target.value }))}
+                  disabled={!canEditSettings}
+                  className={styles.colorPicker}
+                />
+              </div>
+              <p className={styles.hint}>Ví dụ #4f46e5 hoặc indigo.</p>
+            </div>
+            <div className={styles.formRow}>
+              <label className={styles.label} htmlFor="appearance-accent">
+                Màu nhấn
+              </label>
+              <div className={styles.colorRow}>
+                <input
+                  id="appearance-accent"
+                  className={cn(styles.input, styles.inputGrow)}
+                  value={appearance.accent_color}
+                  onChange={(e) => setAppearance((a) => ({ ...a, accent_color: e.target.value }))}
+                  disabled={!canEditSettings}
+                  autoComplete="off"
+                />
+                <input
+                  type="color"
+                  aria-label="Chọn màu nhấn bằng bảng màu"
+                  title="Chọn màu nhấn"
+                  value={normalizeHexForColorInput(appearance.accent_color) ?? '#7c3aed'}
+                  onChange={(e) => setAppearance((a) => ({ ...a, accent_color: e.target.value }))}
+                  disabled={!canEditSettings}
+                  className={styles.colorPicker}
+                />
+              </div>
             </div>
           </div>
-          <div style={formRow}>
-            <label style={label} htmlFor="appearance-font">
+
+          <div className={styles.formRow}>
+            <label className={styles.label} htmlFor="appearance-font">
               Font (CSS font-family)
             </label>
             <input
               id="appearance-font"
-              style={input}
+              className={styles.input}
               value={appearance.font_family}
               onChange={(e) => setAppearance((a) => ({ ...a, font_family: e.target.value }))}
               placeholder="Inter, system-ui, sans-serif"
               disabled={!canEditSettings}
             />
           </div>
-        </div>
+        </section>
 
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+        <div className={styles.actions}>
           <button
             type="submit"
             disabled={saveMutation.isPending || !canEditSettings}
-            style={{
-              padding: '10px 20px',
-              background: 'var(--ct-primary)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              fontWeight: 600,
-              cursor: saveMutation.isPending || !canEditSettings ? 'not-allowed' : 'pointer',
-              opacity: saveMutation.isPending || !canEditSettings ? 0.55 : 1,
-            }}
+            className={styles.buttonPrimary}
           >
             {saveMutation.isPending ? 'Đang lưu...' : 'Lưu cấu hình'}
           </button>
