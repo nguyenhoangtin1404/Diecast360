@@ -11,15 +11,11 @@ import type { ShopContactFormState } from './shops/types/shopContact';
 import type { ShopAppearanceFormState } from './shops/types/shopSettings';
 import { ShopContactFields } from './shops/ShopContactFields';
 import { publicShopContactQueryKey } from '../../hooks/usePublicShopContact';
-import { adminShopBrandingQueryKey } from '../../hooks/useAdminShopBranding';
-
-type ShopSettingsApiRow = {
-  id: string;
-  name: string;
-  slug: string;
-  contact_json?: unknown;
-  appearance_json?: unknown;
-};
+import {
+  fetchShopSettings,
+  shopSettingsQueryKey,
+  type ShopSettingsApiRow,
+} from '../../hooks/shopSettingsQuery';
 
 const card: CSSProperties = {
   background: '#fff',
@@ -80,7 +76,7 @@ export const ShopSettingsPage = () => {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
 
-  const shopSettingsQueryKey = ['shop-settings', activeShop?.id ?? null] as const;
+  const shopSettingsQueryKeyResolved = shopSettingsQueryKey(activeShop?.id ?? null);
 
   const roleForActiveShop =
     activeShop?.id && user?.shop_roles?.length
@@ -92,16 +88,8 @@ export const ShopSettingsPage = () => {
     roleForActiveShop === 'shop_admin' || roleForActiveShop === 'super_admin';
 
   const settingsQuery = useQuery({
-    queryKey: shopSettingsQueryKey,
-    queryFn: async () => {
-      const res = (await apiClient.get('/shop-settings')) as unknown;
-      const wrapped = res as { data?: ShopSettingsApiRow };
-      const row = wrapped?.data;
-      if (row && typeof row === 'object' && typeof row.id === 'string') {
-        return row;
-      }
-      throw new Error('Invalid shop settings response');
-    },
+    queryKey: shopSettingsQueryKeyResolved,
+    queryFn: fetchShopSettings,
     enabled: Boolean(activeShop?.id),
   });
 
@@ -141,10 +129,9 @@ export const ShopSettingsPage = () => {
         return;
       }
       setSaveOk('Đã lưu cấu hình shop.');
-      await queryClient.invalidateQueries({ queryKey: shopSettingsQueryKey });
+      await queryClient.invalidateQueries({ queryKey: ['shop-settings'] });
       if (activeShop?.id) {
         await queryClient.invalidateQueries({ queryKey: publicShopContactQueryKey(activeShop.id) });
-        await queryClient.invalidateQueries({ queryKey: adminShopBrandingQueryKey(activeShop.id) });
       }
     },
     onError: (err: unknown) => {
@@ -184,10 +171,9 @@ export const ShopSettingsPage = () => {
       if (appearanceJson !== undefined) {
         setAppearance(parseAppearanceFormDefaults(appearanceJson));
       }
-      await queryClient.invalidateQueries({ queryKey: shopSettingsQueryKey });
+      await queryClient.invalidateQueries({ queryKey: ['shop-settings'] });
       if (activeShop?.id) {
         await queryClient.invalidateQueries({ queryKey: publicShopContactQueryKey(activeShop.id) });
-        await queryClient.invalidateQueries({ queryKey: adminShopBrandingQueryKey(activeShop.id) });
       }
       setSaveOk(kind === 'logo' ? 'Đã upload logo.' : 'Đã upload favicon.');
     } catch (err: unknown) {
