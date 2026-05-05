@@ -1,10 +1,8 @@
 import { useEffect, useMemo, type FC, type ReactNode } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../api/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePublicShopContext } from '../hooks/usePublicShopContext';
-import { publicShopContactQueryKey } from '../hooks/usePublicShopContact';
-import type { PublicShopContactResponse } from '../types/shopContactPublic';
-import { parseAppearanceFormDefaults } from '@/utils/shopAppearance';
+import { publicShopContactQueryKey, usePublicShopContact } from '../hooks/usePublicShopContact';
+import { parseAppearanceFormDefaults } from '../utils/shopAppearance';
 import {
   accentSurfaceFromPrimary,
   defaultAccentHex,
@@ -70,16 +68,7 @@ export const ShopThemeProvider: FC<{ children: ReactNode }> = ({ children }) => 
 
   const enabled = shopContextReady && publicApiShopReady && Boolean(effectiveShopId);
 
-  const publicContactQuery = useQuery({
-    queryKey: publicShopContactQueryKey(effectiveShopId),
-    queryFn: async () => {
-      const shopId = effectiveShopId.trim();
-      const res = await apiClient.get(`/public/shops/${encodeURIComponent(shopId)}/contact`);
-      return res.data as PublicShopContactResponse;
-    },
-    enabled,
-    staleTime: 60_000,
-  });
+  const publicContactQuery = usePublicShopContact(true);
 
   const { primaryCss, accentCss } = useMemo(() => {
     const parsed = parseAppearanceFormDefaults(publicContactQuery.data?.appearance ?? {});
