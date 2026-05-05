@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { ShopsService } from './shops.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException } from '../common/exceptions/http-exception.filter';
@@ -7,6 +8,7 @@ import { ShopRole } from '../generated/prisma/client';
 import { AddShopAdminDto } from './dto/add-shop-admin.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
 import * as bcrypt from 'bcrypt';
+import { buildSignedMediaFileUrl } from '../common/media/signed-media.util';
 
 jest.mock('bcrypt', () => ({
   hash: jest.fn(),
@@ -16,6 +18,8 @@ describe('ShopsService', () => {
   let service: ShopsService;
   let storage: { saveFile: jest.Mock; getFileUrl: jest.Mock; deleteFile: jest.Mock };
   let uploadSupport: { resolveAllowedMimeTypes: jest.Mock; resolveMaxUploadBytes: jest.Mock; validateFile: jest.Mock };
+  const testJwtSecret = 'a'.repeat(40);
+  let configGet: jest.Mock;
   let prisma: {
     shop: Record<string, jest.Mock>;
     item: Record<string, jest.Mock>;
@@ -72,12 +76,18 @@ describe('ShopsService', () => {
       validateFile: jest.fn().mockResolvedValue(undefined),
     };
 
+    configGet = jest.fn((key: string) => {
+      if (key === 'JWT_SECRET') return testJwtSecret;
+      return undefined;
+    });
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ShopsService,
         { provide: PrismaService, useValue: prisma },
         { provide: 'IStorageService', useValue: storage },
         { provide: UploadSupportService, useValue: uploadSupport },
+        { provide: ConfigService, useValue: { get: configGet } },
       ],
     }).compile();
 
@@ -698,6 +708,39 @@ describe('ShopsService', () => {
         logo_url: 'https://signed.example/shop-branding/x.png',
       });
       expect(prisma.shopAuditLog.create).toHaveBeenCalled();
+    });
+
+    it('uploadAppearanceAsset deletes prior shop-branding file after successful replace', async () => {
+      const prevPath = 'shop-branding/old-logo.png';
+      const prevSignedUrl = buildSignedMediaFileUrl(
+        'http://localhost:3000/api/v1',
+        prevPath,
+        testJwtSecret,
+        3600_000,
+      );
+
+      prisma.shop.findFirst.mockResolvedValue({
+        id: tenantId,
+        appearance_json: { logo_url: prevSignedUrl },
+      });
+      prisma.shop.update.mockResolvedValue({
+        id: tenantId,
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: { logo_url: 'https://signed.example/shop-branding/x.png' },
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({});
+
+      const file = {
+        buffer: Buffer.from([1, 2, 3]),
+        mimetype: 'image/png',
+        size: 100,
+      } as Express.Multer.File;
+
+      await service.uploadAppearanceAsset(tenantId, 'logo', file, 'u1');
+
+      expect(storage.deleteFile).toHaveBeenCalledWith(prevPath);
     });
 
     it('uploadAppearanceAsset deletes saved file when DB update fails', async () => {

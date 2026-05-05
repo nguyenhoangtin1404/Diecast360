@@ -54,6 +54,9 @@ const sectionTitle: CSSProperties = {
 };
 const hint: CSSProperties = { fontSize: '12px', color: '#6b7280', margin: 0, lineHeight: 1.45 };
 
+/** Match backend shop-branding upload cap (see ShopsService.uploadAppearanceAsset). */
+const MAX_BRANDING_UPLOAD_BYTES = 2 * 1024 * 1024;
+
 function extractApiErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'message' in err) {
     const m = (err as { message?: unknown }).message;
@@ -156,6 +159,11 @@ export const ShopSettingsPage = () => {
   const handleBrandingFile = async (kind: 'logo' | 'favicon', fileList: FileList | null) => {
     const file = fileList?.[0];
     if (!file || !canEditSettings || !activeShop?.id) return;
+    if (file.size > MAX_BRANDING_UPLOAD_BYTES) {
+      setSaveOk(null);
+      setSaveError(`File quá lớn (tối đa ${Math.floor(MAX_BRANDING_UPLOAD_BYTES / (1024 * 1024))}MB).`);
+      return;
+    }
     setSaveOk(null);
     setSaveError(null);
     if (kind === 'logo') setUploadingLogo(true);
