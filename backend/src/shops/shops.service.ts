@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ErrorCode, AppException } from '../common/exceptions/http-exception.filter';
 import { isPrismaUniqueConstraintError } from '../common/prisma/prisma-error.utils';
@@ -17,14 +17,19 @@ import { toNumber } from '../common/utils/decimal.utils';
 import { totalPagesFromCount } from '../common/utils/pagination.utils';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { jsonStableStringify } from './json-stable-stringify';
+import { UploadSupportService } from '../common/upload/upload-support.service';
+import { v4 as uuidv4 } from 'uuid';
 
 const MAX_SLUG_ALLOCATION_ATTEMPTS = 32;
 
 @Injectable()
 export class ShopsService {
+  private readonly logger = new Logger(ShopsService.name);
+
   constructor(
     private prisma: PrismaService,
     @Inject('IStorageService') private storage: IStorageService,
+    private readonly uploadSupport: UploadSupportService,
   ) {}
 
   private slugFromName(name: string): string {
@@ -345,6 +350,71 @@ export class ShopsService {
     }
 
     return updated;
+  }
+
+  /**
+   * Upload logo or favicon file for the active tenant; stores under shop-branding/ and sets appearance_json URL.
+   */
+  async uploadAppearanceAsset(
+    tenantId: string,
+    kind: 'logo' | 'favicon',
+    file: Express.Multer.File,
+    actorUserId?: string | null,
+  ) {
+    const allowedMimeTypes = this.uploadSupport.resolveAllowedMimeTypes(
+      this.logger,
+      'image/jpeg,image/png,image/webp',
+    );
+    const maxUploadBytes = Math.min(
+      this.uploadSupport.resolveMaxUploadBytes(this.logger, 2),
+      2 * 1024 * 1024,
+    );
+    await this.uploadSupport.validateFile(file, allowedMimeTypes, maxUploadBytes);
+
+    const oldShop = await this.prisma.shop.findFirst({
+      where: { id: tenantId, is_active: true },
+      select: { id: true, appearance_json: true },
+    });
+    if (!oldShop) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found');
+    }
+
+    const ext =
+      file.mimetype === 'image/png' ? '.png' : file.mimetype === 'image/webp' ? '.webp' : '.jpg';
+    const filename = `${tenantId}_${kind}_${uuidv4()}${ext}`;
+    const relativePath = await this.storage.saveFile(file.buffer, filename, 'shop-branding');
+    const publicUrl = this.storage.getFileUrl(relativePath);
+
+    const patch: ShopAppearancePatchDto =
+      kind === 'logo' ? { logo_url: publicUrl } : { favicon_url: publicUrl };
+    const nextAppearance = this.mergeAppearanceJson(oldShop.appearance_json, patch);
+    const appearanceChanged =
+      jsonStableStringify(oldShop.appearance_json) !== jsonStableStringify(nextAppearance);
+
+    const updated = await this.prisma.shop.update({
+      where: { id: tenantId },
+      data: { appearance_json: nextAppearance },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        contact_json: true,
+        appearance_json: true,
+      },
+    });
+
+    if (appearanceChanged) {
+      await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
+        field: 'appearance_json',
+        via: `upload_${kind}`,
+      });
+    }
+
+    return {
+      kind,
+      url: publicUrl,
+      shop: updated,
+    };
   }
 
   /**

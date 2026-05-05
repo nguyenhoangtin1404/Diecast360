@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Post,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -8,6 +19,8 @@ import { CurrentUserId } from '../common/decorators/current-user-id.decorator';
 import { ShopRole } from '../generated/prisma/client';
 import { ShopsService } from './shops.service';
 import { UpdateShopSettingsDto } from './dto/update-shop-appearance.dto';
+import { ShopBrandingUploadDto } from './dto/shop-branding-upload.dto';
+import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 
 /**
  * Tenant-scoped shop branding + public contact copy.
@@ -40,5 +53,22 @@ export class ShopSettingsController {
       dto.appearance,
       actorUserId,
     );
+  }
+
+  /** Multipart: field `file` + body `kind` = logo | favicon */
+  @Post('branding-upload')
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
+  @Roles(ShopRole.shop_admin)
+  @UseInterceptors(FileInterceptor('file'))
+  uploadBranding(
+    @CurrentTenantId() tenantId: string,
+    @Body() body: ShopBrandingUploadDto,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUserId() actorUserId: string | null,
+  ) {
+    if (!file) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'File is required');
+    }
+    return this.shopsService.uploadAppearanceAsset(tenantId, body.kind, file, actorUserId);
   }
 }

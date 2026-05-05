@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Palette } from 'lucide-react';
-import { apiClient } from '../../api/client';
+import { apiClient, uploadFile } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { useShop } from '../../hooks/useShop';
 import { jsonStableStringify } from '../../utils/jsonStableStringify';
@@ -62,6 +62,8 @@ export const ShopSettingsPage = () => {
   const [appearance, setAppearance] = useState<ShopAppearanceFormState>(() => parseAppearanceFormDefaults(undefined));
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
 
   const shopSettingsQueryKey = ['shop-settings', activeShop?.id ?? null] as const;
 
@@ -143,6 +145,44 @@ export const ShopSettingsPage = () => {
     setSaveOk(null);
     setSaveError(null);
     saveMutation.mutate();
+  };
+
+  const extractUploadMessage = (err: unknown): string => {
+    const data = err as { message?: string; response?: { data?: { message?: string } } };
+    return (
+      data?.response?.data?.message ||
+      data?.message ||
+      'Upload thất bại.'
+    );
+  };
+
+  const handleBrandingFile = async (kind: 'logo' | 'favicon', fileList: FileList | null) => {
+    const file = fileList?.[0];
+    if (!file || !canEditSettings || !activeShop?.id) return;
+    setSaveOk(null);
+    setSaveError(null);
+    if (kind === 'logo') setUploadingLogo(true);
+    else setUploadingFavicon(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('kind', kind);
+      const raw = await uploadFile<{ ok?: boolean; data?: { shop?: { appearance_json?: unknown } } }>(
+        '/shop-settings/branding-upload',
+        formData,
+      );
+      const appearanceJson = raw?.data?.shop?.appearance_json;
+      if (appearanceJson !== undefined) {
+        setAppearance(parseAppearanceFormDefaults(appearanceJson));
+      }
+      await queryClient.invalidateQueries({ queryKey: shopSettingsQueryKey });
+      setSaveOk(kind === 'logo' ? 'Đã upload logo.' : 'Đã upload favicon.');
+    } catch (err: unknown) {
+      setSaveError(extractUploadMessage(err));
+    } finally {
+      if (kind === 'logo') setUploadingLogo(false);
+      else setUploadingFavicon(false);
+    }
   };
 
   if (settingsQuery.isLoading) {
@@ -239,6 +279,31 @@ export const ShopSettingsPage = () => {
               placeholder="https://..."
               disabled={!canEditSettings}
             />
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+              <input
+                id="appearance-logo-file"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={!canEditSettings || uploadingLogo}
+                style={{ fontSize: '13px', maxWidth: '100%' }}
+                onChange={(e) => {
+                  void handleBrandingFile('logo', e.target.files);
+                  e.target.value = '';
+                }}
+              />
+              {uploadingLogo ? (
+                <span style={{ ...hint, margin: 0 }}>Đang upload logo...</span>
+              ) : (
+                <span style={{ ...hint, margin: 0 }}>Hoặc chọn ảnh: JPEG, PNG, WebP · tối đa 2MB.</span>
+              )}
+            </div>
+            {appearance.logo_url.trim() ? (
+              <img
+                src={appearance.logo_url.trim()}
+                alt="Logo xem trước"
+                style={{ marginTop: '8px', maxHeight: '56px', maxWidth: '220px', objectFit: 'contain' }}
+              />
+            ) : null}
           </div>
           <div style={formRow}>
             <label style={label} htmlFor="appearance-favicon">
@@ -252,6 +317,31 @@ export const ShopSettingsPage = () => {
               placeholder="https://..."
               disabled={!canEditSettings}
             />
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+              <input
+                id="appearance-favicon-file"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={!canEditSettings || uploadingFavicon}
+                style={{ fontSize: '13px', maxWidth: '100%' }}
+                onChange={(e) => {
+                  void handleBrandingFile('favicon', e.target.files);
+                  e.target.value = '';
+                }}
+              />
+              {uploadingFavicon ? (
+                <span style={{ ...hint, margin: 0 }}>Đang upload favicon...</span>
+              ) : (
+                <span style={{ ...hint, margin: 0 }}>Hoặc chọn ảnh: JPEG, PNG, WebP · tối đa 2MB.</span>
+              )}
+            </div>
+            {appearance.favicon_url.trim() ? (
+              <img
+                src={appearance.favicon_url.trim()}
+                alt="Favicon xem trước"
+                style={{ marginTop: '8px', width: '32px', height: '32px', objectFit: 'contain' }}
+              />
+            ) : null}
           </div>
           <div style={formRow}>
             <label style={label} htmlFor="appearance-primary">
