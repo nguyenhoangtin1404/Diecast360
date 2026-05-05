@@ -406,13 +406,12 @@ Condition: ${item.condition || ''}`;
           where: { id: draftIdNorm },
           select: { id: true, images_json: true },
         });
-        if (!aiDraftForCategories) {
-          throw new AppException(ErrorCode.VALIDATION_ERROR, 'AI draft not found');
+        if (aiDraftForCategories) {
+          if (aiDraftForCategories.images_json) {
+            draftImageUrls = parseDraftImageUrls(aiDraftForCategories.images_json);
+          }
+          await this.ensureCategoriesForAiImportInTx(tx, carBrandNorm, modelBrandNorm);
         }
-        if (aiDraftForCategories.images_json) {
-          draftImageUrls = parseDraftImageUrls(aiDraftForCategories.images_json);
-        }
-        await this.ensureCategoriesForAiImportInTx(tx, carBrandNorm, modelBrandNorm);
       }
       await this.validateCategoryMetadata(carBrandNorm, modelBrandNorm, tx);
 
@@ -435,7 +434,7 @@ Condition: ${item.condition || ''}`;
         },
       });
 
-      // Handle Draft if provided (single fetch above when draftIdNorm set)
+      // Handle Draft if provided and row exists (ignore stale client draft_id)
       if (draftIdNorm && aiDraftForCategories) {
         const draft = aiDraftForCategories;
         const imageUrls = draftImageUrls;

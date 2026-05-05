@@ -251,23 +251,21 @@ describe('ItemsService', () => {
       });
     });
 
-    it('should reject create when draft_id is provided but draft does not exist', async () => {
+    it('should create item without draft processing when draft_id does not exist', async () => {
       prisma.aiItemDraft.findUnique.mockResolvedValue(null);
+      prisma.category.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.create(
-          {
-            name: 'AI Item',
-            draft_id: 'missing-draft',
-            car_brand: 'X',
-          },
-          TEST_SHOP_ID,
-        ),
-      ).rejects.toMatchObject({
-        errorCode: ErrorCode.VALIDATION_ERROR,
-      });
+      const result = await service.create(
+        {
+          name: 'AI Item',
+          draft_id: 'missing-draft',
+        },
+        TEST_SHOP_ID,
+      );
+
+      expect(result.item).toBeDefined();
       expect(prisma.category.create).not.toHaveBeenCalled();
-      expect(prisma.item.create).not.toHaveBeenCalled();
+      expect(storage.moveFile).not.toHaveBeenCalled();
     });
 
     it('should reject create when draft images_json is not valid JSON', async () => {
