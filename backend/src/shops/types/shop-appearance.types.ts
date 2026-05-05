@@ -8,6 +8,14 @@ export type ShopAppearanceSettings = {
   font_family?: string;
 };
 
+const KEYS: (keyof ShopAppearanceSettings)[] = [
+  'logo_url',
+  'favicon_url',
+  'primary_color',
+  'accent_color',
+  'font_family',
+];
+
 export function parseShopAppearanceJson(raw: Prisma.JsonValue | null | undefined): ShopAppearanceSettings {
   if (raw === null || raw === undefined) {
     return {};
@@ -15,5 +23,13 @@ export function parseShopAppearanceJson(raw: Prisma.JsonValue | null | undefined
   if (typeof raw !== 'object' || Array.isArray(raw)) {
     return {};
   }
-  return raw as ShopAppearanceSettings;
+  const root = raw as Record<string, unknown>;
+  const out: ShopAppearanceSettings = {};
+  for (const k of KEYS) {
+    const v = root[k as string];
+    if (typeof v === 'string') {
+      out[k] = v;
+    }
+  }
+  return out;
 }

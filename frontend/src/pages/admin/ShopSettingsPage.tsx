@@ -4,6 +4,7 @@ import { Palette } from 'lucide-react';
 import { apiClient } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { useShop } from '../../hooks/useShop';
+import { jsonStableStringify } from '../../utils/jsonStableStringify';
 import { buildShopContactPatch, parseShopContactFormDefaults } from './shops/shopContactForm';
 import { buildAppearancePatch, parseAppearanceFormDefaults } from './shops/shopSettingsForm';
 import type { ShopContactFormState } from './shops/types/shopContact';
@@ -69,7 +70,7 @@ export const ShopSettingsPage = () => {
       ? user.shop_roles.find((r) => r.shop_id === activeShop.id)?.role ?? null
       : null;
 
-  /** PATCH /shop-settings is shop_admin only (RolesGuard); legacy tenant super_admin counts as admin. */
+  /** PATCH /shop-settings: RolesGuard allows shop_admin; legacy tenant super_admin is treated as admin. */
   const canEditSettings =
     roleForActiveShop === 'shop_admin' || roleForActiveShop === 'super_admin';
 
@@ -99,15 +100,31 @@ export const ShopSettingsPage = () => {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const contactPatch = buildShopContactPatch(contact).contact;
-      const appearancePatch = buildAppearancePatch(appearance);
-      return apiClient.patch('/shop-settings', {
-        contact: contactPatch,
-        appearance: appearancePatch,
-      });
+      if (!settingsQuery.data) {
+        throw new Error('Chưa tải xong cấu hình.');
+      }
+      const serverContact = parseShopContactFormDefaults(settingsQuery.data.contact_json);
+      const serverAppearance = parseAppearanceFormDefaults(settingsQuery.data.appearance_json);
+      const nextContact = buildShopContactPatch(contact).contact;
+      const nextAppearance = buildAppearancePatch(appearance);
+      const patch: { contact?: typeof nextContact; appearance?: typeof nextAppearance } = {};
+      if (jsonStableStringify(nextContact) !== jsonStableStringify(buildShopContactPatch(serverContact).contact)) {
+        patch.contact = nextContact;
+      }
+      if (jsonStableStringify(nextAppearance) !== jsonStableStringify(buildAppearancePatch(serverAppearance))) {
+        patch.appearance = nextAppearance;
+      }
+      if (Object.keys(patch).length === 0) {
+        return { skipped: true as const };
+      }
+      return apiClient.patch('/shop-settings', patch);
     },
-    onSuccess: async () => {
+    onSuccess: async (res) => {
       setSaveError(null);
+      if (res && typeof res === 'object' && 'skipped' in res && (res as { skipped?: boolean }).skipped) {
+        setSaveOk('Không có thay đổi cần lưu.');
+        return;
+      }
       setSaveOk('Đã lưu cấu hình shop.');
       await queryClient.invalidateQueries({ queryKey: shopSettingsQueryKey });
     },
@@ -168,8 +185,8 @@ export const ShopSettingsPage = () => {
             color: '#713f12',
           }}
         >
-          Bạn không có quyền chỉnh sửa cấu hình shop này (chỉ <strong>quản trị shop</strong> được lưu thay đổi tại
-          đây).
+          Bạn không có quyền chỉnh sửa cấu hình shop này (chỉ <strong>quản trị shop</strong> được lưu; tài khoản nhân
+          viên chỉ xem).
         </p>
       ) : null}
 

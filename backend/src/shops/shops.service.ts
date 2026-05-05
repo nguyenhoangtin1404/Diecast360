@@ -297,54 +297,54 @@ export class ShopsService {
       return this.getTenantShopSettings(tenantId);
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const oldShop = await tx.shop.findFirst({
-        where: { id: tenantId, is_active: true },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          contact_json: true,
-          appearance_json: true,
-        },
-      });
-      if (!oldShop) {
-        throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found');
-      }
+    const oldShop = await this.prisma.shop.findFirst({
+      where: { id: tenantId, is_active: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        contact_json: true,
+        appearance_json: true,
+      },
+    });
+    if (!oldShop) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found');
+    }
 
-      const data: Prisma.ShopUpdateInput = {};
-      if (contact !== undefined) {
-        data.contact_json = this.mergeContactJson(oldShop.contact_json, contact);
-      }
-      if (appearance !== undefined) {
-        data.appearance_json = this.mergeAppearanceJson(oldShop.appearance_json, appearance);
-      }
+    const data: Prisma.ShopUpdateInput = {};
+    if (contact !== undefined) {
+      data.contact_json = this.mergeContactJson(oldShop.contact_json, contact);
+    }
+    if (appearance !== undefined) {
+      data.appearance_json = this.mergeAppearanceJson(oldShop.appearance_json, appearance);
+    }
 
-      const updated = await tx.shop.update({
+    const contactChanged =
+      contact !== undefined &&
+      jsonStableStringify(oldShop.contact_json) !== jsonStableStringify(data.contact_json);
+    const appearanceChanged =
+      appearance !== undefined &&
+      jsonStableStringify(oldShop.appearance_json) !== jsonStableStringify(data.appearance_json);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      return tx.shop.update({
         where: { id: tenantId },
         data,
       });
-
-      const contactChanged =
-        contact !== undefined &&
-        jsonStableStringify(oldShop.contact_json) !== jsonStableStringify(updated.contact_json);
-      const appearanceChanged =
-        appearance !== undefined &&
-        jsonStableStringify(oldShop.appearance_json) !== jsonStableStringify(updated.appearance_json);
-
-      if (contactChanged) {
-        await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
-          field: 'contact_json',
-        });
-      }
-      if (appearanceChanged) {
-        await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
-          field: 'appearance_json',
-        });
-      }
-
-      return updated;
     });
+
+    if (contactChanged) {
+      await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
+        field: 'contact_json',
+      });
+    }
+    if (appearanceChanged) {
+      await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
+        field: 'appearance_json',
+      });
+    }
+
+    return updated;
   }
 
   /**
