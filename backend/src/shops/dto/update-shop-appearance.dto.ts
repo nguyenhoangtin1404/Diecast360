@@ -3,8 +3,8 @@ import { Type } from 'class-transformer';
 import { ShopContactPatchDto } from './update-shop.dto';
 
 /** Safe subset for values that may later be applied to inline CSS */
-const CSS_TOKEN_COLOR = /^#[0-9A-Fa-f]{3,8}$|^[a-zA-Z][a-zA-Z0-9\-]*$/;
-const CSS_FONT_FAMILY = /^[a-zA-Z0-9\s\-'",.]+$/;
+const CSS_TOKEN_COLOR = /^#[0-9A-Fa-f]{3,8}$|^[a-zA-Z][a-zA-Z0-9-]*$/;
+const CSS_FONT_FAMILY = /^[a-zA-Z0-9\s'",.-]+$/;
 
 /** Branding / storefront — stored in Shop.appearance_json; public UI can read later */
 export class ShopAppearancePatchDto {
