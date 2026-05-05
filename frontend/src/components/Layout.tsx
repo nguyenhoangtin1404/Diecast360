@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ChartNoAxesColumn,
@@ -25,6 +25,8 @@ import {
 } from '../config/routes';
 import { cn } from '../lib/utils';
 import { usePublicShopContext } from '../hooks/usePublicShopContext';
+import { usePublicShopContact } from '../hooks/usePublicShopContact';
+import { safeHttpUrlForAttribute } from '../utils/safeHttpUrl';
 import ShopSelector from './admin/ShopSelector';
 
 interface LayoutProps {
@@ -51,6 +53,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const { user, logout } = useAuth();
   const { effectiveShopId, shopContextReady, publicApiShopReady } = usePublicShopContext();
   const isAdmin = location.pathname.startsWith('/admin');
+  const publicShopContact = usePublicShopContact(!isAdmin);
   const isSuperAdmin = useIsSuperAdmin();
   const [menuState, setMenuState] = useState({ open: false, pathname: location.pathname });
   const isMenuOpen = menuState.open && menuState.pathname === location.pathname;
@@ -62,6 +65,63 @@ export const Layout = ({ children }: LayoutProps) => {
     }
     return `?shop_id=${encodeURIComponent(effectiveShopId)}`;
   }, [shopContextReady, publicApiShopReady, effectiveShopId]);
+
+  const publicLogoUrl = safeHttpUrlForAttribute(publicShopContact.data?.appearance?.logo_url);
+  const publicFaviconUrl = safeHttpUrlForAttribute(publicShopContact.data?.appearance?.favicon_url);
+  const publicShopName = publicShopContact.data?.shop?.name?.trim() ?? '';
+
+  useEffect(() => {
+    if (isAdmin) return undefined;
+    const defaultTitle = 'Diecast360 — Mô hình xe 1:64';
+    const title = publicShopName ? `${publicShopName} — Catalog` : defaultTitle;
+    document.title = title;
+
+    let appended: HTMLLinkElement | null = null;
+    if (publicFaviconUrl) {
+      appended = document.createElement('link');
+      appended.rel = 'icon';
+      appended.href = publicFaviconUrl;
+      appended.setAttribute('data-shop-branding', '1');
+      document.head.appendChild(appended);
+    }
+
+    return () => {
+      document.title = defaultTitle;
+      appended?.remove();
+      document.querySelectorAll('link[data-shop-branding="1"]').forEach((el) => el.remove());
+    };
+  }, [isAdmin, publicShopName, publicFaviconUrl]);
+
+  const renderPublicBrandMark = (size: 'lg' | 'sm') => {
+    const isLg = size === 'lg';
+    if (publicLogoUrl) {
+      return (
+        <img
+          src={publicLogoUrl}
+          alt={publicBrandTitle}
+          className={
+            isLg
+              ? 'h-12 w-12 shrink-0 rounded-xl border border-slate-200/80 bg-white object-contain p-1 shadow-corporate-btn'
+              : 'h-9 w-9 shrink-0 rounded-lg border border-slate-200/80 bg-white object-contain p-0.5 shadow-corporate-btn'
+          }
+        />
+      );
+    }
+    return (
+      <div
+        className={
+          isLg
+            ? 'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-lg font-extrabold tracking-tight text-white shadow-corporate-btn transition-transform duration-200 ease-out group-hover:-translate-y-0.5'
+            : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-xs font-extrabold text-white shadow-corporate-btn'
+        }
+      >
+        360°
+      </div>
+    );
+  };
+
+  const publicBrandTitle = publicShopName || 'Diecast360';
+  const publicBrandSubtitle = publicShopName ? 'Catalog công khai' : 'Mô hình xe thu nhỏ · 1:64';
 
   const handleLogout = async () => {
     setMenuState({ open: false, pathname: location.pathname });
@@ -234,18 +294,14 @@ export const Layout = ({ children }: LayoutProps) => {
           <div className="mx-auto flex max-w-7xl flex-col px-4 sm:px-6">
             <div className="flex items-center justify-between gap-3 py-3 md:py-4">
               <Link
-                to={ROUTES.home}
+                to={`${ROUTES.home}${publicShopNavSuffix}`}
                 className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                 onClick={closeMobileMenu}
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-lg font-extrabold tracking-tight text-white shadow-corporate-btn transition-transform duration-200 ease-out group-hover:-translate-y-0.5">
-                  360°
-                </div>
+                {renderPublicBrandMark('lg')}
                 <div className="min-w-0">
-                  <div className="text-lg font-extrabold tracking-tight text-slate-900 md:text-xl">Diecast360</div>
-                  <div className="truncate text-xs font-medium text-slate-500 sm:text-sm">
-                    Mô hình xe thu nhỏ · 1:64
-                  </div>
+                  <div className="text-lg font-extrabold tracking-tight text-slate-900 md:text-xl">{publicBrandTitle}</div>
+                  <div className="truncate text-xs font-medium text-slate-500 sm:text-sm">{publicBrandSubtitle}</div>
                 </div>
               </Link>
 
@@ -403,14 +459,12 @@ export const Layout = ({ children }: LayoutProps) => {
 
         <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200/90 bg-white/90 px-4 py-3 shadow-sm backdrop-blur-md md:hidden">
           <Link
-            to={ROUTES.home}
+            to={`${ROUTES.home}${publicShopNavSuffix}`}
             className="flex min-w-0 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
             onClick={closeMobileMenu}
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-xs font-extrabold text-white shadow-corporate-btn">
-              360°
-            </div>
-            <span className="truncate text-base font-extrabold tracking-tight text-slate-900">Diecast360</span>
+            {renderPublicBrandMark('sm')}
+            <span className="truncate text-base font-extrabold tracking-tight text-slate-900">{publicBrandTitle}</span>
           </Link>
           <button
             type="button"

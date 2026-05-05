@@ -10,6 +10,7 @@ import { buildAppearancePatch, parseAppearanceFormDefaults } from './shops/shopS
 import type { ShopContactFormState } from './shops/types/shopContact';
 import type { ShopAppearanceFormState } from './shops/types/shopSettings';
 import { ShopContactFields } from './shops/ShopContactFields';
+import { publicShopContactQueryKey } from '../../hooks/usePublicShopContact';
 
 type ShopSettingsApiRow = {
   id: string;
@@ -142,6 +143,9 @@ export const ShopSettingsPage = () => {
       }
       setSaveOk('Đã lưu cấu hình shop.');
       await queryClient.invalidateQueries({ queryKey: shopSettingsQueryKey });
+      if (activeShop?.id) {
+        await queryClient.invalidateQueries({ queryKey: publicShopContactQueryKey(activeShop.id) });
+      }
     },
     onError: (err: unknown) => {
       setSaveError(extractApiErrorMessage(err, 'Lưu thất bại.'));
@@ -181,6 +185,9 @@ export const ShopSettingsPage = () => {
         setAppearance(parseAppearanceFormDefaults(appearanceJson));
       }
       await queryClient.invalidateQueries({ queryKey: shopSettingsQueryKey });
+      if (activeShop?.id) {
+        await queryClient.invalidateQueries({ queryKey: publicShopContactQueryKey(activeShop.id) });
+      }
       setSaveOk(kind === 'logo' ? 'Đã upload logo.' : 'Đã upload favicon.');
     } catch (err: unknown) {
       setSaveError(extractApiErrorMessage(err, 'Upload thất bại.'));
