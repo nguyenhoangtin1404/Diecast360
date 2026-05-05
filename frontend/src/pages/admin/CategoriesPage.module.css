@@ -45,6 +45,39 @@
   font-weight: 500;
 }
 
+.auditHint {
+  margin: 10px 0 0 0;
+  max-width: 52rem;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.scopeBadge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+}
+
+.scopeGlobal {
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+}
+
+.scopeShop {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
 /* Tab Filter */
 .tabBar {
   display: inline-flex;

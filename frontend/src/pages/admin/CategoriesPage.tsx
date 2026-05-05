@@ -13,6 +13,20 @@ interface CategoriesResponse {
   categories: CategoryItem[];
 }
 
+/** Audit helper: how this row relates to shop scope (global seed vs shop-specific). */
+function categoryScopeLabel(
+  category: CategoryItem,
+  activeShopId: string | null | undefined,
+): string {
+  if (category.shop_id == null || category.shop_id === '') {
+    return 'Chung';
+  }
+  if (activeShopId && category.shop_id === activeShopId) {
+    return 'Shop này';
+  }
+  return 'Shop khác';
+}
+
 const TYPE_LABELS: Record<CategoryType, string> = {
   car_brand: 'Hãng xe',
   model_brand: 'Hãng mô hình',
@@ -33,10 +47,12 @@ interface CategoryListActionProps {
 
 interface CategoryMobileListProps extends CategoryListActionProps {
   categories: CategoryItem[];
+  activeShopId: string | null;
 }
 
 interface CategoryDesktopTableProps extends CategoryListActionProps {
   categories: CategoryItem[];
+  activeShopId: string | null;
 }
 
 const CategoryActions = ({ category, onEdit, onToggle, onDelete }: CategoryActionProps) => (
@@ -71,6 +87,7 @@ const CategoryActions = ({ category, onEdit, onToggle, onDelete }: CategoryActio
 
 const CategoryMobileList = ({
   categories,
+  activeShopId,
   onEdit,
   onToggle,
   onDelete,
@@ -84,6 +101,20 @@ const CategoryMobileList = ({
             <div className={styles.mobileTitle}>{category.name}</div>
           </div>
           <span className={styles.orderNumber}>{index + 1}</span>
+        </div>
+
+        <div className={styles.mobileRow}>
+          <span className={styles.mobileLabel}>Phạm vi</span>
+          <span
+            className={cn(
+              styles.scopeBadge,
+              category.shop_id == null || category.shop_id === ''
+                ? styles.scopeGlobal
+                : styles.scopeShop,
+            )}
+          >
+            {categoryScopeLabel(category, activeShopId)}
+          </span>
         </div>
 
         <div className={styles.mobileRow}>
@@ -108,6 +139,7 @@ const CategoryMobileList = ({
 
 const CategoryDesktopTable = ({
   categories,
+  activeShopId,
   onEdit,
   onToggle,
   onDelete,
@@ -117,6 +149,7 @@ const CategoryDesktopTable = ({
       <tr>
         <th className={styles.th} style={{ width: '50px' }}>#</th>
         <th className={styles.th}>Tên</th>
+        <th className={styles.th} style={{ width: '140px' }}>Phạm vi</th>
         <th className={styles.th} style={{ width: '120px' }}>Trạng thái</th>
         <th className={styles.th} style={{ width: '120px' }}>Thao tác</th>
       </tr>
@@ -128,6 +161,18 @@ const CategoryDesktopTable = ({
             <span className={styles.orderNumber}>{index + 1}</span>
           </td>
           <td className={styles.td}>{category.name}</td>
+          <td className={styles.td}>
+            <span
+              className={cn(
+                styles.scopeBadge,
+                category.shop_id == null || category.shop_id === ''
+                  ? styles.scopeGlobal
+                  : styles.scopeShop,
+              )}
+            >
+              {categoryScopeLabel(category, activeShopId)}
+            </span>
+          </td>
           <td className={`${styles.td} ${styles.tdCenter}`}>
             <span className={`${styles.activeBadge} ${category.is_active ? styles.badgeActive : styles.badgeInactive}`}>
               {category.is_active ? '● Hoạt động' : '○ Tắt'}
@@ -299,6 +344,18 @@ export const CategoriesPage = () => {
             <p className={styles.headerSubtitle}>
               Quản lý hãng xe và hãng mô hình
             </p>
+            {activeShop?.id ? (
+              <p className={styles.auditHint} role="note">
+                Đang xem danh mục <strong>chung (toàn hệ thống)</strong> và danh mục{' '}
+                <strong>riêng của shop {activeShop.name}</strong>. Mục &quot;Chung&quot; dùng chung cho mọi shop;
+                mục &quot;Shop này&quot; chỉ hiện ở shop này và trong catalog khi khách xem đúng shop.
+              </p>
+            ) : isPlatformSuper ? (
+              <p className={styles.auditHint} role="note">
+                Góc nhìn quản trị nền tảng: hiển thị mọi dòng (chung và theo từng shop). Cột &quot;Phạm vi&quot;
+                giúp đối chiếu nguồn danh mục.
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -338,6 +395,7 @@ export const CategoriesPage = () => {
       ) : isMobile ? (
         <CategoryMobileList
           categories={categories}
+          activeShopId={activeShop?.id ?? null}
           onEdit={openEditModal}
           onToggle={(id) => toggleMutation.mutate(id)}
           onDelete={setDeleteConfirm}
@@ -345,6 +403,7 @@ export const CategoriesPage = () => {
       ) : (
         <CategoryDesktopTable
           categories={categories}
+          activeShopId={activeShop?.id ?? null}
           onEdit={openEditModal}
           onToggle={(id) => toggleMutation.mutate(id)}
           onDelete={setDeleteConfirm}

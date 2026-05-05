@@ -6,6 +6,8 @@ import { cn } from '../../lib/utils';
 
 interface CatalogFiltersProps {
   shopId: string | null;
+  /** Resolved shop name for audit copy (optional). */
+  shopDisplayName?: string | null;
   carBrand: string | null;
   modelBrand: string | null;
   condition: 'new' | 'old' | null;
@@ -23,6 +25,7 @@ const chipActive =
 
 export const CatalogFilters = ({
   shopId,
+  shopDisplayName,
   carBrand,
   modelBrand,
   condition,
@@ -78,6 +81,21 @@ export const CatalogFilters = ({
 
   return (
     <div className="mb-2 space-y-8">
+      {Boolean(shopId) && (
+        <p
+          className="mb-1 rounded-lg border border-slate-100 bg-slate-50/90 px-3 py-2 text-xs leading-relaxed text-slate-600"
+          role="note"
+        >
+          Bộ lọc hãng xe và hãng mô hình gồm{' '}
+          <strong>danh mục chung (toàn hệ thống)</strong> và{' '}
+          <strong>
+            danh mục riêng của shop
+            {shopDisplayName ? ` «${shopDisplayName}»` : ''}
+          </strong>
+          . Danh mục chỉ thuộc shop khác không xuất hiện ở đây.
+        </p>
+      )}
+
       {isCategoriesError && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
           Không thể tải bộ lọc lúc này.
