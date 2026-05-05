@@ -9,6 +9,15 @@ type FieldStyles = {
   sectionTitle: CSSProperties;
 };
 
+type ContactFieldsClassNames = {
+  /** Wrapper around all fields (e.g. CSS grid) */
+  root?: string;
+  /** Applied to each section heading row (e.g. full grid width) */
+  sectionTitle?: string;
+  /** Applied to specific rows that should span all columns */
+  hoursScheduleRow?: string;
+};
+
 type Props = {
   idPrefix: string;
   value: ShopContactFormState;
@@ -16,9 +25,10 @@ type Props = {
   styles: FieldStyles;
   intro?: ReactNode;
   disabled?: boolean;
+  classNames?: ContactFieldsClassNames;
 };
 
-export function ShopContactFields({ idPrefix, value, onChange, styles, intro, disabled }: Props) {
+export function ShopContactFields({ idPrefix, value, onChange, styles, intro, disabled, classNames }: Props) {
   const set = (patch: Partial<ShopContactFormState>) => onChange({ ...value, ...patch });
   const setPhone = (patch: Partial<ShopContactFormState['phone']>) =>
     onChange({ ...value, phone: { ...value.phone, ...patch } });
@@ -30,7 +40,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro, di
     onChange({ ...value, hours: { ...value.hours, ...patch } });
 
   return (
-    <>
+    <div className={classNames?.root}>
       {intro}
       <div style={styles.formRow}>
         <label style={styles.modalLabel} htmlFor={`${idPrefix}-contact-title`}>
@@ -60,7 +70,9 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro, di
         />
       </div>
 
-      <div style={styles.sectionTitle}>Điện thoại</div>
+      <div style={styles.sectionTitle} className={classNames?.sectionTitle}>
+        Điện thoại
+      </div>
       <div style={styles.formRow}>
         <label style={styles.modalLabel} htmlFor={`${idPrefix}-phone-tel`}>
           Số gọi (tel, có thể gồm +)
@@ -104,7 +116,9 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro, di
         />
       </div>
 
-      <div style={styles.sectionTitle}>Facebook</div>
+      <div style={styles.sectionTitle} className={classNames?.sectionTitle}>
+        Facebook
+      </div>
       <div style={styles.formRow}>
         <label style={styles.modalLabel} htmlFor={`${idPrefix}-fb-url`}>
           URL (https)
@@ -133,7 +147,9 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro, di
         />
       </div>
 
-      <div style={styles.sectionTitle}>Zalo</div>
+      <div style={styles.sectionTitle} className={classNames?.sectionTitle}>
+        Zalo
+      </div>
       <div style={styles.formRow}>
         <label style={styles.modalLabel} htmlFor={`${idPrefix}-zalo-url`}>
           URL (https)
@@ -162,8 +178,10 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro, di
         />
       </div>
 
-      <div style={styles.sectionTitle}>Giờ làm việc</div>
-      <div style={styles.formRow}>
+      <div style={styles.sectionTitle} className={classNames?.sectionTitle}>
+        Giờ làm việc
+      </div>
+      <div style={styles.formRow} className={classNames?.hoursScheduleRow}>
         <label style={styles.modalLabel} htmlFor={`${idPrefix}-hours-line`}>
           Dòng lịch (có thể dùng **in đậm**)
         </label>
@@ -189,6 +207,6 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro, di
           disabled={disabled}
         />
       </div>
-    </>
+    </div>
   );
 }
