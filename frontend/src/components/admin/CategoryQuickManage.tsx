@@ -4,6 +4,8 @@ import { Settings, Plus, ToggleLeft, ToggleRight, X, Pencil, Trash2, Check } fro
 import { apiClient } from '../../api/client';
 import type { CategoryItem, ApiError } from '../../types/category';
 import styles from './CategoryQuickManage.module.css';
+import { useOptionalActiveShopId } from '../../hooks/useOptionalActiveShopId';
+import { useOptionalPlatformSuper } from '../../hooks/useOptionalPlatformSuper';
 
 interface Props {
   type: 'car_brand' | 'model_brand';
@@ -12,6 +14,8 @@ interface Props {
 
 export const CategoryQuickManage = ({ type, categories }: Props) => {
   const queryClient = useQueryClient();
+  const activeShopId = useOptionalActiveShopId();
+  const isPlatformSuperUser = useOptionalPlatformSuper();
   const [isOpen, setIsOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [error, setError] = useState('');
@@ -58,10 +62,13 @@ export const CategoryQuickManage = ({ type, categories }: Props) => {
 
   const createMutation = useMutation({
     mutationFn: async (name: string) => {
-      return apiClient.post('/categories', { name, type });
+      if (isPlatformSuperUser) {
+        return apiClient.post('/categories', { name, type });
+      }
+      return apiClient.post('/categories/shop', { name, type });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', type] });
+      queryClient.invalidateQueries({ queryKey: ['categories', type, activeShopId ?? ''] });
       setNewName('');
       setError('');
     },
@@ -76,7 +83,7 @@ export const CategoryQuickManage = ({ type, categories }: Props) => {
       return apiClient.patch(`/categories/${id}`, { name });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', type] });
+      queryClient.invalidateQueries({ queryKey: ['categories', type, activeShopId ?? ''] });
       setEditingId(null);
       setError('');
     },
@@ -91,7 +98,7 @@ export const CategoryQuickManage = ({ type, categories }: Props) => {
       return apiClient.patch(`/categories/${id}/toggle`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', type] });
+      queryClient.invalidateQueries({ queryKey: ['categories', type, activeShopId ?? ''] });
     },
   });
 
@@ -100,7 +107,7 @@ export const CategoryQuickManage = ({ type, categories }: Props) => {
       return apiClient.delete(`/categories/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories', type] });
+      queryClient.invalidateQueries({ queryKey: ['categories', type, activeShopId ?? ''] });
       setDeleteConfirmId(null);
       setError('');
     },

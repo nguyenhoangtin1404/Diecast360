@@ -5,11 +5,12 @@ import { AiModule } from '../ai/ai.module';
 import { PrismaModule } from '../common/prisma/prisma.module';
 import { StorageModule } from '../storage/storage.module';
 import { FacebookModule } from '../integrations/facebook/facebook.module';
+import { CategoriesModule } from '../categories/categories.module';
 
 import { AiDraftController } from './ai-draft.controller';
 
 @Module({
-  imports: [PrismaModule, StorageModule, AiModule, FacebookModule],
+  imports: [PrismaModule, StorageModule, AiModule, FacebookModule, CategoriesModule],
   controllers: [ItemsController, AiDraftController],
   providers: [ItemsService],
   exports: [ItemsService],

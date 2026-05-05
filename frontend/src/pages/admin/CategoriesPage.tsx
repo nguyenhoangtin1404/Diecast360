@@ -4,6 +4,8 @@ import { Tags, Plus, Pencil, ToggleLeft, ToggleRight, Trash2, AlertTriangle } fr
 import { apiClient } from '../../api/client';
 import type { CategoryItem, ApiError, ApiResponse, CategoryType } from '../../types/category';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useShop } from '../../hooks/useShop';
+import { useOptionalPlatformSuper } from '../../hooks/useOptionalPlatformSuper';
 import { cn } from '../../lib/utils';
 import styles from './CategoriesPage.module.css';
 
@@ -150,6 +152,8 @@ const CategoryDesktopTable = ({
 export const CategoriesPage = () => {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const { activeShop } = useShop();
+  const isPlatformSuper = useOptionalPlatformSuper();
   const [activeType, setActiveType] = useState<CategoryType>('car_brand');
 
   // Modal states
@@ -162,18 +166,27 @@ export const CategoriesPage = () => {
   const [formType, setFormType] = useState<CategoryType>('car_brand');
 
   // Fetch categories
+  const shopQuerySuffix = activeShop?.id ?? '';
   const { data, isLoading, error } = useQuery({
-    queryKey: ['categories', activeType],
+    queryKey: ['categories', activeType, shopQuerySuffix],
     queryFn: async () => {
-      const response = await apiClient.get(`/categories?type=${activeType}`) as ApiResponse<CategoriesResponse>;
+      const params = new URLSearchParams({ type: activeType });
+      if (activeShop?.id) {
+        params.set('shop_id', activeShop.id);
+      }
+      const response = await apiClient.get(`/categories?${params.toString()}`) as ApiResponse<CategoriesResponse>;
       return response.data;
     },
+    enabled: Boolean(activeShop?.id) || isPlatformSuper,
   });
 
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async (dto: { name: string; type: string }) => {
-      return apiClient.post('/categories', dto);
+      if (isPlatformSuper) {
+        return apiClient.post('/categories', dto);
+      }
+      return apiClient.post('/categories/shop', dto);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });

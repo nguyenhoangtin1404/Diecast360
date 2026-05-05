@@ -13,6 +13,7 @@ import { jumpToStepWithAutoSave, navigateStepWithAutoSave, type ProductStep } fr
 import { buildStepUrlAfterCreate, evaluateFinishDecision, shouldBlockEnterSubmit } from './itemWorkflow';
 import { MAX_SPINNER_FRAMES } from '../../constants/spinner';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useOptionalActiveShopId } from '../../hooks/useOptionalActiveShopId';
 
 // Helper functions for number formatting
 const formatNumber = (value: string): string => {
@@ -231,6 +232,7 @@ export const ItemDetailPage = () => {
   const [searchParams] = useSearchParams();
   const [currentStep, setCurrentStep] = useState<ProductStep>(1);
   const isMobile = useIsMobile();
+  const activeShopId = useOptionalActiveShopId();
 
   const { data, isLoading } = useQuery({
     queryKey: ['item', id],
@@ -243,19 +245,25 @@ export const ItemDetailPage = () => {
 
   // Fetch ALL categories per type (popup needs all, dropdown filters active in-memory)
   const { data: carBrandsData } = useQuery({
-    queryKey: ['categories', 'car_brand'],
+    queryKey: ['categories', 'car_brand', activeShopId ?? ''],
     queryFn: async () => {
-      const response = await apiClient.get('/categories?type=car_brand') as ApiResponse<{ categories: CategoryItem[] }>;
+      const params = new URLSearchParams({ type: 'car_brand' });
+      if (activeShopId) params.set('shop_id', activeShopId);
+      const response = await apiClient.get(`/categories?${params.toString()}`) as ApiResponse<{ categories: CategoryItem[] }>;
       return response.data;
     },
+    enabled: Boolean(activeShopId),
   });
 
   const { data: modelBrandsData } = useQuery({
-    queryKey: ['categories', 'model_brand'],
+    queryKey: ['categories', 'model_brand', activeShopId ?? ''],
     queryFn: async () => {
-      const response = await apiClient.get('/categories?type=model_brand') as ApiResponse<{ categories: CategoryItem[] }>;
+      const params = new URLSearchParams({ type: 'model_brand' });
+      if (activeShopId) params.set('shop_id', activeShopId);
+      const response = await apiClient.get(`/categories?${params.toString()}`) as ApiResponse<{ categories: CategoryItem[] }>;
       return response.data;
     },
+    enabled: Boolean(activeShopId),
   });
 
   // Derive active-only lists for dropdowns (in-memory filter, no extra API call)

@@ -1,7 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { Prisma, ItemStatus } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { isPrismaUniqueConstraintError } from '../common/prisma/prisma-error.utils';
 import { IStorageService } from '../storage/storage.interface';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { CreateItemDto } from './dto/create-item.dto';
@@ -16,6 +15,8 @@ import { FacebookGraphService } from '../integrations/facebook/facebook-graph.se
 import { FacebookConfigService } from '../integrations/facebook/facebook-config.service';
 import { PublishFacebookPostDto } from './dto/publish-facebook-post.dto';
 import type { ItemAttributesInput } from './dto/item-attributes.validator';
+import { CategoriesService } from '../categories/categories.service';
+import { normalizeCategoryBrandField } from '../common/utils/category-brand.utils';
 
 const ALLOWED_STATUS_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
   con_hang: ['con_hang', 'giu_cho', 'da_ban'],
@@ -41,15 +42,6 @@ function resolveQuantityForStatus(status: ItemStatus, requestedQuantity?: number
     return getInitialQuantityForStatus(status);
   }
   return requestedQuantity;
-}
-
-/** Trims and collapses empty optional brand fields to null (car_brand / model_brand). */
-function normalizeCategoryBrandField(value: string | undefined | null): string | null {
-  if (value === undefined || value === null) {
-    return null;
-  }
-  const t = typeof value === 'string' ? value.trim() : '';
-  return t.length === 0 ? null : t;
 }
 
 function parseDraftImageUrls(imagesJson: string): string[] {
@@ -82,6 +74,7 @@ export class ItemsService {
     // to detect whether the feature is enabled instead of null-checking the service.
     private facebookGraph: FacebookGraphService,
     private fbConfig: FacebookConfigService,
+    private categoriesService: CategoriesService,
   ) {}
 
   /**
@@ -410,10 +403,20 @@ Condition: ${item.condition || ''}`;
           if (aiDraftForCategories.images_json) {
             draftImageUrls = parseDraftImageUrls(aiDraftForCategories.images_json);
           }
-          await this.ensureCategoriesForAiImportInTx(tx, carBrandNorm, modelBrandNorm);
+          await this.categoriesService.ensureCategoriesForAiImportInTx(
+            tx,
+            shopId,
+            carBrandNorm,
+            modelBrandNorm,
+          );
         }
       }
-      await this.validateCategoryMetadata(carBrandNorm, modelBrandNorm, tx);
+      await this.categoriesService.validateCategoryMetadataForShop(
+        shopId,
+        carBrandNorm,
+        modelBrandNorm,
+        tx,
+      );
 
       const item = await tx.item.create({
         data: {
@@ -574,7 +577,7 @@ Condition: ${item.condition || ''}`;
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
     if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
 
-    if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
+      if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
       const nextCarBrand =
         updateDto.car_brand !== undefined
           ? normalizeCategoryBrandField(updateDto.car_brand)
@@ -583,7 +586,11 @@ Condition: ${item.condition || ''}`;
         updateDto.model_brand !== undefined
           ? normalizeCategoryBrandField(updateDto.model_brand)
           : normalizeCategoryBrandField(existingItem.model_brand);
-      await this.validateCategoryMetadata(nextCarBrand, nextModelBrand);
+      await this.categoriesService.validateCategoryMetadataForShop(
+        shopId,
+        nextCarBrand,
+        nextModelBrand,
+      );
     }
 
     const item = await this.prisma.item.update({
@@ -928,103 +935,6 @@ Condition: ${item.condition || ''}`;
         `Invalid item status transition from "${current}" to "${next}"`,
         [{ from: current, to: next }],
       );
-    }
-  }
-
-  /**
-   * Ensures car_brand and model_brand names exist as Category rows (active).
-   * Used by AI import so extracted names appear in admin category lists without manual setup.
-   */
-  private async ensureCategoriesForAiImportInTx(
-    tx: Prisma.TransactionClient,
-    carBrand?: string | null,
-    modelBrand?: string | null,
-  ) {
-    const specs: Array<{ type: 'car_brand' | 'model_brand'; value?: string | null }> = [
-      { type: 'car_brand', value: carBrand },
-      { type: 'model_brand', value: modelBrand },
-    ];
-
-    for (const spec of specs) {
-      const trimmed =
-        typeof spec.value === 'string' ? spec.value.trim() : '';
-      if (!trimmed) continue;
-
-      const existing = await tx.category.findFirst({
-        where: { type: spec.type, name: trimmed },
-      });
-
-      if (!existing) {
-        const maxOrder = await tx.category.aggregate({
-          where: { type: spec.type },
-          _max: { display_order: true },
-        });
-        const displayOrder = (maxOrder._max.display_order ?? -1) + 1;
-
-        try {
-          await tx.category.create({
-            data: {
-              name: trimmed,
-              type: spec.type,
-              is_active: true,
-              display_order: displayOrder,
-            },
-          });
-        } catch (error) {
-          if (!isPrismaUniqueConstraintError(error)) {
-            throw error;
-          }
-          const afterRace = await tx.category.findFirst({
-            where: { type: spec.type, name: trimmed },
-          });
-          if (afterRace && !afterRace.is_active) {
-            await tx.category.update({
-              where: { id: afterRace.id },
-              data: { is_active: true },
-            });
-          }
-        }
-        continue;
-      }
-
-      if (!existing.is_active) {
-        await tx.category.update({
-          where: { id: existing.id },
-          data: { is_active: true },
-        });
-      }
-    }
-  }
-
-  private async validateCategoryMetadata(
-    carBrand?: string | null,
-    modelBrand?: string | null,
-    db: Prisma.TransactionClient | PrismaService = this.prisma,
-  ) {
-    const checks: Array<{ type: 'car_brand' | 'model_brand'; value?: string | null }> = [
-      { type: 'car_brand', value: carBrand },
-      { type: 'model_brand', value: modelBrand },
-    ];
-
-    for (const check of checks) {
-      const normalized = normalizeCategoryBrandField(check.value);
-      if (!normalized) continue;
-
-      const category = await db.category.findFirst({
-        where: {
-          type: check.type,
-          name: normalized,
-          is_active: true,
-        },
-      });
-
-      if (!category) {
-        throw new AppException(
-          ErrorCode.ITEM_CATEGORY_INVALID,
-          `Invalid ${check.type} value "${normalized}". Category must exist and be active.`,
-          [{ type: check.type, value: normalized }],
-        );
-      }
     }
   }
 

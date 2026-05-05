@@ -2,6 +2,8 @@ export interface CategoryItem {
   id: string;
   name: string;
   type: string;
+  /** null = global seed; UUID = shop-specific */
+  shop_id?: string | null;
   is_active: boolean;
   display_order: number;
   created_at?: string;

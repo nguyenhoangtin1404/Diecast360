@@ -227,6 +227,7 @@ export const PublicCatalogPage = () => {
 
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-corporate-card sm:p-6 lg:p-8">
           <CatalogFilters
+            shopId={effectiveShopId}
             carBrand={urlState.carBrand}
             modelBrand={urlState.modelBrand}
             condition={urlState.condition}

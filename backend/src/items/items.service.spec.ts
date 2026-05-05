@@ -8,6 +8,7 @@ import { AppException } from '../common/exceptions/http-exception.filter';
 import { ItemStatus } from '../generated/prisma/client';
 import { FacebookGraphService } from '../integrations/facebook/facebook-graph.service';
 import { FacebookConfigService } from '../integrations/facebook/facebook-config.service';
+import { CategoriesService } from '../categories/categories.service';
 
 
 describe('ItemsService', () => {
@@ -139,6 +140,7 @@ describe('ItemsService', () => {
         { provide: EmbeddingService, useValue: embeddingService },
         { provide: FacebookGraphService, useValue: mockFacebookGraph },
         { provide: FacebookConfigService, useValue: mockFbConfig },
+        CategoriesService,
       ],
     }).compile();
 
@@ -242,7 +244,9 @@ describe('ItemsService', () => {
     });
 
     it('should reject create when category metadata is invalid', async () => {
-      prisma.category.findFirst.mockResolvedValue(null);
+      prisma.category.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
 
       await expect(
         service.create({ name: 'Test Item', car_brand: 'Unknown Brand' }, TEST_SHOP_ID),
@@ -253,7 +257,6 @@ describe('ItemsService', () => {
 
     it('should create item without draft processing when draft_id does not exist', async () => {
       prisma.aiItemDraft.findUnique.mockResolvedValue(null);
-      prisma.category.findFirst.mockResolvedValue(null);
 
       const result = await service.create(
         {
@@ -296,14 +299,18 @@ describe('ItemsService', () => {
       prisma.category.findFirst
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({
           id: 'c-nissan',
+          shop_id: TEST_SHOP_ID,
           type: 'car_brand',
           name: 'Nissan',
           is_active: true,
         })
         .mockResolvedValueOnce({
           id: 'm-gtr',
+          shop_id: TEST_SHOP_ID,
           type: 'model_brand',
           name: 'GT-R R35',
           is_active: true,
@@ -324,6 +331,7 @@ describe('ItemsService', () => {
       expect(prisma.category.create).toHaveBeenCalledTimes(2);
       expect(prisma.category.create).toHaveBeenNthCalledWith(1, {
         data: expect.objectContaining({
+          shop_id: TEST_SHOP_ID,
           name: 'Nissan',
           type: 'car_brand',
           is_active: true,
@@ -332,6 +340,7 @@ describe('ItemsService', () => {
       });
       expect(prisma.category.create).toHaveBeenNthCalledWith(2, {
         data: expect.objectContaining({
+          shop_id: TEST_SHOP_ID,
           name: 'GT-R R35',
           type: 'model_brand',
           is_active: true,
@@ -345,27 +354,32 @@ describe('ItemsService', () => {
         id: 'draft-1',
         images_json: JSON.stringify([]),
       });
+
       prisma.category.findFirst
         .mockResolvedValueOnce({
           id: 'c-toyota',
+          shop_id: TEST_SHOP_ID,
           type: 'car_brand',
           name: 'Toyota',
           is_active: false,
         })
         .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({
           id: 'c-toyota',
+          shop_id: TEST_SHOP_ID,
           type: 'car_brand',
           name: 'Toyota',
           is_active: true,
         })
         .mockResolvedValueOnce({
           id: 'm-ae86',
+          shop_id: TEST_SHOP_ID,
           type: 'model_brand',
           name: 'AE86',
           is_active: true,
         });
-
       prisma.category.aggregate.mockResolvedValue({ _max: { display_order: 5 } });
       prisma.category.create.mockResolvedValue({ id: 'new-model' });
 
@@ -394,14 +408,18 @@ describe('ItemsService', () => {
       prisma.category.findFirst
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({
           id: 'c-nissan',
+          shop_id: TEST_SHOP_ID,
           type: 'car_brand',
           name: 'Nissan',
           is_active: true,
         })
         .mockResolvedValueOnce({
           id: 'm-gtr',
+          shop_id: TEST_SHOP_ID,
           type: 'model_brand',
           name: 'GT-R R35',
           is_active: true,
@@ -809,6 +827,7 @@ describe('ItemsService', () => {
         where: {
           type: 'car_brand',
           name: 'Toyota',
+          shop_id: TEST_SHOP_ID,
           is_active: true,
         },
       });
