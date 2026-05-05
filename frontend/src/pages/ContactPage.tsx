@@ -22,14 +22,15 @@ function renderInlineBold(text: string): ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
     const m = part.match(/^\*\*([^*]+)\*\*$/);
+    const key = `p${i}:${part.length}:${part.slice(0, 24)}`;
     if (m) {
       return (
-        <strong key={i} style={{ fontWeight: 600, color: '#1a1a1a' }}>
+        <strong key={key} style={{ fontWeight: 600, color: '#1a1a1a' }}>
           {m[1]}
         </strong>
       );
     }
-    return <span key={i}>{part}</span>;
+    return <span key={key}>{part}</span>;
   });
 }
 

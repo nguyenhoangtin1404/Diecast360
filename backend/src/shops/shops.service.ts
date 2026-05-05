@@ -16,6 +16,7 @@ import { IStorageService } from '../storage/storage.interface';
 import { toNumber } from '../common/utils/decimal.utils';
 import { totalPagesFromCount } from '../common/utils/pagination.utils';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { jsonStableStringify } from './json-stable-stringify';
 
 const MAX_SLUG_ALLOCATION_ATTEMPTS = 32;
 
@@ -224,7 +225,7 @@ export class ShopsService {
     const nameChanged = dto.name !== undefined && oldShop.name !== updated.name;
     const contactChanged =
       dto.contact !== undefined &&
-      JSON.stringify(oldShop.contact_json) !== JSON.stringify(updated.contact_json);
+      jsonStableStringify(oldShop.contact_json) !== jsonStableStringify(updated.contact_json);
 
     if (activationChanged) {
       await this.logAudit(
@@ -267,7 +268,7 @@ export class ShopsService {
 
   /**
    * Shop-scoped settings (contact + appearance) for the active tenant.
-   * Used by shop_admin / shop_staff via GET/PATCH /shop-settings.
+   * GET: shop_admin or shop_staff. PATCH: shop_admin only (RolesGuard).
    */
   async getTenantShopSettings(tenantId: string) {
     const shop = await this.prisma.shop.findFirst({
@@ -295,39 +296,55 @@ export class ShopsService {
     if (contact === undefined && appearance === undefined) {
       return this.getTenantShopSettings(tenantId);
     }
-    const oldShop = await this.getTenantShopSettings(tenantId);
-    const data: Prisma.ShopUpdateInput = {};
-    if (contact !== undefined) {
-      data.contact_json = this.mergeContactJson(oldShop.contact_json, contact);
-    }
-    if (appearance !== undefined) {
-      data.appearance_json = this.mergeAppearanceJson(oldShop.appearance_json, appearance);
-    }
 
-    const updated = await this.prisma.shop.update({
-      where: { id: tenantId },
-      data,
+    return this.prisma.$transaction(async (tx) => {
+      const oldShop = await tx.shop.findFirst({
+        where: { id: tenantId, is_active: true },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          contact_json: true,
+          appearance_json: true,
+        },
+      });
+      if (!oldShop) {
+        throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found');
+      }
+
+      const data: Prisma.ShopUpdateInput = {};
+      if (contact !== undefined) {
+        data.contact_json = this.mergeContactJson(oldShop.contact_json, contact);
+      }
+      if (appearance !== undefined) {
+        data.appearance_json = this.mergeAppearanceJson(oldShop.appearance_json, appearance);
+      }
+
+      const updated = await tx.shop.update({
+        where: { id: tenantId },
+        data,
+      });
+
+      const contactChanged =
+        contact !== undefined &&
+        jsonStableStringify(oldShop.contact_json) !== jsonStableStringify(updated.contact_json);
+      const appearanceChanged =
+        appearance !== undefined &&
+        jsonStableStringify(oldShop.appearance_json) !== jsonStableStringify(updated.appearance_json);
+
+      if (contactChanged) {
+        await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
+          field: 'contact_json',
+        });
+      }
+      if (appearanceChanged) {
+        await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
+          field: 'appearance_json',
+        });
+      }
+
+      return updated;
     });
-
-    const contactChanged =
-      contact !== undefined &&
-      JSON.stringify(oldShop.contact_json) !== JSON.stringify(updated.contact_json);
-    const appearanceChanged =
-      appearance !== undefined &&
-      JSON.stringify(oldShop.appearance_json) !== JSON.stringify(updated.appearance_json);
-
-    if (contactChanged) {
-      await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
-        field: 'contact_json',
-      });
-    }
-    if (appearanceChanged) {
-      await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
-        field: 'appearance_json',
-      });
-    }
-
-    return updated;
   }
 
   /**

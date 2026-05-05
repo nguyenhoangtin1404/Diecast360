@@ -15,9 +15,10 @@ type Props = {
   onChange: (next: ShopContactFormState) => void;
   styles: FieldStyles;
   intro?: ReactNode;
+  disabled?: boolean;
 };
 
-export function ShopContactFields({ idPrefix, value, onChange, styles, intro }: Props) {
+export function ShopContactFields({ idPrefix, value, onChange, styles, intro, disabled }: Props) {
   const set = (patch: Partial<ShopContactFormState>) => onChange({ ...value, ...patch });
   const setPhone = (patch: Partial<ShopContactFormState['phone']>) =>
     onChange({ ...value, phone: { ...value.phone, ...patch } });
@@ -42,6 +43,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro }: 
           onChange={(e) => set({ page_title: e.target.value })}
           autoComplete="off"
           placeholder="Ví dụ: Liên hệ với chúng tôi"
+          disabled={disabled}
         />
       </div>
       <div style={styles.formRow}>
@@ -54,6 +56,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro }: 
           value={value.page_subtitle}
           onChange={(e) => set({ page_subtitle: e.target.value })}
           autoComplete="off"
+          disabled={disabled}
         />
       </div>
 
@@ -69,6 +72,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro }: 
           onChange={(e) => setPhone({ tel: e.target.value })}
           autoComplete="off"
           placeholder="+84856694766"
+          disabled={disabled}
         />
       </div>
       <div style={styles.formRow}>
@@ -82,6 +86,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro }: 
           onChange={(e) => setPhone({ label: e.target.value })}
           autoComplete="off"
           placeholder="0856694766"
+          disabled={disabled}
         />
       </div>
       <div style={styles.formRow}>
@@ -95,6 +100,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro }: 
           onChange={(e) => setPhone({ hint: e.target.value })}
           autoComplete="off"
           placeholder="Gọi ngay để được tư vấn"
+          disabled={disabled}
         />
       </div>
 
@@ -110,6 +116,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro }: 
           onChange={(e) => setFacebook({ url: e.target.value })}
           autoComplete="off"
           placeholder="https://www.facebook.com/..."
+          disabled={disabled}
         />
       </div>
       <div style={styles.formRow}>
@@ -122,6 +129,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro }: 
           value={value.facebook.label}
           onChange={(e) => setFacebook({ label: e.target.value })}
           autoComplete="off"
+          disabled={disabled}
         />
       </div>
 
@@ -137,6 +145,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro }: 
           onChange={(e) => setZalo({ url: e.target.value })}
           autoComplete="off"
           placeholder="https://zalo.me/..."
+          disabled={disabled}
         />
       </div>
       <div style={styles.formRow}>
@@ -149,6 +158,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro }: 
           value={value.zalo.label}
           onChange={(e) => setZalo({ label: e.target.value })}
           autoComplete="off"
+          disabled={disabled}
         />
       </div>
 
@@ -163,6 +173,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro }: 
           value={value.hours.schedule_line}
           onChange={(e) => setHours({ schedule_line: e.target.value })}
           placeholder="**Thứ 2 - Chủ nhật:** 9:00 - 21:00"
+          disabled={disabled}
         />
       </div>
       <div style={styles.formRow}>
@@ -175,6 +186,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro }: 
           value={value.hours.footer_note}
           onChange={(e) => setHours({ footer_note: e.target.value })}
           autoComplete="off"
+          disabled={disabled}
         />
       </div>
     </>

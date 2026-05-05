@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Palette } from 'lucide-react';
 import { apiClient } from '../../api/client';
+import { useAuth } from '../../hooks/useAuth';
 import { useShop } from '../../hooks/useShop';
 import { buildShopContactPatch, parseShopContactFormDefaults } from './shops/shopContactForm';
 import { buildAppearancePatch, parseAppearanceFormDefaults } from './shops/shopSettingsForm';
@@ -54,14 +55,26 @@ const hint: CSSProperties = { fontSize: '12px', color: '#6b7280', margin: 0, lin
 
 export const ShopSettingsPage = () => {
   const { activeShop } = useShop();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [contact, setContact] = useState<ShopContactFormState>(() => parseShopContactFormDefaults(undefined));
   const [appearance, setAppearance] = useState<ShopAppearanceFormState>(() => parseAppearanceFormDefaults(undefined));
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState<string | null>(null);
 
+  const shopSettingsQueryKey = ['shop-settings', activeShop?.id ?? null] as const;
+
+  const roleForActiveShop =
+    activeShop?.id && user?.shop_roles?.length
+      ? user.shop_roles.find((r) => r.shop_id === activeShop.id)?.role ?? null
+      : null;
+
+  /** PATCH /shop-settings is shop_admin only (RolesGuard); legacy tenant super_admin counts as admin. */
+  const canEditSettings =
+    roleForActiveShop === 'shop_admin' || roleForActiveShop === 'super_admin';
+
   const settingsQuery = useQuery({
-    queryKey: ['shop-settings'],
+    queryKey: shopSettingsQueryKey,
     queryFn: async () => {
       const res = (await apiClient.get('/shop-settings')) as unknown;
       const wrapped = res as { data?: ShopSettingsApiRow };
@@ -71,6 +84,7 @@ export const ShopSettingsPage = () => {
       }
       throw new Error('Invalid shop settings response');
     },
+    enabled: Boolean(activeShop?.id),
   });
 
   /* Sync form from server when GET /shop-settings resolves (or refetches) */
@@ -95,7 +109,7 @@ export const ShopSettingsPage = () => {
     onSuccess: async () => {
       setSaveError(null);
       setSaveOk('Đã lưu cấu hình shop.');
-      await queryClient.invalidateQueries({ queryKey: ['shop-settings'] });
+      await queryClient.invalidateQueries({ queryKey: shopSettingsQueryKey });
     },
     onError: (err: unknown) => {
       const msg =
@@ -142,6 +156,23 @@ export const ShopSettingsPage = () => {
         <span style={{ color: '#94a3b8' }}> · slug {activeShop?.slug ?? settingsQuery.data?.slug}</span>
       </p>
 
+      {!canEditSettings && activeShop?.id ? (
+        <p
+          style={{
+            ...hint,
+            marginBottom: '16px',
+            padding: '12px 14px',
+            background: '#fef9c3',
+            border: '1px solid #fde047',
+            borderRadius: '8px',
+            color: '#713f12',
+          }}
+        >
+          Bạn không có quyền chỉnh sửa cấu hình shop này (chỉ <strong>quản trị shop</strong> được lưu thay đổi tại
+          đây).
+        </p>
+      ) : null}
+
       {saveOk && <p style={{ color: '#15803d', marginBottom: '12px' }}>{saveOk}</p>}
       {saveError && <p style={{ color: '#b91c1c', marginBottom: '12px' }}>{saveError}</p>}
 
@@ -159,6 +190,7 @@ export const ShopSettingsPage = () => {
             idPrefix="shop-settings"
             value={contact}
             onChange={setContact}
+            disabled={!canEditSettings}
             styles={{
               formRow,
               modalLabel: label,
@@ -188,6 +220,7 @@ export const ShopSettingsPage = () => {
               value={appearance.logo_url}
               onChange={(e) => setAppearance((a) => ({ ...a, logo_url: e.target.value }))}
               placeholder="https://..."
+              disabled={!canEditSettings}
             />
           </div>
           <div style={formRow}>
@@ -200,17 +233,19 @@ export const ShopSettingsPage = () => {
               value={appearance.favicon_url}
               onChange={(e) => setAppearance((a) => ({ ...a, favicon_url: e.target.value }))}
               placeholder="https://..."
+              disabled={!canEditSettings}
             />
           </div>
           <div style={formRow}>
             <label style={label} htmlFor="appearance-primary">
-              Màu chủ (CSS, ví dụ #4f46e5)
+              Màu chủ (hex #RRGGBB hoặc tên màu đơn giản, ví dụ #4f46e5 hoặc indigo)
             </label>
             <input
               id="appearance-primary"
               style={input}
               value={appearance.primary_color}
               onChange={(e) => setAppearance((a) => ({ ...a, primary_color: e.target.value }))}
+              disabled={!canEditSettings}
             />
           </div>
           <div style={formRow}>
@@ -222,6 +257,7 @@ export const ShopSettingsPage = () => {
               style={input}
               value={appearance.accent_color}
               onChange={(e) => setAppearance((a) => ({ ...a, accent_color: e.target.value }))}
+              disabled={!canEditSettings}
             />
           </div>
           <div style={formRow}>
@@ -234,6 +270,7 @@ export const ShopSettingsPage = () => {
               value={appearance.font_family}
               onChange={(e) => setAppearance((a) => ({ ...a, font_family: e.target.value }))}
               placeholder="Inter, system-ui, sans-serif"
+              disabled={!canEditSettings}
             />
           </div>
         </div>
@@ -241,7 +278,7 @@ export const ShopSettingsPage = () => {
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
           <button
             type="submit"
-            disabled={saveMutation.isPending}
+            disabled={saveMutation.isPending || !canEditSettings}
             style={{
               padding: '10px 20px',
               background: '#4f46e5',
@@ -249,8 +286,8 @@ export const ShopSettingsPage = () => {
               border: 'none',
               borderRadius: '8px',
               fontWeight: 600,
-              cursor: saveMutation.isPending ? 'not-allowed' : 'pointer',
-              opacity: saveMutation.isPending ? 0.7 : 1,
+              cursor: saveMutation.isPending || !canEditSettings ? 'not-allowed' : 'pointer',
+              opacity: saveMutation.isPending || !canEditSettings ? 0.55 : 1,
             }}
           >
             {saveMutation.isPending ? 'Đang lưu...' : 'Lưu cấu hình'}

@@ -12,19 +12,23 @@ import { UpdateShopSettingsDto } from './dto/update-shop-appearance.dto';
 /**
  * Tenant-scoped shop branding + public contact copy.
  * Routes: /shop-settings (active shop from JWT / TenantGuard).
+ *
+ * GET: shop_admin or shop_staff (read-only for staff via RolesGuard).
+ * PATCH: shop_admin only — staff cannot change public contact / branding.
  */
 @Controller('shop-settings')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
-@Roles(ShopRole.shop_admin, ShopRole.shop_staff)
 export class ShopSettingsController {
   constructor(private readonly shopsService: ShopsService) {}
 
   @Get()
+  @Roles(ShopRole.shop_admin, ShopRole.shop_staff)
   getSettings(@CurrentTenantId() tenantId: string) {
     return this.shopsService.getTenantShopSettings(tenantId);
   }
 
   @Patch()
+  @Roles(ShopRole.shop_admin)
   updateSettings(
     @CurrentTenantId() tenantId: string,
     @Body() dto: UpdateShopSettingsDto,
