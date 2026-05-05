@@ -24,7 +24,8 @@ function applyBrandingVars(root: HTMLElement, primaryCss: string, accentCss: str
   const aTriplet = rgbToCssTriplet(aRgb);
   const pFg = foregroundHslForBackground(pRgb);
   const aFg = foregroundHslForBackground(aRgb);
-  const { surface: accentBg, fg: accentFg } = accentSurfaceFromPrimary(pRgb);
+  /** Light accent chip/surface tokens follow configured accent hue (shop settings), not primary. */
+  const { surface: accentBg, fg: accentFg } = accentSurfaceFromPrimary(aRgb);
 
   root.style.setProperty('--shop-primary-rgb', pTriplet);
   root.style.setProperty('--shop-accent-rgb', aTriplet);

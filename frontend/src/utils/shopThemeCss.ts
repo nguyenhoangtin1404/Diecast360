@@ -98,9 +98,9 @@ export function foregroundHslForBackground(bg: Rgb): string {
   return relativeLuminance(bg) > 0.55 ? '222 47% 11%' : '0 0% 100%';
 }
 
-/** Light tint background + strong foreground from primary hue. */
-export function accentSurfaceFromPrimary(primary: Rgb): { surface: string; fg: string } {
-  const hsl = rgbToHslTriplet(primary).split(' ');
+/** Light tint background + strong foreground from the given sRGB (shop primary or accent hue). */
+export function accentSurfaceFromPrimary(rgb: Rgb): { surface: string; fg: string } {
+  const hsl = rgbToHslTriplet(rgb).split(' ');
   const h = hsl[0];
   return {
     surface: `${h} 100% 97%`,

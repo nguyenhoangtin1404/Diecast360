@@ -44,9 +44,12 @@ describe('shopThemeCss', () => {
     expect(l).toBeLessThan(1);
   });
 
-  it('accentSurfaceFromPrimary derives surface from hue', () => {
+  it('accentSurfaceFromPrimary derives surface from the given color hue', () => {
     const { surface, fg } = accentSurfaceFromPrimary({ r: 79, g: 70, b: 229 });
     expect(surface).toMatch(/^243 /);
     expect(fg).toMatch(/^243 /);
+    const accent = accentSurfaceFromPrimary({ r: 124, g: 58, b: 237 });
+    expect(accent.surface).toMatch(/^262 /);
+    expect(accent.fg).toMatch(/^262 /);
   });
 });
