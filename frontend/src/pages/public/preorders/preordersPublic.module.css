@@ -1,50 +1,13 @@
-/* Phase 9 public surfaces — Corporate Trust (tokens from :root in index.css) */
+/* Phase 9 public surfaces — Corporate Trust (tokens from :root in index.css).
+ * Shell matches PublicCatalogPage / Layout main: blob backdrop + max-w-7xl container. */
 
-.page {
-  position: relative;
-  isolation: isolate;
-  max-width: 780px;
-  margin: 0 auto;
-  padding: 1rem 1rem 5.75rem;
+.pageContent {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 48.75rem;
   display: grid;
   gap: 1rem;
-  min-height: 100vh;
-  background: var(--ct-canvas, #f8fafc);
   color: var(--ct-ink, #0f172a);
-  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-  overflow-x: hidden;
-}
-
-.page::before,
-.page::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(64px);
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.45;
-}
-
-.page::before {
-  width: 22rem;
-  height: 22rem;
-  top: -6rem;
-  right: -5rem;
-  background: radial-gradient(circle at 30% 30%, rgba(124, 58, 237, 0.35), transparent 65%);
-}
-
-.page::after {
-  width: 18rem;
-  height: 18rem;
-  bottom: 5rem;
-  left: -4rem;
-  background: radial-gradient(circle at 50% 50%, rgba(79, 70, 229, 0.28), transparent 70%);
-}
-
-.page > * {
-  position: relative;
-  z-index: 1;
 }
 
 .heading {
@@ -251,61 +214,3 @@
   box-shadow: 0 4px 20px -2px rgba(79, 70, 229, 0.08);
 }
 
-.bottomNav {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  border-top: 1px solid var(--ct-border, #e2e8f0);
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 -4px 20px -2px rgba(79, 70, 229, 0.1);
-  z-index: 20;
-}
-
-.bottomNav a {
-  padding: 0.5rem 0.35rem 0.65rem;
-  min-height: 52px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.2rem;
-  text-align: center;
-  text-decoration: none;
-  color: var(--ct-muted, #64748b);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  transition:
-    color 0.2s ease-out,
-    background 0.2s ease-out;
-}
-
-.bottomNav a svg {
-  width: 1.25rem;
-  height: 1.25rem;
-  stroke-width: 2;
-  opacity: 0.85;
-}
-
-.bottomNav a:hover {
-  color: var(--ct-primary, #4f46e5);
-  background: rgba(79, 70, 229, 0.06);
-}
-
-.bottomNav .active {
-  color: var(--ct-primary, #4f46e5);
-  font-weight: 800;
-  background: rgba(79, 70, 229, 0.08);
-}
-
-.bottomNav .active svg {
-  color: var(--ct-primary, #4f46e5);
-}
-
-.bottomNav a:focus-visible {
-  outline: 2px solid var(--ct-primary, #4f46e5);
-  outline-offset: -4px;
-}
