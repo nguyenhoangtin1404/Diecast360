@@ -26,6 +26,8 @@ import {
 import { cn } from '../lib/utils';
 import { usePublicShopContext } from '../hooks/usePublicShopContext';
 import { usePublicShopContact } from '../hooks/usePublicShopContact';
+import { useAdminShopBranding } from '../hooks/useAdminShopBranding';
+import { useShop } from '../hooks/useShop';
 import { safeHttpUrlForAttribute } from '../utils/safeHttpUrl';
 import ShopSelector from './admin/ShopSelector';
 
@@ -53,7 +55,9 @@ export const Layout = ({ children }: LayoutProps) => {
   const { user, logout } = useAuth();
   const { effectiveShopId, shopContextReady, publicApiShopReady } = usePublicShopContext();
   const isAdmin = location.pathname.startsWith('/admin');
+  const { activeShop } = useShop();
   const publicShopContact = usePublicShopContact(!isAdmin);
+  const adminShopBranding = useAdminShopBranding(isAdmin);
   const isSuperAdmin = useIsSuperAdmin();
   const [menuState, setMenuState] = useState({ open: false, pathname: location.pathname });
   const isMenuOpen = menuState.open && menuState.pathname === location.pathname;
@@ -69,6 +73,8 @@ export const Layout = ({ children }: LayoutProps) => {
   const publicLogoUrl = safeHttpUrlForAttribute(publicShopContact.data?.appearance?.logo_url);
   const publicFaviconUrl = safeHttpUrlForAttribute(publicShopContact.data?.appearance?.favicon_url);
   const publicShopName = publicShopContact.data?.shop?.name?.trim() ?? '';
+
+  const adminLogoUrl = safeHttpUrlForAttribute(adminShopBranding.data?.logo_url);
 
   useEffect(() => {
     if (isAdmin) return undefined;
@@ -122,6 +128,37 @@ export const Layout = ({ children }: LayoutProps) => {
 
   const publicBrandTitle = publicShopName || 'Diecast360';
   const publicBrandSubtitle = publicShopName ? 'Catalog công khai' : 'Mô hình xe thu nhỏ · 1:64';
+
+  const renderAdminBrandMark = (size: 'sidebar' | 'compact') => {
+    const isSidebar = size === 'sidebar';
+    const altText = activeShop?.name ? `Logo ${activeShop.name}` : 'Logo shop';
+    if (adminLogoUrl) {
+      return (
+        <img
+          src={adminLogoUrl}
+          alt={altText}
+          className={
+            isSidebar
+              ? 'h-11 w-11 shrink-0 rounded-xl border border-slate-200/80 bg-white object-contain p-1 shadow-corporate-btn transition-transform duration-200 ease-out group-hover:-translate-y-0.5'
+              : 'h-9 w-9 shrink-0 rounded-lg border border-slate-200/80 bg-white object-contain p-0.5 shadow-corporate-btn'
+          }
+        />
+      );
+    }
+    return (
+      <div
+        className={
+          isSidebar
+            ? 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-base font-extrabold tracking-tight text-white shadow-corporate-btn transition-transform duration-200 ease-out group-hover:-translate-y-0.5'
+            : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-xs font-extrabold text-white shadow-corporate-btn'
+        }
+      >
+        360°
+      </div>
+    );
+  };
+
+  const adminBrandSubtitle = activeShop?.name ? `Quản trị · ${activeShop.name}` : 'Mô hình xe thu nhỏ · 1:64';
 
   const handleLogout = async () => {
     setMenuState({ open: false, pathname: location.pathname });
@@ -377,12 +414,10 @@ export const Layout = ({ children }: LayoutProps) => {
             className="group flex min-w-0 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
             onClick={closeMobileMenu}
           >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-base font-extrabold tracking-tight text-white shadow-corporate-btn transition-transform duration-200 ease-out group-hover:-translate-y-0.5">
-              360°
-            </div>
+            {renderAdminBrandMark('sidebar')}
             <div className="min-w-0">
               <div className="text-base font-extrabold tracking-tight text-slate-900">Diecast360</div>
-              <div className="truncate text-xs font-medium text-slate-500">Mô hình xe thu nhỏ · 1:64</div>
+              <div className="truncate text-xs font-medium text-slate-500">{adminBrandSubtitle}</div>
             </div>
           </Link>
 
@@ -459,12 +494,12 @@ export const Layout = ({ children }: LayoutProps) => {
 
         <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200/90 bg-white/90 px-4 py-3 shadow-sm backdrop-blur-md md:hidden">
           <Link
-            to={`${ROUTES.home}${publicShopNavSuffix}`}
+            to={ROUTES.home}
             className="flex min-w-0 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
             onClick={closeMobileMenu}
           >
-            {renderPublicBrandMark('sm')}
-            <span className="truncate text-base font-extrabold tracking-tight text-slate-900">{publicBrandTitle}</span>
+            {renderAdminBrandMark('compact')}
+            <span className="truncate text-base font-extrabold tracking-tight text-slate-900">Diecast360</span>
           </Link>
           <button
             type="button"

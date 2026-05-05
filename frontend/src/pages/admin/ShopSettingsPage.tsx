@@ -11,6 +11,7 @@ import type { ShopContactFormState } from './shops/types/shopContact';
 import type { ShopAppearanceFormState } from './shops/types/shopSettings';
 import { ShopContactFields } from './shops/ShopContactFields';
 import { publicShopContactQueryKey } from '../../hooks/usePublicShopContact';
+import { adminShopBrandingQueryKey } from '../../hooks/useAdminShopBranding';
 
 type ShopSettingsApiRow = {
   id: string;
@@ -145,6 +146,7 @@ export const ShopSettingsPage = () => {
       await queryClient.invalidateQueries({ queryKey: shopSettingsQueryKey });
       if (activeShop?.id) {
         await queryClient.invalidateQueries({ queryKey: publicShopContactQueryKey(activeShop.id) });
+        await queryClient.invalidateQueries({ queryKey: adminShopBrandingQueryKey(activeShop.id) });
       }
     },
     onError: (err: unknown) => {
@@ -187,6 +189,7 @@ export const ShopSettingsPage = () => {
       await queryClient.invalidateQueries({ queryKey: shopSettingsQueryKey });
       if (activeShop?.id) {
         await queryClient.invalidateQueries({ queryKey: publicShopContactQueryKey(activeShop.id) });
+        await queryClient.invalidateQueries({ queryKey: adminShopBrandingQueryKey(activeShop.id) });
       }
       setSaveOk(kind === 'logo' ? 'Đã upload logo.' : 'Đã upload favicon.');
     } catch (err: unknown) {
