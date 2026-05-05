@@ -270,6 +270,26 @@ describe('ItemsService', () => {
       expect(prisma.item.create).not.toHaveBeenCalled();
     });
 
+    it('should reject create when draft images_json is not valid JSON', async () => {
+      prisma.aiItemDraft.findUnique.mockResolvedValue({
+        id: 'draft-bad',
+        images_json: 'not-json',
+      });
+
+      await expect(
+        service.create(
+          {
+            name: 'AI Item',
+            draft_id: 'draft-bad',
+          },
+          TEST_SHOP_ID,
+        ),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+      });
+      expect(prisma.item.create).not.toHaveBeenCalled();
+    });
+
     it('should create missing car_brand and model_brand categories when creating from an AI draft', async () => {
       prisma.aiItemDraft.findUnique.mockResolvedValue({
         id: 'draft-1',

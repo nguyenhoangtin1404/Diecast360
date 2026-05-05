@@ -52,6 +52,21 @@ function normalizeCategoryBrandField(value: string | undefined | null): string |
   return t.length === 0 ? null : t;
 }
 
+function parseDraftImageUrls(imagesJson: string): string[] {
+  try {
+    const parsed = JSON.parse(imagesJson) as unknown;
+    if (!Array.isArray(parsed)) {
+      throw new Error('Expected JSON array');
+    }
+    return parsed.filter((u): u is string => typeof u === 'string');
+  } catch {
+    throw new AppException(
+      ErrorCode.VALIDATION_ERROR,
+      'AI draft images_json is invalid or corrupted',
+    );
+  }
+}
+
 @Injectable()
 export class ItemsService {
   private readonly logger = new Logger(ItemsService.name);
@@ -385,6 +400,7 @@ Condition: ${item.condition || ''}`;
       const initialStatus = (createDto.status as ItemStatus | undefined) ?? 'con_hang';
 
       let aiDraftForCategories: { id: string; images_json: string | null } | null = null;
+      let draftImageUrls: string[] = [];
       if (draftIdNorm) {
         aiDraftForCategories = await tx.aiItemDraft.findUnique({
           where: { id: draftIdNorm },
@@ -392,6 +408,9 @@ Condition: ${item.condition || ''}`;
         });
         if (!aiDraftForCategories) {
           throw new AppException(ErrorCode.VALIDATION_ERROR, 'AI draft not found');
+        }
+        if (aiDraftForCategories.images_json) {
+          draftImageUrls = parseDraftImageUrls(aiDraftForCategories.images_json);
         }
         await this.ensureCategoriesForAiImportInTx(tx, carBrandNorm, modelBrandNorm);
       }
@@ -417,9 +436,9 @@ Condition: ${item.condition || ''}`;
       });
 
       // Handle Draft if provided (single fetch above when draftIdNorm set)
-      if (draftIdNorm && aiDraftForCategories?.images_json) {
+      if (draftIdNorm && aiDraftForCategories) {
         const draft = aiDraftForCategories;
-        const imageUrls = JSON.parse(draft.images_json) as string[];
+        const imageUrls = draftImageUrls;
         totalImages = imageUrls.length;
 
         let displayOrder = 0;
