@@ -41,25 +41,9 @@ function applyBrandingVars(root: HTMLElement, primaryCss: string, accentCss: str
   root.style.setProperty('--accent-foreground', accentFg);
 }
 
-function clearBrandingVars(root: HTMLElement): void {
-  const keys = [
-    '--shop-primary-rgb',
-    '--shop-accent-rgb',
-    '--ct-primary',
-    '--ct-secondary',
-    '--primary',
-    '--primary-foreground',
-    '--secondary',
-    '--secondary-foreground',
-    '--ring',
-    '--chart-1',
-    '--chart-2',
-    '--accent',
-    '--accent-foreground',
-  ] as const;
-  for (const k of keys) {
-    root.style.removeProperty(k);
-  }
+/** When no shop is in scope (e.g. /admin/login), keep tokens aligned with `index.css` defaults instead of clearing — Tailwind `shop` / `shopAccent` need `--shop-*-rgb`. */
+function resetBrandingVarsToDefaults(root: HTMLElement): void {
+  applyBrandingVars(root, defaultPrimaryHex(), defaultAccentHex());
 }
 
 export const ShopThemeProvider: FC<{ children: ReactNode }> = ({ children }) => {
@@ -80,12 +64,12 @@ export const ShopThemeProvider: FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     const root = document.documentElement;
     if (!enabled) {
-      clearBrandingVars(root);
+      resetBrandingVarsToDefaults(root);
       return;
     }
     applyBrandingVars(root, primaryCss, accentCss);
     return () => {
-      clearBrandingVars(root);
+      resetBrandingVarsToDefaults(root);
     };
   }, [enabled, primaryCss, accentCss]);
 
