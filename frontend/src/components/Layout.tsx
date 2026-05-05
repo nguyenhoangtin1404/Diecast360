@@ -29,6 +29,7 @@ import { usePublicShopContact } from '../hooks/usePublicShopContact';
 import { useAdminShopBranding } from '../hooks/useAdminShopBranding';
 import { useShop } from '../hooks/useShop';
 import { useDocumentTitleAndFavicon, DEFAULT_DOCUMENT_TITLE } from '../hooks/useDocumentTitleAndFavicon';
+import { safeHttpUrlForAttribute } from '../utils/safeHttpUrl';
 import ShopSelector from './admin/ShopSelector';
 
 interface LayoutProps {
@@ -136,6 +137,7 @@ export const Layout = ({ children }: LayoutProps) => {
     );
   };
 
+  const renderAdminBrandMark = (size: 'sidebar' | 'compact') => {
     const isSidebar = size === 'sidebar';
     const altText = activeShop?.name ? `Logo ${activeShop.name}` : 'Logo shop';
     if (adminLogoUrl) {
