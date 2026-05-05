@@ -3,6 +3,7 @@ export interface Shop {
   name: string;
   slug: string;
   is_active: boolean;
+  contact_json?: Record<string, unknown> | null;
   _count?: { items: number; user_roles: number };
 }
 

@@ -7,6 +7,7 @@ describe('PublicService', () => {
   let service: PublicService;
   let prisma: {
     item: Record<string, jest.Mock>;
+    shop: Record<string, jest.Mock>;
   };
   let storage: Record<string, jest.Mock>;
 
@@ -37,6 +38,9 @@ describe('PublicService', () => {
         findFirst: jest.fn(),
         count: jest.fn(),
       },
+      shop: {
+        findFirst: jest.fn(),
+      },
     };
 
     storage = {
@@ -58,6 +62,32 @@ describe('PublicService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('getShopContact', () => {
+    it('returns shop identity and merged contact defaults', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        id: 'shop-1',
+        name: 'My Shop',
+        slug: 'my-shop',
+        contact_json: {},
+        appearance_json: {},
+      });
+
+      const out = await service.getShopContact('shop-1');
+
+      expect(out.shop).toEqual({ id: 'shop-1', name: 'My Shop', slug: 'my-shop' });
+      expect(out.contact.page_title).toBe('Liên hệ với chúng tôi');
+      expect(out.contact.phone?.hint).toBe('Gọi ngay để được tư vấn');
+      expect(String(out.contact.hours?.schedule_line)).toContain('My Shop');
+      expect(out.appearance).toEqual({});
+    });
+
+    it('throws NOT_FOUND when shop is missing or inactive', async () => {
+      prisma.shop.findFirst.mockResolvedValue(null);
+
+      await expect(service.getShopContact('nope')).rejects.toBeInstanceOf(AppException);
+    });
   });
 
   // ============================================================

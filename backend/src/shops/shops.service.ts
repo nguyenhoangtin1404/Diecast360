@@ -6,15 +6,17 @@ import { CreateShopDto } from './dto/create-shop.dto';
 import { QueryShopMembersDto } from './dto/query-shop-members.dto';
 import { QueryShopItemsDto } from './dto/query-shop-items.dto';
 import { QueryShopAuditLogsDto } from './dto/query-shop-audit-logs.dto';
-import { UpdateShopDto } from './dto/update-shop.dto';
+import { UpdateShopDto, ShopContactPatchDto } from './dto/update-shop.dto';
+import { ShopAppearancePatchDto } from './dto/update-shop-appearance.dto';
 import { AddShopAdminDto } from './dto/add-shop-admin.dto';
-import { ShopAuditAction, ShopRole } from '../generated/prisma/client';
+import { Prisma, ShopAuditAction, ShopRole } from '../generated/prisma/client';
 import * as bcrypt from 'bcrypt';
 import { isUUID } from 'class-validator';
 import { IStorageService } from '../storage/storage.interface';
 import { toNumber } from '../common/utils/decimal.utils';
 import { totalPagesFromCount } from '../common/utils/pagination.utils';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { jsonStableStringify } from './json-stable-stringify';
 
 const MAX_SLUG_ALLOCATION_ATTEMPTS = 32;
 
@@ -41,6 +43,82 @@ export class ShopsService {
   /** Slug candidate: `base`, then `base-1`, `base-2`, ... (matches prior allocateUniqueSlug numbering). */
   private shopSlugCandidate(base: string, attemptIndex: number): string {
     return attemptIndex === 0 ? base : `${base}-${attemptIndex}`;
+  }
+
+  private mergeContactJson(
+    existing: Prisma.JsonValue,
+    patch: ShopContactPatchDto,
+  ): Prisma.InputJsonValue {
+    const baseObj =
+      typeof existing === 'object' && existing !== null && !Array.isArray(existing)
+        ? { ...(existing as Record<string, unknown>) }
+        : {};
+    const next: Record<string, unknown> = { ...baseObj };
+
+    const mergeStringRecord = (
+      prevRaw: unknown,
+      patchRecord: Record<string, unknown> | undefined,
+    ): Record<string, unknown> => {
+      const prev =
+        typeof prevRaw === 'object' && prevRaw !== null && !Array.isArray(prevRaw)
+          ? { ...(prevRaw as Record<string, unknown>) }
+          : {};
+      if (!patchRecord) return prev;
+      for (const [k, v] of Object.entries(patchRecord)) {
+        if (v === undefined) continue;
+        if (typeof v === 'string' && v.trim() === '') {
+          delete prev[k];
+        } else {
+          prev[k] = v;
+        }
+      }
+      return prev;
+    };
+
+    if (patch.page_title !== undefined) {
+      if (patch.page_title.trim() === '') delete next.page_title;
+      else next.page_title = patch.page_title;
+    }
+    if (patch.page_subtitle !== undefined) {
+      if (patch.page_subtitle.trim() === '') delete next.page_subtitle;
+      else next.page_subtitle = patch.page_subtitle;
+    }
+
+    const nested = ['phone', 'facebook', 'zalo', 'hours'] as const;
+    for (const key of nested) {
+      if (patch[key] !== undefined) {
+        next[key] = mergeStringRecord(next[key], patch[key] as Record<string, unknown>);
+      }
+    }
+
+    return next as Prisma.InputJsonValue;
+  }
+
+  private mergeAppearanceJson(
+    existing: Prisma.JsonValue,
+    patch: ShopAppearancePatchDto,
+  ): Prisma.InputJsonValue {
+    const baseObj =
+      typeof existing === 'object' && existing !== null && !Array.isArray(existing)
+        ? { ...(existing as Record<string, unknown>) }
+        : {};
+    const next: Record<string, unknown> = { ...baseObj };
+    const entries: [keyof typeof patch, unknown][] = [
+      ['logo_url', patch.logo_url],
+      ['favicon_url', patch.favicon_url],
+      ['primary_color', patch.primary_color],
+      ['accent_color', patch.accent_color],
+      ['font_family', patch.font_family],
+    ];
+    for (const [key, val] of entries) {
+      if (val === undefined) continue;
+      if (typeof val === 'string' && val.trim() === '') {
+        delete next[key as string];
+      } else {
+        next[key as string] = val;
+      }
+    }
+    return next as Prisma.InputJsonValue;
   }
 
   private async logAudit(
@@ -131,13 +209,23 @@ export class ShopsService {
 
   async update(id: string, dto: UpdateShopDto, actorUserId?: string | null) {
     const oldShop = await this.findOne(id); // throws 404 if not found
+    const data: Prisma.ShopUpdateInput = {};
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.is_active !== undefined) data.is_active = dto.is_active;
+    if (dto.contact !== undefined) {
+      data.contact_json = this.mergeContactJson(oldShop.contact_json, dto.contact);
+    }
+
     const updated = await this.prisma.shop.update({
       where: { id },
-      data: dto,
+      data,
     });
     const activationChanged =
       dto.is_active !== undefined && oldShop.is_active !== updated.is_active;
     const nameChanged = dto.name !== undefined && oldShop.name !== updated.name;
+    const contactChanged =
+      dto.contact !== undefined &&
+      jsonStableStringify(oldShop.contact_json) !== jsonStableStringify(updated.contact_json);
 
     if (activationChanged) {
       await this.logAudit(
@@ -167,6 +255,93 @@ export class ShopsService {
           after: { name: updated.name },
         },
       );
+    }
+
+    if (contactChanged) {
+      await this.logAudit(id, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', id, {
+        field: 'contact_json',
+      });
+    }
+
+    return updated;
+  }
+
+  /**
+   * Shop-scoped settings (contact + appearance) for the active tenant.
+   * GET: shop_admin or shop_staff. PATCH: shop_admin only (RolesGuard).
+   */
+  async getTenantShopSettings(tenantId: string) {
+    const shop = await this.prisma.shop.findFirst({
+      where: { id: tenantId, is_active: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        contact_json: true,
+        appearance_json: true,
+      },
+    });
+    if (!shop) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found');
+    }
+    return shop;
+  }
+
+  async updateContactAndAppearanceForTenant(
+    tenantId: string,
+    contact?: ShopContactPatchDto,
+    appearance?: ShopAppearancePatchDto,
+    actorUserId?: string | null,
+  ) {
+    if (contact === undefined && appearance === undefined) {
+      return this.getTenantShopSettings(tenantId);
+    }
+
+    const oldShop = await this.prisma.shop.findFirst({
+      where: { id: tenantId, is_active: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        contact_json: true,
+        appearance_json: true,
+      },
+    });
+    if (!oldShop) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found');
+    }
+
+    const data: Prisma.ShopUpdateInput = {};
+    if (contact !== undefined) {
+      data.contact_json = this.mergeContactJson(oldShop.contact_json, contact);
+    }
+    if (appearance !== undefined) {
+      data.appearance_json = this.mergeAppearanceJson(oldShop.appearance_json, appearance);
+    }
+
+    const contactChanged =
+      contact !== undefined &&
+      jsonStableStringify(oldShop.contact_json) !== jsonStableStringify(data.contact_json);
+    const appearanceChanged =
+      appearance !== undefined &&
+      jsonStableStringify(oldShop.appearance_json) !== jsonStableStringify(data.appearance_json);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      return tx.shop.update({
+        where: { id: tenantId },
+        data,
+      });
+    });
+
+    if (contactChanged) {
+      await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
+        field: 'contact_json',
+      });
+    }
+    if (appearanceChanged) {
+      await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
+        field: 'appearance_json',
+      });
     }
 
     return updated;

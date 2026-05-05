@@ -40,6 +40,21 @@ export class PublicController {
     );
   }
 
+  @Get('shops/:shopId/contact')
+  @UseGuards(OptionalJwtAuthGuard)
+  async getShopContact(@Param('shopId') shopId: string, @Req() req: Request) {
+    const user = req.user as { active_shop_id?: string | null } | undefined;
+    const explicitShopId = await this.publicShopResolver.resolveCanonicalShopId(shopId);
+    const tenantId = explicitShopId ?? user?.active_shop_id ?? null;
+    // Production: same rule as catalog — need ?shop_id / path shop or JWT active shop (422 otherwise).
+    this.assertPublicShopScope(tenantId, user);
+    // Non-production: assertPublicShopScope is a no-op, but contact is always shop-scoped (no "all shops" view).
+    if (!tenantId) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found');
+    }
+    return this.publicService.getShopContact(tenantId);
+  }
+
   @Get('items')
   @UseGuards(OptionalJwtAuthGuard)
   async findAll(@Query() queryDto: QueryPublicItemsDto, @Req() req: Request) {

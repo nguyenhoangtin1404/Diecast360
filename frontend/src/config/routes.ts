@@ -18,8 +18,14 @@ export const ROUTES = {
     preordersManage: '/admin/preorders/manage',
     facebookPosts: '/admin/facebook-posts',
     shops: '/admin/shops',
+    /** Contact + branding (tenant); shop_admin / shop_staff */
+    shopSettings: '/admin/shop-settings',
   },
 } as const;
+
+export function isAdminShopSettingsActive(pathname: string): boolean {
+  return pathname.startsWith(ROUTES.admin.shopSettings);
+}
 
 /** Danh sách / chi tiết / mới — không gồm trang import AI */
 export function isAdminItemsSectionActive(pathname: string): boolean {

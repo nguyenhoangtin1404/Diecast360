@@ -6,6 +6,8 @@ import { styles } from './ShopsPage.styles';
 import { useShopItems } from './shops/useShopItems';
 import { useAuditLogs } from './shops/useAuditLogs';
 import type { Shop, ShopAuditLogRow, ShopMemberRow } from './shops/types';
+import { buildShopContactPatch, parseShopContactFormDefaults } from './shops/shopContactForm';
+import { ShopContactFields } from './shops/ShopContactFields';
 import ShopCard from './shops/ShopCard';
 import ShopItemsModal from './shops/modals/ShopItemsModal';
 import ShopAuditModal from './shops/modals/ShopAuditModal';
@@ -210,6 +212,7 @@ const ShopsPage: React.FC = () => {
 
   const [editShopModalId, setEditShopModalId] = useState<string | null>(null);
   const [editShopName, setEditShopName] = useState('');
+  const [editShopContact, setEditShopContact] = useState(() => parseShopContactFormDefaults(undefined));
   const [editShopSaving, setEditShopSaving] = useState(false);
   const [editShopError, setEditShopError] = useState<string | null>(null);
 
@@ -667,6 +670,7 @@ const ShopsPage: React.FC = () => {
   const openEditShopModal = (shop: Shop) => {
     setEditShopError(null);
     setEditShopName(shop.name);
+    setEditShopContact(parseShopContactFormDefaults(shop.contact_json));
     setEditShopModalId(shop.id);
   };
 
@@ -686,7 +690,10 @@ const ShopsPage: React.FC = () => {
     setEditShopError(null);
     setEditShopSaving(true);
     try {
-      await apiClient.patch(`/admin/shops/${editShopModalId}`, { name });
+      await apiClient.patch(`/admin/shops/${editShopModalId}`, {
+        name,
+        ...buildShopContactPatch(editShopContact),
+      });
       setEditShopModalId(null);
       setShopActionError(null);
       setShopActionSuccess('Đã cập nhật thông tin shop.');
@@ -792,7 +799,15 @@ const ShopsPage: React.FC = () => {
         if (!editTargetShop) return null;
         return (
           <div style={styles.modalOverlay} onClick={closeEditShopModal}>
-            <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div
+              style={{
+                ...styles.modal,
+                maxWidth: '640px',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
               <div style={styles.modalTitle}>Sửa thông tin shop</div>
               {editShopError && <p style={styles.modalError}>{editShopError}</p>}
               <form onSubmit={handleEditShopSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -816,6 +831,36 @@ const ShopsPage: React.FC = () => {
                 <p style={styles.modalHint}>
                   Shop URL <code style={styles.modalCode}>{editTargetShop.slug}</code> — slug không sửa trên form này.
                 </p>
+
+                <div
+                  style={{
+                    borderTop: '1px solid #e5e7eb',
+                    marginTop: '4px',
+                    paddingTop: '12px',
+                  }}
+                >
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>
+                    Trang liên hệ (công khai)
+                  </div>
+                  <p style={{ ...styles.modalHint, marginBottom: '10px' }}>
+                    Nội dung hiển thị tại <code style={styles.modalCode}>/contact?shop_id=</code> (UUID hoặc slug). Để
+                    trống một ô rồi lưu sẽ xóa giá trị đó.
+                  </p>
+                </div>
+
+                <ShopContactFields
+                  idPrefix={`edit-shop-${editTargetShop.id}`}
+                  value={editShopContact}
+                  onChange={setEditShopContact}
+                  styles={{
+                    formRow: styles.formRow,
+                    modalLabel: styles.modalLabel,
+                    modalInput: styles.modalInput,
+                    modalHint: styles.modalHint,
+                    sectionTitle: { fontSize: '13px', fontWeight: 600, color: '#374151', marginTop: '8px' },
+                  }}
+                />
+
                 <div style={styles.modalActions}>
                   <button type="button" style={styles.modalCancelBtn} onClick={closeEditShopModal} disabled={editShopSaving}>
                     Hủy

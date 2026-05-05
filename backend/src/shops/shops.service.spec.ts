@@ -26,6 +26,7 @@ describe('ShopsService', () => {
     prisma = {
       shop: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         update: jest.fn(),
       },
       item: {
@@ -548,6 +549,7 @@ describe('ShopsService', () => {
         name: 'Shop A',
         slug: 'shop-a',
         is_active: true,
+        contact_json: {},
         _count: { items: 0, user_roles: 1 },
       });
       prisma.shop.update.mockResolvedValue({
@@ -555,11 +557,101 @@ describe('ShopsService', () => {
         name: 'Shop A',
         slug: 'shop-a',
         is_active: true,
+        contact_json: {},
       });
 
       await service.update(shopId, {}, 'actor-1');
 
       expect(prisma.shopAuditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('logs update_shop when contact_json changes', async () => {
+      prisma.shop.findUnique.mockResolvedValue({
+        id: shopId,
+        name: 'Shop A',
+        slug: 'shop-a',
+        is_active: true,
+        contact_json: {},
+        _count: { items: 0, user_roles: 1 },
+      });
+      prisma.shop.update.mockResolvedValue({
+        id: shopId,
+        name: 'Shop A',
+        slug: 'shop-a',
+        is_active: true,
+        contact_json: { phone: { tel: '+84' } },
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({ id: 'log-c' });
+
+      await service.update(
+        shopId,
+        { contact: { phone: { tel: '+84' } } },
+        'actor-1',
+      );
+
+      expect(prisma.shopAuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'update_shop',
+            metadata_json: expect.stringContaining('contact_json'),
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('tenant shop settings', () => {
+    const tenantId = 'shop-tenant-1';
+
+    it('getTenantShopSettings returns slim shop row', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        id: tenantId,
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: {},
+      });
+
+      const out = await service.getTenantShopSettings(tenantId);
+
+      expect(out.id).toBe(tenantId);
+      expect(prisma.shop.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: tenantId, is_active: true } }),
+      );
+    });
+
+    it('updateContactAndAppearanceForTenant merges appearance', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        id: tenantId,
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: {},
+      });
+      prisma.shop.update.mockResolvedValue({
+        id: tenantId,
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: { logo_url: 'https://cdn.example/logo.png' },
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({});
+
+      await service.updateContactAndAppearanceForTenant(
+        tenantId,
+        undefined,
+        { logo_url: 'https://cdn.example/logo.png' },
+        'u1',
+      );
+
+      expect(prisma.shop.update).toHaveBeenCalled();
+      expect(prisma.shopAuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            metadata_json: expect.stringContaining('appearance_json'),
+          }),
+        }),
+      );
     });
   });
 });
