@@ -577,7 +577,7 @@ Condition: ${item.condition || ''}`;
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
     if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
 
-      if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
+    if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
       const nextCarBrand =
         updateDto.car_brand !== undefined
           ? normalizeCategoryBrandField(updateDto.car_brand)
