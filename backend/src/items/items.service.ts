@@ -374,13 +374,6 @@ Condition: ${item.condition || ''}`;
         ? createDto.draft_id.trim()
         : null;
 
-    if (createDto.from_ai_import && !draftIdNorm) {
-      throw new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        'draft_id is required when from_ai_import is true',
-      );
-    }
-
     // Declared outside transaction; cleared inside to handle potential retries
     let failedImages: { filename: string; error: string }[] = [];
     let totalImages = 0;
@@ -391,12 +384,13 @@ Condition: ${item.condition || ''}`;
       totalImages = 0;
       const initialStatus = (createDto.status as ItemStatus | undefined) ?? 'con_hang';
 
-      if (createDto.from_ai_import && draftIdNorm) {
-        const draftRow = await tx.aiItemDraft.findUnique({
+      let aiDraftForCategories: { id: string; images_json: string | null } | null = null;
+      if (draftIdNorm) {
+        aiDraftForCategories = await tx.aiItemDraft.findUnique({
           where: { id: draftIdNorm },
-          select: { id: true },
+          select: { id: true, images_json: true },
         });
-        if (!draftRow) {
+        if (!aiDraftForCategories) {
           throw new AppException(ErrorCode.VALIDATION_ERROR, 'AI draft not found');
         }
         await this.ensureCategoriesForAiImportInTx(tx, carBrandNorm, modelBrandNorm);
@@ -422,54 +416,52 @@ Condition: ${item.condition || ''}`;
         },
       });
 
-      // Handle Draft if provided
-      if (draftIdNorm) {
-        const draft = await tx.aiItemDraft.findUnique({ where: { id: draftIdNorm } });
-        if (draft && draft.images_json) {
-          const imageUrls = JSON.parse(draft.images_json) as string[];
-          totalImages = imageUrls.length;
+      // Handle Draft if provided (single fetch above when draftIdNorm set)
+      if (draftIdNorm && aiDraftForCategories?.images_json) {
+        const draft = aiDraftForCategories;
+        const imageUrls = JSON.parse(draft.images_json) as string[];
+        totalImages = imageUrls.length;
 
-          let displayOrder = 0;
-          for (const url of imageUrls) {
-            const filename = url.split('/').pop();
-            if (filename) {
-              try {
-                const newFilename = `item_${item.id}_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
-                const newPath = await this.storage.moveFile(`drafts/${filename}`, newFilename, 'images');
+        let displayOrder = 0;
+        for (const url of imageUrls) {
+          const filename = url.split('/').pop();
+          if (filename) {
+            try {
+              const newFilename = `item_${item.id}_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
+              const newPath = await this.storage.moveFile(`drafts/${filename}`, newFilename, 'images');
 
-                await tx.itemImage.create({
-                  data: {
-                    item_id: item.id,
-                    file_path: newPath,
-                    is_cover: displayOrder === 0,
-                    display_order: displayOrder,
-                  },
-                });
-                displayOrder++;
-              } catch (e) {
-                const errorMessage = e instanceof Error ? e.message : String(e);
-                failedImages.push({ filename, error: errorMessage });
-                this.logger.error(
-                  `Failed to process draft image "${filename}" for item ${item.id}`,
-                  e instanceof Error ? e.stack : undefined,
-                  `ItemsService.create | draftId=${draftIdNorm}`,
-                );
-              }
+              await tx.itemImage.create({
+                data: {
+                  item_id: item.id,
+                  file_path: newPath,
+                  is_cover: displayOrder === 0,
+                  display_order: displayOrder,
+                },
+              });
+              displayOrder++;
+            } catch (e) {
+              const errorMessage = e instanceof Error ? e.message : String(e);
+              failedImages.push({ filename, error: errorMessage });
+              this.logger.error(
+                `Failed to process draft image "${filename}" for item ${item.id}`,
+                e instanceof Error ? e.stack : undefined,
+                `ItemsService.create | draftId=${draftIdNorm}`,
+              );
             }
           }
-
-          // Update draft status based on image processing results
-          const draftStatus = failedImages.length === 0
-            ? 'CONFIRMED'
-            : failedImages.length < totalImages
-              ? 'PARTIAL'
-              : 'FAILED';
-
-          await tx.aiItemDraft.update({
-            where: { id: draft.id },
-            data: { status: draftStatus },
-          });
         }
+
+        // Update draft status based on image processing results
+        const draftStatus = failedImages.length === 0
+          ? 'CONFIRMED'
+          : failedImages.length < totalImages
+            ? 'PARTIAL'
+            : 'FAILED';
+
+        await tx.aiItemDraft.update({
+          where: { id: draft.id },
+          data: { status: draftStatus },
+        });
       }
 
       return item;
@@ -492,7 +484,7 @@ Condition: ${item.condition || ''}`;
 
       this.logger.error(
         `Item ${item.id} created with ${failedImages.length}/${totalImages} failed image(s) ` +
-        `from draft ${createDto.draft_id}. Details: ${failedImages.map((f) => `${f.filename}: ${f.error}`).join('; ')}`,
+        `from draft ${draftIdNorm ?? createDto.draft_id}. Details: ${failedImages.map((f) => `${f.filename}: ${f.error}`).join('; ')}`,
       );
     }
 

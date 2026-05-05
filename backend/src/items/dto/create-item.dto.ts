@@ -75,13 +75,6 @@ export class CreateItemDto {
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
   draft_id?: string;
-
-  /**
-   * AI import flow only: auto-create missing categories when paired with a valid `draft_id`.
-   */
-  @IsOptional()
-  @IsBoolean()
-  from_ai_import?: boolean;
 }
 
 

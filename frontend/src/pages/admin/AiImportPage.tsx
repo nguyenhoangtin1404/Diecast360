@@ -111,7 +111,6 @@ export const AiImportPage = () => {
         >('/items', {
             ...formData,
             draft_id: draft.draftId,
-            from_ai_import: true,
         });
         const result = response.data;
         if (result.warning) {

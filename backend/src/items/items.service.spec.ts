@@ -251,26 +251,13 @@ describe('ItemsService', () => {
       });
     });
 
-    it('should reject create when from_ai_import is true without draft_id', async () => {
-      await expect(
-        service.create(
-          { name: 'AI Item', from_ai_import: true, car_brand: 'X' },
-          TEST_SHOP_ID,
-        ),
-      ).rejects.toMatchObject({
-        errorCode: ErrorCode.VALIDATION_ERROR,
-      });
-      expect(prisma.category.create).not.toHaveBeenCalled();
-    });
-
-    it('should reject create when from_ai_import is true but draft does not exist', async () => {
+    it('should reject create when draft_id is provided but draft does not exist', async () => {
       prisma.aiItemDraft.findUnique.mockResolvedValue(null);
 
       await expect(
         service.create(
           {
             name: 'AI Item',
-            from_ai_import: true,
             draft_id: 'missing-draft',
             car_brand: 'X',
           },
@@ -283,14 +270,11 @@ describe('ItemsService', () => {
       expect(prisma.item.create).not.toHaveBeenCalled();
     });
 
-    it('should create missing car_brand and model_brand categories when from_ai_import is true', async () => {
-      prisma.aiItemDraft.findUnique
-        .mockResolvedValueOnce({ id: 'draft-1' })
-        .mockResolvedValueOnce({
-          id: 'draft-1',
-          images_json: JSON.stringify([]),
-          status: 'PENDING',
-        });
+    it('should create missing car_brand and model_brand categories when creating from an AI draft', async () => {
+      prisma.aiItemDraft.findUnique.mockResolvedValue({
+        id: 'draft-1',
+        images_json: JSON.stringify([]),
+      });
       prisma.category.findFirst
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null)
@@ -315,7 +299,6 @@ describe('ItemsService', () => {
           draft_id: 'draft-1',
           car_brand: 'Nissan',
           model_brand: 'GT-R R35',
-          from_ai_import: true,
         },
         TEST_SHOP_ID,
       );
@@ -339,15 +322,11 @@ describe('ItemsService', () => {
       });
     });
 
-    it('should reactivate inactive car_brand category when from_ai_import is true', async () => {
-      prisma.aiItemDraft.findUnique
-        .mockResolvedValueOnce({ id: 'draft-1' })
-        .mockResolvedValueOnce({
-          id: 'draft-1',
-          images_json: JSON.stringify([]),
-          status: 'PENDING',
-        });
-
+    it('should reactivate inactive car_brand category when creating from an AI draft', async () => {
+      prisma.aiItemDraft.findUnique.mockResolvedValue({
+        id: 'draft-1',
+        images_json: JSON.stringify([]),
+      });
       prisma.category.findFirst
         .mockResolvedValueOnce({
           id: 'c-toyota',
@@ -378,7 +357,6 @@ describe('ItemsService', () => {
           draft_id: 'draft-1',
           car_brand: 'Toyota',
           model_brand: 'AE86',
-          from_ai_import: true,
         },
         TEST_SHOP_ID,
       );
@@ -391,13 +369,10 @@ describe('ItemsService', () => {
     });
 
     it('should trim car_brand and model_brand so validation matches ensured categories', async () => {
-      prisma.aiItemDraft.findUnique
-        .mockResolvedValueOnce({ id: 'draft-1' })
-        .mockResolvedValueOnce({
-          id: 'draft-1',
-          images_json: JSON.stringify([]),
-          status: 'PENDING',
-        });
+      prisma.aiItemDraft.findUnique.mockResolvedValue({
+        id: 'draft-1',
+        images_json: JSON.stringify([]),
+      });
       prisma.category.findFirst
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null)
@@ -422,7 +397,6 @@ describe('ItemsService', () => {
           draft_id: 'draft-1',
           car_brand: '  Nissan ',
           model_brand: ' GT-R R35 ',
-          from_ai_import: true,
         },
         TEST_SHOP_ID,
       );
