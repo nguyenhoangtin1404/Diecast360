@@ -4,6 +4,11 @@ import { PublicService } from './public.service';
 import { PublicShopResolverService } from './public-shop-resolver.service';
 import { QueryPublicItemsDto } from './dto/query-public-items.dto';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
+
+function isProductionEnv(): boolean {
+  return (process.env.NODE_ENV || '').trim().toLowerCase() === 'production';
+}
 
 @Controller('public')
 export class PublicController {
@@ -12,12 +17,36 @@ export class PublicController {
     private readonly publicShopResolver: PublicShopResolverService,
   ) {}
 
+  /**
+   * In production, anonymous catalog/detail must not aggregate all public items across shops.
+   * Require explicit ?shop_id= (or slug) or a JWT with active_shop_id.
+   */
+  private assertPublicShopScope(
+    tenantId: string | null | undefined,
+    user: { active_shop_id?: string | null } | undefined,
+  ): void {
+    if (!isProductionEnv()) {
+      return;
+    }
+    if (tenantId) {
+      return;
+    }
+    if (user?.active_shop_id) {
+      return;
+    }
+    throw new AppException(
+      ErrorCode.PUBLIC_SHOP_REQUIRED,
+      'Public catalog requires shop_id (UUID or shop slug) or an authenticated session with an active shop.',
+    );
+  }
+
   @Get('items')
   @UseGuards(OptionalJwtAuthGuard)
   async findAll(@Query() queryDto: QueryPublicItemsDto, @Req() req: Request) {
     const user = req.user as { active_shop_id?: string | null } | undefined;
     const explicitShopId = await this.publicShopResolver.resolveCanonicalShopId(queryDto.shop_id);
     const tenantId = explicitShopId ?? user?.active_shop_id ?? null;
+    this.assertPublicShopScope(tenantId, user);
     return this.publicService.findAll(queryDto, tenantId);
   }
 
@@ -31,6 +60,7 @@ export class PublicController {
     const user = req.user as { active_shop_id?: string | null } | undefined;
     const explicitShopId = await this.publicShopResolver.resolveCanonicalShopId(shopId);
     const tenantId = explicitShopId ?? user?.active_shop_id ?? null;
+    this.assertPublicShopScope(tenantId, user);
     return this.publicService.findOne(id, tenantId);
   }
 }

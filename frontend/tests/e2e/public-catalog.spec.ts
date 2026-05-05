@@ -72,8 +72,15 @@ async function routePublicItemsByShop(page: import('@playwright/test').Page) {
     if (shopId === 'shop-b') {
       return route.fulfill({ json: publicItemsEnvelope([aggregateItems[1], shopBExclusive]) });
     }
-    // No shop context: aggregate across tenants (legacy behavior)
-    return route.fulfill({ json: publicItemsEnvelope([...aggregateItems]) });
+    // Production API requires shop_id; anonymous aggregate is not served.
+    return route.fulfill({
+      status: 422,
+      json: {
+        ok: false,
+        error: { code: 'PUBLIC_SHOP_REQUIRED', details: [] },
+        message: 'Public catalog requires shop_id',
+      },
+    });
   });
 }
 
@@ -83,14 +90,14 @@ test.describe('Public catalog smoke', () => {
   });
 
   test('renders product names from public API', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?shop_id=shop-a');
 
     await expect(page.getByText('Porsche 911 GT3 1:18')).toBeVisible();
-    await expect(page.getByText('McLaren 720S 1:64')).toBeVisible();
+    await expect(page.getByText('Shop A Exclusive Tomica')).toBeVisible();
   });
 
   test('renders search input on catalog page', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?shop_id=shop-a');
 
     await expect(page.getByPlaceholder('Tìm kiếm theo tên...')).toBeVisible();
   });
@@ -111,7 +118,7 @@ test.describe('Public catalog smoke', () => {
         json: apiOk({ items: [], pagination: { total: 0, page: 1, page_size: 20, total_pages: 0 } }),
       }),
     );
-    await page.goto('/');
+    await page.goto('/?shop_id=shop-a');
 
     await expect(page.getByText('Không tìm thấy sản phẩm nào.')).toBeVisible();
   });
@@ -121,9 +128,24 @@ test.describe('Public catalog smoke', () => {
     await page.route('**/api/v1/public/items**', (route: Route) =>
       route.fulfill({ status: 500, json: { ok: false, message: 'Internal error' } }),
     );
-    await page.goto('/');
+    await page.goto('/?shop_id=shop-a');
 
     await expect(page.getByText('Không tải được catalog')).toBeVisible();
+  });
+
+  test('without shop_id shows missing shop guidance (no public/items request)', async ({ page }) => {
+    let publicItemsRequestCount = 0;
+    page.on('request', (req) => {
+      if (req.url().includes('/api/v1/public/items')) {
+        publicItemsRequestCount += 1;
+      }
+    });
+
+    await page.goto('/');
+
+    await expect(page.getByText('Chưa chọn cửa hàng')).toBeVisible();
+    await expect(page.getByText(/VITE_PUBLIC_CATALOG_SHOP_ID/)).toBeVisible();
+    expect(publicItemsRequestCount).toBe(0);
   });
 });
 
@@ -143,12 +165,6 @@ test.describe('Public catalog multi-tenant (shop_id)', () => {
     await page.goto('/?shop_id=shop-b');
     await expect(page.getByText('Shop B Exclusive Hot Wheels')).toBeVisible();
     await expect(page.getByText('Shop A Exclusive Tomica')).not.toBeVisible();
-  });
-
-  test('without shop_id shows aggregate items (smoke regression)', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.getByText('Porsche 911 GT3 1:18')).toBeVisible();
-    await expect(page.getByText('McLaren 720S 1:64')).toBeVisible();
   });
 
   test('public nav preserves shop_id on preorder link', async ({ page }) => {

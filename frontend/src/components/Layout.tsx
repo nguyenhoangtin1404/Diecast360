@@ -47,7 +47,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { effectiveShopId, shopContextReady } = usePublicShopContext();
+  const { effectiveShopId, shopContextReady, publicApiShopReady } = usePublicShopContext();
   const isAdmin = location.pathname.startsWith('/admin');
   const isSuperAdmin = useIsSuperAdmin();
   const [menuState, setMenuState] = useState({ open: false, pathname: location.pathname });
@@ -55,11 +55,11 @@ export const Layout = ({ children }: LayoutProps) => {
 
   /** Same resolution as catalog (query / env / JWT), not only current URL — keeps nav aligned with VITE_PUBLIC_CATALOG_SHOP_ID. */
   const publicShopNavSuffix = useMemo(() => {
-    if (!shopContextReady || !effectiveShopId) {
+    if (!shopContextReady || !publicApiShopReady) {
       return '';
     }
     return `?shop_id=${encodeURIComponent(effectiveShopId)}`;
-  }, [shopContextReady, effectiveShopId]);
+  }, [shopContextReady, publicApiShopReady, effectiveShopId]);
 
   const handleLogout = async () => {
     setMenuState({ open: false, pathname: location.pathname });

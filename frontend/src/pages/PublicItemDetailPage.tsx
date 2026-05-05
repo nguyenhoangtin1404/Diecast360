@@ -34,7 +34,7 @@ export const PublicItemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { effectiveShopId, shopContextReady } = usePublicShopContext();
+  const { effectiveShopId, shopContextReady, publicApiShopReady } = usePublicShopContext();
   const isMobile = useIsMobile();
   const viewportWidth = useViewportWidth();
 
@@ -53,7 +53,7 @@ export const PublicItemDetailPage = () => {
       const response = await apiClient.get(path);
       return response.data;
     },
-    enabled: !!id && shopContextReady,
+    enabled: !!id && shopContextReady && publicApiShopReady,
   });
 
   // Response structure: {item, images, spinner} (already unwrapped by apiClient)
@@ -68,6 +68,18 @@ export const PublicItemDetailPage = () => {
 
   if (!shopContextReady) {
     return <div style={{ padding: '40px', textAlign: 'center' }}>Đang tải...</div>;
+  }
+
+  if (!publicApiShopReady) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: 8 }}>Chưa chọn cửa hàng</h2>
+        <p style={{ color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
+          Thêm <code style={{ background: '#fef3c7', padding: '2px 6px', borderRadius: 4 }}>?shop_id=</code> vào URL
+          (UUID hoặc slug), hoặc cấu hình <code style={{ background: '#fef3c7', padding: '2px 6px', borderRadius: 4 }}>VITE_PUBLIC_CATALOG_SHOP_ID</code> khi build.
+        </p>
+      </div>
+    );
   }
 
   if (isLoading) return <div style={{ padding: '40px', textAlign: 'center' }}>Đang tải...</div>;
@@ -457,6 +469,7 @@ export const PublicItemDetailPage = () => {
         effectiveShopId={effectiveShopId}
         shopSearch={shopQuery}
         shopContextReady={shopContextReady}
+        publicApiShopReady={publicApiShopReady}
       />
     </div>
   );
@@ -469,6 +482,7 @@ const RelatedItemsSection = ({
   effectiveShopId,
   shopSearch,
   shopContextReady,
+  publicApiShopReady,
 }: {
   currentItemId: string;
   carBrand?: string | null;
@@ -476,6 +490,7 @@ const RelatedItemsSection = ({
   effectiveShopId: string;
   shopSearch: string;
   shopContextReady: boolean;
+  publicApiShopReady: boolean;
 }) => {
   const isMobile = useIsMobile();
   const shouldQueryCar = Boolean(currentItemId && carBrand);
@@ -499,7 +514,7 @@ const RelatedItemsSection = ({
       const response = await apiClient.get(`/public/items?${params.toString()}`);
       return response.data;
     },
-    enabled: shopContextReady && shouldQueryCar,
+    enabled: shopContextReady && publicApiShopReady && shouldQueryCar,
   });
 
   // Query 2: Items with same Model Brand
@@ -520,7 +535,7 @@ const RelatedItemsSection = ({
       const response = await apiClient.get(`/public/items?${params.toString()}`);
       return response.data;
     },
-    enabled: shopContextReady && shouldQueryModel,
+    enabled: shopContextReady && publicApiShopReady && shouldQueryModel,
   });
 
   const uniqueSeedCount = useMemo(() => {
@@ -559,7 +574,11 @@ const RelatedItemsSection = ({
       return response.data;
     },
     enabled:
-      shopContextReady && !!currentItemId && readyForFallbackQuery && uniqueSeedCount < 5,
+      shopContextReady &&
+      publicApiShopReady &&
+      !!currentItemId &&
+      readyForFallbackQuery &&
+      uniqueSeedCount < 5,
   });
 
   const finalItems = useMemo(() => {
