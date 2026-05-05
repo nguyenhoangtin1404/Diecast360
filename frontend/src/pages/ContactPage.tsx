@@ -3,6 +3,14 @@ import { Phone, Facebook, MessageCircle } from 'lucide-react';
 import { usePublicShopContext } from '../hooks/usePublicShopContext';
 import { usePublicShopContact } from '../hooks/usePublicShopContact';
 
+/** Icon circles + links — same tokens as catalog / preorder CTAs (`ShopThemeProvider`). */
+const contactChannelAccent = {
+  link: 'var(--ct-primary, #4f46e5)',
+  iconBg:
+    'linear-gradient(135deg, var(--ct-primary, #4f46e5) 0%, var(--ct-secondary, #7c3aed) 100%)',
+  iconShadow: '0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.28)',
+} as const;
+
 /** Only allow http(s) links in href / window.open to avoid javascript: and other schemes. */
 function safeHttpUrl(url: string | undefined): string {
   if (!url) return '';
@@ -166,13 +174,13 @@ export const ContactPage = () => {
                 style={{
                   width: '64px',
                   height: '64px',
-                  backgroundColor: '#007bff',
+                  background: contactChannelAccent.iconBg,
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   margin: '0 auto 20px',
-                  boxShadow: '0 4px 12px rgba(0, 123, 255, 0.3)',
+                  boxShadow: contactChannelAccent.iconShadow,
                 }}
               >
                 <Phone size={32} color="white" />
@@ -192,7 +200,7 @@ export const ContactPage = () => {
                   href={phoneTelHref}
                   style={{
                     fontSize: '18px',
-                    color: '#007bff',
+                    color: contactChannelAccent.link,
                     textDecoration: 'none',
                     fontWeight: '500',
                     display: 'block',
@@ -207,7 +215,7 @@ export const ContactPage = () => {
                 <span
                   style={{
                     fontSize: '18px',
-                    color: '#007bff',
+                    color: contactChannelAccent.link,
                     fontWeight: '500',
                     display: 'block',
                   }}
@@ -250,13 +258,13 @@ export const ContactPage = () => {
                 style={{
                   width: '64px',
                   height: '64px',
-                  backgroundColor: '#1877f2',
+                  background: contactChannelAccent.iconBg,
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   margin: '0 auto 20px',
-                  boxShadow: '0 4px 12px rgba(24, 119, 242, 0.3)',
+                  boxShadow: contactChannelAccent.iconShadow,
                 }}
               >
                 <Facebook size={32} color="white" />
@@ -277,7 +285,7 @@ export const ContactPage = () => {
                 rel="noopener noreferrer"
                 style={{
                   fontSize: '18px',
-                  color: '#1877f2',
+                  color: contactChannelAccent.link,
                   textDecoration: 'none',
                   fontWeight: '500',
                   display: 'block',
@@ -325,13 +333,13 @@ export const ContactPage = () => {
                 style={{
                   width: '64px',
                   height: '64px',
-                  backgroundColor: '#0068ff',
+                  background: contactChannelAccent.iconBg,
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   margin: '0 auto 20px',
-                  boxShadow: '0 4px 12px rgba(0, 104, 255, 0.3)',
+                  boxShadow: contactChannelAccent.iconShadow,
                 }}
               >
                 <MessageCircle size={32} color="white" />
@@ -352,7 +360,7 @@ export const ContactPage = () => {
                 rel="noopener noreferrer"
                 style={{
                   fontSize: '18px',
-                  color: '#0068ff',
+                  color: contactChannelAccent.link,
                   textDecoration: 'none',
                   fontWeight: '500',
                   display: 'block',
