@@ -43,6 +43,15 @@ function resolveQuantityForStatus(status: ItemStatus, requestedQuantity?: number
   return requestedQuantity;
 }
 
+/** Trims and collapses empty optional brand fields to null (car_brand / model_brand). */
+function normalizeCategoryBrandField(value: string | undefined | null): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  const t = typeof value === 'string' ? value.trim() : '';
+  return t.length === 0 ? null : t;
+}
+
 @Injectable()
 export class ItemsService {
   private readonly logger = new Logger(ItemsService.name);
@@ -358,21 +367,18 @@ Condition: ${item.condition || ''}`;
     const shopId = this.requireActiveShopId(tenantId);
     this.validatePriceFields(createDto.price, createDto.original_price);
 
-    if (createDto.from_ai_import) {
-      const draftId = typeof createDto.draft_id === 'string' ? createDto.draft_id.trim() : '';
-      if (!draftId) {
-        throw new AppException(
-          ErrorCode.VALIDATION_ERROR,
-          'draft_id is required when from_ai_import is true',
-        );
-      }
-      const draftExists = await this.prisma.aiItemDraft.findUnique({
-        where: { id: draftId },
-        select: { id: true },
-      });
-      if (!draftExists) {
-        throw new AppException(ErrorCode.VALIDATION_ERROR, 'AI draft not found');
-      }
+    const carBrandNorm = normalizeCategoryBrandField(createDto.car_brand);
+    const modelBrandNorm = normalizeCategoryBrandField(createDto.model_brand);
+    const draftIdNorm =
+      typeof createDto.draft_id === 'string' && createDto.draft_id.trim().length > 0
+        ? createDto.draft_id.trim()
+        : null;
+
+    if (createDto.from_ai_import && !draftIdNorm) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'draft_id is required when from_ai_import is true',
+      );
     }
 
     // Declared outside transaction; cleared inside to handle potential retries
@@ -385,18 +391,17 @@ Condition: ${item.condition || ''}`;
       totalImages = 0;
       const initialStatus = (createDto.status as ItemStatus | undefined) ?? 'con_hang';
 
-      if (createDto.from_ai_import && createDto.draft_id) {
-        await this.ensureCategoriesForAiImportInTx(
-          tx,
-          createDto.car_brand,
-          createDto.model_brand,
-        );
+      if (createDto.from_ai_import && draftIdNorm) {
+        const draftRow = await tx.aiItemDraft.findUnique({
+          where: { id: draftIdNorm },
+          select: { id: true },
+        });
+        if (!draftRow) {
+          throw new AppException(ErrorCode.VALIDATION_ERROR, 'AI draft not found');
+        }
+        await this.ensureCategoriesForAiImportInTx(tx, carBrandNorm, modelBrandNorm);
       }
-      await this.validateCategoryMetadata(
-        createDto.car_brand,
-        createDto.model_brand,
-        tx,
-      );
+      await this.validateCategoryMetadata(carBrandNorm, modelBrandNorm, tx);
 
       const item = await tx.item.create({
         data: {
@@ -404,8 +409,8 @@ Condition: ${item.condition || ''}`;
           description: createDto.description,
           scale: createDto.scale || '1:64',
           brand: createDto.brand,
-          car_brand: createDto.car_brand || null,
-          model_brand: createDto.model_brand || null,
+          car_brand: carBrandNorm,
+          model_brand: modelBrandNorm,
           condition: (createDto.condition as 'new' | 'old' | undefined) || null,
           price: createDto.price !== undefined && createDto.price !== null ? createDto.price : null,
           original_price: createDto.original_price !== undefined && createDto.original_price !== null ? createDto.original_price : null,
@@ -418,8 +423,8 @@ Condition: ${item.condition || ''}`;
       });
 
       // Handle Draft if provided
-      if (createDto.draft_id) {
-        const draft = await tx.aiItemDraft.findUnique({ where: { id: createDto.draft_id } });
+      if (draftIdNorm) {
+        const draft = await tx.aiItemDraft.findUnique({ where: { id: draftIdNorm } });
         if (draft && draft.images_json) {
           const imageUrls = JSON.parse(draft.images_json) as string[];
           totalImages = imageUrls.length;
@@ -447,7 +452,7 @@ Condition: ${item.condition || ''}`;
                 this.logger.error(
                   `Failed to process draft image "${filename}" for item ${item.id}`,
                   e instanceof Error ? e.stack : undefined,
-                  `ItemsService.create | draftId=${createDto.draft_id}`,
+                  `ItemsService.create | draftId=${draftIdNorm}`,
                 );
               }
             }
@@ -538,8 +543,12 @@ Condition: ${item.condition || ''}`;
     if (updateDto.description !== undefined) updateData.description = updateDto.description;
     if (updateDto.scale !== undefined) updateData.scale = updateDto.scale;
     if (updateDto.brand !== undefined) updateData.brand = updateDto.brand;
-    if (updateDto.car_brand !== undefined) updateData.car_brand = updateDto.car_brand;
-    if (updateDto.model_brand !== undefined) updateData.model_brand = updateDto.model_brand;
+    if (updateDto.car_brand !== undefined) {
+      updateData.car_brand = normalizeCategoryBrandField(updateDto.car_brand);
+    }
+    if (updateDto.model_brand !== undefined) {
+      updateData.model_brand = normalizeCategoryBrandField(updateDto.model_brand);
+    }
     if (updateDto.condition !== undefined) updateData.condition = updateDto.condition;
     if (updateDto.price !== undefined) updateData.price = updateDto.price ?? null;
     if (updateDto.original_price !== undefined) updateData.original_price = updateDto.original_price ?? null;
@@ -556,7 +565,15 @@ Condition: ${item.condition || ''}`;
     if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
 
     if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
-      await this.validateCategoryMetadata(updateDto.car_brand, updateDto.model_brand);
+      const nextCarBrand =
+        updateDto.car_brand !== undefined
+          ? normalizeCategoryBrandField(updateDto.car_brand)
+          : normalizeCategoryBrandField(existingItem.car_brand);
+      const nextModelBrand =
+        updateDto.model_brand !== undefined
+          ? normalizeCategoryBrandField(updateDto.model_brand)
+          : normalizeCategoryBrandField(existingItem.model_brand);
+      await this.validateCategoryMetadata(nextCarBrand, nextModelBrand);
     }
 
     const item = await this.prisma.item.update({
@@ -980,12 +997,13 @@ Condition: ${item.condition || ''}`;
     ];
 
     for (const check of checks) {
-      if (!check.value) continue;
+      const normalized = normalizeCategoryBrandField(check.value);
+      if (!normalized) continue;
 
       const category = await db.category.findFirst({
         where: {
           type: check.type,
-          name: check.value,
+          name: normalized,
           is_active: true,
         },
       });
@@ -993,8 +1011,8 @@ Condition: ${item.condition || ''}`;
       if (!category) {
         throw new AppException(
           ErrorCode.ITEM_CATEGORY_INVALID,
-          `Invalid ${check.type} value "${check.value}". Category must exist and be active.`,
-          [{ type: check.type, value: check.value }],
+          `Invalid ${check.type} value "${normalized}". Category must exist and be active.`,
+          [{ type: check.type, value: normalized }],
         );
       }
     }

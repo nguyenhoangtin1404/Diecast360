@@ -280,6 +280,7 @@ describe('ItemsService', () => {
         errorCode: ErrorCode.VALIDATION_ERROR,
       });
       expect(prisma.category.create).not.toHaveBeenCalled();
+      expect(prisma.item.create).not.toHaveBeenCalled();
     });
 
     it('should create missing car_brand and model_brand categories when from_ai_import is true', async () => {
@@ -387,6 +388,51 @@ describe('ItemsService', () => {
         data: { is_active: true },
       });
       expect(prisma.category.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('should trim car_brand and model_brand so validation matches ensured categories', async () => {
+      prisma.aiItemDraft.findUnique
+        .mockResolvedValueOnce({ id: 'draft-1' })
+        .mockResolvedValueOnce({
+          id: 'draft-1',
+          images_json: JSON.stringify([]),
+          status: 'PENDING',
+        });
+      prisma.category.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          id: 'c-nissan',
+          type: 'car_brand',
+          name: 'Nissan',
+          is_active: true,
+        })
+        .mockResolvedValueOnce({
+          id: 'm-gtr',
+          type: 'model_brand',
+          name: 'GT-R R35',
+          is_active: true,
+        });
+      prisma.category.aggregate.mockResolvedValue({ _max: { display_order: 10 } });
+      prisma.category.create.mockResolvedValue({ id: 'new-id' });
+
+      await service.create(
+        {
+          name: 'AI Item',
+          draft_id: 'draft-1',
+          car_brand: '  Nissan ',
+          model_brand: ' GT-R R35 ',
+          from_ai_import: true,
+        },
+        TEST_SHOP_ID,
+      );
+
+      expect(prisma.item.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          car_brand: 'Nissan',
+          model_brand: 'GT-R R35',
+        }),
+      });
     });
 
     it('should reject create when original_price is lower than price', async () => {
@@ -745,6 +791,38 @@ describe('ItemsService', () => {
       expect(prisma.item.update).toHaveBeenCalledWith({
         where: { id: 'item-123' },
         data: expect.objectContaining({ name: 'Updated Name' }),
+      });
+    });
+
+    it('should trim car_brand when validating category metadata on update', async () => {
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        car_brand: null,
+        model_brand: null,
+      });
+      prisma.category.findFirst.mockResolvedValue({
+        id: 'c-t',
+        type: 'car_brand',
+        name: 'Toyota',
+        is_active: true,
+      });
+      prisma.item.update.mockResolvedValue({
+        ...mockItem,
+        car_brand: 'Toyota',
+      });
+
+      await service.update('item-123', { car_brand: '  Toyota ' }, TEST_SHOP_ID);
+
+      expect(prisma.category.findFirst).toHaveBeenCalledWith({
+        where: {
+          type: 'car_brand',
+          name: 'Toyota',
+          is_active: true,
+        },
+      });
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: expect.objectContaining({ car_brand: 'Toyota' }),
       });
     });
 
