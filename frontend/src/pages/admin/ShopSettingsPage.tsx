@@ -63,9 +63,13 @@ export const ShopSettingsPage = () => {
   const settingsQuery = useQuery({
     queryKey: ['shop-settings'],
     queryFn: async () => {
-      const res = await apiClient.get('/shop-settings');
-      const row = (res as { data?: ShopSettingsApiRow })?.data ?? (res as ShopSettingsApiRow);
-      return row;
+      const res = (await apiClient.get('/shop-settings')) as unknown;
+      const wrapped = res as { data?: ShopSettingsApiRow };
+      const row = wrapped?.data;
+      if (row && typeof row === 'object' && typeof row.id === 'string') {
+        return row;
+      }
+      throw new Error('Invalid shop settings response');
     },
   });
 

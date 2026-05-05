@@ -7,7 +7,7 @@ import { Prisma } from '../generated/prisma/client';
 import { toNumber } from '../common/utils/decimal.utils';
 import { totalPagesFromCount } from '../common/utils/pagination.utils';
 import { parseShopContactJson, ShopContactSettings } from '../shops/types/shop-contact.types';
-import { parseShopAppearanceJson, ShopAppearanceSettings } from '../shops/types/shop-appearance.types';
+import { parseShopAppearanceJson } from '../shops/types/shop-appearance.types';
 
 @Injectable()
 export class PublicService {

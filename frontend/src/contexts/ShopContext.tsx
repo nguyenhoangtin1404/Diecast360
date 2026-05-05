@@ -122,12 +122,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [authCtx?.isAuthenticated, authCtx?.loading, switchToShop]);
 
-  /* Hydrate allowed/active shops from /auth/me when auth state settles */
-  /* eslint-disable react-hooks/set-state-in-effect -- async loads shops then updates context state */
   useEffect(() => {
     void loadUserShops();
   }, [loadUserShops]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const switchShop = async (shopId: string) => {
     setLoading(true);

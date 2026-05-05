@@ -13,8 +13,8 @@ function str(v: unknown): string {
   return typeof v === 'string' ? v : '';
 }
 
-/** Hydrate edit-modal state from GET /admin/shops list row (`contact_json`). */
-export function parseShopContactFormDefaults(contactJson: Shop['contact_json']): ShopContactFormState {
+/** Hydrate form state from `contact_json` (API / admin list). */
+export function parseShopContactFormDefaults(contactJson: Shop['contact_json'] | unknown): ShopContactFormState {
   const root =
     contactJson && typeof contactJson === 'object' && !Array.isArray(contactJson)
       ? (contactJson as Record<string, unknown>)
