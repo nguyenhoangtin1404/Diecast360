@@ -391,17 +391,23 @@ export class ShopsService {
     const appearanceChanged =
       jsonStableStringify(oldShop.appearance_json) !== jsonStableStringify(nextAppearance);
 
-    const updated = await this.prisma.shop.update({
-      where: { id: tenantId },
-      data: { appearance_json: nextAppearance },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        contact_json: true,
-        appearance_json: true,
-      },
-    });
+    let updated;
+    try {
+      updated = await this.prisma.shop.update({
+        where: { id: tenantId },
+        data: { appearance_json: nextAppearance },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          contact_json: true,
+          appearance_json: true,
+        },
+      });
+    } catch (e) {
+      await this.storage.deleteFile(relativePath);
+      throw e;
+    }
 
     if (appearanceChanged) {
       await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {

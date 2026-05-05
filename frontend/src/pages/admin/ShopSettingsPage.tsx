@@ -54,6 +54,16 @@ const sectionTitle: CSSProperties = {
 };
 const hint: CSSProperties = { fontSize: '12px', color: '#6b7280', margin: 0, lineHeight: 1.45 };
 
+function extractApiErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === 'object' && 'message' in err) {
+    const m = (err as { message?: unknown }).message;
+    if (typeof m === 'string' && m.trim()) return m.trim();
+  }
+  const nested = (err as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
+  if (typeof nested === 'string' && nested.trim()) return nested.trim();
+  return fallback;
+}
+
 export const ShopSettingsPage = () => {
   const { activeShop } = useShop();
   const { user } = useAuth();
@@ -131,11 +141,7 @@ export const ShopSettingsPage = () => {
       await queryClient.invalidateQueries({ queryKey: shopSettingsQueryKey });
     },
     onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        (err as { message?: string })?.message ||
-        'Lưu thất bại.';
-      setSaveError(msg);
+      setSaveError(extractApiErrorMessage(err, 'Lưu thất bại.'));
       setSaveOk(null);
     },
   });
@@ -145,15 +151,6 @@ export const ShopSettingsPage = () => {
     setSaveOk(null);
     setSaveError(null);
     saveMutation.mutate();
-  };
-
-  const extractUploadMessage = (err: unknown): string => {
-    const data = err as { message?: string; response?: { data?: { message?: string } } };
-    return (
-      data?.response?.data?.message ||
-      data?.message ||
-      'Upload thất bại.'
-    );
   };
 
   const handleBrandingFile = async (kind: 'logo' | 'favicon', fileList: FileList | null) => {
@@ -178,7 +175,7 @@ export const ShopSettingsPage = () => {
       await queryClient.invalidateQueries({ queryKey: shopSettingsQueryKey });
       setSaveOk(kind === 'logo' ? 'Đã upload logo.' : 'Đã upload favicon.');
     } catch (err: unknown) {
-      setSaveError(extractUploadMessage(err));
+      setSaveError(extractApiErrorMessage(err, 'Upload thất bại.'));
     } finally {
       if (kind === 'logo') setUploadingLogo(false);
       else setUploadingFavicon(false);

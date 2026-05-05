@@ -14,7 +14,7 @@ jest.mock('bcrypt', () => ({
 
 describe('ShopsService', () => {
   let service: ShopsService;
-  let storage: { saveFile: jest.Mock; getFileUrl: jest.Mock };
+  let storage: { saveFile: jest.Mock; getFileUrl: jest.Mock; deleteFile: jest.Mock };
   let uploadSupport: { resolveAllowedMimeTypes: jest.Mock; resolveMaxUploadBytes: jest.Mock; validateFile: jest.Mock };
   let prisma: {
     shop: Record<string, jest.Mock>;
@@ -64,6 +64,7 @@ describe('ShopsService', () => {
     storage = {
       saveFile: jest.fn().mockResolvedValue('shop-branding/x.png'),
       getFileUrl: jest.fn((p: string) => `https://signed.example/${p}`),
+      deleteFile: jest.fn().mockResolvedValue(undefined),
     };
     uploadSupport = {
       resolveAllowedMimeTypes: jest.fn().mockReturnValue(['image/jpeg', 'image/png', 'image/webp']),
@@ -697,6 +698,25 @@ describe('ShopsService', () => {
         logo_url: 'https://signed.example/shop-branding/x.png',
       });
       expect(prisma.shopAuditLog.create).toHaveBeenCalled();
+    });
+
+    it('uploadAppearanceAsset deletes saved file when DB update fails', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        id: tenantId,
+        appearance_json: {},
+      });
+      prisma.shop.update.mockRejectedValue(new Error('db down'));
+      prisma.shopAuditLog.create.mockResolvedValue({});
+
+      const file = {
+        buffer: Buffer.from([1, 2, 3]),
+        mimetype: 'image/png',
+        size: 100,
+      } as Express.Multer.File;
+
+      await expect(service.uploadAppearanceAsset(tenantId, 'logo', file, 'u1')).rejects.toThrow('db down');
+      expect(storage.deleteFile).toHaveBeenCalledWith('shop-branding/x.png');
+      expect(prisma.shopAuditLog.create).not.toHaveBeenCalled();
     });
   });
 });
