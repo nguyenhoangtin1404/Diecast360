@@ -358,6 +358,23 @@ Condition: ${item.condition || ''}`;
     const shopId = this.requireActiveShopId(tenantId);
     this.validatePriceFields(createDto.price, createDto.original_price);
 
+    if (createDto.from_ai_import) {
+      const draftId = typeof createDto.draft_id === 'string' ? createDto.draft_id.trim() : '';
+      if (!draftId) {
+        throw new AppException(
+          ErrorCode.VALIDATION_ERROR,
+          'draft_id is required when from_ai_import is true',
+        );
+      }
+      const draftExists = await this.prisma.aiItemDraft.findUnique({
+        where: { id: draftId },
+        select: { id: true },
+      });
+      if (!draftExists) {
+        throw new AppException(ErrorCode.VALIDATION_ERROR, 'AI draft not found');
+      }
+    }
+
     // Declared outside transaction; cleared inside to handle potential retries
     let failedImages: { filename: string; error: string }[] = [];
     let totalImages = 0;
@@ -368,7 +385,7 @@ Condition: ${item.condition || ''}`;
       totalImages = 0;
       const initialStatus = (createDto.status as ItemStatus | undefined) ?? 'con_hang';
 
-      if (createDto.from_ai_import) {
+      if (createDto.from_ai_import && createDto.draft_id) {
         await this.ensureCategoriesForAiImportInTx(
           tx,
           createDto.car_brand,
@@ -538,27 +555,13 @@ Condition: ${item.condition || ''}`;
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
     if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
 
-    const item = await this.prisma.$transaction(async (tx) => {
-      if (updateDto.from_ai_import) {
-        await this.ensureCategoriesForAiImportInTx(
-          tx,
-          updateDto.car_brand !== undefined ? updateDto.car_brand : existingItem.car_brand,
-          updateDto.model_brand !== undefined ? updateDto.model_brand : existingItem.model_brand,
-        );
-      }
+    if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
+      await this.validateCategoryMetadata(updateDto.car_brand, updateDto.model_brand);
+    }
 
-      if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
-        await this.validateCategoryMetadata(
-          updateDto.car_brand !== undefined ? updateDto.car_brand : existingItem.car_brand,
-          updateDto.model_brand !== undefined ? updateDto.model_brand : existingItem.model_brand,
-          tx,
-        );
-      }
-
-      return tx.item.update({
-        where: { id },
-        data: updateData,
-      });
+    const item = await this.prisma.item.update({
+      where: { id },
+      data: updateData,
     });
 
     // Sync with vector store

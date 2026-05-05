@@ -69,7 +69,7 @@ export interface ItemFormData {
   description: string;
   quantity?: number;
   attributes?: ItemAttributesPayload;
-  /** When creating from AI import — server auto-adds missing category rows */
+  /** When creating from AI import — server auto-adds missing category rows (requires draft_id) */
   from_ai_import?: boolean;
 }
 

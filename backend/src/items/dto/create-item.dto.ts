@@ -76,7 +76,9 @@ export class CreateItemDto {
   @IsString()
   draft_id?: string;
 
-  /** When true (AI import flow), missing car/model brand categories are created automatically. */
+  /**
+   * AI import flow only: auto-create missing categories when paired with a valid `draft_id`.
+   */
   @IsOptional()
   @IsBoolean()
   from_ai_import?: boolean;

@@ -251,7 +251,45 @@ describe('ItemsService', () => {
       });
     });
 
+    it('should reject create when from_ai_import is true without draft_id', async () => {
+      await expect(
+        service.create(
+          { name: 'AI Item', from_ai_import: true, car_brand: 'X' },
+          TEST_SHOP_ID,
+        ),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+      });
+      expect(prisma.category.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject create when from_ai_import is true but draft does not exist', async () => {
+      prisma.aiItemDraft.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          {
+            name: 'AI Item',
+            from_ai_import: true,
+            draft_id: 'missing-draft',
+            car_brand: 'X',
+          },
+          TEST_SHOP_ID,
+        ),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+      });
+      expect(prisma.category.create).not.toHaveBeenCalled();
+    });
+
     it('should create missing car_brand and model_brand categories when from_ai_import is true', async () => {
+      prisma.aiItemDraft.findUnique
+        .mockResolvedValueOnce({ id: 'draft-1' })
+        .mockResolvedValueOnce({
+          id: 'draft-1',
+          images_json: JSON.stringify([]),
+          status: 'PENDING',
+        });
       prisma.category.findFirst
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(null)
@@ -273,6 +311,7 @@ describe('ItemsService', () => {
       await service.create(
         {
           name: 'AI Item',
+          draft_id: 'draft-1',
           car_brand: 'Nissan',
           model_brand: 'GT-R R35',
           from_ai_import: true,
@@ -297,6 +336,57 @@ describe('ItemsService', () => {
           display_order: 11,
         }),
       });
+    });
+
+    it('should reactivate inactive car_brand category when from_ai_import is true', async () => {
+      prisma.aiItemDraft.findUnique
+        .mockResolvedValueOnce({ id: 'draft-1' })
+        .mockResolvedValueOnce({
+          id: 'draft-1',
+          images_json: JSON.stringify([]),
+          status: 'PENDING',
+        });
+
+      prisma.category.findFirst
+        .mockResolvedValueOnce({
+          id: 'c-toyota',
+          type: 'car_brand',
+          name: 'Toyota',
+          is_active: false,
+        })
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          id: 'c-toyota',
+          type: 'car_brand',
+          name: 'Toyota',
+          is_active: true,
+        })
+        .mockResolvedValueOnce({
+          id: 'm-ae86',
+          type: 'model_brand',
+          name: 'AE86',
+          is_active: true,
+        });
+
+      prisma.category.aggregate.mockResolvedValue({ _max: { display_order: 5 } });
+      prisma.category.create.mockResolvedValue({ id: 'new-model' });
+
+      await service.create(
+        {
+          name: 'AI Item',
+          draft_id: 'draft-1',
+          car_brand: 'Toyota',
+          model_brand: 'AE86',
+          from_ai_import: true,
+        },
+        TEST_SHOP_ID,
+      );
+
+      expect(prisma.category.update).toHaveBeenCalledWith({
+        where: { id: 'c-toyota' },
+        data: { is_active: true },
+      });
+      expect(prisma.category.create).toHaveBeenCalledTimes(1);
     });
 
     it('should reject create when original_price is lower than price', async () => {

@@ -76,10 +76,5 @@ export class UpdateItemDto {
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
   fb_post_content?: string;
-
-  /** When true (AI import flow), missing car/model brand categories are created automatically. */
-  @IsOptional()
-  @IsBoolean()
-  from_ai_import?: boolean;
 }
 
