@@ -137,7 +137,9 @@ export const ShopSettingsPage = () => {
     onSuccess: async (res) => {
       setSaveError(null);
       if (res && typeof res === 'object' && 'skipped' in res && (res as { skipped?: boolean }).skipped) {
-        setSaveOk('Không có thay đổi cần lưu.');
+        setSaveOk(
+          'Không có thay đổi để lưu qua nút này. Logo và favicon đã được lưu ngay khi upload — chỉ bấm «Lưu» khi bạn sửa liên hệ, URL/màu/font hoặc các trường khác.',
+        );
         return;
       }
       setSaveOk('Đã lưu cấu hình shop.');
@@ -269,7 +271,7 @@ export const ShopSettingsPage = () => {
           </h2>
           <p style={{ ...hint, marginBottom: '16px' }}>
             Dữ liệu lưu trong <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>appearance_json</code>
-            . Áp dụng lên catalog công khai có thể làm ở bước sau.
+            . Upload logo/favicon lưu ngay khi chọn file; nút «Lưu cấu hình» chỉ gửi các thay đổi bạn nhập tay (liên hệ, URL, màu, font).
           </p>
 
           <div style={formRow}>
