@@ -30,7 +30,7 @@ describe('shopThemeCss', () => {
   it('rgbToHslTriplet produces shadcn-style H S% L% string', () => {
     const triplet = rgbToHslTriplet({ r: 79, g: 70, b: 229 });
     expect(triplet).toMatch(/^\d{1,3} \d{1,3}% \d{1,3}%$/);
-    expect(triplet).toBe('239 84% 67%');
+    expect(triplet).toBe('243 75% 59%');
   });
 
   it('foregroundHslForBackground picks contrasting foreground', () => {
@@ -46,7 +46,7 @@ describe('shopThemeCss', () => {
 
   it('accentSurfaceFromPrimary derives surface from hue', () => {
     const { surface, fg } = accentSurfaceFromPrimary({ r: 79, g: 70, b: 229 });
-    expect(surface).toMatch(/^239 /);
-    expect(fg).toMatch(/^239 /);
+    expect(surface).toMatch(/^243 /);
+    expect(fg).toMatch(/^243 /);
   });
 });
