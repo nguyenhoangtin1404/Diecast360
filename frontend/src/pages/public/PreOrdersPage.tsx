@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { PREORDER_STATUS_LABELS } from '../../constants/preorder';
 import { safeHttpUrlForAttribute } from '../../utils/safeHttpUrl';
 import { sanitizeShopIdQueryParam } from '../../utils/sanitizeShopId';
-import { BottomNavigation } from './preorders/BottomNavigation';
+import { PublicBlobPageShell } from '../../components/PublicBlobPageShell';
 import styles from './preorders/preordersPublic.module.css';
 
 const formatCountdown = (target: string | null) => {
@@ -40,49 +40,50 @@ export const PreOrdersPage = () => {
   const cards = data?.cards ?? [];
 
   return (
-    <div className={styles.page}>
-      <h1 className={styles.heading}>
-        Mô hình <span className={styles.headingGradient}>Đặt trước</span>
-      </h1>
-      {isLoading && <div className={styles.loading}>Đang tải danh sách...</div>}
-      {authLoading && !shopId && !hasDeterministicShopContext && (
-        <div className={styles.loading}>Đang tải thông tin shop...</div>
-      )}
-      {!authLoading && !shopId && (
-        <div className={styles.alert}>
-          Chưa có thông tin shop để hiển thị pre-order. Dùng <code>?shop_id=...</code> trên URL hoặc cấu hình{' '}
-          <code>VITE_PUBLIC_PREORDER_SHOP_ID</code> khi build (xem <code>frontend/.env.example</code>).
-        </div>
-      )}
-      {shopId && isError && (
-        <div className={styles.alert}>Không thể tải danh sách pre-order. Vui lòng thử lại.</div>
-      )}
-      {shopId && !isLoading && !isError && cards.length === 0 && (
-        <div className={styles.alert}>Chưa có sản phẩm pre-order nào ở thời điểm hiện tại.</div>
-      )}
-      {cards.map((card) => (
-        <article key={card.id} className={styles.card} data-testid="public-preorder-card">
-          <img
-            className={styles.image}
-            src={safeHttpUrlForAttribute(card.cover_image_url)}
-            alt={card.title}
-          />
-          <div className={styles.body}>
-            <span className={styles.badge} data-testid="public-preorder-status-badge">
-              {PREORDER_STATUS_LABELS[card.status]}
-            </span>
-            <strong>{card.title}</strong>
-            <span>{card.short_specs}</span>
-            <span data-testid="public-preorder-countdown">{formatCountdown(card.countdown_target)}</span>
-            <span className={styles.price}>{card.display_price.toLocaleString('vi-VN')} VND</span>
-            <button className={styles.cta} type="button" data-testid="public-preorder-cta">
-              Đặt hàng ngay
-            </button>
+    <PublicBlobPageShell>
+      <div className={styles.pageContent}>
+        <h1 className={styles.heading}>
+          Mô hình <span className={styles.headingGradient}>Đặt trước</span>
+        </h1>
+        {isLoading && <div className={styles.loading}>Đang tải danh sách...</div>}
+        {authLoading && !shopId && !hasDeterministicShopContext && (
+          <div className={styles.loading}>Đang tải thông tin shop...</div>
+        )}
+        {!authLoading && !shopId && (
+          <div className={styles.alert}>
+            Chưa có thông tin shop để hiển thị pre-order. Dùng <code>?shop_id=...</code> trên URL hoặc cấu hình{' '}
+            <code>VITE_PUBLIC_PREORDER_SHOP_ID</code> khi build (xem <code>frontend/.env.example</code>).
           </div>
-        </article>
-      ))}
-      <BottomNavigation preordersSearch={shopId ? `?shop_id=${encodeURIComponent(shopId)}` : ''} />
-    </div>
+        )}
+        {shopId && isError && (
+          <div className={styles.alert}>Không thể tải danh sách pre-order. Vui lòng thử lại.</div>
+        )}
+        {shopId && !isLoading && !isError && cards.length === 0 && (
+          <div className={styles.alert}>Chưa có sản phẩm pre-order nào ở thời điểm hiện tại.</div>
+        )}
+        {cards.map((card) => (
+          <article key={card.id} className={styles.card} data-testid="public-preorder-card">
+            <img
+              className={styles.image}
+              src={safeHttpUrlForAttribute(card.cover_image_url)}
+              alt={card.title}
+            />
+            <div className={styles.body}>
+              <span className={styles.badge} data-testid="public-preorder-status-badge">
+                {PREORDER_STATUS_LABELS[card.status]}
+              </span>
+              <strong>{card.title}</strong>
+              <span>{card.short_specs}</span>
+              <span data-testid="public-preorder-countdown">{formatCountdown(card.countdown_target)}</span>
+              <span className={styles.price}>{card.display_price.toLocaleString('vi-VN')} VND</span>
+              <button className={styles.cta} type="button" data-testid="public-preorder-cta">
+                Đặt hàng ngay
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </PublicBlobPageShell>
   );
 };
 
