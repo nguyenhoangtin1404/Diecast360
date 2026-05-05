@@ -27,7 +27,7 @@ export function MemberListPanel(props: MemberListPanelProps) {
         <button
           type="button"
           onClick={props.onOpenCreateModal}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-shop text-white shadow-sm transition hover:bg-shop/90"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-shop text-white shadow-sm transition hover:bg-shop/90 active:bg-shop/80"
           aria-label="Tạo hội viên mới"
           title="Tạo hội viên mới"
         >

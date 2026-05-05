@@ -90,8 +90,9 @@ export function rgbToHslTriplet({ r, g, b }: Rgb): string {
   return `${H} ${S}% ${L}%`;
 }
 
+/** Space-separated channels for `rgb(var(--shop-primary-rgb) / α)` (CSS Color 4 — commas break alpha syntax). */
 export function rgbToCssTriplet({ r, g, b }: Rgb): string {
-  return `${clamp255(r)}, ${clamp255(g)}, ${clamp255(b)}`;
+  return `${clamp255(r)} ${clamp255(g)} ${clamp255(b)}`;
 }
 
 export function foregroundHslForBackground(bg: Rgb): string {

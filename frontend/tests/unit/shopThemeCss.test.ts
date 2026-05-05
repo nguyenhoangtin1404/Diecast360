@@ -8,6 +8,7 @@ import {
   relativeLuminance,
   resolveAccentRgb,
   resolvePrimaryRgb,
+  rgbToCssTriplet,
   rgbToHslTriplet,
 } from '../../src/utils/shopThemeCss';
 
@@ -25,6 +26,10 @@ describe('shopThemeCss', () => {
   it('resolvePrimaryRgb / resolveAccentRgb fall back when empty', () => {
     expect(resolvePrimaryRgb('   ')).toEqual({ r: 79, g: 70, b: 229 });
     expect(resolveAccentRgb('')).toEqual({ r: 124, g: 58, b: 237 });
+  });
+
+  it('rgbToCssTriplet uses space-separated channels for rgb(... / alpha)', () => {
+    expect(rgbToCssTriplet({ r: 79, g: 70, b: 229 })).toBe('79 70 229');
   });
 
   it('rgbToHslTriplet produces shadcn-style H S% L% string', () => {

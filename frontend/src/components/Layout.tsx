@@ -41,14 +41,14 @@ const publicNavLinkBase =
   'inline-flex min-h-[44px] items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-all duration-200 ease-out hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2';
 
 const publicNavLinkActive =
-  'bg-shop/10 text-shop ring-1 ring-shop/20 shadow-sm hover:bg-shop/15 hover:text-shop';
+  'bg-shop/10 text-shop ring-1 ring-shop/20 shadow-sm hover:bg-shop/15 active:bg-shop/15 hover:text-shop';
 
 /** Admin — menu cột trong sidebar trái. */
 const adminSidebarNavLinkBase =
   'flex w-full min-h-[44px] items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-all duration-200 ease-out hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2';
 
 const adminSidebarNavLinkActive =
-  'bg-shop/10 text-shop ring-1 ring-shop/20 shadow-sm hover:bg-shop/15 hover:text-shop';
+  'bg-shop/10 text-shop ring-1 ring-shop/20 shadow-sm hover:bg-shop/15 active:bg-shop/15 hover:text-shop';
 
 /** Shared gradient tile when no custom logo (public + admin). */
 function BrandFallbackTile({ className }: { className: string }) {
@@ -369,7 +369,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 )}
                 <button
                   type="button"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-200 hover:border-shop/30 hover:bg-shop/10 hover:text-shop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2 md:hidden"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-200 hover:border-shop/30 hover:bg-shop/10 active:bg-shop/15 hover:text-shop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2 md:hidden"
                   onClick={toggleMobileMenu}
                   aria-label={isMenuOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng'}
                   aria-expanded={isMenuOpen}
@@ -509,7 +509,7 @@ export const Layout = ({ children }: LayoutProps) => {
           </Link>
           <button
             type="button"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-200 hover:border-shop/30 hover:bg-shop/10 hover:text-shop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-200 hover:border-shop/30 hover:bg-shop/10 active:bg-shop/15 hover:text-shop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
             onClick={toggleMobileMenu}
             aria-label={isMenuOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng'}
             aria-expanded={isMenuOpen}
