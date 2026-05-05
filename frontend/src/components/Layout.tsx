@@ -5,6 +5,7 @@ import {
   Home,
   LogOut,
   Menu,
+  Palette,
   Phone,
   ShoppingBag,
   Sparkles,
@@ -20,6 +21,7 @@ import {
   isAdminMembersActive,
   isAdminItemsSectionActive,
   isAdminPreordersHubActive,
+  isAdminShopSettingsActive,
 } from '../config/routes';
 import { cn } from '../lib/utils';
 import { usePublicShopContext } from '../hooks/usePublicShopContext';
@@ -184,6 +186,17 @@ export const Layout = ({ children }: LayoutProps) => {
           📘
         </span>
         <span>Bài đăng FB</span>
+      </Link>
+      <Link
+        to={ROUTES.admin.shopSettings}
+        className={cn(
+          adminSidebarNavLinkBase,
+          isAdminShopSettingsActive(pathname) && adminSidebarNavLinkActive,
+        )}
+        onClick={closeMobileMenu}
+      >
+        <Palette size={18} strokeWidth={2} />
+        <span>Cấu hình shop</span>
       </Link>
       {isSuperAdmin && (
         <Link

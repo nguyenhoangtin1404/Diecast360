@@ -7,6 +7,7 @@ import { useShopItems } from './shops/useShopItems';
 import { useAuditLogs } from './shops/useAuditLogs';
 import type { Shop, ShopAuditLogRow, ShopMemberRow } from './shops/types';
 import { buildShopContactPatch, parseShopContactFormDefaults } from './shops/shopContactForm';
+import { ShopContactFields } from './shops/ShopContactFields';
 import ShopCard from './shops/ShopCard';
 import ShopItemsModal from './shops/modals/ShopItemsModal';
 import ShopAuditModal from './shops/modals/ShopAuditModal';
@@ -847,201 +848,18 @@ const ShopsPage: React.FC = () => {
                   </p>
                 </div>
 
-                <div style={styles.formRow}>
-                  <label style={styles.modalLabel} htmlFor={`edit-contact-title-${editTargetShop.id}`}>
-                    Tiêu đề trang
-                  </label>
-                  <input
-                    id={`edit-contact-title-${editTargetShop.id}`}
-                    style={styles.modalInput}
-                    value={editShopContact.page_title}
-                    onChange={(e) =>
-                      setEditShopContact((c) => ({ ...c, page_title: e.target.value }))
-                    }
-                    autoComplete="off"
-                    placeholder="Ví dụ: Liên hệ với chúng tôi"
-                  />
-                </div>
-                <div style={styles.formRow}>
-                  <label style={styles.modalLabel} htmlFor={`edit-contact-sub-${editTargetShop.id}`}>
-                    Mô tả dưới tiêu đề
-                  </label>
-                  <input
-                    id={`edit-contact-sub-${editTargetShop.id}`}
-                    style={styles.modalInput}
-                    value={editShopContact.page_subtitle}
-                    onChange={(e) =>
-                      setEditShopContact((c) => ({ ...c, page_subtitle: e.target.value }))
-                    }
-                    autoComplete="off"
-                  />
-                </div>
-
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginTop: '4px' }}>Điện thoại</div>
-                <div style={styles.formRow}>
-                  <label style={styles.modalLabel} htmlFor={`edit-phone-tel-${editTargetShop.id}`}>
-                    Số gọi (tel, có thể gồm +)
-                  </label>
-                  <input
-                    id={`edit-phone-tel-${editTargetShop.id}`}
-                    style={styles.modalInput}
-                    value={editShopContact.phone.tel}
-                    onChange={(e) =>
-                      setEditShopContact((c) => ({
-                        ...c,
-                        phone: { ...c.phone, tel: e.target.value },
-                      }))
-                    }
-                    autoComplete="off"
-                    placeholder="+84856694766"
-                  />
-                </div>
-                <div style={styles.formRow}>
-                  <label style={styles.modalLabel} htmlFor={`edit-phone-label-${editTargetShop.id}`}>
-                    Dòng hiển thị (nếu trống sẽ dùng số gọi)
-                  </label>
-                  <input
-                    id={`edit-phone-label-${editTargetShop.id}`}
-                    style={styles.modalInput}
-                    value={editShopContact.phone.label}
-                    onChange={(e) =>
-                      setEditShopContact((c) => ({
-                        ...c,
-                        phone: { ...c.phone, label: e.target.value },
-                      }))
-                    }
-                    autoComplete="off"
-                    placeholder="0856694766"
-                  />
-                </div>
-                <div style={styles.formRow}>
-                  <label style={styles.modalLabel} htmlFor={`edit-phone-hint-${editTargetShop.id}`}>
-                    Gợi ý phụ
-                  </label>
-                  <input
-                    id={`edit-phone-hint-${editTargetShop.id}`}
-                    style={styles.modalInput}
-                    value={editShopContact.phone.hint}
-                    onChange={(e) =>
-                      setEditShopContact((c) => ({
-                        ...c,
-                        phone: { ...c.phone, hint: e.target.value },
-                      }))
-                    }
-                    autoComplete="off"
-                    placeholder="Gọi ngay để được tư vấn"
-                  />
-                </div>
-
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginTop: '8px' }}>Facebook</div>
-                <div style={styles.formRow}>
-                  <label style={styles.modalLabel} htmlFor={`edit-fb-url-${editTargetShop.id}`}>
-                    URL
-                  </label>
-                  <input
-                    id={`edit-fb-url-${editTargetShop.id}`}
-                    style={styles.modalInput}
-                    value={editShopContact.facebook.url}
-                    onChange={(e) =>
-                      setEditShopContact((c) => ({
-                        ...c,
-                        facebook: { ...c.facebook, url: e.target.value },
-                      }))
-                    }
-                    autoComplete="off"
-                    placeholder="https://www.facebook.com/..."
-                  />
-                </div>
-                <div style={styles.formRow}>
-                  <label style={styles.modalLabel} htmlFor={`edit-fb-label-${editTargetShop.id}`}>
-                    Text link (tùy chọn)
-                  </label>
-                  <input
-                    id={`edit-fb-label-${editTargetShop.id}`}
-                    style={styles.modalInput}
-                    value={editShopContact.facebook.label}
-                    onChange={(e) =>
-                      setEditShopContact((c) => ({
-                        ...c,
-                        facebook: { ...c.facebook, label: e.target.value },
-                      }))
-                    }
-                    autoComplete="off"
-                  />
-                </div>
-
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginTop: '8px' }}>Zalo</div>
-                <div style={styles.formRow}>
-                  <label style={styles.modalLabel} htmlFor={`edit-zalo-url-${editTargetShop.id}`}>
-                    URL (zalo.me/...)
-                  </label>
-                  <input
-                    id={`edit-zalo-url-${editTargetShop.id}`}
-                    style={styles.modalInput}
-                    value={editShopContact.zalo.url}
-                    onChange={(e) =>
-                      setEditShopContact((c) => ({
-                        ...c,
-                        zalo: { ...c.zalo, url: e.target.value },
-                      }))
-                    }
-                    autoComplete="off"
-                    placeholder="https://zalo.me/..."
-                  />
-                </div>
-                <div style={styles.formRow}>
-                  <label style={styles.modalLabel} htmlFor={`edit-zalo-label-${editTargetShop.id}`}>
-                    Dòng hiển thị
-                  </label>
-                  <input
-                    id={`edit-zalo-label-${editTargetShop.id}`}
-                    style={styles.modalInput}
-                    value={editShopContact.zalo.label}
-                    onChange={(e) =>
-                      setEditShopContact((c) => ({
-                        ...c,
-                        zalo: { ...c.zalo, label: e.target.value },
-                      }))
-                    }
-                    autoComplete="off"
-                  />
-                </div>
-
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginTop: '8px' }}>Giờ làm việc</div>
-                <div style={styles.formRow}>
-                  <label style={styles.modalLabel} htmlFor={`edit-hours-line-${editTargetShop.id}`}>
-                    Dòng lịch (có thể dùng **in đậm**)
-                  </label>
-                  <textarea
-                    id={`edit-hours-line-${editTargetShop.id}`}
-                    style={{ ...styles.modalInput, minHeight: '72px', resize: 'vertical' as const }}
-                    value={editShopContact.hours.schedule_line}
-                    onChange={(e) =>
-                      setEditShopContact((c) => ({
-                        ...c,
-                        hours: { ...c.hours, schedule_line: e.target.value },
-                      }))
-                    }
-                    placeholder="**Thứ 2 - Chủ nhật:** 9:00 - 21:00"
-                  />
-                </div>
-                <div style={styles.formRow}>
-                  <label style={styles.modalLabel} htmlFor={`edit-hours-foot-${editTargetShop.id}`}>
-                    Dòng chú thích dưới
-                  </label>
-                  <input
-                    id={`edit-hours-foot-${editTargetShop.id}`}
-                    style={styles.modalInput}
-                    value={editShopContact.hours.footer_note}
-                    onChange={(e) =>
-                      setEditShopContact((c) => ({
-                        ...c,
-                        hours: { ...c.hours, footer_note: e.target.value },
-                      }))
-                    }
-                    autoComplete="off"
-                  />
-                </div>
+                <ShopContactFields
+                  idPrefix={`edit-shop-${editTargetShop.id}`}
+                  value={editShopContact}
+                  onChange={setEditShopContact}
+                  styles={{
+                    formRow: styles.formRow,
+                    modalLabel: styles.modalLabel,
+                    modalInput: styles.modalInput,
+                    modalHint: styles.modalHint,
+                    sectionTitle: { fontSize: '13px', fontWeight: 600, color: '#374151', marginTop: '8px' },
+                  }}
+                />
 
                 <div style={styles.modalActions}>
                   <button type="button" style={styles.modalCancelBtn} onClick={closeEditShopModal} disabled={editShopSaving}>

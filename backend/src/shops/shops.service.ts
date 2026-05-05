@@ -7,6 +7,7 @@ import { QueryShopMembersDto } from './dto/query-shop-members.dto';
 import { QueryShopItemsDto } from './dto/query-shop-items.dto';
 import { QueryShopAuditLogsDto } from './dto/query-shop-audit-logs.dto';
 import { UpdateShopDto, ShopContactPatchDto } from './dto/update-shop.dto';
+import { ShopAppearancePatchDto } from './dto/update-shop-appearance.dto';
 import { AddShopAdminDto } from './dto/add-shop-admin.dto';
 import { Prisma, ShopAuditAction, ShopRole } from '../generated/prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -89,6 +90,33 @@ export class ShopsService {
       }
     }
 
+    return next as Prisma.InputJsonValue;
+  }
+
+  private mergeAppearanceJson(
+    existing: Prisma.JsonValue,
+    patch: ShopAppearancePatchDto,
+  ): Prisma.InputJsonValue {
+    const baseObj =
+      typeof existing === 'object' && existing !== null && !Array.isArray(existing)
+        ? { ...(existing as Record<string, unknown>) }
+        : {};
+    const next: Record<string, unknown> = { ...baseObj };
+    const entries: [keyof typeof patch, unknown][] = [
+      ['logo_url', patch.logo_url],
+      ['favicon_url', patch.favicon_url],
+      ['primary_color', patch.primary_color],
+      ['accent_color', patch.accent_color],
+      ['font_family', patch.font_family],
+    ];
+    for (const [key, val] of entries) {
+      if (val === undefined) continue;
+      if (typeof val === 'string' && val.trim() === '') {
+        delete next[key as string];
+      } else {
+        next[key as string] = val;
+      }
+    }
     return next as Prisma.InputJsonValue;
   }
 
@@ -231,6 +259,71 @@ export class ShopsService {
     if (contactChanged) {
       await this.logAudit(id, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', id, {
         field: 'contact_json',
+      });
+    }
+
+    return updated;
+  }
+
+  /**
+   * Shop-scoped settings (contact + appearance) for the active tenant.
+   * Used by shop_admin / shop_staff via GET/PATCH /shop-settings.
+   */
+  async getTenantShopSettings(tenantId: string) {
+    const shop = await this.prisma.shop.findFirst({
+      where: { id: tenantId, is_active: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        contact_json: true,
+        appearance_json: true,
+      },
+    });
+    if (!shop) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found');
+    }
+    return shop;
+  }
+
+  async updateContactAndAppearanceForTenant(
+    tenantId: string,
+    contact?: ShopContactPatchDto,
+    appearance?: ShopAppearancePatchDto,
+    actorUserId?: string | null,
+  ) {
+    if (contact === undefined && appearance === undefined) {
+      return this.getTenantShopSettings(tenantId);
+    }
+    const oldShop = await this.getTenantShopSettings(tenantId);
+    const data: Prisma.ShopUpdateInput = {};
+    if (contact !== undefined) {
+      data.contact_json = this.mergeContactJson(oldShop.contact_json, contact);
+    }
+    if (appearance !== undefined) {
+      data.appearance_json = this.mergeAppearanceJson(oldShop.appearance_json, appearance);
+    }
+
+    const updated = await this.prisma.shop.update({
+      where: { id: tenantId },
+      data,
+    });
+
+    const contactChanged =
+      contact !== undefined &&
+      JSON.stringify(oldShop.contact_json) !== JSON.stringify(updated.contact_json);
+    const appearanceChanged =
+      appearance !== undefined &&
+      JSON.stringify(oldShop.appearance_json) !== JSON.stringify(updated.appearance_json);
+
+    if (contactChanged) {
+      await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
+        field: 'contact_json',
+      });
+    }
+    if (appearanceChanged) {
+      await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
+        field: 'appearance_json',
       });
     }
 

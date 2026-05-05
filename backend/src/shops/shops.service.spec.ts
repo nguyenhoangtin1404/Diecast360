@@ -26,6 +26,7 @@ describe('ShopsService', () => {
     prisma = {
       shop: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         update: jest.fn(),
       },
       item: {
@@ -593,6 +594,61 @@ describe('ShopsService', () => {
           data: expect.objectContaining({
             action: 'update_shop',
             metadata_json: expect.stringContaining('contact_json'),
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('tenant shop settings', () => {
+    const tenantId = 'shop-tenant-1';
+
+    it('getTenantShopSettings returns slim shop row', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        id: tenantId,
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: {},
+      });
+
+      const out = await service.getTenantShopSettings(tenantId);
+
+      expect(out.id).toBe(tenantId);
+      expect(prisma.shop.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: tenantId, is_active: true } }),
+      );
+    });
+
+    it('updateContactAndAppearanceForTenant merges appearance', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        id: tenantId,
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: {},
+      });
+      prisma.shop.update.mockResolvedValue({
+        id: tenantId,
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: { logo_url: 'https://cdn.example/logo.png' },
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({});
+
+      await service.updateContactAndAppearanceForTenant(
+        tenantId,
+        undefined,
+        { logo_url: 'https://cdn.example/logo.png' },
+        'u1',
+      );
+
+      expect(prisma.shop.update).toHaveBeenCalled();
+      expect(prisma.shopAuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            metadata_json: expect.stringContaining('appearance_json'),
           }),
         }),
       );

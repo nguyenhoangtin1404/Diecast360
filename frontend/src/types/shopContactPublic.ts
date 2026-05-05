@@ -28,4 +28,12 @@ export type PublicShopContactResponse = {
       footer_note?: string;
     };
   };
+  /** Branding keys for future public UI; optional until storefront consumes them */
+  appearance?: {
+    logo_url?: string;
+    favicon_url?: string;
+    primary_color?: string;
+    accent_color?: string;
+    font_family?: string;
+  };
 };

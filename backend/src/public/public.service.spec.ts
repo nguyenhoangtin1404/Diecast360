@@ -71,6 +71,7 @@ describe('PublicService', () => {
         name: 'My Shop',
         slug: 'my-shop',
         contact_json: {},
+        appearance_json: {},
       });
 
       const out = await service.getShopContact('shop-1');
@@ -79,6 +80,7 @@ describe('PublicService', () => {
       expect(out.contact.page_title).toBe('Liên hệ với chúng tôi');
       expect(out.contact.phone?.hint).toBe('Gọi ngay để được tư vấn');
       expect(String(out.contact.hours?.schedule_line)).toContain('My Shop');
+      expect(out.appearance).toEqual({});
     });
 
     it('throws NOT_FOUND when shop is missing or inactive', async () => {

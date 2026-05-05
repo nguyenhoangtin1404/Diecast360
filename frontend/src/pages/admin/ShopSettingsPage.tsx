@@ -1,0 +1,258 @@
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Palette } from 'lucide-react';
+import { apiClient } from '../../api/client';
+import { useShop } from '../../hooks/useShop';
+import { buildShopContactPatch, parseShopContactFormDefaults } from './shops/shopContactForm';
+import { buildAppearancePatch, parseAppearanceFormDefaults } from './shops/shopSettingsForm';
+import type { ShopContactFormState } from './shops/types/shopContact';
+import type { ShopAppearanceFormState } from './shops/types/shopSettings';
+import { ShopContactFields } from './shops/ShopContactFields';
+
+type ShopSettingsApiRow = {
+  id: string;
+  name: string;
+  slug: string;
+  contact_json?: unknown;
+  appearance_json?: unknown;
+};
+
+const card: CSSProperties = {
+  background: '#fff',
+  border: '1px solid #e2e8f0',
+  borderRadius: '12px',
+  padding: '24px',
+  marginBottom: '20px',
+  boxShadow: '0 4px 14px rgba(15,23,42,0.06)',
+};
+
+const label: CSSProperties = {
+  fontSize: '13px',
+  fontWeight: 500,
+  color: '#374151',
+};
+
+const input: CSSProperties = {
+  padding: '8px 12px',
+  border: '1px solid #d1d5db',
+  borderRadius: '8px',
+  fontSize: '14px',
+  color: '#111827',
+  width: '100%',
+  boxSizing: 'border-box',
+};
+
+const formRow: CSSProperties = { display: 'flex', flexDirection: 'column', gap: '6px' };
+const sectionTitle: CSSProperties = {
+  fontSize: '14px',
+  fontWeight: 600,
+  color: '#111827',
+  marginTop: '8px',
+  marginBottom: '4px',
+};
+const hint: CSSProperties = { fontSize: '12px', color: '#6b7280', margin: 0, lineHeight: 1.45 };
+
+export const ShopSettingsPage = () => {
+  const { activeShop } = useShop();
+  const queryClient = useQueryClient();
+  const [contact, setContact] = useState<ShopContactFormState>(() => parseShopContactFormDefaults(undefined));
+  const [appearance, setAppearance] = useState<ShopAppearanceFormState>(() => parseAppearanceFormDefaults(undefined));
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveOk, setSaveOk] = useState<string | null>(null);
+
+  const settingsQuery = useQuery({
+    queryKey: ['shop-settings'],
+    queryFn: async () => {
+      const res = await apiClient.get('/shop-settings');
+      const row = (res as { data?: ShopSettingsApiRow })?.data ?? (res as ShopSettingsApiRow);
+      return row;
+    },
+  });
+
+  /* Sync form from server when GET /shop-settings resolves (or refetches) */
+  /* eslint-disable react-hooks/set-state-in-effect -- hydrate local form from query result */
+  useEffect(() => {
+    const row = settingsQuery.data;
+    if (!row) return;
+    setContact(parseShopContactFormDefaults(row.contact_json));
+    setAppearance(parseAppearanceFormDefaults(row.appearance_json));
+  }, [settingsQuery.data]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const contactPatch = buildShopContactPatch(contact).contact;
+      const appearancePatch = buildAppearancePatch(appearance);
+      return apiClient.patch('/shop-settings', {
+        contact: contactPatch,
+        appearance: appearancePatch,
+      });
+    },
+    onSuccess: async () => {
+      setSaveError(null);
+      setSaveOk('Đã lưu cấu hình shop.');
+      await queryClient.invalidateQueries({ queryKey: ['shop-settings'] });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err as { message?: string })?.message ||
+        'Lưu thất bại.';
+      setSaveError(msg);
+      setSaveOk(null);
+    },
+  });
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    setSaveOk(null);
+    setSaveError(null);
+    saveMutation.mutate();
+  };
+
+  if (settingsQuery.isLoading) {
+    return (
+      <div style={{ padding: '32px', maxWidth: '720px', margin: '0 auto' }}>
+        <p style={{ color: '#64748b' }}>Đang tải cấu hình...</p>
+      </div>
+    );
+  }
+
+  if (settingsQuery.isError) {
+    return (
+      <div style={{ padding: '32px', maxWidth: '720px', margin: '0 auto' }}>
+        <p style={{ color: '#b91c1c' }}>Không tải được cấu hình. Kiểm tra đã chọn shop và đăng nhập.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '24px 16px 48px', maxWidth: '720px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+        <Palette size={28} style={{ color: '#4f46e5' }} />
+        <h1 style={{ fontSize: '24px', fontWeight: 800, margin: 0, color: '#0f172a' }}>Cấu hình shop</h1>
+      </div>
+      <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px', lineHeight: 1.5 }}>
+        Chỉnh nội dung trang liên hệ công khai và giao diện (mở rộng) cho shop:{' '}
+        <strong>{activeShop?.name ?? settingsQuery.data?.name}</strong>
+        <span style={{ color: '#94a3b8' }}> · slug {activeShop?.slug ?? settingsQuery.data?.slug}</span>
+      </p>
+
+      {saveOk && <p style={{ color: '#15803d', marginBottom: '12px' }}>{saveOk}</p>}
+      {saveError && <p style={{ color: '#b91c1c', marginBottom: '12px' }}>{saveError}</p>}
+
+      <form onSubmit={onSubmit}>
+        <div style={card}>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 12px', color: '#111827' }}>
+            Trang liên hệ (công khai)
+          </h2>
+          <p style={{ ...hint, marginBottom: '16px' }}>
+            Hiển thị tại <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>/contact</code>{' '}
+            với <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>?shop_id=</code> (slug
+            hoặc UUID). Để trống rồi lưu để xóa giá trị.
+          </p>
+          <ShopContactFields
+            idPrefix="shop-settings"
+            value={contact}
+            onChange={setContact}
+            styles={{
+              formRow,
+              modalLabel: label,
+              modalInput: input,
+              modalHint: hint,
+              sectionTitle: { ...sectionTitle, marginTop: '12px' },
+            }}
+          />
+        </div>
+
+        <div style={card}>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 8px', color: '#111827' }}>
+            Giao diện (chuẩn bị mở rộng)
+          </h2>
+          <p style={{ ...hint, marginBottom: '16px' }}>
+            Dữ liệu lưu trong <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>appearance_json</code>
+            . Áp dụng lên catalog công khai có thể làm ở bước sau.
+          </p>
+
+          <div style={formRow}>
+            <label style={label} htmlFor="appearance-logo">
+              URL logo (https)
+            </label>
+            <input
+              id="appearance-logo"
+              style={input}
+              value={appearance.logo_url}
+              onChange={(e) => setAppearance((a) => ({ ...a, logo_url: e.target.value }))}
+              placeholder="https://..."
+            />
+          </div>
+          <div style={formRow}>
+            <label style={label} htmlFor="appearance-favicon">
+              URL favicon (https)
+            </label>
+            <input
+              id="appearance-favicon"
+              style={input}
+              value={appearance.favicon_url}
+              onChange={(e) => setAppearance((a) => ({ ...a, favicon_url: e.target.value }))}
+              placeholder="https://..."
+            />
+          </div>
+          <div style={formRow}>
+            <label style={label} htmlFor="appearance-primary">
+              Màu chủ (CSS, ví dụ #4f46e5)
+            </label>
+            <input
+              id="appearance-primary"
+              style={input}
+              value={appearance.primary_color}
+              onChange={(e) => setAppearance((a) => ({ ...a, primary_color: e.target.value }))}
+            />
+          </div>
+          <div style={formRow}>
+            <label style={label} htmlFor="appearance-accent">
+              Màu nhấn
+            </label>
+            <input
+              id="appearance-accent"
+              style={input}
+              value={appearance.accent_color}
+              onChange={(e) => setAppearance((a) => ({ ...a, accent_color: e.target.value }))}
+            />
+          </div>
+          <div style={formRow}>
+            <label style={label} htmlFor="appearance-font">
+              Font (CSS font-family)
+            </label>
+            <input
+              id="appearance-font"
+              style={input}
+              value={appearance.font_family}
+              onChange={(e) => setAppearance((a) => ({ ...a, font_family: e.target.value }))}
+              placeholder="Inter, system-ui, sans-serif"
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+          <button
+            type="submit"
+            disabled={saveMutation.isPending}
+            style={{
+              padding: '10px 20px',
+              background: '#4f46e5',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              cursor: saveMutation.isPending ? 'not-allowed' : 'pointer',
+              opacity: saveMutation.isPending ? 0.7 : 1,
+            }}
+          >
+            {saveMutation.isPending ? 'Đang lưu...' : 'Lưu cấu hình'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};

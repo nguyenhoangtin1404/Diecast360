@@ -7,6 +7,7 @@ import { Prisma } from '../generated/prisma/client';
 import { toNumber } from '../common/utils/decimal.utils';
 import { totalPagesFromCount } from '../common/utils/pagination.utils';
 import { parseShopContactJson, ShopContactSettings } from '../shops/types/shop-contact.types';
+import { parseShopAppearanceJson, ShopAppearanceSettings } from '../shops/types/shop-appearance.types';
 
 @Injectable()
 export class PublicService {
@@ -71,6 +72,7 @@ export class PublicService {
         name: true,
         slug: true,
         contact_json: true,
+        appearance_json: true,
       },
     });
     if (!shop) {
@@ -78,9 +80,11 @@ export class PublicService {
     }
     const stored = parseShopContactJson(shop.contact_json);
     const contact = this.mergeWithDefaults(shop.name, stored);
+    const appearance = parseShopAppearanceJson(shop.appearance_json);
     return {
       shop: { id: shop.id, name: shop.name, slug: shop.slug },
       contact,
+      appearance,
     };
   }
 

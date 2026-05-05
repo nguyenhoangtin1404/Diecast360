@@ -14,6 +14,7 @@ import { FacebookPostsPage } from './pages/admin/FacebookPostsPage';
 import { ReportsPage } from './pages/admin/ReportsPage';
 import { MembersPage } from './pages/admin/MembersPage';
 import ShopsPage from './pages/admin/ShopsPage';
+import { ShopSettingsPage } from './pages/admin/ShopSettingsPage';
 import { PublicCatalogPage } from './pages/PublicCatalogPage';
 import { PublicItemDetailPage } from './pages/PublicItemDetailPage';
 import { ContactPage } from './pages/ContactPage';
@@ -151,6 +152,16 @@ function App() {
                   <ProtectedRoute>
                     <Layout>
                       <ShopsPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={ROUTES.admin.shopSettings}
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <ShopSettingsPage />
                     </Layout>
                   </ProtectedRoute>
                 }

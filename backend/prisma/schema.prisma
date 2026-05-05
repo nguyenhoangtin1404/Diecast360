@@ -69,6 +69,8 @@ model Shop {
   is_active  Boolean        @default(true)
   // Public contact page: phone, socials, hours (JSON; edited in admin / platform shop settings)
   contact_json Json          @default("{}")
+  // Storefront branding (logo URL, favicon, colors, fonts) — shop admin; apply on public UI later
+  appearance_json Json       @default("{}")
   created_at DateTime       @default(now())
   updated_at DateTime       @updatedAt
 
