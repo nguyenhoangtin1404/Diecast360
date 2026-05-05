@@ -40,7 +40,7 @@ export function CreateMemberForm(props: CreateMemberFormProps) {
         />
         <button
           type="submit"
-          className="rounded-lg bg-shop hover:bg-shop/90 px-3 py-2 text-sm font-semibold text-white"
+          className="rounded-lg bg-shop hover:bg-shop/90 active:bg-shop/80 px-3 py-2 text-sm font-semibold text-white"
           disabled={props.isSubmitting}
         >
           {props.isSubmitting ? 'Đang tạo...' : 'Tạo hội viên'}
