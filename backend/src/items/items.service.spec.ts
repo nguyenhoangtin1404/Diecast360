@@ -93,6 +93,9 @@ describe('ItemsService', () => {
       },
       category: {
         findFirst: jest.fn(),
+        create: jest.fn(),
+        aggregate: jest.fn(),
+        update: jest.fn(),
       },
       aiItemDraft: {
         findUnique: jest.fn(),
@@ -245,6 +248,54 @@ describe('ItemsService', () => {
         service.create({ name: 'Test Item', car_brand: 'Unknown Brand' }, TEST_SHOP_ID),
       ).rejects.toMatchObject({
         errorCode: ErrorCode.ITEM_CATEGORY_INVALID,
+      });
+    });
+
+    it('should create missing car_brand and model_brand categories when from_ai_import is true', async () => {
+      prisma.category.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          id: 'c-nissan',
+          type: 'car_brand',
+          name: 'Nissan',
+          is_active: true,
+        })
+        .mockResolvedValueOnce({
+          id: 'm-gtr',
+          type: 'model_brand',
+          name: 'GT-R R35',
+          is_active: true,
+        });
+      prisma.category.aggregate.mockResolvedValue({ _max: { display_order: 10 } });
+      prisma.category.create.mockResolvedValue({ id: 'new-id' });
+
+      await service.create(
+        {
+          name: 'AI Item',
+          car_brand: 'Nissan',
+          model_brand: 'GT-R R35',
+          from_ai_import: true,
+        },
+        TEST_SHOP_ID,
+      );
+
+      expect(prisma.category.create).toHaveBeenCalledTimes(2);
+      expect(prisma.category.create).toHaveBeenNthCalledWith(1, {
+        data: expect.objectContaining({
+          name: 'Nissan',
+          type: 'car_brand',
+          is_active: true,
+          display_order: 11,
+        }),
+      });
+      expect(prisma.category.create).toHaveBeenNthCalledWith(2, {
+        data: expect.objectContaining({
+          name: 'GT-R R35',
+          type: 'model_brand',
+          is_active: true,
+          display_order: 11,
+        }),
       });
     });
 

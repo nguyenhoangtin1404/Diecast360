@@ -1,6 +1,7 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { Prisma, ItemStatus } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { isPrismaUniqueConstraintError } from '../common/prisma/prisma-error.utils';
 import { IStorageService } from '../storage/storage.interface';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { CreateItemDto } from './dto/create-item.dto';
@@ -356,7 +357,6 @@ Condition: ${item.condition || ''}`;
   async create(createDto: CreateItemDto, tenantId: string) {
     const shopId = this.requireActiveShopId(tenantId);
     this.validatePriceFields(createDto.price, createDto.original_price);
-    await this.validateCategoryMetadata(createDto.car_brand, createDto.model_brand);
 
     // Declared outside transaction; cleared inside to handle potential retries
     let failedImages: { filename: string; error: string }[] = [];
@@ -367,6 +367,19 @@ Condition: ${item.condition || ''}`;
       failedImages = [];
       totalImages = 0;
       const initialStatus = (createDto.status as ItemStatus | undefined) ?? 'con_hang';
+
+      if (createDto.from_ai_import) {
+        await this.ensureCategoriesForAiImportInTx(
+          tx,
+          createDto.car_brand,
+          createDto.model_brand,
+        );
+      }
+      await this.validateCategoryMetadata(
+        createDto.car_brand,
+        createDto.model_brand,
+        tx,
+      );
 
       const item = await tx.item.create({
         data: {
@@ -503,10 +516,6 @@ Condition: ${item.condition || ''}`;
     const nextStatus = updateDto.status ?? existingItem.status;
     this.validatePriceFields(nextPrice ?? undefined, nextOriginalPrice ?? undefined);
 
-    if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
-      await this.validateCategoryMetadata(updateDto.car_brand, updateDto.model_brand);
-    }
-
     const updateData: Prisma.ItemUpdateInput = {};
     if (updateDto.name !== undefined) updateData.name = updateDto.name;
     if (updateDto.description !== undefined) updateData.description = updateDto.description;
@@ -529,9 +538,27 @@ Condition: ${item.condition || ''}`;
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
     if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
 
-    const item = await this.prisma.item.update({
-      where: { id },
-      data: updateData,
+    const item = await this.prisma.$transaction(async (tx) => {
+      if (updateDto.from_ai_import) {
+        await this.ensureCategoriesForAiImportInTx(
+          tx,
+          updateDto.car_brand !== undefined ? updateDto.car_brand : existingItem.car_brand,
+          updateDto.model_brand !== undefined ? updateDto.model_brand : existingItem.model_brand,
+        );
+      }
+
+      if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
+        await this.validateCategoryMetadata(
+          updateDto.car_brand !== undefined ? updateDto.car_brand : existingItem.car_brand,
+          updateDto.model_brand !== undefined ? updateDto.model_brand : existingItem.model_brand,
+          tx,
+        );
+      }
+
+      return tx.item.update({
+        where: { id },
+        data: updateData,
+      });
     });
 
     // Sync with vector store
@@ -874,9 +901,75 @@ Condition: ${item.condition || ''}`;
     }
   }
 
+  /**
+   * Ensures car_brand and model_brand names exist as Category rows (active).
+   * Used by AI import so extracted names appear in admin category lists without manual setup.
+   */
+  private async ensureCategoriesForAiImportInTx(
+    tx: Prisma.TransactionClient,
+    carBrand?: string | null,
+    modelBrand?: string | null,
+  ) {
+    const specs: Array<{ type: 'car_brand' | 'model_brand'; value?: string | null }> = [
+      { type: 'car_brand', value: carBrand },
+      { type: 'model_brand', value: modelBrand },
+    ];
+
+    for (const spec of specs) {
+      const trimmed =
+        typeof spec.value === 'string' ? spec.value.trim() : '';
+      if (!trimmed) continue;
+
+      const existing = await tx.category.findFirst({
+        where: { type: spec.type, name: trimmed },
+      });
+
+      if (!existing) {
+        const maxOrder = await tx.category.aggregate({
+          where: { type: spec.type },
+          _max: { display_order: true },
+        });
+        const displayOrder = (maxOrder._max.display_order ?? -1) + 1;
+
+        try {
+          await tx.category.create({
+            data: {
+              name: trimmed,
+              type: spec.type,
+              is_active: true,
+              display_order: displayOrder,
+            },
+          });
+        } catch (error) {
+          if (!isPrismaUniqueConstraintError(error)) {
+            throw error;
+          }
+          const afterRace = await tx.category.findFirst({
+            where: { type: spec.type, name: trimmed },
+          });
+          if (afterRace && !afterRace.is_active) {
+            await tx.category.update({
+              where: { id: afterRace.id },
+              data: { is_active: true },
+            });
+          }
+        }
+        continue;
+      }
+
+      if (!existing.is_active) {
+        await tx.category.update({
+          where: { id: existing.id },
+          data: { is_active: true },
+        });
+      }
+    }
+  }
+
   private async validateCategoryMetadata(
     carBrand?: string | null,
     modelBrand?: string | null,
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
     const checks: Array<{ type: 'car_brand' | 'model_brand'; value?: string | null }> = [
       { type: 'car_brand', value: carBrand },
@@ -886,7 +979,7 @@ Condition: ${item.condition || ''}`;
     for (const check of checks) {
       if (!check.value) continue;
 
-      const category = await this.prisma.category.findFirst({
+      const category = await db.category.findFirst({
         where: {
           type: check.type,
           name: check.value,

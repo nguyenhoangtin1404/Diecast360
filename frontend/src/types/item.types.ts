@@ -69,6 +69,8 @@ export interface ItemFormData {
   description: string;
   quantity?: number;
   attributes?: ItemAttributesPayload;
+  /** When creating from AI import — server auto-adds missing category rows */
+  from_ai_import?: boolean;
 }
 
 /**
