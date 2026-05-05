@@ -27,7 +27,7 @@ export function MemberListPanel(props: MemberListPanelProps) {
         <button
           type="button"
           onClick={props.onOpenCreateModal}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm transition hover:bg-indigo-700"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-shop text-white shadow-sm transition hover:bg-shop/90"
           aria-label="Tạo hội viên mới"
           title="Tạo hội viên mới"
         >
@@ -61,7 +61,7 @@ export function MemberListPanel(props: MemberListPanelProps) {
             key={member.id}
             className={`w-full rounded-lg border p-3 text-left transition ${
               props.selectedMemberId === member.id
-                ? 'border-indigo-300 bg-indigo-50'
+                ? 'border-shop/40 bg-shop/10'
                 : 'border-slate-200 hover:border-slate-300'
             }`}
           >

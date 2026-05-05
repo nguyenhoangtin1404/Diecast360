@@ -40,7 +40,7 @@ export const ItemCard = ({ item, index = 0, shopSearch = '' }: ItemCardProps) =>
   return (
     <Link
       to={`/items/${item.id}${shopSearch}`}
-      className="group relative block opacity-0 animate-fade-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+      className="group relative block opacity-0 animate-fade-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
       style={{ animationDelay: `${index * 50}ms` }}
     >
       <div className="h-full overflow-hidden rounded-xl border border-slate-100 bg-white shadow-corporate-card transition-all duration-200 ease-out hover:-translate-y-1 hover:shadow-corporate-card-hover">
@@ -54,19 +54,19 @@ export const ItemCard = ({ item, index = 0, shopSearch = '' }: ItemCardProps) =>
             }}
           />
           {item.has_spinner && (
-            <span className="absolute right-2 top-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-2.5 py-1 text-xs font-bold text-white shadow-corporate-glow">
+            <span className="absolute right-2 top-2 rounded-full bg-gradient-to-r from-shop to-shopAccent px-2.5 py-1 text-xs font-bold text-white shadow-corporate-glow">
               360°
             </span>
           )}
         </div>
         <div className="p-4 sm:p-5">
-          <h3 className="mb-2 line-clamp-2 min-h-[3rem] text-base font-semibold leading-snug text-slate-900 transition-colors duration-200 group-hover:text-indigo-700">
+          <h3 className="mb-2 line-clamp-2 min-h-[3rem] text-base font-semibold leading-snug text-slate-900 transition-colors duration-200 group-hover:text-shop">
             {item.name}
           </h3>
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
             <span className="font-medium text-slate-500">{statusText}</span>
             {conditionText && (
-              <span className="whitespace-nowrap rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-100">
+              <span className="whitespace-nowrap rounded-full bg-shop/10 px-2.5 py-0.5 text-xs font-semibold text-shop ring-1 ring-shop/15">
                 {conditionText}
               </span>
             )}

@@ -88,7 +88,7 @@ export const ItemsPage = () => {
   if (isLoading) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 px-4 py-16">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-shop/25 border-t-shop" />
         <p className="text-sm font-semibold text-slate-600">Đang tải sản phẩm…</p>
       </div>
     );

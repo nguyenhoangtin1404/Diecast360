@@ -16,13 +16,15 @@ module.exports = {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
-        "corporate-card": "0 4px 20px -2px rgba(79, 70, 229, 0.1)",
+        "corporate-card": "0 4px 20px -2px rgb(var(--shop-primary-rgb) / 0.1)",
         "corporate-card-hover":
-          "0 10px 25px -5px rgba(79, 70, 229, 0.15), 0 8px 10px -6px rgba(79, 70, 229, 0.1)",
-        "corporate-btn": "0 4px 14px 0 rgba(79, 70, 229, 0.3)",
-        "corporate-glow": "0 0 20px rgba(79, 70, 229, 0.35)",
+          "0 10px 25px -5px rgb(var(--shop-primary-rgb) / 0.15), 0 8px 10px -6px rgb(var(--shop-primary-rgb) / 0.1)",
+        "corporate-btn": "0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.3)",
+        "corporate-glow": "0 0 20px rgb(var(--shop-primary-rgb) / 0.35)",
       },
       colors: {
+        shop: "rgb(var(--shop-primary-rgb) / <alpha-value>)",
+        shopAccent: "rgb(var(--shop-accent-rgb) / <alpha-value>)",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {

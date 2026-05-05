@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext.tsx';
 import { ShopProvider } from './contexts/ShopContext.tsx';
+import { ShopThemeProvider } from './contexts/ShopThemeProvider';
 import { ROUTES } from './config/routes';
 import { ProtectedRoute } from './components/admin/ProtectedRoute';
 import { Layout } from './components/Layout';
@@ -39,7 +40,8 @@ function App() {
       <AuthProvider>
         <ShopProvider>
           <BrowserRouter>
-            <Routes>
+            <ShopThemeProvider>
+              <Routes>
               <Route path={ROUTES.home} element={<Layout><PublicCatalogPage /></Layout>} />
               <Route path={ROUTES.preorders} element={<Layout><PublicPreOrdersPage /></Layout>} />
               <Route path={ROUTES.myOrders} element={<Layout><MyOrdersPage /></Layout>} />
@@ -167,7 +169,8 @@ function App() {
                 }
               />
               <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
-            </Routes>
+              </Routes>
+            </ShopThemeProvider>
           </BrowserRouter>
         </ShopProvider>
       </AuthProvider>

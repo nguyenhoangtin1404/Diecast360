@@ -68,7 +68,7 @@ export function TierManagementPanel(props: TierManagementPanelProps) {
         </label>
         <button
           type="submit"
-          className="mt-6 inline-flex min-h-[44px] self-start items-center justify-center rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-corporate-btn transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-corporate-card-hover disabled:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-500 disabled:shadow-none"
+          className="mt-6 inline-flex min-h-[44px] self-start items-center justify-center rounded-lg bg-gradient-to-r from-shop to-shopAccent px-4 py-2 text-sm font-semibold text-white shadow-corporate-btn transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-corporate-card-hover disabled:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-500 disabled:shadow-none"
           disabled={props.isSubmitting}
         >
           {props.isSubmitting ? 'Đang thêm...' : 'Thêm hạng'}
