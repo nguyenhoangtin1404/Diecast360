@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ErrorCode, AppException } from '../common/exceptions/http-exception.filter';
 import { isPrismaUniqueConstraintError } from '../common/prisma/prisma-error.utils';
@@ -17,14 +18,24 @@ import { toNumber } from '../common/utils/decimal.utils';
 import { totalPagesFromCount } from '../common/utils/pagination.utils';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { jsonStableStringify } from './json-stable-stringify';
+import { UploadSupportService } from '../common/upload/upload-support.service';
+import { verifySignedMediaParams } from '../common/media/signed-media.util';
+import { resolveMediaSigningSecret } from '../common/media/media-signing-secret';
+import { v4 as uuidv4 } from 'uuid';
+
+const SHOP_BRANDING_MIME_ALLOWLIST = ['image/jpeg', 'image/png', 'image/webp'] as const;
 
 const MAX_SLUG_ALLOCATION_ATTEMPTS = 32;
 
 @Injectable()
 export class ShopsService {
+  private readonly logger = new Logger(ShopsService.name);
+
   constructor(
     private prisma: PrismaService,
     @Inject('IStorageService') private storage: IStorageService,
+    private readonly uploadSupport: UploadSupportService,
+    private readonly config: ConfigService,
   ) {}
 
   private slugFromName(name: string): string {
@@ -119,6 +130,33 @@ export class ShopsService {
       }
     }
     return next as Prisma.InputJsonValue;
+  }
+
+  private extractAppearanceUrl(json: Prisma.JsonValue, key: 'logo_url' | 'favicon_url'): string | undefined {
+    if (typeof json !== 'object' || json === null || Array.isArray(json)) return undefined;
+    const v = (json as Record<string, unknown>)[key];
+    return typeof v === 'string' && v.trim() ? v.trim() : undefined;
+  }
+
+  /** Best-effort delete of a prior uploaded branding file (signed /media URL under shop-branding/). */
+  private async tryDeletePriorShopBrandingFile(previousUrl: string | undefined): Promise<void> {
+    if (!previousUrl) return;
+    let secret: string;
+    try {
+      secret = resolveMediaSigningSecret(this.config);
+    } catch {
+      return;
+    }
+    try {
+      const u = new URL(previousUrl);
+      const d = u.searchParams.get('d') ?? undefined;
+      const s = u.searchParams.get('s') ?? undefined;
+      const payload = verifySignedMediaParams(d, s, secret);
+      if (!payload?.p.startsWith('shop-branding/')) return;
+      await this.storage.deleteFile(payload.p);
+    } catch {
+      /* ignore malformed URLs or delete failures */
+    }
   }
 
   private async logAudit(
@@ -345,6 +383,93 @@ export class ShopsService {
     }
 
     return updated;
+  }
+
+  /**
+   * Upload logo or favicon file for the active tenant; stores under shop-branding/ and sets appearance_json URL.
+   */
+  async uploadAppearanceAsset(
+    tenantId: string,
+    kind: 'logo' | 'favicon',
+    file: Express.Multer.File,
+    actorUserId?: string | null,
+  ) {
+    let allowedMimeTypes = this.uploadSupport.resolveAllowedMimeTypes(
+      this.logger,
+      'image/jpeg,image/png,image/webp',
+    );
+    allowedMimeTypes = allowedMimeTypes.filter((t) =>
+      (SHOP_BRANDING_MIME_ALLOWLIST as readonly string[]).includes(t),
+    );
+    if (allowedMimeTypes.length === 0) {
+      this.logger.warn(
+        'ALLOWED_MIME excludes all shop-branding types; using image/jpeg, image/png, image/webp',
+      );
+      allowedMimeTypes = [...SHOP_BRANDING_MIME_ALLOWLIST];
+    }
+    const maxUploadBytes = Math.min(
+      this.uploadSupport.resolveMaxUploadBytes(this.logger, 2),
+      2 * 1024 * 1024,
+    );
+    await this.uploadSupport.validateFile(file, allowedMimeTypes, maxUploadBytes);
+
+    const oldShop = await this.prisma.shop.findFirst({
+      where: { id: tenantId, is_active: true },
+      select: { id: true, appearance_json: true },
+    });
+    if (!oldShop) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found');
+    }
+
+    const previousUrl =
+      kind === 'logo'
+        ? this.extractAppearanceUrl(oldShop.appearance_json, 'logo_url')
+        : this.extractAppearanceUrl(oldShop.appearance_json, 'favicon_url');
+
+    const ext =
+      file.mimetype === 'image/png' ? '.png' : file.mimetype === 'image/webp' ? '.webp' : '.jpg';
+    const filename = `${tenantId}_${kind}_${uuidv4()}${ext}`;
+    const relativePath = await this.storage.saveFile(file.buffer, filename, 'shop-branding');
+    const publicUrl = this.storage.getFileUrl(relativePath);
+
+    const patch: ShopAppearancePatchDto =
+      kind === 'logo' ? { logo_url: publicUrl } : { favicon_url: publicUrl };
+    const nextAppearance = this.mergeAppearanceJson(oldShop.appearance_json, patch);
+    const appearanceChanged =
+      jsonStableStringify(oldShop.appearance_json) !== jsonStableStringify(nextAppearance);
+
+    let updated;
+    try {
+      updated = await this.prisma.shop.update({
+        where: { id: tenantId },
+        data: { appearance_json: nextAppearance },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          contact_json: true,
+          appearance_json: true,
+        },
+      });
+    } catch (e) {
+      await this.storage.deleteFile(relativePath);
+      throw e;
+    }
+
+    if (appearanceChanged) {
+      // Delete prior hosting blob before audit so a rare audit failure cannot skip cleanup.
+      await this.tryDeletePriorShopBrandingFile(previousUrl);
+      await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
+        field: 'appearance_json',
+        via: `upload_${kind}`,
+      });
+    }
+
+    return {
+      kind,
+      url: publicUrl,
+      shop: updated,
+    };
   }
 
   /**
