@@ -6,6 +6,7 @@ import { styles } from './ShopsPage.styles';
 import { useShopItems } from './shops/useShopItems';
 import { useAuditLogs } from './shops/useAuditLogs';
 import type { Shop, ShopAuditLogRow, ShopMemberRow } from './shops/types';
+import { buildShopContactPatch, parseShopContactFormDefaults } from './shops/shopContactForm';
 import ShopCard from './shops/ShopCard';
 import ShopItemsModal from './shops/modals/ShopItemsModal';
 import ShopAuditModal from './shops/modals/ShopAuditModal';
@@ -210,6 +211,7 @@ const ShopsPage: React.FC = () => {
 
   const [editShopModalId, setEditShopModalId] = useState<string | null>(null);
   const [editShopName, setEditShopName] = useState('');
+  const [editShopContact, setEditShopContact] = useState(() => parseShopContactFormDefaults(undefined));
   const [editShopSaving, setEditShopSaving] = useState(false);
   const [editShopError, setEditShopError] = useState<string | null>(null);
 
@@ -667,6 +669,7 @@ const ShopsPage: React.FC = () => {
   const openEditShopModal = (shop: Shop) => {
     setEditShopError(null);
     setEditShopName(shop.name);
+    setEditShopContact(parseShopContactFormDefaults(shop.contact_json));
     setEditShopModalId(shop.id);
   };
 
@@ -686,7 +689,10 @@ const ShopsPage: React.FC = () => {
     setEditShopError(null);
     setEditShopSaving(true);
     try {
-      await apiClient.patch(`/admin/shops/${editShopModalId}`, { name });
+      await apiClient.patch(`/admin/shops/${editShopModalId}`, {
+        name,
+        ...buildShopContactPatch(editShopContact),
+      });
       setEditShopModalId(null);
       setShopActionError(null);
       setShopActionSuccess('Đã cập nhật thông tin shop.');
@@ -792,7 +798,15 @@ const ShopsPage: React.FC = () => {
         if (!editTargetShop) return null;
         return (
           <div style={styles.modalOverlay} onClick={closeEditShopModal}>
-            <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div
+              style={{
+                ...styles.modal,
+                maxWidth: '640px',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
               <div style={styles.modalTitle}>Sửa thông tin shop</div>
               {editShopError && <p style={styles.modalError}>{editShopError}</p>}
               <form onSubmit={handleEditShopSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -816,6 +830,219 @@ const ShopsPage: React.FC = () => {
                 <p style={styles.modalHint}>
                   Shop URL <code style={styles.modalCode}>{editTargetShop.slug}</code> — slug không sửa trên form này.
                 </p>
+
+                <div
+                  style={{
+                    borderTop: '1px solid #e5e7eb',
+                    marginTop: '4px',
+                    paddingTop: '12px',
+                  }}
+                >
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>
+                    Trang liên hệ (công khai)
+                  </div>
+                  <p style={{ ...styles.modalHint, marginBottom: '10px' }}>
+                    Nội dung hiển thị tại <code style={styles.modalCode}>/contact?shop_id=</code> (UUID hoặc slug). Để
+                    trống một ô rồi lưu sẽ xóa giá trị đó.
+                  </p>
+                </div>
+
+                <div style={styles.formRow}>
+                  <label style={styles.modalLabel} htmlFor={`edit-contact-title-${editTargetShop.id}`}>
+                    Tiêu đề trang
+                  </label>
+                  <input
+                    id={`edit-contact-title-${editTargetShop.id}`}
+                    style={styles.modalInput}
+                    value={editShopContact.page_title}
+                    onChange={(e) =>
+                      setEditShopContact((c) => ({ ...c, page_title: e.target.value }))
+                    }
+                    autoComplete="off"
+                    placeholder="Ví dụ: Liên hệ với chúng tôi"
+                  />
+                </div>
+                <div style={styles.formRow}>
+                  <label style={styles.modalLabel} htmlFor={`edit-contact-sub-${editTargetShop.id}`}>
+                    Mô tả dưới tiêu đề
+                  </label>
+                  <input
+                    id={`edit-contact-sub-${editTargetShop.id}`}
+                    style={styles.modalInput}
+                    value={editShopContact.page_subtitle}
+                    onChange={(e) =>
+                      setEditShopContact((c) => ({ ...c, page_subtitle: e.target.value }))
+                    }
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginTop: '4px' }}>Điện thoại</div>
+                <div style={styles.formRow}>
+                  <label style={styles.modalLabel} htmlFor={`edit-phone-tel-${editTargetShop.id}`}>
+                    Số gọi (tel, có thể gồm +)
+                  </label>
+                  <input
+                    id={`edit-phone-tel-${editTargetShop.id}`}
+                    style={styles.modalInput}
+                    value={editShopContact.phone.tel}
+                    onChange={(e) =>
+                      setEditShopContact((c) => ({
+                        ...c,
+                        phone: { ...c.phone, tel: e.target.value },
+                      }))
+                    }
+                    autoComplete="off"
+                    placeholder="+84856694766"
+                  />
+                </div>
+                <div style={styles.formRow}>
+                  <label style={styles.modalLabel} htmlFor={`edit-phone-label-${editTargetShop.id}`}>
+                    Dòng hiển thị (nếu trống sẽ dùng số gọi)
+                  </label>
+                  <input
+                    id={`edit-phone-label-${editTargetShop.id}`}
+                    style={styles.modalInput}
+                    value={editShopContact.phone.label}
+                    onChange={(e) =>
+                      setEditShopContact((c) => ({
+                        ...c,
+                        phone: { ...c.phone, label: e.target.value },
+                      }))
+                    }
+                    autoComplete="off"
+                    placeholder="0856694766"
+                  />
+                </div>
+                <div style={styles.formRow}>
+                  <label style={styles.modalLabel} htmlFor={`edit-phone-hint-${editTargetShop.id}`}>
+                    Gợi ý phụ
+                  </label>
+                  <input
+                    id={`edit-phone-hint-${editTargetShop.id}`}
+                    style={styles.modalInput}
+                    value={editShopContact.phone.hint}
+                    onChange={(e) =>
+                      setEditShopContact((c) => ({
+                        ...c,
+                        phone: { ...c.phone, hint: e.target.value },
+                      }))
+                    }
+                    autoComplete="off"
+                    placeholder="Gọi ngay để được tư vấn"
+                  />
+                </div>
+
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginTop: '8px' }}>Facebook</div>
+                <div style={styles.formRow}>
+                  <label style={styles.modalLabel} htmlFor={`edit-fb-url-${editTargetShop.id}`}>
+                    URL
+                  </label>
+                  <input
+                    id={`edit-fb-url-${editTargetShop.id}`}
+                    style={styles.modalInput}
+                    value={editShopContact.facebook.url}
+                    onChange={(e) =>
+                      setEditShopContact((c) => ({
+                        ...c,
+                        facebook: { ...c.facebook, url: e.target.value },
+                      }))
+                    }
+                    autoComplete="off"
+                    placeholder="https://www.facebook.com/..."
+                  />
+                </div>
+                <div style={styles.formRow}>
+                  <label style={styles.modalLabel} htmlFor={`edit-fb-label-${editTargetShop.id}`}>
+                    Text link (tùy chọn)
+                  </label>
+                  <input
+                    id={`edit-fb-label-${editTargetShop.id}`}
+                    style={styles.modalInput}
+                    value={editShopContact.facebook.label}
+                    onChange={(e) =>
+                      setEditShopContact((c) => ({
+                        ...c,
+                        facebook: { ...c.facebook, label: e.target.value },
+                      }))
+                    }
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginTop: '8px' }}>Zalo</div>
+                <div style={styles.formRow}>
+                  <label style={styles.modalLabel} htmlFor={`edit-zalo-url-${editTargetShop.id}`}>
+                    URL (zalo.me/...)
+                  </label>
+                  <input
+                    id={`edit-zalo-url-${editTargetShop.id}`}
+                    style={styles.modalInput}
+                    value={editShopContact.zalo.url}
+                    onChange={(e) =>
+                      setEditShopContact((c) => ({
+                        ...c,
+                        zalo: { ...c.zalo, url: e.target.value },
+                      }))
+                    }
+                    autoComplete="off"
+                    placeholder="https://zalo.me/..."
+                  />
+                </div>
+                <div style={styles.formRow}>
+                  <label style={styles.modalLabel} htmlFor={`edit-zalo-label-${editTargetShop.id}`}>
+                    Dòng hiển thị
+                  </label>
+                  <input
+                    id={`edit-zalo-label-${editTargetShop.id}`}
+                    style={styles.modalInput}
+                    value={editShopContact.zalo.label}
+                    onChange={(e) =>
+                      setEditShopContact((c) => ({
+                        ...c,
+                        zalo: { ...c.zalo, label: e.target.value },
+                      }))
+                    }
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginTop: '8px' }}>Giờ làm việc</div>
+                <div style={styles.formRow}>
+                  <label style={styles.modalLabel} htmlFor={`edit-hours-line-${editTargetShop.id}`}>
+                    Dòng lịch (có thể dùng **in đậm**)
+                  </label>
+                  <textarea
+                    id={`edit-hours-line-${editTargetShop.id}`}
+                    style={{ ...styles.modalInput, minHeight: '72px', resize: 'vertical' as const }}
+                    value={editShopContact.hours.schedule_line}
+                    onChange={(e) =>
+                      setEditShopContact((c) => ({
+                        ...c,
+                        hours: { ...c.hours, schedule_line: e.target.value },
+                      }))
+                    }
+                    placeholder="**Thứ 2 - Chủ nhật:** 9:00 - 21:00"
+                  />
+                </div>
+                <div style={styles.formRow}>
+                  <label style={styles.modalLabel} htmlFor={`edit-hours-foot-${editTargetShop.id}`}>
+                    Dòng chú thích dưới
+                  </label>
+                  <input
+                    id={`edit-hours-foot-${editTargetShop.id}`}
+                    style={styles.modalInput}
+                    value={editShopContact.hours.footer_note}
+                    onChange={(e) =>
+                      setEditShopContact((c) => ({
+                        ...c,
+                        hours: { ...c.hours, footer_note: e.target.value },
+                      }))
+                    }
+                    autoComplete="off"
+                  />
+                </div>
+
                 <div style={styles.modalActions}>
                   <button type="button" style={styles.modalCancelBtn} onClick={closeEditShopModal} disabled={editShopSaving}>
                     Hủy

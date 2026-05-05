@@ -548,6 +548,7 @@ describe('ShopsService', () => {
         name: 'Shop A',
         slug: 'shop-a',
         is_active: true,
+        contact_json: {},
         _count: { items: 0, user_roles: 1 },
       });
       prisma.shop.update.mockResolvedValue({
@@ -555,11 +556,46 @@ describe('ShopsService', () => {
         name: 'Shop A',
         slug: 'shop-a',
         is_active: true,
+        contact_json: {},
       });
 
       await service.update(shopId, {}, 'actor-1');
 
       expect(prisma.shopAuditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('logs update_shop when contact_json changes', async () => {
+      prisma.shop.findUnique.mockResolvedValue({
+        id: shopId,
+        name: 'Shop A',
+        slug: 'shop-a',
+        is_active: true,
+        contact_json: {},
+        _count: { items: 0, user_roles: 1 },
+      });
+      prisma.shop.update.mockResolvedValue({
+        id: shopId,
+        name: 'Shop A',
+        slug: 'shop-a',
+        is_active: true,
+        contact_json: { phone: { tel: '+84' } },
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({ id: 'log-c' });
+
+      await service.update(
+        shopId,
+        { contact: { phone: { tel: '+84' } } },
+        'actor-1',
+      );
+
+      expect(prisma.shopAuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'update_shop',
+            metadata_json: expect.stringContaining('contact_json'),
+          }),
+        }),
+      );
     });
   });
 });

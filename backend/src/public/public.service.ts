@@ -6,6 +6,7 @@ import { QueryPublicItemsDto } from './dto/query-public-items.dto';
 import { Prisma } from '../generated/prisma/client';
 import { toNumber } from '../common/utils/decimal.utils';
 import { totalPagesFromCount } from '../common/utils/pagination.utils';
+import { parseShopContactJson, ShopContactSettings } from '../shops/types/shop-contact.types';
 
 @Injectable()
 export class PublicService {
@@ -19,6 +20,69 @@ export class PublicService {
     private prisma: PrismaService,
     @Inject('IStorageService') private storage: IStorageService,
   ) {}
+
+  private defaultContact(shopName: string): ShopContactSettings {
+    return {
+      page_title: 'Liên hệ với chúng tôi',
+      page_subtitle: 'Chúng tôi luôn sẵn sàng hỗ trợ và giải đáp mọi thắc mắc của bạn',
+      phone: {
+        title: 'Điện thoại',
+        label: '',
+        tel: '',
+        hint: 'Gọi ngay để được tư vấn',
+      },
+      facebook: {
+        title: 'Facebook',
+        url: '',
+        label: '',
+        hint: 'Theo dõi chúng tôi trên Facebook',
+      },
+      zalo: {
+        title: 'Zalo',
+        url: '',
+        label: '',
+        hint: 'Chat với chúng tôi trên Zalo',
+      },
+      hours: {
+        title: 'Thời gian làm việc',
+        schedule_line: `**${shopName}** — cập nhật giờ mở cửa tại trang quản trị shop.`,
+        footer_note: 'Chúng tôi luôn sẵn sàng phục vụ bạn!',
+      },
+    };
+  }
+
+  private mergeWithDefaults(shopName: string, stored: ShopContactSettings): ShopContactSettings {
+    const d = this.defaultContact(shopName);
+    return {
+      page_title: stored.page_title ?? d.page_title,
+      page_subtitle: stored.page_subtitle ?? d.page_subtitle,
+      phone: { ...d.phone, ...stored.phone },
+      facebook: { ...d.facebook, ...stored.facebook },
+      zalo: { ...d.zalo, ...stored.zalo },
+      hours: { ...d.hours, ...stored.hours },
+    };
+  }
+
+  async getShopContact(canonicalShopId: string) {
+    const shop = await this.prisma.shop.findFirst({
+      where: { id: canonicalShopId, is_active: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        contact_json: true,
+      },
+    });
+    if (!shop) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found');
+    }
+    const stored = parseShopContactJson(shop.contact_json);
+    const contact = this.mergeWithDefaults(shop.name, stored);
+    return {
+      shop: { id: shop.id, name: shop.name, slug: shop.slug },
+      contact,
+    };
+  }
 
   private buildCountCacheKey(where: Prisma.ItemWhereInput): string {
     return JSON.stringify(where);

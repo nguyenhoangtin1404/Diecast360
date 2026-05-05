@@ -9,6 +9,7 @@ describe('PublicController', () => {
   const publicService = {
     findAll: jest.fn(),
     findOne: jest.fn(),
+    getShopContact: jest.fn(),
   };
   const resolver = {
     resolveCanonicalShopId: jest.fn(),
@@ -144,5 +145,35 @@ describe('PublicController', () => {
     await controller.findAll({} as QueryPublicItemsDto, req);
 
     expect(publicService.findAll).toHaveBeenCalledWith({}, null);
+  });
+
+  describe('getShopContact', () => {
+    it('prefers explicit shop param over JWT', async () => {
+      resolver.resolveCanonicalShopId.mockResolvedValue('shop-from-path');
+      publicService.getShopContact.mockResolvedValue({ shop: {}, contact: {} });
+      const req = { user: { active_shop_id: 'shop-jwt' } } as never;
+
+      const out = await controller.getShopContact('my-slug', req);
+
+      expect(resolver.resolveCanonicalShopId).toHaveBeenCalledWith('my-slug');
+      expect(publicService.getShopContact).toHaveBeenCalledWith('shop-from-path');
+      expect(out).toEqual({ shop: {}, contact: {} });
+    });
+
+    it('rejects in production when anonymous and no shop (422)', async () => {
+      process.env.NODE_ENV = 'production';
+      resolver.resolveCanonicalShopId.mockResolvedValue(null);
+      const req = { user: undefined } as never;
+
+      let caught: unknown;
+      try {
+        await controller.getShopContact('slug', req);
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeInstanceOf(AppException);
+      expect((caught as AppException).errorCode).toBe(ErrorCode.PUBLIC_SHOP_REQUIRED);
+      expect(publicService.getShopContact).not.toHaveBeenCalled();
+    });
   });
 });
