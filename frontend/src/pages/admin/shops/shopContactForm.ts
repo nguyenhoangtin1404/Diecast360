@@ -1,5 +1,5 @@
 import type { Shop } from './types';
-import type { ShopContactPayload } from './types/shopContact';
+import type { ShopContactFormState, ShopContactPayload } from './types/shopContact';
 
 function readNested(obj: Record<string, unknown>, key: string): Record<string, unknown> {
   const v = obj[key];
@@ -14,10 +14,7 @@ function str(v: unknown): string {
 }
 
 /** Hydrate edit-modal state from GET /admin/shops list row (`contact_json`). */
-export function parseShopContactFormDefaults(contactJson: Shop['contact_json']): ShopContactPayload & {
-  page_title: string;
-  page_subtitle: string;
-} {
+export function parseShopContactFormDefaults(contactJson: Shop['contact_json']): ShopContactFormState {
   const root =
     contactJson && typeof contactJson === 'object' && !Array.isArray(contactJson)
       ? (contactJson as Record<string, unknown>)
@@ -56,7 +53,7 @@ export function parseShopContactFormDefaults(contactJson: Shop['contact_json']):
   };
 }
 
-export function buildShopContactPatch(form: ReturnType<typeof parseShopContactFormDefaults>): {
+export function buildShopContactPatch(form: ShopContactFormState): {
   contact: ShopContactPayload;
 } {
   return {

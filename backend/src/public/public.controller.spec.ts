@@ -161,19 +161,24 @@ describe('PublicController', () => {
     });
 
     it('rejects in production when anonymous and no shop (422)', async () => {
-      process.env.NODE_ENV = 'production';
-      resolver.resolveCanonicalShopId.mockResolvedValue(null);
-      const req = { user: undefined } as never;
-
-      let caught: unknown;
+      const prevEnv = process.env.NODE_ENV;
       try {
-        await controller.getShopContact('slug', req);
-      } catch (e) {
-        caught = e;
+        process.env.NODE_ENV = 'production';
+        resolver.resolveCanonicalShopId.mockResolvedValue(null);
+        const req = { user: undefined } as never;
+
+        let caught: unknown;
+        try {
+          await controller.getShopContact('slug', req);
+        } catch (e) {
+          caught = e;
+        }
+        expect(caught).toBeInstanceOf(AppException);
+        expect((caught as AppException).errorCode).toBe(ErrorCode.PUBLIC_SHOP_REQUIRED);
+        expect(publicService.getShopContact).not.toHaveBeenCalled();
+      } finally {
+        process.env.NODE_ENV = prevEnv;
       }
-      expect(caught).toBeInstanceOf(AppException);
-      expect((caught as AppException).errorCode).toBe(ErrorCode.PUBLIC_SHOP_REQUIRED);
-      expect(publicService.getShopContact).not.toHaveBeenCalled();
     });
   });
 });

@@ -5,6 +5,19 @@ import { apiClient } from '../api/client';
 import { usePublicShopContext } from '../hooks/usePublicShopContext';
 import type { PublicShopContactResponse } from '../types/shopContactPublic';
 
+/** Only allow http(s) links in href / window.open to avoid javascript: and other schemes. */
+function safeHttpUrl(url: string | undefined): string {
+  if (!url) return '';
+  const t = url.trim();
+  if (!t) return '';
+  try {
+    const p = new URL(t);
+    return p.protocol === 'http:' || p.protocol === 'https:' ? t : '';
+  } catch {
+    return '';
+  }
+}
+
 function renderInlineBold(text: string): ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
@@ -35,6 +48,9 @@ export const ContactPage = () => {
   });
 
   const contact = data?.contact;
+
+  const facebookUrl = safeHttpUrl(contact?.facebook?.url);
+  const zaloUrl = safeHttpUrl(contact?.zalo?.url);
 
   const phoneTelHref = useMemo(() => {
     const raw = contact?.phone?.tel?.trim() ?? '';
@@ -99,8 +115,8 @@ export const ContactPage = () => {
   };
 
   const showPhone = Boolean(contact.phone?.tel?.trim() || contact.phone?.label?.trim());
-  const showFacebook = Boolean(contact.facebook?.url?.trim());
-  const showZalo = Boolean(contact.zalo?.url?.trim());
+  const showFacebook = Boolean(facebookUrl);
+  const showZalo = Boolean(zaloUrl);
 
   return (
     <div style={{ minHeight: 'calc(100vh - 200px)', padding: '40px 20px' }}>
@@ -236,9 +252,9 @@ export const ContactPage = () => {
               }}
               onMouseEnter={cardHoverEnter}
               onMouseLeave={cardHoverLeave}
-              onClick={() =>
-                window.open(contact.facebook?.url?.trim() ?? '', '_blank')
-              }
+              onClick={() => {
+                if (facebookUrl) window.open(facebookUrl, '_blank');
+              }}
             >
               <div
                 style={{
@@ -266,7 +282,7 @@ export const ContactPage = () => {
                 {contact.facebook?.title || 'Facebook'}
               </h3>
               <a
-                href={contact.facebook?.url?.trim()}
+                href={facebookUrl || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -311,7 +327,9 @@ export const ContactPage = () => {
               }}
               onMouseEnter={cardHoverEnter}
               onMouseLeave={cardHoverLeave}
-              onClick={() => window.open(contact.zalo?.url?.trim() ?? '', '_blank')}
+              onClick={() => {
+                if (zaloUrl) window.open(zaloUrl, '_blank');
+              }}
             >
               <div
                 style={{
@@ -339,7 +357,7 @@ export const ContactPage = () => {
                 {contact.zalo?.title || 'Zalo'}
               </h3>
               <a
-                href={contact.zalo?.url?.trim()}
+                href={zaloUrl || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{

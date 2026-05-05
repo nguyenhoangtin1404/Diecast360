@@ -269,6 +269,7 @@ export const ItemDetailPage = () => {
   );
 
   // Load data into form when data changes
+  /* eslint-disable react-hooks/set-state-in-effect -- server item response hydrates local form state */
   useEffect(() => {
     // data structure: {item: {...}, images: [...], spin_sets: [...]}
     if (data?.item) {
@@ -306,6 +307,7 @@ export const ItemDetailPage = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Cleanup preview URLs on unmount
   useEffect(() => {
@@ -331,6 +333,7 @@ export const ItemDetailPage = () => {
     }
   }, [searchParams, data]);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- URL ?step= syncs wizard step */
   useEffect(() => {
     const stepFromQuery = searchParams.get('step');
     if (!stepFromQuery) return;
@@ -339,6 +342,7 @@ export const ItemDetailPage = () => {
       setCurrentStep(parsed as ProductStep);
     }
   }, [searchParams]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const extractItemIdFromResponse = (response: unknown): string | null => {
     const isApiResponse = (r: unknown): r is ApiResponse<ItemResponse> => {
@@ -350,6 +354,7 @@ export const ItemDetailPage = () => {
     return extractedId || null;
   };
 
+  /* eslint-disable react-hooks/set-state-in-effect -- reset defaults when creating new item */
   useEffect(() => {
     if (id === 'new') {
       setCondition('new');
@@ -357,6 +362,7 @@ export const ItemDetailPage = () => {
       setAttributeRows([{ id: newAttributeRowId(), key: '', value: '' }]);
     }
   }, [id]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const saveMutation = useMutation({
     mutationFn: async ({ itemData }: SavePayload) => {

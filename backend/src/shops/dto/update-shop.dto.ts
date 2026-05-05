@@ -2,7 +2,9 @@ import {
   IsBoolean,
   IsOptional,
   IsString,
+  IsUrl,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -31,7 +33,8 @@ class ShopContactFacebookDto {
   title?: string;
 
   @IsOptional()
-  @IsString()
+  @ValidateIf((_, v) => v !== undefined && v !== null && String(v).trim().length > 0)
+  @IsUrl({ require_protocol: true, protocols: ['http', 'https'] })
   url?: string;
 
   @IsOptional()
@@ -49,7 +52,8 @@ class ShopContactZaloDto {
   title?: string;
 
   @IsOptional()
-  @IsString()
+  @ValidateIf((_, v) => v !== undefined && v !== null && String(v).trim().length > 0)
+  @IsUrl({ require_protocol: true, protocols: ['http', 'https'] })
   url?: string;
 
   @IsOptional()
