@@ -82,6 +82,7 @@ model Shop {
   members    Member[]
   membership_tiers MembershipTier[]
   member_points_ledger MemberPointsLedger[]
+  categories Category[]
 
   @@map("shops")
   @@index([is_active])
@@ -380,6 +381,8 @@ model SpinFrame {
 
 model Category {
   id            String   @id @default(uuid())
+  /** Global seed rows use null; per-shop rows set to shop id (AI import, shop admin). */
+  shop_id       String?
   name          String
   type          String   // "car_brand" | "model_brand"
   is_active     Boolean  @default(true)
@@ -387,10 +390,13 @@ model Category {
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
 
+  shop Shop? @relation(fields: [shop_id], references: [id], onDelete: Cascade)
+
   @@map("categories")
-  @@unique([type, name])
   @@index([type, is_active])
   @@index([type, display_order])
+  @@index([shop_id, type])
+  @@index([shop_id, type, name])
 }
 
 model AiItemDraft {

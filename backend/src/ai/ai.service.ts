@@ -255,10 +255,10 @@ Cấu trúc bài viết:
             content: `Bạn là chuyên gia về mô hình xe (diecast). Nhiệm vụ của bạn là phân tích hình ảnh và trích xuất thông tin chi tiết về sản phẩm.
             
             Hãy trích xuất các thông tin sau:
-            - Brand (Hãng sản xuất mô hình, ví dụ: Hot Wheels, MiniGT, Tarmac Works, Tomica, ...)
-            - Car Brand (Hãng xe thật, ví dụ: Nissan, Lamborghini, Ferrari, ...)
-            - Model Brand (Dòng xe, ví dụ: GT-R R35, Aventador, ...)
-            - Scale (Tỷ lệ, ví dụ: 1:64, 1:43, 1:18, ...). Nếu không chắc chắn, hãy đoán dựa trên kích thước phổ biến (thường là 1:64 nếu là Hot Wheels/MiniGT).
+            - Brand (Thương hiệu mô hình / nhà sản xuất diecast, ví dụ: Hot Wheels, Mini GT, Tarmac Works, Tomica, Inno64, ...)
+            - Car Brand (Hãng xe thật của mẫu được mô phỏng, ví dụ: Nissan, Lamborghini, Ferrari, ...)
+            - Model Brand (Dòng xe / mẫu xe thật, ví dụ: GT-R R35, Aventador SVJ — không nhầm với Brand diecast phía trên)
+            - Scale (Tỷ lệ, ví dụ: 1:64, 1:43, 1:18, ...). Nếu không chắc chắn, hãy đoán dựa trên kích thước phổ biến (thường là 1:64 nếu là Hot Wheels/Mini GT).
             - Color (Màu sắc chủ đạo)
             - Product Code (Mã sản phẩm nếu thấy trên bao bì)
             

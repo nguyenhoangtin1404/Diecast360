@@ -15,6 +15,8 @@ import { FacebookGraphService } from '../integrations/facebook/facebook-graph.se
 import { FacebookConfigService } from '../integrations/facebook/facebook-config.service';
 import { PublishFacebookPostDto } from './dto/publish-facebook-post.dto';
 import type { ItemAttributesInput } from './dto/item-attributes.validator';
+import { CategoriesService } from '../categories/categories.service';
+import { normalizeCategoryBrandField } from '../common/utils/category-brand.utils';
 
 const ALLOWED_STATUS_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
   con_hang: ['con_hang', 'giu_cho', 'da_ban'],
@@ -42,6 +44,21 @@ function resolveQuantityForStatus(status: ItemStatus, requestedQuantity?: number
   return requestedQuantity;
 }
 
+function parseDraftImageUrls(imagesJson: string): string[] {
+  try {
+    const parsed = JSON.parse(imagesJson) as unknown;
+    if (!Array.isArray(parsed)) {
+      throw new Error('Expected JSON array');
+    }
+    return parsed.filter((u): u is string => typeof u === 'string');
+  } catch {
+    throw new AppException(
+      ErrorCode.VALIDATION_ERROR,
+      'AI draft images_json is invalid or corrupted',
+    );
+  }
+}
+
 @Injectable()
 export class ItemsService {
   private readonly logger = new Logger(ItemsService.name);
@@ -57,6 +74,7 @@ export class ItemsService {
     // to detect whether the feature is enabled instead of null-checking the service.
     private facebookGraph: FacebookGraphService,
     private fbConfig: FacebookConfigService,
+    private categoriesService: CategoriesService,
   ) {}
 
   /**
@@ -356,7 +374,13 @@ Condition: ${item.condition || ''}`;
   async create(createDto: CreateItemDto, tenantId: string) {
     const shopId = this.requireActiveShopId(tenantId);
     this.validatePriceFields(createDto.price, createDto.original_price);
-    await this.validateCategoryMetadata(createDto.car_brand, createDto.model_brand);
+
+    const carBrandNorm = normalizeCategoryBrandField(createDto.car_brand);
+    const modelBrandNorm = normalizeCategoryBrandField(createDto.model_brand);
+    const draftIdNorm =
+      typeof createDto.draft_id === 'string' && createDto.draft_id.trim().length > 0
+        ? createDto.draft_id.trim()
+        : null;
 
     // Declared outside transaction; cleared inside to handle potential retries
     let failedImages: { filename: string; error: string }[] = [];
@@ -368,14 +392,40 @@ Condition: ${item.condition || ''}`;
       totalImages = 0;
       const initialStatus = (createDto.status as ItemStatus | undefined) ?? 'con_hang';
 
+      let aiDraftForCategories: { id: string; images_json: string | null } | null = null;
+      let draftImageUrls: string[] = [];
+      if (draftIdNorm) {
+        aiDraftForCategories = await tx.aiItemDraft.findUnique({
+          where: { id: draftIdNorm },
+          select: { id: true, images_json: true },
+        });
+        if (aiDraftForCategories) {
+          if (aiDraftForCategories.images_json) {
+            draftImageUrls = parseDraftImageUrls(aiDraftForCategories.images_json);
+          }
+          await this.categoriesService.ensureCategoriesForAiImportInTx(
+            tx,
+            shopId,
+            carBrandNorm,
+            modelBrandNorm,
+          );
+        }
+      }
+      await this.categoriesService.validateCategoryMetadataForShop(
+        shopId,
+        carBrandNorm,
+        modelBrandNorm,
+        tx,
+      );
+
       const item = await tx.item.create({
         data: {
           name: createDto.name,
           description: createDto.description,
           scale: createDto.scale || '1:64',
           brand: createDto.brand,
-          car_brand: createDto.car_brand || null,
-          model_brand: createDto.model_brand || null,
+          car_brand: carBrandNorm,
+          model_brand: modelBrandNorm,
           condition: (createDto.condition as 'new' | 'old' | undefined) || null,
           price: createDto.price !== undefined && createDto.price !== null ? createDto.price : null,
           original_price: createDto.original_price !== undefined && createDto.original_price !== null ? createDto.original_price : null,
@@ -387,54 +437,52 @@ Condition: ${item.condition || ''}`;
         },
       });
 
-      // Handle Draft if provided
-      if (createDto.draft_id) {
-        const draft = await tx.aiItemDraft.findUnique({ where: { id: createDto.draft_id } });
-        if (draft && draft.images_json) {
-          const imageUrls = JSON.parse(draft.images_json) as string[];
-          totalImages = imageUrls.length;
+      // Handle Draft if provided and row exists (ignore stale client draft_id)
+      if (draftIdNorm && aiDraftForCategories) {
+        const draft = aiDraftForCategories;
+        const imageUrls = draftImageUrls;
+        totalImages = imageUrls.length;
 
-          let displayOrder = 0;
-          for (const url of imageUrls) {
-            const filename = url.split('/').pop();
-            if (filename) {
-              try {
-                const newFilename = `item_${item.id}_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
-                const newPath = await this.storage.moveFile(`drafts/${filename}`, newFilename, 'images');
+        let displayOrder = 0;
+        for (const url of imageUrls) {
+          const filename = url.split('/').pop();
+          if (filename) {
+            try {
+              const newFilename = `item_${item.id}_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
+              const newPath = await this.storage.moveFile(`drafts/${filename}`, newFilename, 'images');
 
-                await tx.itemImage.create({
-                  data: {
-                    item_id: item.id,
-                    file_path: newPath,
-                    is_cover: displayOrder === 0,
-                    display_order: displayOrder,
-                  },
-                });
-                displayOrder++;
-              } catch (e) {
-                const errorMessage = e instanceof Error ? e.message : String(e);
-                failedImages.push({ filename, error: errorMessage });
-                this.logger.error(
-                  `Failed to process draft image "${filename}" for item ${item.id}`,
-                  e instanceof Error ? e.stack : undefined,
-                  `ItemsService.create | draftId=${createDto.draft_id}`,
-                );
-              }
+              await tx.itemImage.create({
+                data: {
+                  item_id: item.id,
+                  file_path: newPath,
+                  is_cover: displayOrder === 0,
+                  display_order: displayOrder,
+                },
+              });
+              displayOrder++;
+            } catch (e) {
+              const errorMessage = e instanceof Error ? e.message : String(e);
+              failedImages.push({ filename, error: errorMessage });
+              this.logger.error(
+                `Failed to process draft image "${filename}" for item ${item.id}`,
+                e instanceof Error ? e.stack : undefined,
+                `ItemsService.create | draftId=${draftIdNorm}`,
+              );
             }
           }
-
-          // Update draft status based on image processing results
-          const draftStatus = failedImages.length === 0
-            ? 'CONFIRMED'
-            : failedImages.length < totalImages
-              ? 'PARTIAL'
-              : 'FAILED';
-
-          await tx.aiItemDraft.update({
-            where: { id: draft.id },
-            data: { status: draftStatus },
-          });
         }
+
+        // Update draft status based on image processing results
+        const draftStatus = failedImages.length === 0
+          ? 'CONFIRMED'
+          : failedImages.length < totalImages
+            ? 'PARTIAL'
+            : 'FAILED';
+
+        await tx.aiItemDraft.update({
+          where: { id: draft.id },
+          data: { status: draftStatus },
+        });
       }
 
       return item;
@@ -457,7 +505,7 @@ Condition: ${item.condition || ''}`;
 
       this.logger.error(
         `Item ${item.id} created with ${failedImages.length}/${totalImages} failed image(s) ` +
-        `from draft ${createDto.draft_id}. Details: ${failedImages.map((f) => `${f.filename}: ${f.error}`).join('; ')}`,
+        `from draft ${draftIdNorm ?? createDto.draft_id}. Details: ${failedImages.map((f) => `${f.filename}: ${f.error}`).join('; ')}`,
       );
     }
 
@@ -503,17 +551,17 @@ Condition: ${item.condition || ''}`;
     const nextStatus = updateDto.status ?? existingItem.status;
     this.validatePriceFields(nextPrice ?? undefined, nextOriginalPrice ?? undefined);
 
-    if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
-      await this.validateCategoryMetadata(updateDto.car_brand, updateDto.model_brand);
-    }
-
     const updateData: Prisma.ItemUpdateInput = {};
     if (updateDto.name !== undefined) updateData.name = updateDto.name;
     if (updateDto.description !== undefined) updateData.description = updateDto.description;
     if (updateDto.scale !== undefined) updateData.scale = updateDto.scale;
     if (updateDto.brand !== undefined) updateData.brand = updateDto.brand;
-    if (updateDto.car_brand !== undefined) updateData.car_brand = updateDto.car_brand;
-    if (updateDto.model_brand !== undefined) updateData.model_brand = updateDto.model_brand;
+    if (updateDto.car_brand !== undefined) {
+      updateData.car_brand = normalizeCategoryBrandField(updateDto.car_brand);
+    }
+    if (updateDto.model_brand !== undefined) {
+      updateData.model_brand = normalizeCategoryBrandField(updateDto.model_brand);
+    }
     if (updateDto.condition !== undefined) updateData.condition = updateDto.condition;
     if (updateDto.price !== undefined) updateData.price = updateDto.price ?? null;
     if (updateDto.original_price !== undefined) updateData.original_price = updateDto.original_price ?? null;
@@ -528,6 +576,22 @@ Condition: ${item.condition || ''}`;
     }
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
     if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
+
+    if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
+      const nextCarBrand =
+        updateDto.car_brand !== undefined
+          ? normalizeCategoryBrandField(updateDto.car_brand)
+          : normalizeCategoryBrandField(existingItem.car_brand);
+      const nextModelBrand =
+        updateDto.model_brand !== undefined
+          ? normalizeCategoryBrandField(updateDto.model_brand)
+          : normalizeCategoryBrandField(existingItem.model_brand);
+      await this.categoriesService.validateCategoryMetadataForShop(
+        shopId,
+        nextCarBrand,
+        nextModelBrand,
+      );
+    }
 
     const item = await this.prisma.item.update({
       where: { id },
@@ -871,36 +935,6 @@ Condition: ${item.condition || ''}`;
         `Invalid item status transition from "${current}" to "${next}"`,
         [{ from: current, to: next }],
       );
-    }
-  }
-
-  private async validateCategoryMetadata(
-    carBrand?: string | null,
-    modelBrand?: string | null,
-  ) {
-    const checks: Array<{ type: 'car_brand' | 'model_brand'; value?: string | null }> = [
-      { type: 'car_brand', value: carBrand },
-      { type: 'model_brand', value: modelBrand },
-    ];
-
-    for (const check of checks) {
-      if (!check.value) continue;
-
-      const category = await this.prisma.category.findFirst({
-        where: {
-          type: check.type,
-          name: check.value,
-          is_active: true,
-        },
-      });
-
-      if (!category) {
-        throw new AppException(
-          ErrorCode.ITEM_CATEGORY_INVALID,
-          `Invalid ${check.type} value "${check.value}". Category must exist and be active.`,
-          [{ type: check.type, value: check.value }],
-        );
-      }
     }
   }
 

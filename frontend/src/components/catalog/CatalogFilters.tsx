@@ -5,6 +5,7 @@ import type { CategoryItem } from '../../types/category';
 import { cn } from '../../lib/utils';
 
 interface CatalogFiltersProps {
+  shopId: string | null;
   carBrand: string | null;
   modelBrand: string | null;
   condition: 'new' | 'old' | null;
@@ -21,6 +22,7 @@ const chipActive =
   'border-transparent bg-gradient-to-r from-shop to-shopAccent text-white shadow-corporate-btn hover:-translate-y-0.5 hover:shadow-corporate-card-hover';
 
 export const CatalogFilters = ({
+  shopId,
   carBrand,
   modelBrand,
   condition,
@@ -33,26 +35,31 @@ export const CatalogFilters = ({
     isLoading: isCategoriesLoading,
     isError: isCategoriesError,
   } = useQuery<{ categories: CategoryItem[] }>({
-    queryKey: ['catalog-filters', 'all'],
+    queryKey: ['catalog-filters', shopId ?? 'none'],
     queryFn: async () => {
-      const response = await apiClient.get('/categories?is_active=true');
+      const params = new URLSearchParams({ is_active: 'true' });
+      if (shopId) {
+        params.set('shop_id', shopId);
+      }
+      const response = await apiClient.get(`/categories?${params.toString()}`);
       return response.data;
     },
+    enabled: Boolean(shopId),
     staleTime: 5 * 60 * 1000,
   });
 
   const carBrands = useMemo(
     () => (categoriesData?.categories ?? [])
-      .filter((category) => category.type === 'car_brand')
-      .map((category) => category.name)
+      .filter((c) => c.type === 'car_brand' && c.is_active)
+      .map((c) => c.name)
       .sort((a, b) => a.localeCompare(b)),
     [categoriesData],
   );
 
   const modelBrands = useMemo(
     () => (categoriesData?.categories ?? [])
-      .filter((category) => category.type === 'model_brand')
-      .map((category) => category.name)
+      .filter((c) => c.type === 'model_brand' && c.is_active)
+      .map((c) => c.name)
       .sort((a, b) => a.localeCompare(b)),
     [categoriesData],
   );

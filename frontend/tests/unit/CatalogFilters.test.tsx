@@ -32,6 +32,7 @@ describe('CatalogFilters', () => {
 
     render(
       <CatalogFilters
+        shopId="11111111-1111-1111-1111-111111111111"
         carBrand={null}
         modelBrand={null}
         condition={null}
@@ -65,6 +66,7 @@ describe('CatalogFilters', () => {
 
     render(
       <CatalogFilters
+        shopId="11111111-1111-1111-1111-111111111111"
         carBrand={null}
         modelBrand={null}
         condition={null}
@@ -77,7 +79,7 @@ describe('CatalogFilters', () => {
     expect(useQueryMock).toHaveBeenCalledTimes(1);
     expect((useQueryMock.mock.calls[0][0] as { queryKey: unknown[] }).queryKey).toEqual([
       'catalog-filters',
-      'all',
+      '11111111-1111-1111-1111-111111111111',
     ]);
 
     const audiButton = screen.getByRole('button', { name: 'Audi' });
@@ -115,6 +117,7 @@ describe('CatalogFilters', () => {
 
     render(
       <CatalogFilters
+        shopId="11111111-1111-1111-1111-111111111111"
         carBrand="Audi"
         modelBrand="Mini GT"
         condition="old"

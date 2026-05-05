@@ -110,7 +110,7 @@ export const AiImportPage = () => {
           ApiEnvelope<CreateItemResponse>
         >('/items', {
             ...formData,
-            draft_id: draft.draftId
+            draft_id: draft.draftId,
         });
         const result = response.data;
         if (result.warning) {
