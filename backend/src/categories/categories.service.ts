@@ -13,7 +13,7 @@ import { QueryCategoriesDto } from './dto/query-categories.dto';
 import { isUUID } from 'class-validator';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { isPrismaUniqueConstraintError } from '../common/prisma/prisma-error.utils';
-import { normalizeCategoryBrandField } from '../common/utils/category-brand.utils';
+import { normalizeCategoryBrandField, MAX_CATEGORY_BRAND_NAME_LENGTH } from '../common/utils/category-brand.utils';
 
 /**
  * Maps category type to the corresponding field on the Item model.
@@ -344,6 +344,13 @@ export class CategoriesService {
         typeof spec.value === 'string' ? spec.value.trim() : '';
       if (!trimmed) continue;
 
+      if (trimmed.length > MAX_CATEGORY_BRAND_NAME_LENGTH) {
+        this.logger.warn(
+          `Skipping AI category ensure for ${spec.type}: name length ${trimmed.length} exceeds max ${MAX_CATEGORY_BRAND_NAME_LENGTH}`,
+        );
+        continue;
+      }
+
       const existingShop = await tx.category.findFirst({
         where: { type: spec.type, name: trimmed, shop_id: shopId },
       });
@@ -447,6 +454,7 @@ export class CategoriesService {
       return;
     }
     if (categoryShopId === null) {
+      this.logger.warn('Category mutation denied: global category requires platform_super');
       throw new ForbiddenException('Chỉ quản trị nền tảng mới sửa được danh mục chung.');
     }
     const tid =
@@ -454,6 +462,9 @@ export class CategoriesService {
         ? opts.tenantId.trim()
         : null;
     if (!tid || tid !== categoryShopId) {
+      this.logger.warn(
+        `Category mutation denied: tenant=${tid ?? 'none'} category_shop=${categoryShopId ?? 'none'}`,
+      );
       throw new ForbiddenException('Không có quyền thao tác danh mục của shop khác.');
     }
   }

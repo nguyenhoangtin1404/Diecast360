@@ -291,6 +291,29 @@ describe('ItemsService', () => {
       expect(prisma.item.create).not.toHaveBeenCalled();
     });
 
+    it('should reject create when car_brand exceeds max category name length (AI draft)', async () => {
+      prisma.aiItemDraft.findUnique.mockResolvedValue({
+        id: 'draft-1',
+        images_json: JSON.stringify([]),
+      });
+      const longBrand = 'x'.repeat(101);
+
+      await expect(
+        service.create(
+          {
+            name: 'AI Item',
+            draft_id: 'draft-1',
+            car_brand: longBrand,
+          },
+          TEST_SHOP_ID,
+        ),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.ITEM_CATEGORY_INVALID,
+      });
+
+      expect(prisma.category.create).not.toHaveBeenCalled();
+    });
+
     it('should create missing car_brand and model_brand categories when creating from an AI draft', async () => {
       prisma.aiItemDraft.findUnique.mockResolvedValue({
         id: 'draft-1',

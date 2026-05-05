@@ -1,7 +1,20 @@
-import { IsString, IsOptional, IsBoolean, IsIn, IsNumber, Min, IsEnum, IsNotEmpty, IsInt, ValidateIf } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsIn,
+  IsNumber,
+  Min,
+  IsEnum,
+  IsNotEmpty,
+  IsInt,
+  ValidateIf,
+  MaxLength,
+} from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ItemStatus } from '../../generated/prisma/client';
 import { IsItemAttributes, type ItemAttributesInput } from './item-attributes.validator';
+import { MAX_CATEGORY_BRAND_NAME_LENGTH } from '../../common/utils/category-brand.utils';
 
 export class UpdateItemDto {
   @IsOptional()
@@ -30,12 +43,14 @@ export class UpdateItemDto {
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
   @IsNotEmpty()
+  @MaxLength(MAX_CATEGORY_BRAND_NAME_LENGTH)
   car_brand?: string;
 
   @IsOptional()
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
   @IsNotEmpty()
+  @MaxLength(MAX_CATEGORY_BRAND_NAME_LENGTH)
   model_brand?: string;
 
   @IsOptional()
