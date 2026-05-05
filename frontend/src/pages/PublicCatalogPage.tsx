@@ -183,7 +183,7 @@ export const PublicCatalogPage = () => {
       <div className="relative min-h-[50vh] px-4 py-16 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="py-16 text-center">
-            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-shop/25 border-t-shop" />
             <p className="mt-4 text-sm font-medium text-slate-500">Đang tải catalog…</p>
           </div>
         </div>
@@ -194,11 +194,11 @@ export const PublicCatalogPage = () => {
   return (
     <div className="relative overflow-hidden">
       <div
-        className="pointer-events-none absolute -left-32 top-0 h-[420px] w-[420px] rounded-full bg-gradient-to-br from-indigo-400/30 to-violet-500/25 blur-3xl motion-safe:animate-blob-drift"
+        className="pointer-events-none absolute -left-32 top-0 h-[420px] w-[420px] rounded-full bg-gradient-to-br from-shop/40 to-shopAccent/25 blur-3xl motion-safe:animate-blob-drift"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute -right-24 top-32 h-[380px] w-[380px] rounded-full bg-gradient-to-bl from-violet-500/25 to-indigo-400/20 blur-3xl motion-safe:animate-blob-drift [animation-delay:-6s]"
+        className="pointer-events-none absolute -right-24 top-32 h-[380px] w-[380px] rounded-full bg-gradient-to-bl from-shopAccent/25 to-shop/20 blur-3xl motion-safe:animate-blob-drift [animation-delay:-6s]"
         aria-hidden
       />
 
@@ -245,7 +245,7 @@ export const PublicCatalogPage = () => {
 
           {isLoading && items.length === 0 && (
             <div className="py-16 text-center">
-              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+              <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-shop/25 border-t-shop" />
               <p className="mt-4 text-sm font-medium text-slate-500">Đang tải catalog…</p>
             </div>
           )}

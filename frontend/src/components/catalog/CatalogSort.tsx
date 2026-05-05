@@ -7,10 +7,10 @@ interface CatalogSortProps {
 }
 
 const btn =
-  'min-h-[44px] rounded-lg border px-4 py-2 text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2';
+  'min-h-[44px] rounded-lg border px-4 py-2 text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2';
 
-const btnOff = 'border-slate-200 bg-white text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-slate-50';
-const btnOn = 'border-transparent bg-indigo-50 text-indigo-800 ring-1 ring-indigo-100';
+const btnOff = 'border-slate-200 bg-white text-slate-700 shadow-sm hover:border-shop/25 hover:bg-slate-50';
+const btnOn = 'border-transparent bg-shop/10 text-shop ring-1 ring-shop/20';
 
 export const CatalogSort = ({ sortBy, sortOrder, onSortChange }: CatalogSortProps) => {
   const handleSortClick = (field: 'name' | 'price' | 'created_at') => {

@@ -22,11 +22,11 @@
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, var(--ct-primary) 0%, var(--ct-secondary) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.35);
+  box-shadow: 0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.35);
 }
 
 .headerTitle {
@@ -72,7 +72,7 @@
 
 .addButton {
   padding: 10px 20px;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, var(--ct-primary) 0%, var(--ct-secondary) 100%);
   color: white;
   text-decoration: none;
   border-radius: 9999px;
@@ -82,14 +82,14 @@
   font-size: 14px;
   font-weight: 600;
   transition: all 0.2s ease-out;
-  box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.35);
+  box-shadow: 0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.35);
   border: none;
   cursor: pointer;
 }
 
 .addButton:hover {
   filter: brightness(1.05);
-  box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.25);
+  box-shadow: 0 10px 25px -5px rgb(var(--shop-primary-rgb) / 0.25);
   transform: translateY(-2px);
 }
 
@@ -102,10 +102,10 @@
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: #4f46e5;
+  color: var(--ct-primary);
   background: #fff;
   border: 2px solid #c7d2fe;
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.12);
+  box-shadow: 0 2px 8px rgb(var(--shop-primary-rgb) / 0.12);
   transition: all 0.2s ease-out;
 }
 
@@ -113,7 +113,7 @@
   border-color: #818cf8;
   background: #eef2ff;
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.18);
+  box-shadow: 0 8px 20px rgb(var(--shop-primary-rgb) / 0.18);
 }
 
 .exportButton {
@@ -221,7 +221,7 @@
   object-fit: cover;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.08);
+  box-shadow: 0 4px 12px -2px rgb(var(--shop-primary-rgb) / 0.08);
 }
 
 .noImage {
@@ -300,9 +300,9 @@
 }
 
 .copyButton:hover {
-  background: #4f46e5;
+  background: var(--ct-primary);
   color: white;
-  border-color: #4f46e5;
+  border-color: var(--ct-primary);
 }
 
 .copyButtonCopied {
@@ -338,8 +338,8 @@
 
 .pageButton:hover:not(:disabled) {
   background: #f8fafc;
-  border-color: #4f46e5;
-  color: #4f46e5;
+  border-color: var(--ct-primary);
+  color: var(--ct-primary);
 }
 
 .pageButton:disabled {
@@ -364,8 +364,8 @@
 }
 
 .pageNumberActive {
-  border: 2px solid #4f46e5;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  border: 2px solid var(--ct-primary);
+  background: linear-gradient(135deg, var(--ct-primary) 0%, var(--ct-secondary) 100%);
   color: #fff;
   font-weight: 700;
 }
@@ -430,7 +430,7 @@
     border: 1px solid #e2e8f0;
     border-radius: 14px;
     padding: 14px;
-    box-shadow: 0 4px 20px -2px rgba(79, 70, 229, 0.1);
+    box-shadow: 0 4px 20px -2px rgb(var(--shop-primary-rgb) / 0.1);
   }
 
   .td {
@@ -530,7 +530,7 @@
   max-width: 400px;
   width: 90%;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.15), 0 8px 10px -6px rgba(79, 70, 229, 0.1);
+  box-shadow: 0 10px 25px -5px rgb(var(--shop-primary-rgb) / 0.15), 0 8px 10px -6px rgb(var(--shop-primary-rgb) / 0.1);
 }
 
 .modalHeader {

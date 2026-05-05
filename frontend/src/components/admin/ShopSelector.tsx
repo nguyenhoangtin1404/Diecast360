@@ -41,7 +41,7 @@ const ShopSelector: React.FC = () => {
         value={activeShop?.id || ''}
         onChange={(e) => switchShop(e.target.value)}
         disabled={loading}
-        className="max-w-[160px] cursor-pointer truncate border-0 bg-transparent text-sm font-semibold text-slate-800 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 disabled:opacity-60"
+        className="max-w-[160px] cursor-pointer truncate border-0 bg-transparent text-sm font-semibold text-slate-800 outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-1 disabled:opacity-60"
       >
         {!activeShop && (
           <option value="" disabled>

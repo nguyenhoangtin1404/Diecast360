@@ -101,7 +101,7 @@ export const ReportsPage = () => {
                 type="button"
                 className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
                   range === option.value
-                    ? 'bg-indigo-600 text-white shadow'
+                    ? 'bg-shop text-white shadow'
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
                 onClick={() => setRange(option.value)}
@@ -150,7 +150,7 @@ export const ReportsPage = () => {
                 <div className="grid gap-3 md:grid-cols-2">
                   <TrendSparklineCard
                     title="Biến động kho"
-                    colorClass="text-indigo-600"
+                    colorClass="text-shop"
                     values={trends.map((point) => point.inventory_movement_units)}
                     labels={trends.map((point) =>
                       new Date(point.bucket_start).toLocaleDateString('vi-VN'),
@@ -188,9 +188,9 @@ export const ReportsPage = () => {
                           type="button"
                           className={`h-20 rounded-lg border p-2 text-left transition ${
                             day.inRange
-                              ? 'border-slate-200 hover:border-indigo-300'
+                              ? 'border-slate-200 hover:border-shop/40'
                               : 'border-transparent bg-slate-50 text-slate-300'
-                          } ${isSelected ? 'ring-2 ring-indigo-400' : ''}`}
+                          } ${isSelected ? 'ring-2 ring-shop/50' : ''}`}
                           style={
                             point
                               ? {

@@ -12,10 +12,8 @@ import type { ShopAppearanceFormState } from '@/types/shopAppearance';
 import { parseAppearanceFormDefaults } from '@/utils/shopAppearance';
 import { ShopContactFields } from './shops/ShopContactFields';
 import { publicShopContactQueryKey } from '../../hooks/usePublicShopContact';
-import {
-  fetchShopSettings,
-  shopSettingsQueryKey,
-} from '../../hooks/shopSettingsQuery';
+import { fetchShopSettings, shopSettingsQueryKey } from '../../hooks/shopSettingsQuery';
+import { notifyShopAppearanceUpdated } from '../../utils/shopThemeBridge';
 
 const card: CSSProperties = {
   background: '#fff',
@@ -54,6 +52,37 @@ const hint: CSSProperties = { fontSize: '12px', color: '#6b7280', margin: 0, lin
 
 /** Match backend shop-branding upload cap (see ShopsService.uploadAppearanceAsset). */
 const MAX_BRANDING_UPLOAD_BYTES = 2 * 1024 * 1024;
+
+/** `#RGB` / `#RRGGBB` for `<input type="color" />`; otherwise null (keyword / invalid). */
+function normalizeHexForColorInput(raw: string): string | null {
+  const t = raw.trim();
+  const full6 = /^#([0-9a-f]{6})$/i.exec(t);
+  if (full6) return `#${full6[1].toLowerCase()}`;
+  const short3 = /^#([0-9a-f]{3})$/i.exec(t);
+  if (short3) {
+    const [r, g, b] = short3[1].split('');
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return null;
+}
+
+const colorPicker: CSSProperties = {
+  width: '44px',
+  height: '40px',
+  padding: 0,
+  border: '1px solid #d1d5db',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  flexShrink: 0,
+  background: 'transparent',
+};
+
+const colorRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  flexWrap: 'wrap',
+};
 
 function extractApiErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'message' in err) {
@@ -133,6 +162,7 @@ export const ShopSettingsPage = () => {
       if (activeShop?.id) {
         await queryClient.invalidateQueries({ queryKey: publicShopContactQueryKey(activeShop.id) });
       }
+      notifyShopAppearanceUpdated();
     },
     onError: (err: unknown) => {
       setSaveError(extractApiErrorMessage(err, 'Lưu thất bại.'));
@@ -171,6 +201,7 @@ export const ShopSettingsPage = () => {
       if (appearanceJson !== undefined) {
         setAppearance(parseAppearanceFormDefaults(appearanceJson));
       }
+      notifyShopAppearanceUpdated();
       await queryClient.invalidateQueries({ queryKey: ['shop-settings'] });
       if (activeShop?.id) {
         await queryClient.invalidateQueries({ queryKey: publicShopContactQueryKey(activeShop.id) });
@@ -203,7 +234,7 @@ export const ShopSettingsPage = () => {
   return (
     <div style={{ padding: '24px 16px 48px', maxWidth: '720px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-        <Palette size={28} style={{ color: '#4f46e5' }} />
+        <Palette size={28} style={{ color: 'var(--ct-primary)' }} />
         <h1 style={{ fontSize: '24px', fontWeight: 800, margin: 0, color: '#0f172a' }}>Cấu hình shop</h1>
       </div>
       <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px', lineHeight: 1.5 }}>
@@ -346,25 +377,57 @@ export const ShopSettingsPage = () => {
             <label style={label} htmlFor="appearance-primary">
               Màu chủ (hex #RRGGBB hoặc tên màu đơn giản, ví dụ #4f46e5 hoặc indigo)
             </label>
-            <input
-              id="appearance-primary"
-              style={input}
-              value={appearance.primary_color}
-              onChange={(e) => setAppearance((a) => ({ ...a, primary_color: e.target.value }))}
-              disabled={!canEditSettings}
-            />
+            <div style={colorRow}>
+              <input
+                id="appearance-primary"
+                style={{ ...input, flex: '1 1 220px', minWidth: '140px', width: 'auto' }}
+                value={appearance.primary_color}
+                onChange={(e) => setAppearance((a) => ({ ...a, primary_color: e.target.value }))}
+                disabled={!canEditSettings}
+                autoComplete="off"
+              />
+              <input
+                type="color"
+                aria-label="Chọn màu chủ bằng bảng màu"
+                title="Chọn màu chủ"
+                value={normalizeHexForColorInput(appearance.primary_color) ?? '#4f46e5'}
+                onChange={(e) => setAppearance((a) => ({ ...a, primary_color: e.target.value }))}
+                disabled={!canEditSettings}
+                style={{
+                  ...colorPicker,
+                  cursor: canEditSettings ? 'pointer' : 'not-allowed',
+                  opacity: canEditSettings ? 1 : 0.55,
+                }}
+              />
+            </div>
           </div>
           <div style={formRow}>
             <label style={label} htmlFor="appearance-accent">
               Màu nhấn
             </label>
-            <input
-              id="appearance-accent"
-              style={input}
-              value={appearance.accent_color}
-              onChange={(e) => setAppearance((a) => ({ ...a, accent_color: e.target.value }))}
-              disabled={!canEditSettings}
-            />
+            <div style={colorRow}>
+              <input
+                id="appearance-accent"
+                style={{ ...input, flex: '1 1 220px', minWidth: '140px', width: 'auto' }}
+                value={appearance.accent_color}
+                onChange={(e) => setAppearance((a) => ({ ...a, accent_color: e.target.value }))}
+                disabled={!canEditSettings}
+                autoComplete="off"
+              />
+              <input
+                type="color"
+                aria-label="Chọn màu nhấn bằng bảng màu"
+                title="Chọn màu nhấn"
+                value={normalizeHexForColorInput(appearance.accent_color) ?? '#7c3aed'}
+                onChange={(e) => setAppearance((a) => ({ ...a, accent_color: e.target.value }))}
+                disabled={!canEditSettings}
+                style={{
+                  ...colorPicker,
+                  cursor: canEditSettings ? 'pointer' : 'not-allowed',
+                  opacity: canEditSettings ? 1 : 0.55,
+                }}
+              />
+            </div>
           </div>
           <div style={formRow}>
             <label style={label} htmlFor="appearance-font">
@@ -387,7 +450,7 @@ export const ShopSettingsPage = () => {
             disabled={saveMutation.isPending || !canEditSettings}
             style={{
               padding: '10px 20px',
-              background: '#4f46e5',
+              background: 'var(--ct-primary)',
               color: '#fff',
               border: 'none',
               borderRadius: '8px',

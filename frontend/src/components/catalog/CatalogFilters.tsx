@@ -14,11 +14,11 @@ interface CatalogFiltersProps {
 }
 
 const chipBase =
-  'min-h-[44px] rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2';
+  'min-h-[44px] rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2';
 
-const chipInactive = 'border-slate-200 bg-white text-slate-700 shadow-sm hover:border-indigo-200 hover:bg-indigo-50/50 hover:text-indigo-800';
+const chipInactive = 'border-slate-200 bg-white text-slate-700 shadow-sm hover:border-shop/25 hover:bg-shop/5 hover:text-shop';
 const chipActive =
-  'border-transparent bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-corporate-btn hover:-translate-y-0.5 hover:shadow-corporate-card-hover';
+  'border-transparent bg-gradient-to-r from-shop to-shopAccent text-white shadow-corporate-btn hover:-translate-y-0.5 hover:shadow-corporate-card-hover';
 
 export const CatalogFilters = ({
   carBrand,

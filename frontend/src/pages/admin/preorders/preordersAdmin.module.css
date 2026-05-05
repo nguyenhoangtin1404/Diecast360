@@ -18,7 +18,7 @@
   border-radius: 0.75rem;
   border: 1px solid var(--ct-border, #e2e8f0);
   padding: 1rem 1.125rem;
-  box-shadow: 0 4px 20px -2px rgba(79, 70, 229, 0.1);
+  box-shadow: 0 4px 20px -2px rgb(var(--shop-primary-rgb) / 0.1);
   transition:
     box-shadow 0.2s ease-out,
     transform 0.2s ease-out;
@@ -27,8 +27,8 @@
 @media (prefers-reduced-motion: no-preference) {
   .card:hover {
     box-shadow:
-      0 10px 25px -5px rgba(79, 70, 229, 0.12),
-      0 8px 10px -6px rgba(79, 70, 229, 0.08);
+      0 10px 25px -5px rgb(var(--shop-primary-rgb) / 0.12),
+      0 8px 10px -6px rgb(var(--shop-primary-rgb) / 0.08);
   }
 }
 
@@ -170,7 +170,7 @@
 @media (prefers-reduced-motion: no-preference) {
   .button:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px -2px rgba(79, 70, 229, 0.1);
+    box-shadow: 0 4px 12px -2px rgb(var(--shop-primary-rgb) / 0.1);
   }
 }
 
@@ -199,7 +199,7 @@ a.buttonPrimary[aria-disabled='true'] {
   border: 0;
   color: #fff;
   background: linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed));
-  box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.28);
+  box-shadow: 0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.28);
 }
 
 .buttonPrimary:hover {
@@ -211,8 +211,8 @@ a.buttonPrimary[aria-disabled='true'] {
   .buttonPrimary:hover {
     transform: translateY(-2px);
     box-shadow:
-      0 8px 20px -4px rgba(79, 70, 229, 0.35),
-      0 4px 14px 0 rgba(79, 70, 229, 0.25);
+      0 8px 20px -4px rgb(var(--shop-primary-rgb) / 0.35),
+      0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.25);
   }
 }
 
@@ -266,7 +266,7 @@ a.buttonPrimary[aria-disabled='true'] {
   border-color: var(--ct-primary, #4f46e5);
   box-shadow:
     0 0 0 1px #fff,
-    0 0 0 3px rgba(79, 70, 229, 0.35);
+    0 0 0 3px rgb(var(--shop-primary-rgb) / 0.35);
 }
 
 .textarea {

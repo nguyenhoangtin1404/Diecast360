@@ -154,10 +154,10 @@ export const AiImportPage = () => {
 
       {/* Upload Area - Only show if no draft or if we want to allow re-upload (maybe hidden if draft exists for simplicity) */}
       {!draft && (
-        <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-12 text-center shadow-sm transition-colors hover:border-indigo-400 hover:bg-slate-50/80">
+        <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-12 text-center shadow-sm transition-colors hover:border-shop/50 hover:bg-slate-50/80">
           {analyzing ? (
             <div className="flex flex-col items-center justify-center p-8">
-              <Loader2 size={48} className="mb-4 animate-spin text-indigo-600" strokeWidth={2} aria-hidden />
+              <Loader2 size={48} className="mb-4 animate-spin text-shop" strokeWidth={2} aria-hidden />
               <h3 className="text-xl font-semibold text-slate-900">Analyzing Images...</h3>
               <p className="mt-2 text-slate-600">
                 Extracting Brand, Model, Scale, and Details (powered by Vision AI)

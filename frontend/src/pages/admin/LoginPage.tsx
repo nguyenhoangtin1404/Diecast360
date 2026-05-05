@@ -50,17 +50,17 @@ export const LoginPage = () => {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#F8FAFC] px-4 py-12 sm:px-6">
       <div
-        className="pointer-events-none absolute -left-40 top-0 h-[480px] w-[480px] rounded-full bg-gradient-to-br from-indigo-400/35 to-violet-500/30 blur-3xl motion-safe:animate-blob-drift"
+        className="pointer-events-none absolute -left-40 top-0 h-[480px] w-[480px] rounded-full bg-gradient-to-br from-shop/45 to-shopAccent/30 blur-3xl motion-safe:animate-blob-drift"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute -right-32 bottom-0 h-[400px] w-[400px] rounded-full bg-gradient-to-tl from-violet-500/25 to-indigo-300/20 blur-3xl motion-safe:animate-blob-drift [animation-delay:-8s]"
+        className="pointer-events-none absolute -right-32 bottom-0 h-[400px] w-[400px] rounded-full bg-gradient-to-tl from-shopAccent/25 to-shop/20 blur-3xl motion-safe:animate-blob-drift [animation-delay:-8s]"
         aria-hidden
       />
 
       <div className="relative mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-center lg:gap-16">
         <div className="max-w-xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700 shadow-corporate-card">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-shop/15 bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-shop shadow-corporate-card">
             <Shield className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             Khu vực quản trị
           </div>
@@ -70,11 +70,11 @@ export const LoginPage = () => {
           </h1>
           <ul className="mt-8 space-y-3 text-sm font-medium text-slate-600">
             <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" aria-hidden />
+              <span className="h-1.5 w-1.5 rounded-full bg-shop" aria-hidden />
               Quản lý sản phẩm, media & 360°
             </li>
             <li className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-violet-500" aria-hidden />
+              <span className="h-1.5 w-1.5 rounded-full bg-shopAccent" aria-hidden />
               Pre-order & bài đăng Facebook
             </li>
             <li className="flex items-center gap-2">
@@ -87,7 +87,7 @@ export const LoginPage = () => {
         <div className="mx-auto w-full max-w-md">
           <div className="rounded-2xl border border-slate-100 bg-white p-8 shadow-corporate-card transition-shadow duration-200 hover:shadow-corporate-card-hover sm:p-10">
             <div className="mb-8 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-corporate-btn">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-shop to-shopAccent text-white shadow-corporate-btn">
                 <Box className="h-7 w-7" strokeWidth={2} aria-hidden />
               </div>
               <h2 className="text-xl font-bold text-slate-900">Chào mừng trở lại</h2>
@@ -145,7 +145,7 @@ export const LoginPage = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="group flex w-full min-h-[48px] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 py-3 text-sm font-bold text-white shadow-corporate-btn transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-corporate-card-hover disabled:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-500 disabled:shadow-none"
+                className="group flex w-full min-h-[48px] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-shop to-shopAccent py-3 text-sm font-bold text-white shadow-corporate-btn transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-corporate-card-hover disabled:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-500 disabled:shadow-none"
               >
                 {loading ? (
                   <>

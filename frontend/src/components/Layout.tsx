@@ -38,24 +38,24 @@ interface LayoutProps {
 
 /** Trang công khai — menu trên header (ngang desktop, gập mobile). */
 const publicNavLinkBase =
-  'inline-flex min-h-[44px] items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-all duration-200 ease-out hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2';
+  'inline-flex min-h-[44px] items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition-all duration-200 ease-out hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2';
 
 const publicNavLinkActive =
-  'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100 shadow-sm hover:bg-indigo-50/90 hover:text-indigo-800';
+  'bg-shop/10 text-shop ring-1 ring-shop/20 shadow-sm hover:bg-shop/15 hover:text-shop';
 
 /** Admin — menu cột trong sidebar trái. */
 const adminSidebarNavLinkBase =
-  'flex w-full min-h-[44px] items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-all duration-200 ease-out hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2';
+  'flex w-full min-h-[44px] items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-all duration-200 ease-out hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2';
 
 const adminSidebarNavLinkActive =
-  'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100 shadow-sm hover:bg-indigo-50/90 hover:text-indigo-800';
+  'bg-shop/10 text-shop ring-1 ring-shop/20 shadow-sm hover:bg-shop/15 hover:text-shop';
 
 /** Shared gradient tile when no custom logo (public + admin). */
 function BrandFallbackTile({ className }: { className: string }) {
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center justify-center bg-gradient-to-br from-indigo-600 to-violet-600 font-extrabold tracking-tight text-white shadow-corporate-btn',
+        'flex shrink-0 items-center justify-center bg-gradient-to-br from-shop to-shopAccent font-extrabold tracking-tight text-white shadow-corporate-btn',
         className,
       )}
     >
@@ -317,7 +317,7 @@ export const Layout = ({ children }: LayoutProps) => {
   );
 
   const sharedFooter = (
-    <footer className="border-t border-indigo-900/20 bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-950 py-10 text-slate-300">
+    <footer className="border-t border-shop/20 bg-gradient-to-br from-shop via-slate-900 to-slate-950 py-10 text-slate-300">
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-4 text-center sm:flex-row sm:text-left sm:px-6">
         <div>
           <p className="text-sm font-semibold tracking-wide text-white">Diecast360</p>
@@ -338,7 +338,7 @@ export const Layout = ({ children }: LayoutProps) => {
             <div className="flex items-center justify-between gap-3 py-3 md:py-4">
               <Link
                 to={`${ROUTES.home}${publicShopNavSuffix}`}
-                className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
                 onClick={closeMobileMenu}
               >
                 {renderPublicBrandMark('lg')}
@@ -352,7 +352,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 {user && (
                   <>
                     <div className="flex max-w-[min(12rem,42vw)] min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-slate-700 sm:max-w-[14rem] sm:px-3">
-                      <UserIcon size={18} className="shrink-0 text-indigo-600" strokeWidth={2} />
+                      <UserIcon size={18} className="shrink-0 text-shop" strokeWidth={2} />
                       <span className="truncate">{user.full_name || user.email}</span>
                     </div>
                     <button
@@ -369,7 +369,7 @@ export const Layout = ({ children }: LayoutProps) => {
                 )}
                 <button
                   type="button"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-200 hover:border-indigo-200 hover:bg-indigo-50/60 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 md:hidden"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-200 hover:border-shop/30 hover:bg-shop/10 hover:text-shop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2 md:hidden"
                   onClick={toggleMobileMenu}
                   aria-label={isMenuOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng'}
                   aria-expanded={isMenuOpen}
@@ -417,7 +417,7 @@ export const Layout = ({ children }: LayoutProps) => {
         <div className="flex shrink-0 flex-col gap-3 border-b border-slate-200/80 p-4">
           <Link
             to={ROUTES.home}
-            className="group flex min-w-0 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            className="group flex min-w-0 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
             onClick={closeMobileMenu}
           >
             {renderAdminBrandMark('sidebar')}
@@ -433,7 +433,7 @@ export const Layout = ({ children }: LayoutProps) => {
           {user && (
             <div className="hidden md:grid md:grid-cols-[minmax(0,9fr)_minmax(0,1fr)] md:items-center md:gap-1.5 md:rounded-lg md:border md:border-slate-200 md:bg-slate-50/70 md:px-2 md:py-1.5">
               <div className="flex min-w-0 items-center gap-2">
-                <UserIcon size={16} className="shrink-0 text-indigo-600" strokeWidth={2} aria-hidden />
+                <UserIcon size={16} className="shrink-0 text-shop" strokeWidth={2} aria-hidden />
                 <span className="truncate text-sm font-medium text-slate-700">{user.full_name || user.email}</span>
               </div>
               <button
@@ -479,7 +479,7 @@ export const Layout = ({ children }: LayoutProps) => {
           >
             <div className="grid h-full min-h-0 w-[min(26rem,94vw)] shrink-0 grid-cols-[minmax(0,4fr)_minmax(0,2fr)] items-center gap-1 pl-1">
               <div className="flex min-h-0 min-w-0 items-center gap-1.5 overflow-hidden">
-                <UserIcon className="h-4 w-4 shrink-0 text-indigo-600" strokeWidth={2} aria-hidden />
+                <UserIcon className="h-4 w-4 shrink-0 text-shop" strokeWidth={2} aria-hidden />
                 <span className="min-w-0 truncate text-sm font-medium leading-snug text-slate-700">
                   {user.full_name || user.email}
                 </span>
@@ -501,7 +501,7 @@ export const Layout = ({ children }: LayoutProps) => {
         <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200/90 bg-white/90 px-4 py-3 shadow-sm backdrop-blur-md md:hidden">
           <Link
             to={ROUTES.home}
-            className="flex min-w-0 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            className="flex min-w-0 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
             onClick={closeMobileMenu}
           >
             {renderAdminBrandMark('compact')}
@@ -509,7 +509,7 @@ export const Layout = ({ children }: LayoutProps) => {
           </Link>
           <button
             type="button"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-200 hover:border-indigo-200 hover:bg-indigo-50/60 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-all duration-200 hover:border-shop/30 hover:bg-shop/10 hover:text-shop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
             onClick={toggleMobileMenu}
             aria-label={isMenuOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng'}
             aria-expanded={isMenuOpen}
