@@ -1,9 +1,7 @@
 import { useMemo, type ReactNode, type MouseEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Phone, Facebook, MessageCircle } from 'lucide-react';
-import { apiClient } from '../api/client';
 import { usePublicShopContext } from '../hooks/usePublicShopContext';
-import type { PublicShopContactResponse } from '../types/shopContactPublic';
+import { usePublicShopContact } from '../hooks/usePublicShopContact';
 
 /** Only allow http(s) links in href / window.open to avoid javascript: and other schemes. */
 function safeHttpUrl(url: string | undefined): string {
@@ -35,18 +33,9 @@ function renderInlineBold(text: string): ReactNode {
 }
 
 export const ContactPage = () => {
-  const { effectiveShopId, shopContextReady, publicApiShopReady } = usePublicShopContext();
+  const { shopContextReady, publicApiShopReady } = usePublicShopContext();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['public-shop-contact', effectiveShopId],
-    queryFn: async () => {
-      const res = await apiClient.get(
-        `/public/shops/${encodeURIComponent(effectiveShopId)}/contact`,
-      );
-      return res.data as PublicShopContactResponse;
-    },
-    enabled: shopContextReady && publicApiShopReady,
-  });
+  const { data, isLoading, error } = usePublicShopContact();
 
   const contact = data?.contact;
 
