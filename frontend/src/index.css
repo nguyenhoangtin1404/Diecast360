@@ -131,3 +131,33 @@
     @apply bg-gradient-to-r from-shop to-shopAccent bg-clip-text text-transparent;
   }
 }
+
+/**
+ * Lamborghini Vault showcase — Almarai as default on `.lambo-vault-root` only so the rest of the app keeps Plus Jakarta Sans on `body`.
+ */
+.lambo-vault-root {
+  font-family:
+    'Almarai',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'Roboto',
+    'Oxygen',
+    'Ubuntu',
+    'Cantarell',
+    sans-serif;
+}
+
+/** Cinematic grit — feTurbulence fractal noise (SVG data URI). */
+.noise-overlay {
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/** Subtle background texture — feTurbulence (stronger frequency). */
+.bg-noise {
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='bgnoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23bgnoise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}

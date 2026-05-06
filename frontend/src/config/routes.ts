@@ -3,6 +3,7 @@
  */
 export const ROUTES = {
   home: '/',
+  lamborghiniVault: '/lamborghini-vault',
   contact: '/contact',
   preorders: '/preorders',
   myOrders: '/my-orders',

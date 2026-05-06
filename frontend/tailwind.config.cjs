@@ -9,6 +9,9 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+        serif: ['"Instrument Serif"', "Georgia", "serif"],
+        /** Lamborghini Vault showcase — matches loaded Google Font */
+        almarai: ['Almarai', "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -23,6 +26,13 @@ module.exports = {
         "corporate-glow": "0 0 20px rgb(var(--shop-primary-rgb) / 0.35)",
       },
       colors: {
+        /** Lamborghini Vault — neon accent (#EFFF04); use vault-* to avoid clashing with shadcn `primary` */
+        vault: {
+          primary: "#EFFF04",
+          accentDark: "#0A0A0A",
+          feature: "#1A1A1A",
+        },
+        accentDark: "#0A0A0A",
         shop: "rgb(var(--shop-primary-rgb) / <alpha-value>)",
         shopAccent: "rgb(var(--shop-accent-rgb) / <alpha-value>)",
         background: "hsl(var(--background))",

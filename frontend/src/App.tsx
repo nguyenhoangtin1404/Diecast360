@@ -24,6 +24,7 @@ import { CreatePreOrderPage } from './pages/admin/preorders/CreatePreOrderPage';
 import { PreOrderManagementPage } from './pages/admin/preorders/PreOrderManagementPage';
 import { PreOrdersPage as PublicPreOrdersPage } from './pages/public/PreOrdersPage';
 import { MyOrdersPage } from './pages/public/MyOrdersPage';
+import { LamborghiniVaultPage } from './pages/lamborghini-vault/LamborghiniVaultPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,6 +43,7 @@ function App() {
           <BrowserRouter>
             <ShopThemeProvider>
               <Routes>
+              <Route path={ROUTES.lamborghiniVault} element={<LamborghiniVaultPage />} />
               <Route path={ROUTES.home} element={<Layout><PublicCatalogPage /></Layout>} />
               <Route path={ROUTES.preorders} element={<Layout><PublicPreOrdersPage /></Layout>} />
               <Route path={ROUTES.myOrders} element={<Layout><MyOrdersPage /></Layout>} />
