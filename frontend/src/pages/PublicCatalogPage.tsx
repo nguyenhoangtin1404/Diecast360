@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useId } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
@@ -145,6 +145,57 @@ export const PublicCatalogPage = () => {
     });
   };
 
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const sortFieldId = useId();
+  const filterPanelId = useId();
+  const filterPanelTitleId = useId();
+
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (urlState.carBrand) {
+      n += 1;
+    }
+    if (urlState.modelBrand) {
+      n += 1;
+    }
+    if (urlState.condition) {
+      n += 1;
+    }
+    return n;
+  }, [urlState.carBrand, urlState.modelBrand, urlState.condition]);
+
+  const clearCatalogFilters = useCallback(() => {
+    updateUrlState({ carBrand: null, modelBrand: null, condition: null });
+  }, [updateUrlState]);
+
+  const closeFilterPanel = useCallback(() => {
+    setFilterPanelOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!filterPanelOpen) {
+      return;
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setFilterPanelOpen(false);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [filterPanelOpen]);
+
+  useEffect(() => {
+    if (!filterPanelOpen) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [filterPanelOpen]);
+
   const waitingForShopContext = !shopContextReady;
   const missingShopScope = shopContextReady && !publicApiShopReady;
 
@@ -226,23 +277,131 @@ export const PublicCatalogPage = () => {
         </section>
 
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-corporate-card sm:p-6 lg:p-8">
-          <CatalogFilters
-            shopId={effectiveShopId}
-            carBrand={urlState.carBrand}
-            modelBrand={urlState.modelBrand}
-            condition={urlState.condition}
-            onCarBrandChange={(nextCarBrand) => updateUrlState({ carBrand: nextCarBrand })}
-            onModelBrandChange={(nextModelBrand) => updateUrlState({ modelBrand: nextModelBrand })}
-            onConditionChange={(nextCondition) => updateUrlState({ condition: nextCondition })}
-          />
+          <div className="mb-6 flex flex-col gap-4">
+            {activeFilterCount > 0 && (
+              <div className="flex flex-wrap items-center gap-2" aria-live="polite">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Đang lọc</span>
+                {urlState.carBrand && (
+                  <button
+                    type="button"
+                    className="inline-flex max-w-[min(100%,14rem)] items-center gap-1 rounded-full bg-shop/10 py-1 pl-3 pr-2 text-sm font-medium text-shop ring-1 ring-shop/15 hover:bg-shop/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
+                    onClick={() => updateUrlState({ carBrand: null })}
+                  >
+                    <span className="truncate">{urlState.carBrand}</span>
+                    <span className="text-base leading-none opacity-70" aria-hidden>
+                      ×
+                    </span>
+                    <span className="sr-only">Gỡ lọc hãng xe</span>
+                  </button>
+                )}
+                {urlState.modelBrand && (
+                  <button
+                    type="button"
+                    className="inline-flex max-w-[min(100%,14rem)] items-center gap-1 rounded-full bg-shop/10 py-1 pl-3 pr-2 text-sm font-medium text-shop ring-1 ring-shop/15 hover:bg-shop/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
+                    onClick={() => updateUrlState({ modelBrand: null })}
+                  >
+                    <span className="truncate">{urlState.modelBrand}</span>
+                    <span className="text-base leading-none opacity-70" aria-hidden>
+                      ×
+                    </span>
+                    <span className="sr-only">Gỡ lọc hãng mô hình</span>
+                  </button>
+                )}
+                {urlState.condition && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full bg-shop/10 py-1 pl-3 pr-2 text-sm font-medium text-shop ring-1 ring-shop/15 hover:bg-shop/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
+                    onClick={() => updateUrlState({ condition: null })}
+                  >
+                    {urlState.condition === 'new' ? 'Mới' : 'Cũ'}
+                    <span className="text-base leading-none opacity-70" aria-hidden>
+                      ×
+                    </span>
+                    <span className="sr-only">Gỡ lọc tình trạng</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="ml-1 text-sm font-semibold text-shop underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
+                  onClick={clearCatalogFilters}
+                >
+                  Xóa lọc
+                </button>
+              </div>
+            )}
 
-          <div className="mt-6 border-t border-slate-100 pt-6">
-            <CatalogSort
-              sortBy={urlState.sortBy}
-              sortOrder={urlState.sortOrder}
-              onSortChange={handleSortChange}
-            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:gap-3">
+                <label htmlFor={sortFieldId} className="text-sm font-semibold text-slate-600">
+                  Sắp xếp
+                </label>
+                <CatalogSort
+                  id={sortFieldId}
+                  sortBy={urlState.sortBy}
+                  sortOrder={urlState.sortOrder}
+                  onSortChange={handleSortChange}
+                  className="min-w-0 flex-1 sm:max-w-xs"
+                />
+              </div>
+              <button
+                type="button"
+                className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-800 shadow-sm transition-all hover:border-shop/30 hover:bg-shop/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2 active:bg-shop/10"
+                aria-expanded={filterPanelOpen}
+                aria-controls={filterPanelId}
+                onClick={() => setFilterPanelOpen(true)}
+              >
+                <span>Bộ lọc</span>
+                {activeFilterCount > 0 ? (
+                  <span className="ml-2 rounded-full bg-shop px-2 py-0.5 text-xs font-bold tabular-nums text-white">
+                    {activeFilterCount}
+                  </span>
+                ) : null}
+              </button>
+            </div>
           </div>
+
+          {filterPanelOpen ? (
+            <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center lg:p-4">
+              <button
+                type="button"
+                className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px]"
+                aria-label="Đóng bộ lọc"
+                onClick={closeFilterPanel}
+              />
+              <div
+                id={filterPanelId}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={filterPanelTitleId}
+                className="relative z-10 flex max-h-[min(92vh,840px)] w-full max-w-lg flex-col rounded-t-2xl border border-slate-100 bg-white shadow-corporate-card lg:max-h-[min(85vh,720px)] lg:rounded-2xl"
+              >
+                <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-5">
+                  <h2 id={filterPanelTitleId} className="text-lg font-bold text-slate-900">
+                    Bộ lọc
+                  </h2>
+                  <button
+                    type="button"
+                    className="flex h-10 min-w-[44px] items-center justify-center rounded-lg text-2xl leading-none text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
+                    onClick={closeFilterPanel}
+                    aria-label="Đóng"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+                  <CatalogFilters
+                    shopId={effectiveShopId}
+                    carBrand={urlState.carBrand}
+                    modelBrand={urlState.modelBrand}
+                    condition={urlState.condition}
+                    onCarBrandChange={(nextCarBrand) => updateUrlState({ carBrand: nextCarBrand })}
+                    onModelBrandChange={(nextModelBrand) => updateUrlState({ modelBrand: nextModelBrand })}
+                    onConditionChange={(nextCondition) => updateUrlState({ condition: nextCondition })}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {isLoading && items.length === 0 && (
             <div className="py-16 text-center">

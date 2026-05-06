@@ -120,6 +120,7 @@ describe('PublicCatalogPage URL sync', () => {
 
     render(<PublicCatalogPage />);
 
+    fireEvent.click(screen.getByRole('button', { name: /Bộ lọc/i }));
     fireEvent.click(screen.getByText('change-brand'));
     fireEvent.click(screen.getByText('change-sort'));
     fireEvent.change(screen.getByPlaceholderText('Tìm kiếm theo tên...'), {
