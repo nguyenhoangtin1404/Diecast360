@@ -43,30 +43,43 @@
 
 .filterBtn {
   padding: 8px 18px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--ct-border, #e2e8f0);
   border-radius: 8px;
-  background: white;
-  color: #555;
+  background: #fff;
+  color: #475569;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
 }
 
 .filterBtn:hover {
-  border-color: #1877F2;
-  color: #1877F2;
+  border-color: var(--ct-primary, #4f46e5);
+  color: var(--ct-primary, #4f46e5);
 }
 
 .filterBtnActive {
-  background: #1877F2;
-  color: white;
-  border-color: #1877F2;
+  background: linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed));
+  color: #fff;
+  border-color: var(--ct-primary, #4f46e5);
+  box-shadow: 0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.28);
 }
 
 .filterBtnActive:hover {
-  background: #1565c0;
-  color: white;
+  background: linear-gradient(90deg, #4338ca, #6d28d9);
+  color: #fff;
+}
+
+.filterBtn:focus-visible {
+  outline: none;
+  border-color: var(--ct-primary, #4f46e5);
+  box-shadow:
+    0 0 0 1px #fff,
+    0 0 0 3px rgb(var(--shop-primary-rgb) / 0.35);
 }
 
 .searchBox {

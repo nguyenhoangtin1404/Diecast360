@@ -111,13 +111,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
-      - name: 📥 Install Playwright browsers (cache miss)
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps
-
-      - name: 📥 Install Playwright OS deps (cache hit)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps
+      # Always run `playwright install` so browser revision matches @playwright/test after npm ci.
+      # Cache hit alone can leave a stale ~/.cache/ms-playwright and break launch (missing headless shell).
+      - name: 📥 Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
 
       - name: 🧭 Run Playwright E2E tests
         run: npm run test:e2e

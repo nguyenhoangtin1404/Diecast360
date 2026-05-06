@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, uploadFile } from '../../api/client';
@@ -14,6 +14,7 @@ import { buildStepUrlAfterCreate, evaluateFinishDecision, shouldBlockEnterSubmit
 import { MAX_SPINNER_FRAMES } from '../../constants/spinner';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useOptionalActiveShopId } from '../../hooks/useOptionalActiveShopId';
+import segmentedStyles from './itemDetailSegmented.module.css';
 
 // Helper functions for number formatting
 const formatNumber = (value: string): string => {
@@ -175,6 +176,134 @@ interface SavePayload {
   navigateAfterCreate?: boolean;
 }
 
+type SegmentedOption<T extends string> = {
+  value: T;
+  label: string;
+  minWidth?: string;
+};
+
+function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+  mobile,
+  fullWidthOnMobile,
+  ariaLabel,
+  disabled = false,
+}: {
+  options: SegmentedOption<T>[];
+  value: T;
+  onChange: (next: T) => void;
+  mobile: boolean;
+  fullWidthOnMobile?: boolean;
+  /** Accessible name for the segmented group (radiogroup). */
+  ariaLabel: string;
+  /** When true, disables all options (e.g. while saving or uploading). */
+  disabled?: boolean;
+}) {
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const focusIndex = (index: number) => {
+    if (disabled) return;
+    const n = options.length;
+    if (n === 0) return;
+    const i = ((index % n) + n) % n;
+    queueMicrotask(() => optionRefs.current[i]?.focus());
+  };
+
+  const groupClassName = [
+    segmentedStyles.group,
+    segmentedStyles.groupWrap,
+    fullWidthOnMobile && mobile ? segmentedStyles.groupFullWidth : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return (
+    <div
+      className={groupClassName}
+      role="radiogroup"
+      aria-label={ariaLabel}
+      aria-disabled={disabled ? 'true' : undefined}
+    >
+      {options.map((option, index) => {
+        const selected = value === option.value;
+        const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+          if (disabled) return;
+          const n = options.length;
+          if (n === 0) return;
+          const currentIndex = options.findIndex((o) => o.value === value);
+          const i = currentIndex === -1 ? index : currentIndex;
+
+          // APG radiogroup: Space selects focused option; Enter also selects. Prevent form submit / page scroll.
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            if (e.key === ' ' && e.repeat) return;
+            if (!selected) {
+              onChange(option.value);
+            }
+            return;
+          }
+
+          if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const next = (i + 1) % n;
+            onChange(options[next].value);
+            focusIndex(next);
+            return;
+          }
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const next = (i - 1 + n) % n;
+            onChange(options[next].value);
+            focusIndex(next);
+            return;
+          }
+          if (e.key === 'Home') {
+            e.preventDefault();
+            onChange(options[0].value);
+            focusIndex(0);
+            return;
+          }
+          if (e.key === 'End') {
+            e.preventDefault();
+            onChange(options[n - 1].value);
+            focusIndex(n - 1);
+          }
+        };
+
+        return (
+          <button
+            key={option.value}
+            ref={(el) => {
+              optionRefs.current[index] = el;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            tabIndex={disabled ? -1 : selected ? 0 : -1}
+            disabled={disabled}
+            className={[
+              segmentedStyles.option,
+              selected ? segmentedStyles.optionActive : '',
+              mobile ? segmentedStyles.optionMobileGrow : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            style={option.minWidth ? { minWidth: option.minWidth } : undefined}
+            onClick={() => {
+              if (disabled) return;
+              onChange(option.value);
+            }}
+            onKeyDown={onKeyDown}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 const PRODUCT_STEPS: Array<{ id: ProductStep; title: string; shortTitle: string }> = [
   { id: 1, title: 'Thông tin cơ bản', shortTitle: 'Thông tin' },
   { id: 2, title: 'Hình ảnh', shortTitle: 'Hình ảnh' },
@@ -229,6 +358,7 @@ export const ItemDetailPage = () => {
   const [publishFbMessage, setPublishFbMessage] = useState<string | null>(null);
   const socialSellingRef = useRef<HTMLDivElement>(null);
   const stepNavInFlightRef = useRef(false);
+  const imagePreviewUrlsRef = useRef<string[]>([]);
   const [searchParams] = useSearchParams();
   const [currentStep, setCurrentStep] = useState<ProductStep>(1);
   const isMobile = useIsMobile();
@@ -276,49 +406,57 @@ export const ItemDetailPage = () => {
     [modelBrandsData]
   );
 
+  useEffect(() => {
+    imagePreviewUrlsRef.current = imagePreviewUrls;
+  }, [imagePreviewUrls]);
+
   // Load data into form when data changes
   useEffect(() => {
-    // data structure: {item: {...}, images: [...], spin_sets: [...]}
-    if (data?.item) {
-      const item = data.item;
-      setName(item.name || '');
-      setDescription(item.description || '');
-      setStatus(item.status || 'con_hang');
-      setIsPublic(item.is_public || false);
-      setCarBrand(item.car_brand || '');
-      setModelBrand(item.model_brand || '');
-      setCondition(item.condition === 'old' ? 'old' : 'new');
-      setPrice(item.price ? item.price.toString() : '');
-      setOriginalPrice(item.original_price ? item.original_price.toString() : '');
-      setScale(item.scale || '1:64');
-      setBrand(item.brand || '');
-      setFbPostContent(item.fb_post_content || '');
-      const q = (item as { quantity?: unknown }).quantity;
-      setQuantity(
-        typeof q === 'number' && Number.isFinite(q) ? String(Math.max(0, Math.floor(q))) : '',
-      );
-      setAttributeRows(attributeRowsFromApi((item as { attributes?: unknown }).attributes));
-    }
-    if (data?.facebook_posts) {
-      setFacebookPosts(data.facebook_posts || []);
-    }
-    
-    // Set selected spin set to default if available
-    if (data?.spin_sets && data.spin_sets.length > 0) {
-      const defaultSpinSet = (data.spin_sets as SpinSet[]).find((set) => set.is_default);
-      if (defaultSpinSet) {
-        setSelectedSpinSetId(defaultSpinSet.id);
-      } else if (!selectedSpinSetId) {
-        setSelectedSpinSetId((data.spin_sets[0] as SpinSet).id);
+    if (!data) return;
+    // Defer setState to the next microtask so this effect does not synchronously cascade
+    // updates during the same commit (React 19 / Strict Mode–friendly; avoids lint false positives).
+    queueMicrotask(() => {
+      // data structure: {item: {...}, images: [...], spin_sets: [...]}
+      if (data.item) {
+        const item = data.item;
+        setName(item.name || '');
+        setDescription(item.description || '');
+        setStatus(item.status || 'con_hang');
+        setIsPublic(item.is_public || false);
+        setCarBrand(item.car_brand || '');
+        setModelBrand(item.model_brand || '');
+        setCondition(item.condition === 'old' ? 'old' : 'new');
+        setPrice(item.price ? item.price.toString() : '');
+        setOriginalPrice(item.original_price ? item.original_price.toString() : '');
+        setScale(item.scale || '1:64');
+        setBrand(item.brand || '');
+        setFbPostContent(item.fb_post_content || '');
+        const q = (item as { quantity?: unknown }).quantity;
+        setQuantity(
+          typeof q === 'number' && Number.isFinite(q) ? String(Math.max(0, Math.floor(q))) : '',
+        );
+        setAttributeRows(attributeRowsFromApi((item as { attributes?: unknown }).attributes));
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      if (data.facebook_posts) {
+        setFacebookPosts(data.facebook_posts || []);
+      }
+
+      // Set selected spin set to default if available (only when `data` changes — not when user picks another set)
+      if (data.spin_sets && data.spin_sets.length > 0) {
+        const defaultSpinSet = (data.spin_sets as SpinSet[]).find((set) => set.is_default);
+        if (defaultSpinSet) {
+          setSelectedSpinSetId(defaultSpinSet.id);
+        } else {
+          setSelectedSpinSetId((prev) => prev ?? (data.spin_sets[0] as SpinSet).id);
+        }
+      }
+    });
   }, [data]);
 
   // Cleanup preview URLs on unmount
   useEffect(() => {
     return () => {
-      imagePreviewUrls.forEach(url => {
+      imagePreviewUrlsRef.current.forEach(url => {
         try {
           URL.revokeObjectURL(url);
         } catch {
@@ -326,7 +464,6 @@ export const ItemDetailPage = () => {
         }
       });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-scroll to Social Selling section when navigating from items list
@@ -344,7 +481,7 @@ export const ItemDetailPage = () => {
     if (!stepFromQuery) return;
     const parsed = Number(stepFromQuery);
     if ([1, 2, 3, 4].includes(parsed)) {
-      setCurrentStep(parsed as ProductStep);
+      queueMicrotask(() => setCurrentStep(parsed as ProductStep)); // defer to avoid sync setState in effect body
     }
   }, [searchParams]);
 
@@ -360,9 +497,12 @@ export const ItemDetailPage = () => {
 
   useEffect(() => {
     if (id === 'new') {
-      setCondition('new');
-      setQuantity('');
-      setAttributeRows([{ id: newAttributeRowId(), key: '', value: '' }]);
+      queueMicrotask(() => {
+        // Same microtask deferral as item hydrate — keep new-item defaults out of the sync effect phase.
+        setCondition('new');
+        setQuantity('');
+        setAttributeRows([{ id: newAttributeRowId(), key: '', value: '' }]);
+      });
     }
   }, [id]);
 
@@ -1425,301 +1565,53 @@ export const ItemDetailPage = () => {
             <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
               Tình trạng
             </label>
-            <div style={{ 
-              display: 'inline-flex', 
-              backgroundColor: '#f5f5f5',
-              borderRadius: '10px',
-              padding: '4px',
-              gap: '4px',
-              border: '1px solid #e0e0e0',
-              flexWrap: 'wrap',
-              width: isMobile ? '100%' : 'auto',
-            }}>
-              <label 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: condition === 'new' ? '#fff' : '#666',
-                  padding: '10px 24px',
-                  borderRadius: '8px',
-                  backgroundColor: condition === 'new' ? '#007bff' : 'transparent',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  minWidth: '80px',
-                  userSelect: 'none',
-                  flex: isMobile ? '1 1 120px' : undefined,
-                }}
-                onMouseEnter={(e) => {
-                  if (condition !== 'new') {
-                    e.currentTarget.style.backgroundColor = '#e8f0fe';
-                    e.currentTarget.style.color = '#007bff';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (condition !== 'new') {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#666';
-                  }
-                }}
-              >
-            <input
-                  type="radio"
-                  name="condition"
-                  value="new"
-                  checked={condition === 'new'}
-                  onChange={(e) => setCondition(e.target.value as 'new' | 'old')}
-                  style={{
-                    position: 'absolute',
-                    opacity: 0,
-                    width: 0,
-                    height: 0,
-                  }}
-                />
-                <span>Mới</span>
-              </label>
-              <label 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: condition === 'old' ? '#fff' : '#666',
-                  padding: '10px 24px',
-                  borderRadius: '8px',
-                  backgroundColor: condition === 'old' ? '#007bff' : 'transparent',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  minWidth: '80px',
-                  userSelect: 'none',
-                  flex: isMobile ? '1 1 120px' : undefined,
-                }}
-                onMouseEnter={(e) => {
-                  if (condition !== 'old') {
-                    e.currentTarget.style.backgroundColor = '#e8f0fe';
-                    e.currentTarget.style.color = '#007bff';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (condition !== 'old') {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#666';
-                  }
-                }}
-              >
-                <input
-                  type="radio"
-                  name="condition"
-                  value="old"
-                  checked={condition === 'old'}
-                  onChange={(e) => setCondition(e.target.value as 'new' | 'old')}
-                  style={{
-                    position: 'absolute',
-                    opacity: 0,
-                    width: 0,
-                    height: 0,
-                  }}
-                />
-                <span>Cũ</span>
-          </label>
-            </div>
+            <SegmentedControl
+              ariaLabel="Tình trạng sản phẩm"
+              disabled={saveMutation.isPending || uploadingImages}
+              options={[
+                { value: 'new', label: 'Mới', minWidth: '80px' },
+                { value: 'old', label: 'Cũ', minWidth: '80px' },
+              ]}
+              value={condition}
+              onChange={setCondition}
+              mobile={isMobile}
+              fullWidthOnMobile
+            />
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
               Công khai
             </label>
-            <div style={{ 
-              display: 'inline-flex', 
-              backgroundColor: '#f5f5f5',
-              borderRadius: '10px',
-              padding: '4px',
-              gap: '4px',
-              border: '1px solid #e0e0e0',
-            }}>
-              <label 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: isPublic ? '#fff' : '#666',
-                  padding: '10px 24px',
-                  borderRadius: '8px',
-                  backgroundColor: isPublic ? '#007bff' : 'transparent',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  minWidth: '80px',
-                  userSelect: 'none',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isPublic) {
-                    e.currentTarget.style.backgroundColor = '#e8f0fe';
-                    e.currentTarget.style.color = '#007bff';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isPublic) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#666';
-                  }
-                }}
-                onClick={() => setIsPublic(true)}
-              >
-                <span>Công khai</span>
-              </label>
-              <label 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: !isPublic ? '#fff' : '#666',
-                  padding: '10px 24px',
-                  borderRadius: '8px',
-                  backgroundColor: !isPublic ? '#007bff' : 'transparent',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  minWidth: '80px',
-                  userSelect: 'none',
-                }}
-                onMouseEnter={(e) => {
-                  if (isPublic) {
-                    e.currentTarget.style.backgroundColor = '#e8f0fe';
-                    e.currentTarget.style.color = '#007bff';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (isPublic) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#666';
-                  }
-                }}
-                onClick={() => setIsPublic(false)}
-              >
-                <span>Riêng tư</span>
-              </label>
-            </div>
+            <SegmentedControl
+              ariaLabel="Hiển thị công khai"
+              disabled={saveMutation.isPending || uploadingImages}
+              options={[
+                { value: 'public', label: 'Công khai', minWidth: '80px' },
+                { value: 'private', label: 'Riêng tư', minWidth: '80px' },
+              ]}
+              value={isPublic ? 'public' : 'private'}
+              onChange={(next) => setIsPublic(next === 'public')}
+              mobile={isMobile}
+            />
           </div>
         </div>
         <div style={{ marginBottom: '16px' }}>
           <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
             Trạng thái
           </label>
-          <div style={{ 
-            display: 'inline-flex', 
-            backgroundColor: '#f5f5f5',
-            borderRadius: '10px',
-            padding: '4px',
-            gap: '4px',
-            border: '1px solid #e0e0e0',
-            flexWrap: 'wrap',
-            width: isMobile ? '100%' : 'auto',
-          }}>
-            <label 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: status === 'con_hang' ? '#fff' : '#666',
-                padding: '10px 16px',
-                borderRadius: '8px',
-                backgroundColor: status === 'con_hang' ? '#007bff' : 'transparent',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                minWidth: '70px',
-                userSelect: 'none',
-                flex: isMobile ? '1 1 110px' : undefined,
-              }}
-              onMouseEnter={(e) => {
-                if (status !== 'con_hang') {
-                  e.currentTarget.style.backgroundColor = '#e8f0fe';
-                  e.currentTarget.style.color = '#007bff';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (status !== 'con_hang') {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = '#666';
-                }
-              }}
-              onClick={() => setStatus('con_hang')}
-            >
-              <span>Còn hàng</span>
-            </label>
-            <label 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: status === 'giu_cho' ? '#fff' : '#666',
-                padding: '10px 16px',
-                borderRadius: '8px',
-                backgroundColor: status === 'giu_cho' ? '#007bff' : 'transparent',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                minWidth: '70px',
-                userSelect: 'none',
-                flex: isMobile ? '1 1 110px' : undefined,
-              }}
-              onMouseEnter={(e) => {
-                if (status !== 'giu_cho') {
-                  e.currentTarget.style.backgroundColor = '#e8f0fe';
-                  e.currentTarget.style.color = '#007bff';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (status !== 'giu_cho') {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = '#666';
-                }
-              }}
-              onClick={() => setStatus('giu_cho')}
-            >
-              <span>Giữ chỗ</span>
-            </label>
-            <label 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: status === 'da_ban' ? '#fff' : '#666',
-                padding: '10px 16px',
-                borderRadius: '8px',
-                backgroundColor: status === 'da_ban' ? '#007bff' : 'transparent',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                minWidth: '70px',
-                userSelect: 'none',
-                flex: isMobile ? '1 1 110px' : undefined,
-              }}
-              onMouseEnter={(e) => {
-                if (status !== 'da_ban') {
-                  e.currentTarget.style.backgroundColor = '#e8f0fe';
-                  e.currentTarget.style.color = '#007bff';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (status !== 'da_ban') {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = '#666';
-                }
-              }}
-              onClick={() => setStatus('da_ban')}
-            >
-              <span>Đã bán</span>
-            </label>
-          </div>
+          <SegmentedControl
+            ariaLabel="Trạng thái kho"
+            disabled={saveMutation.isPending || uploadingImages}
+            options={[
+              { value: 'con_hang', label: 'Còn hàng', minWidth: '70px' },
+              { value: 'giu_cho', label: 'Giữ chỗ', minWidth: '70px' },
+              { value: 'da_ban', label: 'Đã bán', minWidth: '70px' },
+            ]}
+            value={status as 'con_hang' | 'giu_cho' | 'da_ban'}
+            onChange={(next) => setStatus(next)}
+            mobile={isMobile}
+            fullWidthOnMobile
+          />
         </div>
         <div style={{ marginBottom: '16px' }}>
           <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
@@ -1788,13 +1680,14 @@ export const ItemDetailPage = () => {
                 alignItems: 'center',
                 gap: '6px',
                 padding: '6px 12px',
-                background: '#007bff',
-                color: 'white',
+                background: 'linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed))',
+                color: '#fff',
                 border: 'none',
                 borderRadius: '6px',
                 fontSize: '13px',
                 fontWeight: 500,
                 cursor: 'pointer',
+                boxShadow: '0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.24)',
               }}
             >
               <Plus size={14} />
@@ -2992,13 +2885,20 @@ export const ItemDetailPage = () => {
           disabled={currentStep === 4 || saveMutation.isPending || uploadingImages}
           style={{
             padding: '10px 16px',
-            background: currentStep === 4 || saveMutation.isPending || uploadingImages ? '#d2d6dc' : '#1f8f4f',
-            color: 'white',
+            background:
+              currentStep === 4 || saveMutation.isPending || uploadingImages
+                ? '#d2d6dc'
+                : 'linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed))',
+            color: '#fff',
             border: 'none',
             borderRadius: '8px',
             cursor: currentStep === 4 || saveMutation.isPending || uploadingImages ? 'not-allowed' : 'pointer',
             fontSize: '14px',
             fontWeight: '600',
+            boxShadow:
+              currentStep === 4 || saveMutation.isPending || uploadingImages
+                ? 'none'
+                : '0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.28)',
           }}
         >
           {saveMutation.isPending ? 'Đang lưu...' : 'Bước tiếp →'}
@@ -3010,13 +2910,18 @@ export const ItemDetailPage = () => {
             disabled={saveMutation.isPending || uploadingImages}
             style={{
               padding: '10px 16px',
-              background: saveMutation.isPending || uploadingImages ? '#d2d6dc' : '#2563eb',
-              color: 'white',
+              background:
+                saveMutation.isPending || uploadingImages
+                  ? '#d2d6dc'
+                  : 'linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed))',
+              color: '#fff',
               border: 'none',
               borderRadius: '8px',
               cursor: saveMutation.isPending || uploadingImages ? 'not-allowed' : 'pointer',
               fontSize: '14px',
               fontWeight: '600',
+              boxShadow:
+                saveMutation.isPending || uploadingImages ? 'none' : '0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.28)',
             }}
           >
             {saveMutation.isPending ? 'Đang lưu...' : 'Hoàn tất'}

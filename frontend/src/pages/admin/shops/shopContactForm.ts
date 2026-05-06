@@ -86,3 +86,32 @@ export function buildShopContactPatch(form: ShopContactFormState): {
     },
   };
 }
+
+/** Empty OK; otherwise must be a parseable `http:` or `https:` URL. */
+export function isOptionalHttpUrl(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (!trimmed) return true;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/** Empty OK; otherwise must contain a digit and only typical tel display characters. */
+export function isOptionalTelDisplay(raw: string): boolean {
+  const t = raw.trim();
+  if (!t) return true;
+  if (!/\d/.test(t)) return false;
+  return /^[\d\s+().-]+$/.test(t);
+}
+
+/** Client-side checks aligned with `ShopContactFields` hints (URLs + phone tel). */
+export function isShopContactClientValid(form: ShopContactFormState): boolean {
+  return (
+    isOptionalHttpUrl(form.facebook.url) &&
+    isOptionalHttpUrl(form.zalo.url) &&
+    isOptionalTelDisplay(form.phone.tel)
+  );
+}

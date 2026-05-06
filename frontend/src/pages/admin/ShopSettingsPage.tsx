@@ -5,7 +5,11 @@ import { apiClient, uploadFile } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { useShop } from '../../hooks/useShop';
 import { jsonStableStringify } from '../../utils/jsonStableStringify';
-import { buildShopContactPatch, parseShopContactFormDefaults } from './shops/shopContactForm';
+import {
+  buildShopContactPatch,
+  isShopContactClientValid,
+  parseShopContactFormDefaults,
+} from './shops/shopContactForm';
 import { buildAppearancePatch } from './shops/shopSettingsForm';
 import type { ShopContactFormState } from './shops/types/shopContact';
 import type { ShopAppearanceFormState } from '@/types/shopAppearance';
@@ -71,15 +75,12 @@ export const ShopSettingsPage = () => {
     enabled: Boolean(activeShop?.id),
   });
 
-  /* Sync form from server when GET /shop-settings resolves (or refetches) */
+  /* Sync form from server when GET /shop-settings resolves (or refetches) — TanStack Query v5 has no useQuery onSuccess */
   useEffect(() => {
     const row = settingsQuery.data;
     if (!row) return;
-    /* Draft form mirrors React Query cache when the row loads or refetches */
-    /* eslint-disable react-hooks/set-state-in-effect -- intentional server → local form sync */
     setContact(parseShopContactFormDefaults(row.contact_json));
     setAppearance(parseAppearanceFormDefaults(row.appearance_json));
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [settingsQuery.data]);
 
   const saveMutation = useMutation({
@@ -126,6 +127,10 @@ export const ShopSettingsPage = () => {
     e.preventDefault();
     setSaveOk(null);
     setSaveError(null);
+    if (!isShopContactClientValid(contact)) {
+      setSaveError('Vui lòng sửa số gọi hoặc URL Facebook/Zalo không hợp lệ trước khi lưu.');
+      return;
+    }
     saveMutation.mutate();
   };
 
@@ -232,6 +237,11 @@ export const ShopSettingsPage = () => {
             styles={contactFieldStyles}
             classNames={{
               root: styles.contactFieldsGrid,
+              formRow: styles.formRow,
+              label: styles.label,
+              input: styles.input,
+              textarea: styles.textarea,
+              hint: styles.hint,
               sectionTitle: styles.contactSectionTitle,
               hoursScheduleRow: styles.contactRowFull,
             }}
@@ -247,17 +257,6 @@ export const ShopSettingsPage = () => {
 
           <div className={styles.brandingRow}>
             <div className={styles.formRow}>
-              <label className={styles.label} htmlFor="appearance-logo">
-                URL logo (https)
-              </label>
-              <input
-                id="appearance-logo"
-                className={styles.input}
-                value={appearance.logo_url}
-                onChange={(e) => setAppearance((a) => ({ ...a, logo_url: e.target.value }))}
-                placeholder="https://..."
-                disabled={!canEditSettings}
-              />
               <div className={styles.brandingUploadRow}>
                 <input
                   id="appearance-logo-file"
@@ -285,17 +284,6 @@ export const ShopSettingsPage = () => {
               ) : null}
             </div>
             <div className={styles.formRow}>
-              <label className={styles.label} htmlFor="appearance-favicon">
-                URL favicon (https)
-              </label>
-              <input
-                id="appearance-favicon"
-                className={styles.input}
-                value={appearance.favicon_url}
-                onChange={(e) => setAppearance((a) => ({ ...a, favicon_url: e.target.value }))}
-                placeholder="https://..."
-                disabled={!canEditSettings}
-              />
               <div className={styles.brandingUploadRow}>
                 <input
                   id="appearance-favicon-file"
