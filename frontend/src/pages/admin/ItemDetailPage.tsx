@@ -224,6 +224,16 @@ function SegmentedControl<T extends string>({
           const currentIndex = options.findIndex((o) => o.value === value);
           const i = currentIndex === -1 ? index : currentIndex;
 
+          // APG radiogroup: Space selects focused option; Enter also selects. Prevent form submit / page scroll.
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            if (e.key === ' ' && e.repeat) return;
+            if (!selected) {
+              onChange(option.value);
+            }
+            return;
+          }
+
           if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
             e.preventDefault();
             const next = (i + 1) % n;
