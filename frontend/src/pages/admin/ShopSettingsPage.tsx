@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Palette } from 'lucide-react';
 import { apiClient, uploadFile } from '../../api/client';
@@ -69,12 +69,17 @@ export const ShopSettingsPage = () => {
     queryKey: shopSettingsQueryKeyResolved,
     queryFn: fetchShopSettings,
     enabled: Boolean(activeShop?.id),
-    onSuccess: (row) => {
-      // Sync draft form from server data after successful fetch/refetch.
-      setContact(parseShopContactFormDefaults(row.contact_json));
-      setAppearance(parseAppearanceFormDefaults(row.appearance_json));
-    },
   });
+
+  /* Sync form from server when GET /shop-settings resolves (or refetches) — TanStack Query v5 has no useQuery onSuccess */
+  useEffect(() => {
+    const row = settingsQuery.data;
+    if (!row) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- intentional server → local form sync */
+    setContact(parseShopContactFormDefaults(row.contact_json));
+    setAppearance(parseAppearanceFormDefaults(row.appearance_json));
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [settingsQuery.data]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {

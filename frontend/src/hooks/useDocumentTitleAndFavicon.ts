@@ -97,7 +97,11 @@ export function useDocumentTitleAndFavicon(params: {
       for (const { parent, nextSibling, clone } of removedDefaultIconRestores) {
         if (clone.isConnected) continue;
         try {
-          parent.insertBefore(clone, nextSibling);
+          if (nextSibling && nextSibling.parentNode === parent) {
+            parent.insertBefore(clone, nextSibling);
+          } else {
+            parent.appendChild(clone);
+          }
         } catch {
           // parent detached from document
         }

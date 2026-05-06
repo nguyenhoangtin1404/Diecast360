@@ -360,17 +360,17 @@ export const ItemDetailPage = () => {
         setFacebookPosts(data.facebook_posts || []);
       }
 
-      // Set selected spin set to default if available
+      // Set selected spin set to default if available (only when `data` changes — not when user picks another set)
       if (data.spin_sets && data.spin_sets.length > 0) {
         const defaultSpinSet = (data.spin_sets as SpinSet[]).find((set) => set.is_default);
         if (defaultSpinSet) {
           setSelectedSpinSetId(defaultSpinSet.id);
-        } else if (!selectedSpinSetId) {
-          setSelectedSpinSetId((data.spin_sets[0] as SpinSet).id);
+        } else {
+          setSelectedSpinSetId((prev) => prev ?? (data.spin_sets[0] as SpinSet).id);
         }
       }
     });
-  }, [data, selectedSpinSetId]);
+  }, [data]);
 
   // Cleanup preview URLs on unmount
   useEffect(() => {

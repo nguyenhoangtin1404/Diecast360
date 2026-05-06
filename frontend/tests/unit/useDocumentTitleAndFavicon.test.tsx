@@ -45,6 +45,52 @@ describe('useDocumentTitleAndFavicon', () => {
     expect(managed).toHaveLength(2);
   });
 
+  it('removes legacy /vite.svg default icon alongside placeholder, then restores both on unmount', () => {
+    const placeholder = document.createElement('link');
+    placeholder.rel = 'icon';
+    placeholder.type = 'image/svg+xml';
+    placeholder.href = '/placeholder-item.svg';
+    document.head.appendChild(placeholder);
+
+    const legacy = document.createElement('link');
+    legacy.rel = 'icon';
+    legacy.type = 'image/svg+xml';
+    legacy.href = '/vite.svg';
+    document.head.appendChild(legacy);
+
+    const { unmount } = render(
+      <HookProbe
+        enabled
+        title="Shop"
+        faviconUrl="https://cdn.example.com/f.png"
+        markerAttr="data-shop-branding"
+      />,
+    );
+
+    expect(document.querySelector('link[href="/vite.svg"]')).toBeNull();
+    expect(document.querySelector('link[href="/placeholder-item.svg"]')).toBeNull();
+
+    unmount();
+
+    expect(document.querySelectorAll('link[href="/vite.svg"]')).toHaveLength(1);
+    expect(document.querySelectorAll('link[href="/placeholder-item.svg"]')).toHaveLength(1);
+  });
+
+  it('uses a short v= cache token in the managed favicon href', () => {
+    const faviconUrl = 'https://cdn.example.com/shop/favicon.png';
+    render(
+      <HookProbe enabled title="T" faviconUrl={faviconUrl} markerAttr="data-shop-branding" />,
+    );
+
+    const icon = document.querySelector('link[data-shop-branding="icon"]') as HTMLLinkElement | null;
+    expect(icon).not.toBeNull();
+    const u = new URL(icon!.href);
+    const v = u.searchParams.get('v');
+    expect(v).toBeTruthy();
+    expect(v!.length).toBeLessThan(24);
+    expect(icon!.href).toContain(faviconUrl.split('?')[0]);
+  });
+
   it('keeps a stable managed href when faviconUrl is unchanged', () => {
     const { rerender } = render(
       <HookProbe
