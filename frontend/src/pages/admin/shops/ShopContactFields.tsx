@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { ShopContactFormState } from './types/shopContact';
+import { isOptionalHttpUrl, isOptionalTelDisplay } from './shopContactForm';
 
 type FieldStyles = {
   formRow: CSSProperties;
@@ -39,17 +40,6 @@ type Props = {
   classNames?: ContactFieldsClassNames;
 };
 
-function isOptionalHttpUrl(raw: string): boolean {
-  const trimmed = raw.trim();
-  if (!trimmed) return true;
-  try {
-    const parsed = new URL(trimmed);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
 export const ShopContactFields = memo(function ShopContactFields({
   idPrefix,
   value,
@@ -75,6 +65,7 @@ export const ShopContactFields = memo(function ShopContactFields({
   const hintClassName = classNames?.hint;
   const isFacebookUrlValid = isOptionalHttpUrl(value.facebook.url);
   const isZaloUrlValid = isOptionalHttpUrl(value.zalo.url);
+  const isPhoneTelValid = isOptionalTelDisplay(value.phone.tel);
 
   return (
     <div className={classNames?.root}>
@@ -118,6 +109,8 @@ export const ShopContactFields = memo(function ShopContactFields({
         </label>
         <input
           id={`${idPrefix}-phone-tel`}
+          type="text"
+          inputMode="tel"
           style={styles.modalInput}
           className={inputClassName}
           value={value.phone.tel}
@@ -125,7 +118,18 @@ export const ShopContactFields = memo(function ShopContactFields({
           autoComplete="off"
           placeholder="+84856694766"
           disabled={disabled}
+          aria-invalid={!isPhoneTelValid}
+          title={
+            !isPhoneTelValid
+              ? 'Số gọi chỉ nên gồm chữ số, +, khoảng trắng, dấu ngoặc hoặc gạch ngang.'
+              : undefined
+          }
         />
+        {!isPhoneTelValid ? (
+          <p style={styles.modalHint} className={hintClassName}>
+            Số gọi không hợp lệ. Chỉ dùng chữ số và các ký tự + ( ) - khoảng trắng (ví dụ +84 85 669 4766).
+          </p>
+        ) : null}
       </div>
       <div style={styles.formRow} className={rowClassName}>
         <label style={styles.modalLabel} className={labelClassName} htmlFor={`${idPrefix}-phone-label`}>

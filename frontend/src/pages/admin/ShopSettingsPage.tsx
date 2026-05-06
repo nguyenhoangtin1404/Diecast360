@@ -5,7 +5,11 @@ import { apiClient, uploadFile } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { useShop } from '../../hooks/useShop';
 import { jsonStableStringify } from '../../utils/jsonStableStringify';
-import { buildShopContactPatch, parseShopContactFormDefaults } from './shops/shopContactForm';
+import {
+  buildShopContactPatch,
+  isShopContactClientValid,
+  parseShopContactFormDefaults,
+} from './shops/shopContactForm';
 import { buildAppearancePatch } from './shops/shopSettingsForm';
 import type { ShopContactFormState } from './shops/types/shopContact';
 import type { ShopAppearanceFormState } from '@/types/shopAppearance';
@@ -123,6 +127,10 @@ export const ShopSettingsPage = () => {
     e.preventDefault();
     setSaveOk(null);
     setSaveError(null);
+    if (!isShopContactClientValid(contact)) {
+      setSaveError('Vui lòng sửa số gọi hoặc URL Facebook/Zalo không hợp lệ trước khi lưu.');
+      return;
+    }
     saveMutation.mutate();
   };
 
