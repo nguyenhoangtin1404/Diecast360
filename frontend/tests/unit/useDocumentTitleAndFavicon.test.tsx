@@ -1,66 +1,135 @@
 // @vitest-environment jsdom
-import { act, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import React from 'react';
+import { render } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { DEFAULT_DOCUMENT_TITLE, useDocumentTitleAndFavicon } from '../../src/hooks/useDocumentTitleAndFavicon';
 
-import {
-  DEFAULT_DOCUMENT_TITLE,
-  useDocumentTitleAndFavicon,
-} from '../../src/hooks/useDocumentTitleAndFavicon';
+function HookProbe({
+  enabled,
+  title,
+  faviconUrl,
+  markerAttr,
+}: {
+  enabled: boolean;
+  title: string;
+  faviconUrl: string;
+  markerAttr: 'data-shop-branding' | 'data-admin-shop-branding';
+}) {
+  useDocumentTitleAndFavicon({ enabled, title, faviconUrl, markerAttr });
+  return null;
+}
 
 describe('useDocumentTitleAndFavicon', () => {
-  beforeEach(() => {
-    document.head.innerHTML = '';
-    const defaultIcon = document.createElement('link');
-    defaultIcon.rel = 'icon';
-    defaultIcon.type = 'image/svg+xml';
-    defaultIcon.href = '/vite.svg';
-    document.head.appendChild(defaultIcon);
-    document.title = 'prior';
-  });
-
   afterEach(() => {
     document.head.innerHTML = '';
     document.title = '';
   });
 
-  it('removes default vite.svg while a shop favicon is active, then restores it on cleanup', () => {
-    const faviconUrl = 'https://cdn.example.com/fav.png';
+  it('replaces default favicon links with marker-managed links', () => {
+    const defaultIcon = document.createElement('link');
+    defaultIcon.rel = 'icon';
+    defaultIcon.href = '/placeholder-item.svg';
+    document.head.appendChild(defaultIcon);
 
-    const { rerender, unmount } = renderHook(
-      (props: { enabled: boolean; faviconUrl: string }) => {
-        useDocumentTitleAndFavicon({
-          enabled: props.enabled,
-          title: 'Shop — Catalog',
-          faviconUrl: props.faviconUrl,
-          markerAttr: 'data-shop-branding',
-        });
-      },
-      { initialProps: { enabled: true, faviconUrl } },
+    render(
+      <HookProbe
+        enabled
+        title="Shop A"
+        faviconUrl="https://cdn.example.com/shop/favicon.png"
+        markerAttr="data-shop-branding"
+      />,
     );
 
-    expect(document.querySelectorAll('link[href="/vite.svg"]')).toHaveLength(0);
-    const managed = document.querySelectorAll('link[data-shop-branding="1"]');
-    expect(managed.length).toBeGreaterThanOrEqual(1);
-    expect(managed[0]?.getAttribute('href')).toContain(faviconUrl);
-    expect(document.title).toBe('Shop — Catalog');
+    expect(document.querySelector('link[href="/placeholder-item.svg"]')).toBeNull();
+    const managed = document.querySelectorAll('link[data-shop-branding]');
+    expect(managed).toHaveLength(2);
+  });
 
-    act(() => {
-      rerender({ enabled: true, faviconUrl: '' });
-    });
+  it('keeps a stable managed href when faviconUrl is unchanged', () => {
+    const { rerender } = render(
+      <HookProbe
+        enabled
+        title="Shop A"
+        faviconUrl="https://cdn.example.com/shop/favicon-a.png"
+        markerAttr="data-shop-branding"
+      />,
+    );
 
-    expect(document.querySelectorAll('link[data-shop-branding="1"]')).toHaveLength(0);
-    expect(document.querySelectorAll('link[href="/vite.svg"]')).toHaveLength(1);
-    // Title still follows `title` while the hook stays enabled (only favicon cleared).
-    expect(document.title).toBe('Shop — Catalog');
+    const first = document.querySelector('link[data-shop-branding="icon"]') as HTMLLinkElement | null;
+    expect(first).not.toBeNull();
+    const firstHref = first?.href ?? '';
+    const firstShortcutHref =
+      (document.querySelector('link[data-shop-branding="shortcut icon"]') as HTMLLinkElement | null)?.href ?? '';
 
-    act(() => {
-      rerender({ enabled: true, faviconUrl });
-    });
-    expect(document.querySelectorAll('link[href="/vite.svg"]')).toHaveLength(0);
+    rerender(
+      <HookProbe
+        enabled
+        title="Shop A Updated"
+        faviconUrl="https://cdn.example.com/shop/favicon-a.png"
+        markerAttr="data-shop-branding"
+      />,
+    );
+    const second = document.querySelector('link[data-shop-branding="icon"]') as HTMLLinkElement | null;
+    expect(second?.href).toBe(firstHref);
+    expect(
+      (document.querySelector('link[data-shop-branding="shortcut icon"]') as HTMLLinkElement | null)?.href ?? '',
+    ).toBe(firstShortcutHref);
+    expect(document.querySelectorAll('link[data-shop-branding]')).toHaveLength(2);
+
+    rerender(
+      <HookProbe
+        enabled
+        title="Shop A Updated"
+        faviconUrl="https://cdn.example.com/shop/favicon-b.png"
+        markerAttr="data-shop-branding"
+      />,
+    );
+    const third = document.querySelector('link[data-shop-branding="icon"]') as HTMLLinkElement | null;
+    expect(third?.href).not.toBe(firstHref);
+  });
+
+  it('cleans up only links for the given marker', () => {
+    const adminIcon = document.createElement('link');
+    adminIcon.rel = 'icon';
+    adminIcon.setAttribute('data-admin-shop-branding', 'icon');
+    adminIcon.href = 'https://cdn.example.com/admin.png';
+    document.head.appendChild(adminIcon);
+
+    const { unmount } = render(
+      <HookProbe
+        enabled
+        title="Public Shop"
+        faviconUrl="https://cdn.example.com/public.png"
+        markerAttr="data-shop-branding"
+      />,
+    );
 
     unmount();
-    expect(document.querySelectorAll('link[href="/vite.svg"]')).toHaveLength(1);
-    expect(document.querySelectorAll('link[data-shop-branding="1"]')).toHaveLength(0);
+    expect(document.querySelector('link[data-shop-branding]')).toBeNull();
+    expect(document.querySelector('link[data-admin-shop-branding="icon"]')).not.toBeNull();
+  });
+
+  it('restores default icon on unmount and resets title', () => {
+    const defaultIcon = document.createElement('link');
+    defaultIcon.rel = 'icon';
+    defaultIcon.type = 'image/svg+xml';
+    defaultIcon.href = '/placeholder-item.svg';
+    document.head.appendChild(defaultIcon);
+
+    const { unmount } = render(
+      <HookProbe
+        enabled
+        title="Shop — Catalog"
+        faviconUrl="https://cdn.example.com/shop/favicon.png"
+        markerAttr="data-shop-branding"
+      />,
+    );
+
+    expect(document.querySelector('link[href="/placeholder-item.svg"]')).toBeNull();
+    unmount();
+
+    expect(document.querySelector('link[href="/placeholder-item.svg"]')).not.toBeNull();
+    expect(document.querySelector('link[data-shop-branding]')).toBeNull();
     expect(document.title).toBe(DEFAULT_DOCUMENT_TITLE);
   });
 });

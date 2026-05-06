@@ -139,6 +139,22 @@ export class ShopsService {
     return typeof v === 'string' && v.trim() ? v.trim() : undefined;
   }
 
+  private async normalizeFavicon(buffer: Buffer): Promise<Buffer> {
+    try {
+      return await sharp(buffer, { failOn: 'error' })
+        .png()
+        .toBuffer();
+    } catch (error) {
+      this.logger.warn(
+        `Favicon conversion failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'Không thể xử lý favicon. Vui lòng dùng ảnh PNG/JPG/WebP hợp lệ.',
+      );
+    }
+  }
+
   /** Best-effort delete of a prior uploaded branding file (signed /media URL under shop-branding/). */
   private async tryDeletePriorShopBrandingFile(previousUrl: string | undefined): Promise<void> {
     if (!previousUrl) return;
@@ -412,7 +428,20 @@ export class ShopsService {
       this.uploadSupport.resolveMaxUploadBytes(this.logger, 2),
       2 * 1024 * 1024,
     );
-    await this.uploadSupport.validateFile(file, allowedMimeTypes, maxUploadBytes);
+    try {
+      await this.uploadSupport.validateFile(file, allowedMimeTypes, maxUploadBytes);
+    } catch (error) {
+      if (error instanceof AppException) {
+        throw error;
+      }
+      this.logger.warn(
+        `Branding upload validation failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'File upload không hợp lệ. Vui lòng kiểm tra định dạng và kích thước file.',
+      );
+    }
 
     const oldShop = await this.prisma.shop.findFirst({
       where: { id: tenantId, is_active: true },
@@ -432,7 +461,7 @@ export class ShopsService {
       file.mimetype === 'image/png' ? '.png' : file.mimetype === 'image/webp' ? '.webp' : '.jpg';
     if (kind === 'favicon' && ext !== '.png') {
       // Browser favicon support is most reliable with PNG; normalize uploads here.
-      payloadBuffer = await sharp(file.buffer).png().toBuffer();
+      payloadBuffer = await this.normalizeFavicon(file.buffer);
       ext = '.png';
     }
     const filename = `${tenantId}_${kind}_${uuidv4()}${ext}`;

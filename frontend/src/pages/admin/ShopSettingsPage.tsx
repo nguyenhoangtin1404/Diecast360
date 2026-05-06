@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Palette } from 'lucide-react';
 import { apiClient, uploadFile } from '../../api/client';
@@ -69,18 +69,12 @@ export const ShopSettingsPage = () => {
     queryKey: shopSettingsQueryKeyResolved,
     queryFn: fetchShopSettings,
     enabled: Boolean(activeShop?.id),
+    onSuccess: (row) => {
+      // Sync draft form from server data after successful fetch/refetch.
+      setContact(parseShopContactFormDefaults(row.contact_json));
+      setAppearance(parseAppearanceFormDefaults(row.appearance_json));
+    },
   });
-
-  /* Sync form from server when GET /shop-settings resolves (or refetches) */
-  useEffect(() => {
-    const row = settingsQuery.data;
-    if (!row) return;
-    /* Draft form mirrors React Query cache when the row loads or refetches */
-    /* eslint-disable react-hooks/set-state-in-effect -- intentional server → local form sync */
-    setContact(parseShopContactFormDefaults(row.contact_json));
-    setAppearance(parseAppearanceFormDefaults(row.appearance_json));
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [settingsQuery.data]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -252,17 +246,6 @@ export const ShopSettingsPage = () => {
 
           <div className={styles.brandingRow}>
             <div className={styles.formRow}>
-              <label className={styles.label} htmlFor="appearance-logo">
-                URL logo (https)
-              </label>
-              <input
-                id="appearance-logo"
-                className={styles.input}
-                value={appearance.logo_url}
-                onChange={(e) => setAppearance((a) => ({ ...a, logo_url: e.target.value }))}
-                placeholder="https://..."
-                disabled={!canEditSettings}
-              />
               <div className={styles.brandingUploadRow}>
                 <input
                   id="appearance-logo-file"
@@ -290,17 +273,6 @@ export const ShopSettingsPage = () => {
               ) : null}
             </div>
             <div className={styles.formRow}>
-              <label className={styles.label} htmlFor="appearance-favicon">
-                URL favicon (https)
-              </label>
-              <input
-                id="appearance-favicon"
-                className={styles.input}
-                value={appearance.favicon_url}
-                onChange={(e) => setAppearance((a) => ({ ...a, favicon_url: e.target.value }))}
-                placeholder="https://..."
-                disabled={!canEditSettings}
-              />
               <div className={styles.brandingUploadRow}>
                 <input
                   id="appearance-favicon-file"

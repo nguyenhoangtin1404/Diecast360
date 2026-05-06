@@ -14,6 +14,7 @@ import { buildStepUrlAfterCreate, evaluateFinishDecision, shouldBlockEnterSubmit
 import { MAX_SPINNER_FRAMES } from '../../constants/spinner';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useOptionalActiveShopId } from '../../hooks/useOptionalActiveShopId';
+import segmentedStyles from './itemDetailSegmented.module.css';
 
 // Helper functions for number formatting
 const formatNumber = (value: string): string => {
@@ -175,6 +176,55 @@ interface SavePayload {
   navigateAfterCreate?: boolean;
 }
 
+type SegmentedOption<T extends string> = {
+  value: T;
+  label: string;
+  minWidth?: string;
+};
+
+function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+  mobile,
+  fullWidthOnMobile,
+}: {
+  options: SegmentedOption<T>[];
+  value: T;
+  onChange: (next: T) => void;
+  mobile: boolean;
+  fullWidthOnMobile?: boolean;
+}) {
+  const groupClassName = [
+    segmentedStyles.group,
+    segmentedStyles.groupWrap,
+    fullWidthOnMobile && mobile ? segmentedStyles.groupFullWidth : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return (
+    <div className={groupClassName}>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          className={[
+            segmentedStyles.option,
+            value === option.value ? segmentedStyles.optionActive : '',
+            mobile ? segmentedStyles.optionMobileGrow : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          style={option.minWidth ? { minWidth: option.minWidth } : undefined}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const PRODUCT_STEPS: Array<{ id: ProductStep; title: string; shortTitle: string }> = [
   { id: 1, title: 'Thông tin cơ bản', shortTitle: 'Thông tin' },
   { id: 2, title: 'Hình ảnh', shortTitle: 'Hình ảnh' },
@@ -229,6 +279,7 @@ export const ItemDetailPage = () => {
   const [publishFbMessage, setPublishFbMessage] = useState<string | null>(null);
   const socialSellingRef = useRef<HTMLDivElement>(null);
   const stepNavInFlightRef = useRef(false);
+  const imagePreviewUrlsRef = useRef<string[]>([]);
   const [searchParams] = useSearchParams();
   const [currentStep, setCurrentStep] = useState<ProductStep>(1);
   const isMobile = useIsMobile();
@@ -276,49 +327,55 @@ export const ItemDetailPage = () => {
     [modelBrandsData]
   );
 
+  useEffect(() => {
+    imagePreviewUrlsRef.current = imagePreviewUrls;
+  }, [imagePreviewUrls]);
+
   // Load data into form when data changes
   useEffect(() => {
-    // data structure: {item: {...}, images: [...], spin_sets: [...]}
-    if (data?.item) {
-      const item = data.item;
-      setName(item.name || '');
-      setDescription(item.description || '');
-      setStatus(item.status || 'con_hang');
-      setIsPublic(item.is_public || false);
-      setCarBrand(item.car_brand || '');
-      setModelBrand(item.model_brand || '');
-      setCondition(item.condition === 'old' ? 'old' : 'new');
-      setPrice(item.price ? item.price.toString() : '');
-      setOriginalPrice(item.original_price ? item.original_price.toString() : '');
-      setScale(item.scale || '1:64');
-      setBrand(item.brand || '');
-      setFbPostContent(item.fb_post_content || '');
-      const q = (item as { quantity?: unknown }).quantity;
-      setQuantity(
-        typeof q === 'number' && Number.isFinite(q) ? String(Math.max(0, Math.floor(q))) : '',
-      );
-      setAttributeRows(attributeRowsFromApi((item as { attributes?: unknown }).attributes));
-    }
-    if (data?.facebook_posts) {
-      setFacebookPosts(data.facebook_posts || []);
-    }
-    
-    // Set selected spin set to default if available
-    if (data?.spin_sets && data.spin_sets.length > 0) {
-      const defaultSpinSet = (data.spin_sets as SpinSet[]).find((set) => set.is_default);
-      if (defaultSpinSet) {
-        setSelectedSpinSetId(defaultSpinSet.id);
-      } else if (!selectedSpinSetId) {
-        setSelectedSpinSetId((data.spin_sets[0] as SpinSet).id);
+    if (!data) return;
+    queueMicrotask(() => {
+      // data structure: {item: {...}, images: [...], spin_sets: [...]}
+      if (data.item) {
+        const item = data.item;
+        setName(item.name || '');
+        setDescription(item.description || '');
+        setStatus(item.status || 'con_hang');
+        setIsPublic(item.is_public || false);
+        setCarBrand(item.car_brand || '');
+        setModelBrand(item.model_brand || '');
+        setCondition(item.condition === 'old' ? 'old' : 'new');
+        setPrice(item.price ? item.price.toString() : '');
+        setOriginalPrice(item.original_price ? item.original_price.toString() : '');
+        setScale(item.scale || '1:64');
+        setBrand(item.brand || '');
+        setFbPostContent(item.fb_post_content || '');
+        const q = (item as { quantity?: unknown }).quantity;
+        setQuantity(
+          typeof q === 'number' && Number.isFinite(q) ? String(Math.max(0, Math.floor(q))) : '',
+        );
+        setAttributeRows(attributeRowsFromApi((item as { attributes?: unknown }).attributes));
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+      if (data.facebook_posts) {
+        setFacebookPosts(data.facebook_posts || []);
+      }
+
+      // Set selected spin set to default if available
+      if (data.spin_sets && data.spin_sets.length > 0) {
+        const defaultSpinSet = (data.spin_sets as SpinSet[]).find((set) => set.is_default);
+        if (defaultSpinSet) {
+          setSelectedSpinSetId(defaultSpinSet.id);
+        } else if (!selectedSpinSetId) {
+          setSelectedSpinSetId((data.spin_sets[0] as SpinSet).id);
+        }
+      }
+    });
+  }, [data, selectedSpinSetId]);
 
   // Cleanup preview URLs on unmount
   useEffect(() => {
     return () => {
-      imagePreviewUrls.forEach(url => {
+      imagePreviewUrlsRef.current.forEach(url => {
         try {
           URL.revokeObjectURL(url);
         } catch {
@@ -326,7 +383,6 @@ export const ItemDetailPage = () => {
         }
       });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-scroll to Social Selling section when navigating from items list
@@ -344,7 +400,7 @@ export const ItemDetailPage = () => {
     if (!stepFromQuery) return;
     const parsed = Number(stepFromQuery);
     if ([1, 2, 3, 4].includes(parsed)) {
-      setCurrentStep(parsed as ProductStep);
+      queueMicrotask(() => setCurrentStep(parsed as ProductStep));
     }
   }, [searchParams]);
 
@@ -360,9 +416,11 @@ export const ItemDetailPage = () => {
 
   useEffect(() => {
     if (id === 'new') {
-      setCondition('new');
-      setQuantity('');
-      setAttributeRows([{ id: newAttributeRowId(), key: '', value: '' }]);
+      queueMicrotask(() => {
+        setCondition('new');
+        setQuantity('');
+        setAttributeRows([{ id: newAttributeRowId(), key: '', value: '' }]);
+      });
     }
   }, [id]);
 
@@ -901,20 +959,6 @@ export const ItemDetailPage = () => {
     navigate('/admin/items');
   };
 
-  const segmentedControlShellStyle = {
-    display: 'inline-flex',
-    backgroundColor: '#f8fafc',
-    borderRadius: '10px',
-    padding: '4px',
-    gap: '4px',
-    border: '1px solid var(--ct-border, #e2e8f0)',
-  } as const;
-  const segmentedControlHoverBg = 'rgb(var(--shop-primary-rgb) / 0.12)';
-  const segmentedControlActiveBg = 'var(--ct-primary, #4f46e5)';
-  const segmentedControlActiveText = '#fff';
-  const segmentedControlInactiveText = '#64748b';
-  const segmentedControlHoverText = 'var(--ct-primary, #4f46e5)';
-
   return (
     <>
       <style>{`
@@ -1439,288 +1483,47 @@ export const ItemDetailPage = () => {
             <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
               Tình trạng
             </label>
-            <div
-              style={{
-                ...segmentedControlShellStyle,
-                flexWrap: 'wrap',
-                width: isMobile ? '100%' : 'auto',
-              }}
-            >
-              <label 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: condition === 'new' ? segmentedControlActiveText : segmentedControlInactiveText,
-                  padding: '10px 24px',
-                  borderRadius: '8px',
-                  backgroundColor: condition === 'new' ? segmentedControlActiveBg : 'transparent',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  minWidth: '80px',
-                  userSelect: 'none',
-                  flex: isMobile ? '1 1 120px' : undefined,
-                }}
-                onMouseEnter={(e) => {
-                  if (condition !== 'new') {
-                    e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
-                    e.currentTarget.style.color = segmentedControlHoverText;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (condition !== 'new') {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = segmentedControlInactiveText;
-                  }
-                }}
-              >
-            <input
-                  type="radio"
-                  name="condition"
-                  value="new"
-                  checked={condition === 'new'}
-                  onChange={(e) => setCondition(e.target.value as 'new' | 'old')}
-                  style={{
-                    position: 'absolute',
-                    opacity: 0,
-                    width: 0,
-                    height: 0,
-                  }}
-                />
-                <span>Mới</span>
-              </label>
-              <label 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: condition === 'old' ? segmentedControlActiveText : segmentedControlInactiveText,
-                  padding: '10px 24px',
-                  borderRadius: '8px',
-                  backgroundColor: condition === 'old' ? segmentedControlActiveBg : 'transparent',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  minWidth: '80px',
-                  userSelect: 'none',
-                  flex: isMobile ? '1 1 120px' : undefined,
-                }}
-                onMouseEnter={(e) => {
-                  if (condition !== 'old') {
-                    e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
-                    e.currentTarget.style.color = segmentedControlHoverText;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (condition !== 'old') {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = segmentedControlInactiveText;
-                  }
-                }}
-              >
-                <input
-                  type="radio"
-                  name="condition"
-                  value="old"
-                  checked={condition === 'old'}
-                  onChange={(e) => setCondition(e.target.value as 'new' | 'old')}
-                  style={{
-                    position: 'absolute',
-                    opacity: 0,
-                    width: 0,
-                    height: 0,
-                  }}
-                />
-                <span>Cũ</span>
-          </label>
-            </div>
+            <SegmentedControl
+              options={[
+                { value: 'new', label: 'Mới', minWidth: '80px' },
+                { value: 'old', label: 'Cũ', minWidth: '80px' },
+              ]}
+              value={condition}
+              onChange={setCondition}
+              mobile={isMobile}
+              fullWidthOnMobile
+            />
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
               Công khai
             </label>
-            <div style={segmentedControlShellStyle}>
-              <label 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: isPublic ? segmentedControlActiveText : segmentedControlInactiveText,
-                  padding: '10px 24px',
-                  borderRadius: '8px',
-                  backgroundColor: isPublic ? segmentedControlActiveBg : 'transparent',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  minWidth: '80px',
-                  userSelect: 'none',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isPublic) {
-                    e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
-                    e.currentTarget.style.color = segmentedControlHoverText;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isPublic) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = segmentedControlInactiveText;
-                  }
-                }}
-                onClick={() => setIsPublic(true)}
-              >
-                <span>Công khai</span>
-              </label>
-              <label 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: !isPublic ? segmentedControlActiveText : segmentedControlInactiveText,
-                  padding: '10px 24px',
-                  borderRadius: '8px',
-                  backgroundColor: !isPublic ? segmentedControlActiveBg : 'transparent',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  minWidth: '80px',
-                  userSelect: 'none',
-                }}
-                onMouseEnter={(e) => {
-                  if (isPublic) {
-                    e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
-                    e.currentTarget.style.color = segmentedControlHoverText;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (isPublic) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = segmentedControlInactiveText;
-                  }
-                }}
-                onClick={() => setIsPublic(false)}
-              >
-                <span>Riêng tư</span>
-              </label>
-            </div>
+            <SegmentedControl
+              options={[
+                { value: 'public', label: 'Công khai', minWidth: '80px' },
+                { value: 'private', label: 'Riêng tư', minWidth: '80px' },
+              ]}
+              value={isPublic ? 'public' : 'private'}
+              onChange={(next) => setIsPublic(next === 'public')}
+              mobile={isMobile}
+            />
           </div>
         </div>
         <div style={{ marginBottom: '16px' }}>
           <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
             Trạng thái
           </label>
-          <div
-            style={{
-              ...segmentedControlShellStyle,
-              flexWrap: 'wrap',
-              width: isMobile ? '100%' : 'auto',
-            }}
-          >
-            <label 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: status === 'con_hang' ? segmentedControlActiveText : segmentedControlInactiveText,
-                padding: '10px 16px',
-                borderRadius: '8px',
-                backgroundColor: status === 'con_hang' ? segmentedControlActiveBg : 'transparent',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                minWidth: '70px',
-                userSelect: 'none',
-                flex: isMobile ? '1 1 110px' : undefined,
-              }}
-              onMouseEnter={(e) => {
-                if (status !== 'con_hang') {
-                  e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
-                  e.currentTarget.style.color = segmentedControlHoverText;
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (status !== 'con_hang') {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = segmentedControlInactiveText;
-                }
-              }}
-              onClick={() => setStatus('con_hang')}
-            >
-              <span>Còn hàng</span>
-            </label>
-            <label 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: status === 'giu_cho' ? segmentedControlActiveText : segmentedControlInactiveText,
-                padding: '10px 16px',
-                borderRadius: '8px',
-                backgroundColor: status === 'giu_cho' ? segmentedControlActiveBg : 'transparent',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                minWidth: '70px',
-                userSelect: 'none',
-                flex: isMobile ? '1 1 110px' : undefined,
-              }}
-              onMouseEnter={(e) => {
-                if (status !== 'giu_cho') {
-                  e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
-                  e.currentTarget.style.color = segmentedControlHoverText;
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (status !== 'giu_cho') {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = segmentedControlInactiveText;
-                }
-              }}
-              onClick={() => setStatus('giu_cho')}
-            >
-              <span>Giữ chỗ</span>
-            </label>
-            <label 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: status === 'da_ban' ? segmentedControlActiveText : segmentedControlInactiveText,
-                padding: '10px 16px',
-                borderRadius: '8px',
-                backgroundColor: status === 'da_ban' ? segmentedControlActiveBg : 'transparent',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                minWidth: '70px',
-                userSelect: 'none',
-                flex: isMobile ? '1 1 110px' : undefined,
-              }}
-              onMouseEnter={(e) => {
-                if (status !== 'da_ban') {
-                  e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
-                  e.currentTarget.style.color = segmentedControlHoverText;
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (status !== 'da_ban') {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = segmentedControlInactiveText;
-                }
-              }}
-              onClick={() => setStatus('da_ban')}
-            >
-              <span>Đã bán</span>
-            </label>
-          </div>
+          <SegmentedControl
+            options={[
+              { value: 'con_hang', label: 'Còn hàng', minWidth: '70px' },
+              { value: 'giu_cho', label: 'Giữ chỗ', minWidth: '70px' },
+              { value: 'da_ban', label: 'Đã bán', minWidth: '70px' },
+            ]}
+            value={status as 'con_hang' | 'giu_cho' | 'da_ban'}
+            onChange={(next) => setStatus(next)}
+            mobile={isMobile}
+            fullWidthOnMobile
+          />
         </div>
         <div style={{ marginBottom: '16px' }}>
           <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500', color: '#333' }}>

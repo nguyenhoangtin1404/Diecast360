@@ -1,6 +1,23 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 export const DEFAULT_DOCUMENT_TITLE = 'Diecast360 — Mô hình xe 1:64';
+
+function shortHash(input: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function guessIconMimeType(url: string): string {
+  const clean = url.split('?')[0].toLowerCase();
+  if (clean.endsWith('.svg')) return 'image/svg+xml';
+  if (clean.endsWith('.webp')) return 'image/webp';
+  if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'image/jpeg';
+  return 'image/png';
+}
 
 /**
  * Sets document title and optional favicon link while `enabled`.
@@ -15,24 +32,25 @@ export function useDocumentTitleAndFavicon(params: {
   markerAttr: 'data-shop-branding' | 'data-admin-shop-branding';
 }): void {
   const { enabled, title, faviconUrl, markerAttr } = params;
+  const lastAppliedHrefRef = useRef<string>('');
 
   useEffect(() => {
     if (!enabled) return undefined;
 
     document.title = title;
 
-    // Keep managed favicon links and place them before default icons so browser
-    // prefers shop branding over built-in vite favicon.
     const managedLinks: HTMLLinkElement[] = [];
-    /** Clones of default <link rel="icon"> nodes removed so we can restore them after branding ends. */
     const removedDefaultIconRestores: Array<{
       parent: ParentNode;
       nextSibling: ChildNode | null;
       clone: HTMLLinkElement;
     }> = [];
+
     if (faviconUrl) {
-      // Remove Vite scaffold favicon if present; runtime-managed favicon should take precedence.
-      document.querySelectorAll<HTMLLinkElement>('link[href="/vite.svg"]').forEach((el) => {
+      const defaultIconSelector =
+        'link[rel="icon"]:not([data-shop-branding]):not([data-admin-shop-branding]),' +
+        'link[rel="shortcut icon"]:not([data-shop-branding]):not([data-admin-shop-branding])';
+      document.querySelectorAll<HTMLLinkElement>(defaultIconSelector).forEach((el) => {
         const parent = el.parentNode;
         if (!parent) return;
         const nextSibling = el.nextSibling;
@@ -42,10 +60,10 @@ export function useDocumentTitleAndFavicon(params: {
       });
 
       const existingManaged = Array.from(
-        document.querySelectorAll<HTMLLinkElement>(`link[${markerAttr}="1"]`),
+        document.querySelectorAll<HTMLLinkElement>(`link[${markerAttr}]`),
       );
-      // Stable cache-buster per URL (avoid forcing a fresh download on every re-render).
-      const withVersion = `${faviconUrl}${faviconUrl.includes('?') ? '&' : '?'}v=${encodeURIComponent(faviconUrl)}`;
+      const withVersion = `${faviconUrl}${faviconUrl.includes('?') ? '&' : '?'}v=${shortHash(faviconUrl)}`;
+      const mimeType = guessIconMimeType(faviconUrl);
       const firstExistingIcon = document.querySelector<HTMLLinkElement>(
         'link[rel="icon"], link[rel="shortcut icon"], link[rel~="icon"]',
       );
@@ -54,9 +72,11 @@ export function useDocumentTitleAndFavicon(params: {
       rels.forEach((rel, index) => {
         const link = existingManaged[index] ?? document.createElement('link');
         link.rel = rel;
-        link.href = withVersion;
-        link.type = 'image/png';
-        link.setAttribute(markerAttr, '1');
+        if (lastAppliedHrefRef.current !== withVersion || link.href !== withVersion) {
+          link.href = withVersion;
+        }
+        link.type = mimeType;
+        link.setAttribute(markerAttr, rel);
         if (!existingManaged[index]) {
           if (firstExistingIcon?.parentNode) {
             firstExistingIcon.parentNode.insertBefore(link, firstExistingIcon);
@@ -66,21 +86,20 @@ export function useDocumentTitleAndFavicon(params: {
         }
         managedLinks.push(link);
       });
-
-      // Ensure we never accumulate duplicate managed links.
+      lastAppliedHrefRef.current = withVersion;
       existingManaged.slice(rels.length).forEach((el) => el.remove());
     }
 
     return () => {
       document.title = DEFAULT_DOCUMENT_TITLE;
       managedLinks.forEach((el) => el.remove());
-      document.querySelectorAll(`link[${markerAttr}="1"]`).forEach((el) => el.remove());
+      document.querySelectorAll(`link[${markerAttr}]`).forEach((el) => el.remove());
       for (const { parent, nextSibling, clone } of removedDefaultIconRestores) {
         if (clone.isConnected) continue;
         try {
           parent.insertBefore(clone, nextSibling);
         } catch {
-          /* parent detached from document — skip */
+          // parent detached from document
         }
       }
     };

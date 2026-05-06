@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { ShopContactFormState } from './types/shopContact';
 
@@ -38,7 +39,26 @@ type Props = {
   classNames?: ContactFieldsClassNames;
 };
 
-export function ShopContactFields({ idPrefix, value, onChange, styles, intro, disabled, classNames }: Props) {
+function isOptionalHttpUrl(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (!trimmed) return true;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+export const ShopContactFields = memo(function ShopContactFields({
+  idPrefix,
+  value,
+  onChange,
+  styles,
+  intro,
+  disabled,
+  classNames,
+}: Props) {
   const set = (patch: Partial<ShopContactFormState>) => onChange({ ...value, ...patch });
   const setPhone = (patch: Partial<ShopContactFormState['phone']>) =>
     onChange({ ...value, phone: { ...value.phone, ...patch } });
@@ -53,6 +73,8 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro, di
   const inputClassName = classNames?.input;
   const textareaClassName = classNames?.textarea;
   const hintClassName = classNames?.hint;
+  const isFacebookUrlValid = isOptionalHttpUrl(value.facebook.url);
+  const isZaloUrlValid = isOptionalHttpUrl(value.zalo.url);
 
   return (
     <div className={classNames?.root}>
@@ -145,6 +167,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro, di
         </label>
         <input
           id={`${idPrefix}-fb-url`}
+          type="url"
           style={styles.modalInput}
           className={inputClassName}
           value={value.facebook.url}
@@ -152,7 +175,14 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro, di
           autoComplete="off"
           placeholder="https://www.facebook.com/..."
           disabled={disabled}
+          aria-invalid={!isFacebookUrlValid}
+          title={!isFacebookUrlValid ? 'URL Facebook cần bắt đầu bằng http:// hoặc https://' : undefined}
         />
+        {!isFacebookUrlValid ? (
+          <p style={styles.modalHint} className={hintClassName}>
+            URL Facebook không hợp lệ. Vui lòng nhập link đầy đủ bắt đầu bằng http:// hoặc https://.
+          </p>
+        ) : null}
       </div>
       <div style={styles.formRow} className={rowClassName}>
         <label style={styles.modalLabel} className={labelClassName} htmlFor={`${idPrefix}-fb-label`}>
@@ -178,6 +208,7 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro, di
         </label>
         <input
           id={`${idPrefix}-zalo-url`}
+          type="url"
           style={styles.modalInput}
           className={inputClassName}
           value={value.zalo.url}
@@ -185,7 +216,14 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro, di
           autoComplete="off"
           placeholder="https://zalo.me/..."
           disabled={disabled}
+          aria-invalid={!isZaloUrlValid}
+          title={!isZaloUrlValid ? 'URL Zalo cần bắt đầu bằng http:// hoặc https://' : undefined}
         />
+        {!isZaloUrlValid ? (
+          <p style={styles.modalHint} className={hintClassName}>
+            URL Zalo không hợp lệ. Vui lòng nhập link đầy đủ bắt đầu bằng http:// hoặc https://.
+          </p>
+        ) : null}
       </div>
       <div style={styles.formRow} className={rowClassName}>
         <label style={styles.modalLabel} className={labelClassName} htmlFor={`${idPrefix}-zalo-label`}>
@@ -241,4 +279,4 @@ export function ShopContactFields({ idPrefix, value, onChange, styles, intro, di
       </div>
     </div>
   );
-}
+});

@@ -9,10 +9,18 @@ import { AddShopAdminDto } from './dto/add-shop-admin.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
 import * as bcrypt from 'bcrypt';
 import { buildSignedMediaFileUrl } from '../common/media/signed-media.util';
+import * as sharp from 'sharp';
 
 jest.mock('bcrypt', () => ({
   hash: jest.fn(),
 }));
+
+jest.mock('sharp', () => {
+  return jest.fn(() => ({
+    png: jest.fn().mockReturnThis(),
+    toBuffer: jest.fn().mockResolvedValue(Buffer.from('normalized-favicon-png')),
+  }));
+});
 
 describe('ShopsService', () => {
   let service: ShopsService;
@@ -760,6 +768,60 @@ describe('ShopsService', () => {
       await expect(service.uploadAppearanceAsset(tenantId, 'logo', file, 'u1')).rejects.toThrow('db down');
       expect(storage.deleteFile).toHaveBeenCalledWith('shop-branding/x.png');
       expect(prisma.shopAuditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('uploadAppearanceAsset normalizes non-png favicon to png before saving', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        id: tenantId,
+        appearance_json: {},
+      });
+      prisma.shop.update.mockResolvedValue({
+        id: tenantId,
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: { favicon_url: 'https://signed.example/shop-branding/normalized.png' },
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({});
+
+      const file = {
+        buffer: Buffer.from('webp-binary'),
+        mimetype: 'image/webp',
+        size: 200,
+      } as Express.Multer.File;
+
+      await service.uploadAppearanceAsset(tenantId, 'favicon', file, 'u1');
+
+      expect(sharp).toHaveBeenCalledWith(file.buffer, { failOn: 'error' });
+      expect(storage.saveFile).toHaveBeenCalledWith(
+        Buffer.from('normalized-favicon-png'),
+        expect.stringMatching(new RegExp(`${tenantId}_favicon_.*\\.png$`)),
+        'shop-branding',
+      );
+    });
+
+    it('uploadAppearanceAsset throws VALIDATION_ERROR when favicon normalization fails', async () => {
+      const sharpFactory = sharp as unknown as jest.Mock;
+      sharpFactory.mockImplementationOnce(() => ({
+        png: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockRejectedValue(new Error('corrupt image')),
+      }));
+
+      prisma.shop.findFirst.mockResolvedValue({
+        id: tenantId,
+        appearance_json: {},
+      });
+
+      const file = {
+        buffer: Buffer.from('corrupt-binary'),
+        mimetype: 'image/jpeg',
+        size: 200,
+      } as Express.Multer.File;
+
+      await expect(service.uploadAppearanceAsset(tenantId, 'favicon', file, 'u1')).rejects.toThrow(
+        'Không thể xử lý favicon',
+      );
+      expect(storage.saveFile).not.toHaveBeenCalled();
     });
   });
 });
