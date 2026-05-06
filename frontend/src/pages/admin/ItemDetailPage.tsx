@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, uploadFile } from '../../api/client';
@@ -198,6 +198,15 @@ function SegmentedControl<T extends string>({
   /** Accessible name for the segmented group (radiogroup). */
   ariaLabel: string;
 }) {
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const focusIndex = (index: number) => {
+    const n = options.length;
+    if (n === 0) return;
+    const i = ((index % n) + n) % n;
+    queueMicrotask(() => optionRefs.current[i]?.focus());
+  };
+
   const groupClassName = [
     segmentedStyles.group,
     segmentedStyles.groupWrap,
@@ -207,25 +216,66 @@ function SegmentedControl<T extends string>({
     .join(' ');
   return (
     <div className={groupClassName} role="radiogroup" aria-label={ariaLabel}>
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          role="radio"
-          aria-checked={value === option.value}
-          className={[
-            segmentedStyles.option,
-            value === option.value ? segmentedStyles.optionActive : '',
-            mobile ? segmentedStyles.optionMobileGrow : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          style={option.minWidth ? { minWidth: option.minWidth } : undefined}
-          onClick={() => onChange(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
+      {options.map((option, index) => {
+        const selected = value === option.value;
+        const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+          const n = options.length;
+          if (n === 0) return;
+          const currentIndex = options.findIndex((o) => o.value === value);
+          const i = currentIndex === -1 ? index : currentIndex;
+
+          if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const next = (i + 1) % n;
+            onChange(options[next].value);
+            focusIndex(next);
+            return;
+          }
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const next = (i - 1 + n) % n;
+            onChange(options[next].value);
+            focusIndex(next);
+            return;
+          }
+          if (e.key === 'Home') {
+            e.preventDefault();
+            onChange(options[0].value);
+            focusIndex(0);
+            return;
+          }
+          if (e.key === 'End') {
+            e.preventDefault();
+            onChange(options[n - 1].value);
+            focusIndex(n - 1);
+          }
+        };
+
+        return (
+          <button
+            key={option.value}
+            ref={(el) => {
+              optionRefs.current[index] = el;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            tabIndex={selected ? 0 : -1}
+            className={[
+              segmentedStyles.option,
+              selected ? segmentedStyles.optionActive : '',
+              mobile ? segmentedStyles.optionMobileGrow : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            style={option.minWidth ? { minWidth: option.minWidth } : undefined}
+            onClick={() => onChange(option.value)}
+            onKeyDown={onKeyDown}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
