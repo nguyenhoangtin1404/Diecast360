@@ -232,6 +232,11 @@ export const ShopSettingsPage = () => {
             styles={contactFieldStyles}
             classNames={{
               root: styles.contactFieldsGrid,
+              formRow: styles.formRow,
+              label: styles.label,
+              input: styles.input,
+              textarea: styles.textarea,
+              hint: styles.hint,
               sectionTitle: styles.contactSectionTitle,
               hoursScheduleRow: styles.contactRowFull,
             }}

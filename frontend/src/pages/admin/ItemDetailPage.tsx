@@ -901,6 +901,20 @@ export const ItemDetailPage = () => {
     navigate('/admin/items');
   };
 
+  const segmentedControlShellStyle = {
+    display: 'inline-flex',
+    backgroundColor: '#f8fafc',
+    borderRadius: '10px',
+    padding: '4px',
+    gap: '4px',
+    border: '1px solid var(--ct-border, #e2e8f0)',
+  } as const;
+  const segmentedControlHoverBg = 'rgb(var(--shop-primary-rgb) / 0.12)';
+  const segmentedControlActiveBg = 'var(--ct-primary, #4f46e5)';
+  const segmentedControlActiveText = '#fff';
+  const segmentedControlInactiveText = '#64748b';
+  const segmentedControlHoverText = 'var(--ct-primary, #4f46e5)';
+
   return (
     <>
       <style>{`
@@ -1425,16 +1439,13 @@ export const ItemDetailPage = () => {
             <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
               Tình trạng
             </label>
-            <div style={{ 
-              display: 'inline-flex', 
-              backgroundColor: '#f5f5f5',
-              borderRadius: '10px',
-              padding: '4px',
-              gap: '4px',
-              border: '1px solid #e0e0e0',
-              flexWrap: 'wrap',
-              width: isMobile ? '100%' : 'auto',
-            }}>
+            <div
+              style={{
+                ...segmentedControlShellStyle,
+                flexWrap: 'wrap',
+                width: isMobile ? '100%' : 'auto',
+              }}
+            >
               <label 
                 style={{ 
                   display: 'flex', 
@@ -1443,10 +1454,10 @@ export const ItemDetailPage = () => {
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: '500',
-                  color: condition === 'new' ? '#fff' : '#666',
+                  color: condition === 'new' ? segmentedControlActiveText : segmentedControlInactiveText,
                   padding: '10px 24px',
                   borderRadius: '8px',
-                  backgroundColor: condition === 'new' ? '#007bff' : 'transparent',
+                  backgroundColor: condition === 'new' ? segmentedControlActiveBg : 'transparent',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   minWidth: '80px',
                   userSelect: 'none',
@@ -1454,14 +1465,14 @@ export const ItemDetailPage = () => {
                 }}
                 onMouseEnter={(e) => {
                   if (condition !== 'new') {
-                    e.currentTarget.style.backgroundColor = '#e8f0fe';
-                    e.currentTarget.style.color = '#007bff';
+                    e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
+                    e.currentTarget.style.color = segmentedControlHoverText;
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (condition !== 'new') {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#666';
+                    e.currentTarget.style.color = segmentedControlInactiveText;
                   }
                 }}
               >
@@ -1488,10 +1499,10 @@ export const ItemDetailPage = () => {
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: '500',
-                  color: condition === 'old' ? '#fff' : '#666',
+                  color: condition === 'old' ? segmentedControlActiveText : segmentedControlInactiveText,
                   padding: '10px 24px',
                   borderRadius: '8px',
-                  backgroundColor: condition === 'old' ? '#007bff' : 'transparent',
+                  backgroundColor: condition === 'old' ? segmentedControlActiveBg : 'transparent',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   minWidth: '80px',
                   userSelect: 'none',
@@ -1499,14 +1510,14 @@ export const ItemDetailPage = () => {
                 }}
                 onMouseEnter={(e) => {
                   if (condition !== 'old') {
-                    e.currentTarget.style.backgroundColor = '#e8f0fe';
-                    e.currentTarget.style.color = '#007bff';
+                    e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
+                    e.currentTarget.style.color = segmentedControlHoverText;
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (condition !== 'old') {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#666';
+                    e.currentTarget.style.color = segmentedControlInactiveText;
                   }
                 }}
               >
@@ -1531,14 +1542,7 @@ export const ItemDetailPage = () => {
             <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
               Công khai
             </label>
-            <div style={{ 
-              display: 'inline-flex', 
-              backgroundColor: '#f5f5f5',
-              borderRadius: '10px',
-              padding: '4px',
-              gap: '4px',
-              border: '1px solid #e0e0e0',
-            }}>
+            <div style={segmentedControlShellStyle}>
               <label 
                 style={{ 
                   display: 'flex', 
@@ -1547,24 +1551,24 @@ export const ItemDetailPage = () => {
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: '500',
-                  color: isPublic ? '#fff' : '#666',
+                  color: isPublic ? segmentedControlActiveText : segmentedControlInactiveText,
                   padding: '10px 24px',
                   borderRadius: '8px',
-                  backgroundColor: isPublic ? '#007bff' : 'transparent',
+                  backgroundColor: isPublic ? segmentedControlActiveBg : 'transparent',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   minWidth: '80px',
                   userSelect: 'none',
                 }}
                 onMouseEnter={(e) => {
                   if (!isPublic) {
-                    e.currentTarget.style.backgroundColor = '#e8f0fe';
-                    e.currentTarget.style.color = '#007bff';
+                    e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
+                    e.currentTarget.style.color = segmentedControlHoverText;
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isPublic) {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#666';
+                    e.currentTarget.style.color = segmentedControlInactiveText;
                   }
                 }}
                 onClick={() => setIsPublic(true)}
@@ -1579,24 +1583,24 @@ export const ItemDetailPage = () => {
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: '500',
-                  color: !isPublic ? '#fff' : '#666',
+                  color: !isPublic ? segmentedControlActiveText : segmentedControlInactiveText,
                   padding: '10px 24px',
                   borderRadius: '8px',
-                  backgroundColor: !isPublic ? '#007bff' : 'transparent',
+                  backgroundColor: !isPublic ? segmentedControlActiveBg : 'transparent',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   minWidth: '80px',
                   userSelect: 'none',
                 }}
                 onMouseEnter={(e) => {
                   if (isPublic) {
-                    e.currentTarget.style.backgroundColor = '#e8f0fe';
-                    e.currentTarget.style.color = '#007bff';
+                    e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
+                    e.currentTarget.style.color = segmentedControlHoverText;
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (isPublic) {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#666';
+                    e.currentTarget.style.color = segmentedControlInactiveText;
                   }
                 }}
                 onClick={() => setIsPublic(false)}
@@ -1610,16 +1614,13 @@ export const ItemDetailPage = () => {
           <label style={{ display: 'block', marginBottom: '10px', fontSize: '14px', fontWeight: '500', color: '#333' }}>
             Trạng thái
           </label>
-          <div style={{ 
-            display: 'inline-flex', 
-            backgroundColor: '#f5f5f5',
-            borderRadius: '10px',
-            padding: '4px',
-            gap: '4px',
-            border: '1px solid #e0e0e0',
-            flexWrap: 'wrap',
-            width: isMobile ? '100%' : 'auto',
-          }}>
+          <div
+            style={{
+              ...segmentedControlShellStyle,
+              flexWrap: 'wrap',
+              width: isMobile ? '100%' : 'auto',
+            }}
+          >
             <label 
               style={{ 
                 display: 'flex', 
@@ -1628,10 +1629,10 @@ export const ItemDetailPage = () => {
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: '500',
-                color: status === 'con_hang' ? '#fff' : '#666',
+                color: status === 'con_hang' ? segmentedControlActiveText : segmentedControlInactiveText,
                 padding: '10px 16px',
                 borderRadius: '8px',
-                backgroundColor: status === 'con_hang' ? '#007bff' : 'transparent',
+                backgroundColor: status === 'con_hang' ? segmentedControlActiveBg : 'transparent',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 minWidth: '70px',
                 userSelect: 'none',
@@ -1639,14 +1640,14 @@ export const ItemDetailPage = () => {
               }}
               onMouseEnter={(e) => {
                 if (status !== 'con_hang') {
-                  e.currentTarget.style.backgroundColor = '#e8f0fe';
-                  e.currentTarget.style.color = '#007bff';
+                  e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
+                  e.currentTarget.style.color = segmentedControlHoverText;
                 }
               }}
               onMouseLeave={(e) => {
                 if (status !== 'con_hang') {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = '#666';
+                  e.currentTarget.style.color = segmentedControlInactiveText;
                 }
               }}
               onClick={() => setStatus('con_hang')}
@@ -1661,10 +1662,10 @@ export const ItemDetailPage = () => {
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: '500',
-                color: status === 'giu_cho' ? '#fff' : '#666',
+                color: status === 'giu_cho' ? segmentedControlActiveText : segmentedControlInactiveText,
                 padding: '10px 16px',
                 borderRadius: '8px',
-                backgroundColor: status === 'giu_cho' ? '#007bff' : 'transparent',
+                backgroundColor: status === 'giu_cho' ? segmentedControlActiveBg : 'transparent',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 minWidth: '70px',
                 userSelect: 'none',
@@ -1672,14 +1673,14 @@ export const ItemDetailPage = () => {
               }}
               onMouseEnter={(e) => {
                 if (status !== 'giu_cho') {
-                  e.currentTarget.style.backgroundColor = '#e8f0fe';
-                  e.currentTarget.style.color = '#007bff';
+                  e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
+                  e.currentTarget.style.color = segmentedControlHoverText;
                 }
               }}
               onMouseLeave={(e) => {
                 if (status !== 'giu_cho') {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = '#666';
+                  e.currentTarget.style.color = segmentedControlInactiveText;
                 }
               }}
               onClick={() => setStatus('giu_cho')}
@@ -1694,10 +1695,10 @@ export const ItemDetailPage = () => {
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: '500',
-                color: status === 'da_ban' ? '#fff' : '#666',
+                color: status === 'da_ban' ? segmentedControlActiveText : segmentedControlInactiveText,
                 padding: '10px 16px',
                 borderRadius: '8px',
-                backgroundColor: status === 'da_ban' ? '#007bff' : 'transparent',
+                backgroundColor: status === 'da_ban' ? segmentedControlActiveBg : 'transparent',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 minWidth: '70px',
                 userSelect: 'none',
@@ -1705,14 +1706,14 @@ export const ItemDetailPage = () => {
               }}
               onMouseEnter={(e) => {
                 if (status !== 'da_ban') {
-                  e.currentTarget.style.backgroundColor = '#e8f0fe';
-                  e.currentTarget.style.color = '#007bff';
+                  e.currentTarget.style.backgroundColor = segmentedControlHoverBg;
+                  e.currentTarget.style.color = segmentedControlHoverText;
                 }
               }}
               onMouseLeave={(e) => {
                 if (status !== 'da_ban') {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = '#666';
+                  e.currentTarget.style.color = segmentedControlInactiveText;
                 }
               }}
               onClick={() => setStatus('da_ban')}
@@ -1788,13 +1789,14 @@ export const ItemDetailPage = () => {
                 alignItems: 'center',
                 gap: '6px',
                 padding: '6px 12px',
-                background: '#007bff',
-                color: 'white',
+                background: 'linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed))',
+                color: '#fff',
                 border: 'none',
                 borderRadius: '6px',
                 fontSize: '13px',
                 fontWeight: 500,
                 cursor: 'pointer',
+                boxShadow: '0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.24)',
               }}
             >
               <Plus size={14} />
@@ -2992,13 +2994,20 @@ export const ItemDetailPage = () => {
           disabled={currentStep === 4 || saveMutation.isPending || uploadingImages}
           style={{
             padding: '10px 16px',
-            background: currentStep === 4 || saveMutation.isPending || uploadingImages ? '#d2d6dc' : '#1f8f4f',
-            color: 'white',
+            background:
+              currentStep === 4 || saveMutation.isPending || uploadingImages
+                ? '#d2d6dc'
+                : 'linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed))',
+            color: '#fff',
             border: 'none',
             borderRadius: '8px',
             cursor: currentStep === 4 || saveMutation.isPending || uploadingImages ? 'not-allowed' : 'pointer',
             fontSize: '14px',
             fontWeight: '600',
+            boxShadow:
+              currentStep === 4 || saveMutation.isPending || uploadingImages
+                ? 'none'
+                : '0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.28)',
           }}
         >
           {saveMutation.isPending ? 'Đang lưu...' : 'Bước tiếp →'}
@@ -3010,13 +3019,18 @@ export const ItemDetailPage = () => {
             disabled={saveMutation.isPending || uploadingImages}
             style={{
               padding: '10px 16px',
-              background: saveMutation.isPending || uploadingImages ? '#d2d6dc' : '#2563eb',
-              color: 'white',
+              background:
+                saveMutation.isPending || uploadingImages
+                  ? '#d2d6dc'
+                  : 'linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed))',
+              color: '#fff',
               border: 'none',
               borderRadius: '8px',
               cursor: saveMutation.isPending || uploadingImages ? 'not-allowed' : 'pointer',
               fontSize: '14px',
               fontWeight: '600',
+              boxShadow:
+                saveMutation.isPending || uploadingImages ? 'none' : '0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.28)',
             }}
           >
             {saveMutation.isPending ? 'Đang lưu...' : 'Hoàn tất'}

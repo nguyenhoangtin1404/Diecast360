@@ -22,6 +22,7 @@ import { UploadSupportService } from '../common/upload/upload-support.service';
 import { verifySignedMediaParams } from '../common/media/signed-media.util';
 import { resolveMediaSigningSecret } from '../common/media/media-signing-secret';
 import { v4 as uuidv4 } from 'uuid';
+import * as sharp from 'sharp';
 
 const SHOP_BRANDING_MIME_ALLOWLIST = ['image/jpeg', 'image/png', 'image/webp'] as const;
 
@@ -426,10 +427,16 @@ export class ShopsService {
         ? this.extractAppearanceUrl(oldShop.appearance_json, 'logo_url')
         : this.extractAppearanceUrl(oldShop.appearance_json, 'favicon_url');
 
-    const ext =
+    let payloadBuffer = file.buffer;
+    let ext =
       file.mimetype === 'image/png' ? '.png' : file.mimetype === 'image/webp' ? '.webp' : '.jpg';
+    if (kind === 'favicon' && ext !== '.png') {
+      // Browser favicon support is most reliable with PNG; normalize uploads here.
+      payloadBuffer = await sharp(file.buffer).png().toBuffer();
+      ext = '.png';
+    }
     const filename = `${tenantId}_${kind}_${uuidv4()}${ext}`;
-    const relativePath = await this.storage.saveFile(file.buffer, filename, 'shop-branding');
+    const relativePath = await this.storage.saveFile(payloadBuffer, filename, 'shop-branding');
     const publicUrl = this.storage.getFileUrl(relativePath);
 
     const patch: ShopAppearancePatchDto =
