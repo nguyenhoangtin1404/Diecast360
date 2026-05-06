@@ -189,6 +189,7 @@ function SegmentedControl<T extends string>({
   mobile,
   fullWidthOnMobile,
   ariaLabel,
+  disabled = false,
 }: {
   options: SegmentedOption<T>[];
   value: T;
@@ -197,10 +198,13 @@ function SegmentedControl<T extends string>({
   fullWidthOnMobile?: boolean;
   /** Accessible name for the segmented group (radiogroup). */
   ariaLabel: string;
+  /** When true, disables all options (e.g. while saving or uploading). */
+  disabled?: boolean;
 }) {
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const focusIndex = (index: number) => {
+    if (disabled) return;
     const n = options.length;
     if (n === 0) return;
     const i = ((index % n) + n) % n;
@@ -215,10 +219,16 @@ function SegmentedControl<T extends string>({
     .filter(Boolean)
     .join(' ');
   return (
-    <div className={groupClassName} role="radiogroup" aria-label={ariaLabel}>
+    <div
+      className={groupClassName}
+      role="radiogroup"
+      aria-label={ariaLabel}
+      aria-disabled={disabled ? 'true' : undefined}
+    >
       {options.map((option, index) => {
         const selected = value === option.value;
         const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+          if (disabled) return;
           const n = options.length;
           if (n === 0) return;
           const currentIndex = options.findIndex((o) => o.value === value);
@@ -270,7 +280,8 @@ function SegmentedControl<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
-            tabIndex={selected ? 0 : -1}
+            tabIndex={disabled ? -1 : selected ? 0 : -1}
+            disabled={disabled}
             className={[
               segmentedStyles.option,
               selected ? segmentedStyles.optionActive : '',
@@ -279,7 +290,10 @@ function SegmentedControl<T extends string>({
               .filter(Boolean)
               .join(' ')}
             style={option.minWidth ? { minWidth: option.minWidth } : undefined}
-            onClick={() => onChange(option.value)}
+            onClick={() => {
+              if (disabled) return;
+              onChange(option.value);
+            }}
             onKeyDown={onKeyDown}
           >
             {option.label}
@@ -1553,6 +1567,7 @@ export const ItemDetailPage = () => {
             </label>
             <SegmentedControl
               ariaLabel="Tình trạng sản phẩm"
+              disabled={saveMutation.isPending || uploadingImages}
               options={[
                 { value: 'new', label: 'Mới', minWidth: '80px' },
                 { value: 'old', label: 'Cũ', minWidth: '80px' },
@@ -1569,6 +1584,7 @@ export const ItemDetailPage = () => {
             </label>
             <SegmentedControl
               ariaLabel="Hiển thị công khai"
+              disabled={saveMutation.isPending || uploadingImages}
               options={[
                 { value: 'public', label: 'Công khai', minWidth: '80px' },
                 { value: 'private', label: 'Riêng tư', minWidth: '80px' },
@@ -1585,6 +1601,7 @@ export const ItemDetailPage = () => {
           </label>
           <SegmentedControl
             ariaLabel="Trạng thái kho"
+            disabled={saveMutation.isPending || uploadingImages}
             options={[
               { value: 'con_hang', label: 'Còn hàng', minWidth: '70px' },
               { value: 'giu_cho', label: 'Giữ chỗ', minWidth: '70px' },

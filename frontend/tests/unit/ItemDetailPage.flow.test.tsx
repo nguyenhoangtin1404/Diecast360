@@ -178,6 +178,29 @@ describe('ItemDetailPage main flows', () => {
     );
   });
 
+  it('SegmentedControl: ArrowRight moves Tình trạng from Mới to Cũ', async () => {
+    render(<ItemDetailPage />);
+    await waitForItemDetailHydrated();
+    const moi = screen.getByRole('radio', { name: 'Mới' });
+    fireEvent.focus(moi);
+    expect(moi.getAttribute('aria-checked')).toBe('true');
+    fireEvent.keyDown(moi, { key: 'ArrowRight' });
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: 'Cũ' }).getAttribute('aria-checked')).toBe('true');
+    });
+  });
+
+  it('SegmentedControl: Space selects focused option (Cũ)', async () => {
+    render(<ItemDetailPage />);
+    await waitForItemDetailHydrated();
+    const cu = screen.getByRole('radio', { name: 'Cũ' });
+    fireEvent.focus(cu);
+    fireEvent.keyDown(cu, { key: ' ' });
+    await waitFor(() => {
+      expect(cu.getAttribute('aria-checked')).toBe('true');
+    });
+  });
+
   it('navigates to step 2 URL after creating from step 1', async () => {
     h.params = { id: 'new' };
     h.mockItemResponse = { item: null, images: [], spin_sets: [], facebook_posts: [] };

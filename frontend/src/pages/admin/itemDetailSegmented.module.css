@@ -38,11 +38,12 @@
   color: #fff;
 }
 
-.option:hover:not(.optionActive) {
+.option:hover:not(.optionActive):not(:disabled) {
   background-color: rgb(var(--shop-primary-rgb) / 0.12);
   color: var(--ct-primary, #4f46e5);
 }
 
-.optionMobileGrow {
-  flex: 1 1 110px;
+.option:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
