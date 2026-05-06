@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext, startTransition } from 'react';
 import { apiClient } from '../api/client';
 import { ensureCsrfBootstrap } from '../api/csrf';
 import { ShopContext } from './ShopContext';
@@ -37,6 +37,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const loadUserShops = useCallback(async () => {
+    await Promise.resolve();
+
     if (authCtx?.loading) {
       return;
     }
@@ -123,7 +125,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [authCtx?.isAuthenticated, authCtx?.loading, switchToShop]);
 
   useEffect(() => {
-    void loadUserShops();
+    startTransition(() => {
+      void loadUserShops();
+    });
   }, [loadUserShops]);
 
   const switchShop = async (shopId: string) => {

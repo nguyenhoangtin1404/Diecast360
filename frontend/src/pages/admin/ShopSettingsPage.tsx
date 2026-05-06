@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { startTransition, useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Palette } from 'lucide-react';
 import { apiClient, uploadFile } from '../../api/client';
@@ -79,8 +79,10 @@ export const ShopSettingsPage = () => {
   useEffect(() => {
     const row = settingsQuery.data;
     if (!row) return;
-    setContact(parseShopContactFormDefaults(row.contact_json));
-    setAppearance(parseAppearanceFormDefaults(row.appearance_json));
+    startTransition(() => {
+      setContact(parseShopContactFormDefaults(row.contact_json));
+      setAppearance(parseAppearanceFormDefaults(row.appearance_json));
+    });
   }, [settingsQuery.data]);
 
   const saveMutation = useMutation({
