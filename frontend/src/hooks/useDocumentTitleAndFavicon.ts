@@ -72,7 +72,9 @@ export function useDocumentTitleAndFavicon(params: {
       rels.forEach((rel, index) => {
         const link = existingManaged[index] ?? document.createElement('link');
         link.rel = rel;
-        if (lastAppliedHrefRef.current !== withVersion || link.href !== withVersion) {
+        // Do not compare `link.href` to `withVersion`: browsers resolve to absolute URLs and
+        // encoding can differ. `lastAppliedHrefRef` is enough to skip redundant assignments.
+        if (lastAppliedHrefRef.current !== withVersion) {
           link.href = withVersion;
         }
         link.type = mimeType;
@@ -92,6 +94,7 @@ export function useDocumentTitleAndFavicon(params: {
 
     return () => {
       document.title = DEFAULT_DOCUMENT_TITLE;
+      lastAppliedHrefRef.current = '';
       managedLinks.forEach((el) => el.remove());
       document.querySelectorAll(`link[${markerAttr}]`).forEach((el) => el.remove());
       for (const { parent, nextSibling, clone } of removedDefaultIconRestores) {

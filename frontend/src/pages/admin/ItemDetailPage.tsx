@@ -188,12 +188,15 @@ function SegmentedControl<T extends string>({
   onChange,
   mobile,
   fullWidthOnMobile,
+  ariaLabel,
 }: {
   options: SegmentedOption<T>[];
   value: T;
   onChange: (next: T) => void;
   mobile: boolean;
   fullWidthOnMobile?: boolean;
+  /** Accessible name for the segmented group (radiogroup). */
+  ariaLabel: string;
 }) {
   const groupClassName = [
     segmentedStyles.group,
@@ -203,11 +206,13 @@ function SegmentedControl<T extends string>({
     .filter(Boolean)
     .join(' ');
   return (
-    <div className={groupClassName}>
+    <div className={groupClassName} role="radiogroup" aria-label={ariaLabel}>
       {options.map((option) => (
         <button
           key={option.value}
           type="button"
+          role="radio"
+          aria-checked={value === option.value}
           className={[
             segmentedStyles.option,
             value === option.value ? segmentedStyles.optionActive : '',
@@ -334,6 +339,8 @@ export const ItemDetailPage = () => {
   // Load data into form when data changes
   useEffect(() => {
     if (!data) return;
+    // Defer setState to the next microtask so this effect does not synchronously cascade
+    // updates during the same commit (React 19 / Strict Mode–friendly; avoids lint false positives).
     queueMicrotask(() => {
       // data structure: {item: {...}, images: [...], spin_sets: [...]}
       if (data.item) {
@@ -400,7 +407,7 @@ export const ItemDetailPage = () => {
     if (!stepFromQuery) return;
     const parsed = Number(stepFromQuery);
     if ([1, 2, 3, 4].includes(parsed)) {
-      queueMicrotask(() => setCurrentStep(parsed as ProductStep));
+      queueMicrotask(() => setCurrentStep(parsed as ProductStep)); // defer to avoid sync setState in effect body
     }
   }, [searchParams]);
 
@@ -417,6 +424,7 @@ export const ItemDetailPage = () => {
   useEffect(() => {
     if (id === 'new') {
       queueMicrotask(() => {
+        // Same microtask deferral as item hydrate — keep new-item defaults out of the sync effect phase.
         setCondition('new');
         setQuantity('');
         setAttributeRows([{ id: newAttributeRowId(), key: '', value: '' }]);
@@ -1484,6 +1492,7 @@ export const ItemDetailPage = () => {
               Tình trạng
             </label>
             <SegmentedControl
+              ariaLabel="Tình trạng sản phẩm"
               options={[
                 { value: 'new', label: 'Mới', minWidth: '80px' },
                 { value: 'old', label: 'Cũ', minWidth: '80px' },
@@ -1499,6 +1508,7 @@ export const ItemDetailPage = () => {
               Công khai
             </label>
             <SegmentedControl
+              ariaLabel="Hiển thị công khai"
               options={[
                 { value: 'public', label: 'Công khai', minWidth: '80px' },
                 { value: 'private', label: 'Riêng tư', minWidth: '80px' },
@@ -1514,6 +1524,7 @@ export const ItemDetailPage = () => {
             Trạng thái
           </label>
           <SegmentedControl
+            ariaLabel="Trạng thái kho"
             options={[
               { value: 'con_hang', label: 'Còn hàng', minWidth: '70px' },
               { value: 'giu_cho', label: 'Giữ chỗ', minWidth: '70px' },
