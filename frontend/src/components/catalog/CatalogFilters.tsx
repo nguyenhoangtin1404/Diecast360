@@ -15,12 +15,17 @@ interface CatalogFiltersProps {
 }
 
 const chipBase =
-  'min-h-[44px] rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2';
+  'min-h-[44px] shrink-0 rounded-full border px-3 py-2 text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2';
 
 const chipInactive =
   'border-slate-200 bg-white text-slate-700 shadow-sm hover:border-shop/25 hover:bg-shop/5 active:bg-shop/10 hover:text-shop';
 const chipActive =
   'border-transparent bg-gradient-to-r from-shop to-shopAccent text-white shadow-corporate-btn hover:-translate-y-0.5 hover:shadow-corporate-card-hover active:translate-y-0 active:brightness-95';
+
+const scrollRowClass =
+  'flex gap-2 overflow-x-auto pb-1 pt-0.5 [-webkit-overflow-scrolling:touch]';
+
+const sectionTitleClass = 'mb-2 text-xs font-bold uppercase tracking-wide text-slate-500';
 
 export const CatalogFilters = ({
   shopId,
@@ -78,7 +83,7 @@ export const CatalogFilters = ({
   };
 
   return (
-    <div className="mb-2 space-y-8">
+    <div className="space-y-4">
       {isCategoriesError && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
           Không thể tải bộ lọc lúc này.
@@ -90,8 +95,8 @@ export const CatalogFilters = ({
       )}
       {carBrands.length > 0 && (
         <div>
-          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Hãng xe</h3>
-          <div className="flex flex-wrap gap-2">
+          <h3 className={sectionTitleClass}>Hãng xe</h3>
+          <div className={scrollRowClass}>
             {carBrands.map((brand) => (
               <button
                 key={brand}
@@ -108,8 +113,8 @@ export const CatalogFilters = ({
 
       {modelBrands.length > 0 && (
         <div>
-          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Hãng mô hình</h3>
-          <div className="flex flex-wrap gap-2">
+          <h3 className={sectionTitleClass}>Hãng mô hình</h3>
+          <div className={scrollRowClass}>
             {modelBrands.map((brand) => (
               <button
                 key={brand}
@@ -125,8 +130,8 @@ export const CatalogFilters = ({
       )}
 
       <div>
-        <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Tình trạng</h3>
-        <div className="flex flex-wrap gap-2">
+        <h3 className={sectionTitleClass}>Tình trạng</h3>
+        <div className={scrollRowClass}>
           <button
             type="button"
             onClick={() => handleConditionClick('new')}
