@@ -115,6 +115,14 @@ vi.mock('@tanstack/react-query', () => ({
   },
 }));
 
+/** ItemDetailPage applies server → form state in queueMicrotask; wait before step navigation that auto-saves. */
+async function waitForItemDetailHydrated() {
+  await waitFor(() => {
+    const input = document.querySelector('.item-detail-form input[type="text"]') as HTMLInputElement | null;
+    expect(input?.value).toBe('Ferrari F40');
+  });
+}
+
 describe('ItemDetailPage main flows', () => {
   afterEach(() => {
     cleanup();
@@ -189,6 +197,7 @@ describe('ItemDetailPage main flows', () => {
 
   it('allows finishing and returns to list when media is complete', async () => {
     render(<ItemDetailPage />);
+    await waitForItemDetailHydrated();
     fireEvent.click(screen.getAllByRole('button', { name: /AI gen nội dung FB/i })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Hoàn tất/i })).toBeTruthy();
@@ -234,6 +243,7 @@ describe('ItemDetailPage main flows', () => {
     });
 
     render(<ItemDetailPage />);
+    await waitForItemDetailHydrated();
     fireEvent.click(screen.getByRole('button', { name: /Tạo bài FB bằng AI/i }));
 
     await waitFor(() => {
@@ -246,6 +256,7 @@ describe('ItemDetailPage main flows', () => {
   it('invalidates items, fb-posts, and item detail when saving fb post content', async () => {
     h.search = 'step=4';
     render(<ItemDetailPage />);
+    await waitForItemDetailHydrated();
 
     const textarea = screen.getByPlaceholderText(/Nội dung bài FB sẽ hiển thị ở đây/i);
     fireEvent.change(textarea, { target: { value: 'Saved caption' } });
@@ -275,6 +286,7 @@ describe('ItemDetailPage main flows', () => {
     });
 
     render(<ItemDetailPage />);
+    await waitForItemDetailHydrated();
 
     fireEvent.change(screen.getByPlaceholderText(/Nội dung bài FB sẽ hiển thị ở đây/i), {
       target: { value: 'Caption snapshot' },
@@ -346,6 +358,7 @@ describe('ItemDetailPage main flows', () => {
     h.apiClient.get.mockImplementation(async () => ({ data: h.mockItemResponse }));
 
     render(<ItemDetailPage />);
+    await waitForItemDetailHydrated();
     fireEvent.click(screen.getAllByRole('button', { name: /Hình ảnh/i })[0]);
 
     const setCoverButtons = await screen.findAllByRole('button', { name: /Đặt làm ảnh đại diện/i });

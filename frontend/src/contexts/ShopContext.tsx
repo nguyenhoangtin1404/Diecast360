@@ -123,7 +123,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [authCtx?.isAuthenticated, authCtx?.loading, switchToShop]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- async bootstrap populates context state from server data
     void loadUserShops();
   }, [loadUserShops]);
 

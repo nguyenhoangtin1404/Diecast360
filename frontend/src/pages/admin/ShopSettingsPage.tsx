@@ -75,10 +75,8 @@ export const ShopSettingsPage = () => {
   useEffect(() => {
     const row = settingsQuery.data;
     if (!row) return;
-    /* eslint-disable react-hooks/set-state-in-effect -- intentional server → local form sync */
     setContact(parseShopContactFormDefaults(row.contact_json));
     setAppearance(parseAppearanceFormDefaults(row.appearance_json));
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [settingsQuery.data]);
 
   const saveMutation = useMutation({
