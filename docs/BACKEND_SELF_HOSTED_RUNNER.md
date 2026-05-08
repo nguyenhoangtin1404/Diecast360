@@ -1,6 +1,6 @@
 # GitHub Actions self-hosted runner trên Raspberry Pi (deploy backend)
 
-Khi runner chạy **trực tiếp trên Pi**, workflow **không** SSH từ internet vào nhà: chỉ `checkout` → `build` trên ARM → `rsync` nội bộ vào thư mục deploy → `npm ci` → migrate → `systemctl restart`.
+Khi runner chạy **trực tiếp trên Pi**, workflow **không** SSH từ internet vào nhà: job **`migrate`** chạy trước trên **GitHub-hosted** (`prisma migrate deploy` với secret Neon); job deploy trên Pi chỉ `checkout` → `build` trên ARM → `rsync` nội bộ → `npm ci` → `prisma generate` → `systemctl restart`.
 
 **Nhãn runner bắt buộc:** workflow dùng `runs-on: [self-hosted, diecast360-pi]`. Khi đăng ký runner, thêm nhãn tùy chọn **`diecast360-pi`** (Settings → Actions → Runners → runner của bạn → labels), hoặc thêm lúc cấu hình lần đầu.
 
@@ -85,11 +85,15 @@ sudo chmod 440 /etc/sudoers.d/diecast360-api
 
 ---
 
-## Bước 4 — GitHub Secrets (tuỳ chọn)
+## Bước 4 — GitHub Secrets / Environment **production**
 
 | Secret | Mô tả |
 |--------|--------|
+| `PRODUCTION_DATABASE_URL` | **Bắt buộc cho CD** (trừ khi luôn deploy với *Skip prisma migrate*): Neon pooled — cùng giá trị `DATABASE_URL` trong `.env` Pi. |
+| `PRODUCTION_DIRECT_URL` | **Bắt buộc** cùng điều kiện trên: Neon direct — cùng giá trị `DIRECT_URL` trong `.env` Pi. |
 | `DEPLOY_REMOTE_PATH` | (Tuỳ chọn) Đường dẫn deploy; nếu **không** set → mặc định `/opt/diecast360-backend`. Ví dụ bạn dùng `/opt/diecast360-api` → đặt secret này thành **`/opt/diecast360-api`** (đúng dấu `/` đầu). |
+
+Đặt các secret trên trong **Settings → Environments → production** (workflow deploy gắn `environment: production`).
 
 ### Thư mục deploy là `/opt/diecast360-api` (không phải `-backend`)
 

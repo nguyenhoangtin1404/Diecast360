@@ -34,6 +34,8 @@ Trình duyệt
 
 4. Không commit URL có mật khẩu; chỉ đặt trong env trên Pi hoặc secret CI.
 
+**Preview DB theo PR (Neon ↔ GitHub):** Sau khi kết nối repo trong Neon Console, GitHub có biến `NEON_PROJECT_ID` và secret `NEON_API_KEY`. Workflow [`.github/workflows/neon-preview-branches.yml`](../.github/workflows/neon-preview-branches.yml) (tên hiển thị Actions: **Create/Delete Branch for Pull Request**) tạo branch Neon `preview/pr-<số>-<git-branch>` (hết hạn sau ~14 ngày), chạy `prisma migrate deploy` trên branch đó, và xóa branch khi đóng PR. Fork PR không chạy (không có secret).
+
 ---
 
 ## 2. Frontend (Vercel hoặc thay thế)
@@ -77,7 +79,8 @@ Lợi ích: không cần mở cổng inbound trên router, không phụ thuộc 
 
   ```bash
   cd /path/to/Diecast360/backend
-  npm ci
+  # Không đặt NODE_ENV=production trước bước này — npm sẽ bỏ qua devDependencies và `nest` không có.
+  NPM_CONFIG_PRODUCTION=false NODE_ENV=development npm ci
   npm run build
   npm ci --omit=dev
   npx prisma generate
@@ -129,19 +132,31 @@ Chi tiết Facebook, OpenAI, Pinecone: tùy tính năng bật — vẫn trong [`
 
 ## 5. Thứ tự triển khai đề xuất
 
-1. Neon: tạo project, gán `DATABASE_URL` / `DIRECT_URL`, chạy `prisma migrate deploy`.
+1. Neon: tạo project, gán `DATABASE_URL` / `DIRECT_URL`, chạy `prisma migrate deploy` (lần đầu có thể từ máy dev).
 2. Pi: cài Node, clone repo, tạo `backend/.env`, build, chạy thử local trên `127.0.0.1:3000`.
-3. Cloudflare Tunnel: public HTTPS → port 3000 trên Pi.
-4. Cập nhật `VITE_API_BASE_URL` trên host frontend, deploy lại frontend.
-5. Kiểm tra đăng nhập, upload nhỏ, catalog; đọc [`COOKIE_AUTH.md`](COOKIE_AUTH.md) nếu cookie cross-site lỗi.
+3. GitHub Environment **production**: thêm secret `PRODUCTION_DATABASE_URL` và `PRODUCTION_DIRECT_URL` (cùng giá trị như trên Pi — xem mục 6).
+4. Cloudflare Tunnel: public HTTPS → port 3000 trên Pi.
+5. Cập nhật `VITE_API_BASE_URL` trên host frontend, deploy lại frontend.
+6. Kiểm tra đăng nhập, upload nhỏ, catalog; đọc [`COOKIE_AUTH.md`](COOKIE_AUTH.md) nếu cookie cross-site lỗi.
 
-Tự động deploy backend khi merge `main`: cài [GitHub self-hosted runner trên Pi](BACKEND_SELF_HOSTED_RUNNER.md) và dùng workflow [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml). Workflow checkout/build trực tiếp trên Pi, sync `dist/`, `prisma/`, `package.json`, `package-lock.json` vào `DEPLOY_REMOTE_PATH` (mặc định `/opt/diecast360-backend`), chạy `npm ci --omit=dev`, `npx prisma generate`, `npx prisma migrate deploy`, restart `diecast360-api`, rồi probe `GET /api/v1/health`.
+Tự động deploy backend khi merge `main`: cài [GitHub self-hosted runner trên Pi](BACKEND_SELF_HOSTED_RUNNER.md) và dùng workflow [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml). Job đầu chạy trên **GitHub-hosted** (`ubuntu-latest`): `prisma migrate deploy` với secret Neon (không phụ thuộc mạng Pi). Job tiếp theo checkout/build trên Pi, sync `dist/`, `prisma/`, `package.json`, `package-lock.json` vào `DEPLOY_REMOTE_PATH`, chạy `npm ci --omit=dev`, `npx prisma generate`, restart `diecast360-api`, rồi probe `GET /api/v1/health`.
 
 ---
 
 ## 6. CI và migration
 
-Workflow CI mặc định: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Deploy backend lên Pi (self-hosted runner): [`BACKEND_SELF_HOSTED_RUNNER.md`](BACKEND_SELF_HOSTED_RUNNER.md) và [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml). Migration production hiện chạy trong deploy job bằng `DIRECT_URL` từ `.env` trên Pi; không cần secret SSH cho workflow hiện tại.
+Workflow CI mặc định: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Deploy backend: [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml) và [`BACKEND_SELF_HOSTED_RUNNER.md`](BACKEND_SELF_HOSTED_RUNNER.md).
+
+**Migration production** chạy **trước** bước Pi, trên runner `ubuntu-latest`, biến lấy từ GitHub Environment **production**:
+
+| Secret | Ý nghĩa |
+|--------|---------|
+| `PRODUCTION_DATABASE_URL` | Neon pooled — giống `DATABASE_URL` trong `.env` Pi |
+| `PRODUCTION_DIRECT_URL` | Neon direct — giống `DIRECT_URL` trong `.env` Pi |
+
+Nếu bạn chỉ áp migration qua **Neon GitHub integration**, có thể chạy deploy thủ công với tùy chọn **Skip prisma migrate** (`workflow_dispatch`), hoặc vẫn đặt hai secret ở trên: `prisma migrate deploy` là lệnh idempotent (đã apply thì bỏ qua).
+
+Pi không cần mở outbound tới Neon chỉ để migrate trong CD (runtime API vẫn cần `DATABASE_URL` trong `.env` Pi).
 
 ---
 

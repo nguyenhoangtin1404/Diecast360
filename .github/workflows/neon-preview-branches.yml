@@ -1,0 +1,94 @@
+# Diecast360: Neon GitHub integration sample + Prisma on preview branch.
+# Variables: NEON_PROJECT_ID — Secrets: NEON_API_KEY
+# v6 action outputs: db_url, db_url_pooled (not db_url_with_pooler).
+
+name: Create/Delete Branch for Pull Request
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ steps.branch_name.outputs.current_branch }}
+    steps:
+      - name: Get branch name
+        id: branch_name
+        uses: tj-actions/branch-names@v8
+
+  create_neon_branch:
+    name: Create Neon Branch
+    # Do not re-expose connection strings as job outputs (they contain credentials).
+    needs: setup
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event_name == 'pull_request' && (
+        github.event.action == 'synchronize'
+        || github.event.action == 'opened'
+        || github.event.action == 'reopened')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get branch expiration date as an env variable (2 weeks from now)
+        id: get_expiration_date
+        run: echo "EXPIRES_AT=$(date -u --date '+14 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+
+      - name: Create Neon Branch
+        id: create_neon_branch
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          expires_at: ${{ env.EXPIRES_AT }}
+          prisma: true
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # Pooled for app-style URL; direct for Prisma migrate (see backend prisma schema).
+      - name: Prisma migrate (preview DB)
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_pooled }}
+          DIRECT_URL: ${{ steps.create_neon_branch.outputs.db_url }}
+        run: |
+          npm ci
+          npx prisma generate
+          npx prisma migrate deploy
+
+  # Optional: neondatabase/schema-diff-action with pull-requests: write — see Neon docs.
+
+  delete_neon_branch:
+    name: Delete Neon Branch
+    needs: setup
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete Neon Branch
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
