@@ -6,6 +6,7 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 
 - [Tóm tắt khả năng](#tóm-tắt-khả-năng)
 - [Tiến độ triển khai theo phase](#tiến-độ-triển-khai-theo-phase)
+- [Bổ sung gần đây (sau Phase 16)](#bổ-sung-gần-đây-sau-phase-16)
 - [Cấu trúc repo](#cấu-trúc-repo)
 - [Stack & quy ước API](#stack--quy-ước-api)
 - [Yêu cầu môi trường](#yêu-cầu-môi-trường)
@@ -26,16 +27,18 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 |------|------------|
 | **Sản phẩm** | CRUD item, trạng thái `con_hang \| giu_cho \| da_ban`, cờ `is_public`, soft delete. |
 | **Media** | Nhiều ảnh, thumbnail, cover, sắp xếp; spinner 360° (nhiều spin set, một default; khuyến nghị 24 frame, tối đa 48 frame — cấu hình qua `VITE_MAX_SPINNER_FRAMES`). |
-| **Catalog công khai** | `GET /api/v1/public/items`, `GET /api/v1/public/items/:id` — JWT **tùy chọn** (`OptionalJwtAuthGuard`). Không token: trả mọi item `is_public`. Có token hợp lệ: scope theo `active_shop_id`. Token sai/hết hạn: `401`. |
-| **Đa shop & quản trị** | Super admin: quản lý shop, thành viên, mặt hàng; nhật ký **audit** (MVP) cho thao tác nhạy cảm. Chi tiết route: `docs/API_CONTRACT.md`. |
+| **Catalog công khai** | `GET /api/v1/public/items`, `GET /api/v1/public/items/:id` — query `shop_id` (UUID hoặc slug) **ưu tiên** so với `active_shop_id` trong JWT. **Production:** khách không đăng nhập **bắt buộc** `shop_id` **hoặc** phiên có `active_shop_id` — không gom toàn bộ shop; **dev** vẫn có thể xem aggregate khi không có shop. JWT tùy chọn; token sai/hết hạn: `401`. Chi tiết: `docs/API_CONTRACT.md`. |
+| **Đa shop & quản trị** | Super admin: quản lý shop, thành viên, mặt hàng; nhật ký **audit** (MVP). **RBAC:** `platform_role` + vai trò theo shop (`shop_admin` / `shop_staff`); guard hai lớp cho API nhạy cảm. Chi tiết: `docs/API_CONTRACT.md`. |
+| **Branding & theme** | Logo, favicon và theme (màu primary/accent) theo từng shop trên catalog/layout công khai; token CSS đồng bộ với giao diện admin. |
+| **Trang liên hệ** | Nội dung contact theo shop (`GET /api/v1/public/shops/:shopId/contact`); layout đồng bộ với home / preorder / đơn hàng. |
 | **Kho nâng cao** | Ledger giao dịch tồn kho (import/export/adjust/reverse), timeline theo item, cập nhật tồn kho có khóa cạnh tranh (`FOR UPDATE`) để tránh lost update. |
 | **Pre-order** | Quản lý vòng đời pre-order theo trạng thái, campaign pre-order cho admin, luồng public mobile-first theo shop + trang "Đơn hàng của tôi". |
 | **Báo cáo & thống kê** | Dashboard KPI với 10 chỉ số (nhập kho, xuất kho, pre-order, doanh thu, tồn kho); trend chart theo ngày/tuần/tháng; filter range 7d / 30d / 90d. |
 | **Hội viên & điểm thưởng** | Hệ thống hạng hội viên (tier) với ngưỡng điểm; ledger điểm (earn/redeem/adjust); tự động nâng hạng; admin dashboard quản lý thành viên và lịch sử giao dịch. |
 | **Xác thực** | Access + refresh JWT, revoke qua refresh token; cookie-based session aspects — xem `docs/COOKIE_AUTH.md`; route admin kèm guard + kiểm tra vai trò. |
-| **Social / AI / tìm kiếm** | Copy caption + link; semantic search (Pinecone tùy chọn); OpenAI cho gợi ý / import; gợi ý SEO (xem guide); publish Facebook từ admin item detail. |
+| **Social / AI / tìm kiếm** | Copy caption + link; semantic search (Pinecone tùy chọn); OpenAI cho gợi ý / import (**category & brand scope theo shop** khi tạo item); gợi ý SEO (xem guide); publish Facebook từ admin item detail. |
 | **Responsive UX** | Harden UI cho màn hình mobile/tablet ở các luồng admin/public cốt lõi (layout, navigation, item workflows). |
-| **E2E Testing** | Playwright smoke suite (**50** test): auth, items, members, pre-orders, reports, public catalog, RBAC, responsive, social selling, spinner; shared fixture layer; CI upload báo cáo khi fail. |
+| **E2E Testing** | Playwright smoke suite (**52** test): auth, items, members, pre-orders, reports, public catalog & detail theo shop, RBAC, responsive, social selling, spinner; shared fixture layer; CI upload báo cáo khi fail. |
 
 ## Tiến độ triển khai theo phase
 
@@ -52,32 +55,42 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 | **Phase 9 — Pre-Order Management** | ✅ Hoàn thành | Hoàn thiện pre-order lifecycle cho admin + public, vá review gaps và đồng bộ transition/error UX. |
 | **Phase 10 — Reporting & Analytics** | ✅ Hoàn thành | Dashboard KPI 10 chỉ số, trend chart theo ngày/tuần/tháng, filter range, API `/reports/summary` + `/reports/trends`. |
 | **Phase 11 — Membership & Points** | ✅ Hoàn thành | Schema tier/member/ledger, engine tính điểm và nâng hạng tự động, REST APIs đầy đủ, admin members dashboard. |
-| **Phase 12 — Playwright Phase 1** | ✅ Hoàn thành | Shared fixture layer, smoke E2E (50 tests), CI artifact upload khi fail, HTML reporter. |
+| **Phase 12 — Playwright Phase 1** | ✅ Hoàn thành | Shared fixture layer, smoke E2E (suite đã nới rộng — hiện **52** test), CI artifact upload khi fail, HTML reporter. |
 | **Phase 13 — Playwright Phase 2** | ✅ Hoàn thành | Spec nâng cao (`spinner`, `social-selling`, `responsive`), tinh chỉnh CI (retry/worker), ghi chú triage E2E trong `docs/TODO.md`, helper `stubAuthCsrf`; job Frontend trên GitHub Actions là quality gate (xem `.planning/ROADMAP.md`). |
 | **Phase 14 — Multi-Tenant Shop** | ✅ Hoàn thành | Multi-tenant theo shop với `TenantGuard`, `switch-shop`, quản trị shop cho super admin và cách ly dữ liệu. |
+| **Phase 15 — Admin RBAC & Tenant Authorization** | ✅ Hoàn thành | `PlatformRole` + phân quyền platform vs shop; mở rộng vai trò shop (`shop_admin` / `shop_staff`); guard hai lớp; UI admin và API align. |
+| **Phase 16 — Per-Shop Public Homepage** | ✅ Hoàn thành | Catalog/detail công khai resolve một shop qua `shop_id` (query UUID hoặc slug), env `VITE_PUBLIC_CATALOG_SHOP_ID`, hoặc JWT sau khi context sẵn sàng; cô lập dữ liệu giữa shop. |
+
+### Bổ sung gần đây (sau Phase 16)
+
+- **Branding:** upload logo & favicon; theme từ màu shop trên catalog và luồng admin.
+- **Bảo mật & auth:** cookie cross-domain (`SameSite`, HTTPS); CSRF/CORS ổn định cho admin gọi API khác origin; **production:** khách không có `shop_id` hoặc phiên có `active_shop_id` sẽ không xem được catalog aggregate — xem [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md).
+- **Triển khai:** frontend Vercel (SPA fallback `/admin/*`); backend self-host (ví dụ Raspberry Pi) + GitHub Actions + Cloudflare Tunnel — chi tiết [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), [`SECURITY.md`](SECURITY.md).
 
 ## Cấu trúc repo
 
 ```
 pnpm-workspace.yaml   Monorepo: packages backend + frontend
+AGENTS.md             Gợi ý cho dev/agent (lệnh, Postgres, pnpm native deps)
 backend/              NestJS + Prisma + PostgreSQL
 frontend/             React 19 + Vite 7 + TanStack Query + Tailwind CSS
 docs/                 Domain, API, schema, môi trường
 uploads/              File tĩnh upload (dev); production qua storage / reverse proxy
 .devcontainer/        Codespace / VS Code Dev Container (Node + Postgres)
 docker-compose.yml    Postgres + backend + frontend (Dockerfile dev targets)
+SECURITY.md           Chính sách báo cáo lỗ hổng
 ```
 
 ## Stack & quy ước API
 
-- **Monorepo:** [pnpm](https://pnpm.io/) ở root (`pnpm install`, `pnpm dev` chạy song song backend + frontend nhờ `concurrently`). **GitHub Actions** hiện dùng `npm ci` theo `package-lock.json` trong `backend/` và `frontend/` (xem [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); cập nhật lockfile khi đổi dependency để CI khớp.
+- **Monorepo:** [pnpm](https://pnpm.io/) ở root (`pnpm install`, `pnpm dev` chạy song song backend + frontend nhờ `concurrently`). Root khai báo `pnpm.onlyBuiltDependencies` để native modules (`sharp`, `bcrypt`, `prisma`, …) được build đúng trên pnpm 10+ (xem [`package.json`](package.json), [`AGENTS.md`](AGENTS.md)). **GitHub Actions** hiện dùng `npm ci` theo `package-lock.json` trong `backend/` và `frontend/` (xem [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); cập nhật lockfile khi đổi dependency để CI khớp.
 - **Backend:** Node.js, NestJS 11, Prisma 6, PostgreSQL, Sharp, upload local trong dev; tùy chọn OpenAI, Pinecone.
 - **Frontend:** React 19, Vite 7, React Router 7, TanStack Query, Tailwind CSS 3, Radix Slot; test: Vitest + Playwright.
 - **API:** prefix toàn cục `/api/v1`; payload JSON **snake_case**; envelope `{ ok, data, message }` hoặc `{ ok, error, message }` ([`docs/ERROR_HANDLING.md`](docs/ERROR_HANDLING.md)).
 
 ## Yêu cầu môi trường
 
-- **Node.js:** theo `frontend/package.json` → `>=20.19.0 <21` **hoặc** `>=22.12.0` (Dev Container hiện dùng image Node **24**).
+- **Node.js:** theo `frontend/package.json` → `>=20.19.0 <21` **hoặc** `>=22.12.0`. **Dev Container** dùng image Node **24** (`.devcontainer/Dockerfile`); môi trường khác (Cursor Cloud, máy local) có thể dùng 20/22 — miễn thỏa engines.
 - **pnpm** (lockfile: `pnpm-lock.yaml` ở root).
 - **PostgreSQL** — local, Docker (`docker-compose.yml`), hoặc managed (ví dụ Neon).
 
@@ -158,7 +171,7 @@ Thư mục làm việc trong container: `/workspaces/${localWorkspaceFolderBasen
 
 ## E2E Testing (Playwright)
 
-Playwright smoke suite gồm **50** test chạy trên Chromium, bao phủ các luồng nghiệp vụ chính (auth, kho, báo cáo, pre-order, catalog public, hội viên, RBAC, responsive, social selling, spinner).
+Playwright smoke suite gồm **52** test chạy trên Chromium, bao phủ các luồng nghiệp vụ chính (auth, kho, báo cáo, pre-order, catalog public & detail theo shop, hội viên, RBAC, responsive, social selling, spinner).
 
 ### Cài đặt browser (lần đầu)
 
@@ -186,7 +199,8 @@ frontend/tests/e2e/
   auth.spec.ts               # login, redirect, thông tin đăng nhập sai
   items.spec.ts              # danh sách admin: heading, dữ liệu, tìm kiếm, lỗi, empty
   members.spec.ts            # hội viên & tier
-  public-catalog.spec.ts     # catalog công khai (JWT/shop_id tùy chọn)
+  public-catalog.spec.ts     # catalog công khai (JWT / shop_id)
+  public-item-detail-shop.spec.ts # detail item public theo shop (cô lập tenant)
   preorders.spec.ts          # pre-order admin + public + đơn của tôi
   reports.spec.ts            # dashboard KPI & trend
   rbac.spec.ts               # quyền super admin / shop admin, modal thêm thành viên
@@ -206,14 +220,15 @@ frontend/tests/e2e/
 
 | Tài liệu | Nội dung |
 |----------|----------|
-| [`docs/DOMAIN.md`](docs/DOMAIN.md) | Domain & bounded context |
+| [`AGENTS.md`](AGENTS.md) | Môi trường dev, lệnh lint/test, Postgres, pnpm — dùng chung với Cursor Cloud |
 | [`docs/DB_SCHEMA.md`](docs/DB_SCHEMA.md) | Schema & quan hệ |
 | [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md) | Hợp đồng REST |
 | [`docs/ERROR_HANDLING.md`](docs/ERROR_HANDLING.md) | Mã lỗi & envelope |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Kiến trúc hệ thống |
 | [`docs/ENV.md`](docs/ENV.md) | Biến môi trường |
 | [`docs/DEV.md`](docs/DEV.md) | Chạy dev local, Docker, Dev Container, test & troubleshooting |
-| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Triển khai: frontend CDN, backend Pi + tunnel, Neon — tham chiếu issue #111 |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Triển khai: frontend CDN (Vercel), backend Pi + tunnel, Neon |
+| [`SECURITY.md`](SECURITY.md) | Chính sách bảo mật và cách báo cáo |
 | [`docs/COOKIE_AUTH.md`](docs/COOKIE_AUTH.md) | Cookie & CORS liên quan auth |
 | [`docs/AI_RULES.md`](docs/AI_RULES.md) | Quy tắc tích hợp AI |
 | [`docs/TODO.md`](docs/TODO.md) | Lộ trình & E2E workflow |
