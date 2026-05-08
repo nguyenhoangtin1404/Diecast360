@@ -57,6 +57,14 @@ describe('publicRouteNeedsCatalogShopContact', () => {
     expect(publicRouteNeedsCatalogShopContact(ROUTES.contact)).toBe(true);
     expect(publicRouteNeedsCatalogShopContact('/items/abc')).toBe(true);
   });
+
+  it('returns true for unrelated public paths (only exact preorder/my-orders bases are excluded)', () => {
+    expect(publicRouteNeedsCatalogShopContact('/preorders-legacy')).toBe(true);
+    expect(publicRouteNeedsCatalogShopContact('/preordersfoo')).toBe(true);
+    expect(publicRouteNeedsCatalogShopContact('/my-orders-archive')).toBe(true);
+    expect(publicRouteNeedsCatalogShopContact('/contact/support')).toBe(true);
+    expect(publicRouteNeedsCatalogShopContact('/unknown-public')).toBe(true);
+  });
 });
 
 describe('PublicShopMainGate', () => {
@@ -86,6 +94,47 @@ describe('PublicShopMainGate', () => {
 
     renderAtPath(ROUTES.preorders);
     expect(screen.getByText('INNER')).toBeTruthy();
+  });
+
+  it('renders children without contact gate on my-orders route even when contact query is pending', () => {
+    usePublicShopContextMock.mockReturnValue({
+      effectiveShopId: 'shop-x',
+      queryShopId: '',
+      envShopId: '',
+      authLoading: false,
+      shopContextReady: true,
+      publicApiShopReady: true,
+    });
+    usePublicShopContactMock.mockReturnValue({
+      isPending: true,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof usePublicShopContact>);
+
+    renderAtPath(ROUTES.myOrders);
+    expect(screen.getByText('INNER')).toBeTruthy();
+    expect(screen.queryByText('Đang tải cửa hàng…')).toBeNull();
+  });
+
+  it('shows initial spinner while shop context is not ready', () => {
+    usePublicShopContextMock.mockReturnValue({
+      effectiveShopId: '',
+      queryShopId: '',
+      envShopId: '',
+      authLoading: true,
+      shopContextReady: false,
+      publicApiShopReady: false,
+    });
+    usePublicShopContactMock.mockReturnValue({
+      isPending: true,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof usePublicShopContact>);
+
+    renderAtPath(ROUTES.home);
+    expect(screen.getByText('Đang tải…')).toBeTruthy();
+    expect(screen.getByRole('status')).toBeTruthy();
+    expect(screen.queryByText('INNER')).toBeNull();
   });
 
   it('shows missing shop when catalog route has no public shop scope', () => {
@@ -145,6 +194,25 @@ describe('PublicShopMainGate', () => {
     } as unknown as ReturnType<typeof usePublicShopContact>);
 
     renderAtPath(ROUTES.contact);
+    expect(screen.getByText('INNER')).toBeTruthy();
+  });
+
+  it('renders children on item detail path when contact query settled', () => {
+    usePublicShopContextMock.mockReturnValue({
+      effectiveShopId: 'slug-1',
+      queryShopId: 'slug-1',
+      envShopId: '',
+      authLoading: false,
+      shopContextReady: true,
+      publicApiShopReady: true,
+    });
+    usePublicShopContactMock.mockReturnValue({
+      isPending: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof usePublicShopContact>);
+
+    renderAtPath('/items/uuid-123');
     expect(screen.getByText('INNER')).toBeTruthy();
   });
 
