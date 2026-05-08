@@ -7,7 +7,7 @@ last_updated: "2026-05-08T12:00:00.000Z"
 progress:
   total_phases: 17
   completed_phases: 16
-  total_plans: 36
+  total_plans: 39
   completed_plans: 21
 ---
 
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-30)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 17 (Cloudflare R2 media storage) added 2026-05-08 — not planned yet; see `docs/plans/cloudflare-r2-upload-migration.md`.
+**Current focus:** Phase 17 (Cloudflare R2 media storage) — **planned** 2026-05-08; execute with `$gsd-execute-phase 17`. Plans under `.planning/phases/17-cloudflare-r2-upload-migrate-backend-media-from-local-disk-to-object-storage/`.
 
 ## Current Position
 
-Phase: **17** — Cloudflare R2 upload (roadmap entry + phase folder created; **PLAN.md pending**)
-Plan: —
-Status: Awaiting `$gsd-plan-phase 17` (or equivalent) to break down plans and requirements.
-Last activity: 2026-05-08 — `$gsd-add-phase` added Phase 17; ROADMAP + STATE updated.
+Phase: **17** — Cloudflare R2 upload (**planned**: 17-01..17-03 + RESEARCH)
+Plan: **17-01** (wave 1) → **17-02** → **17-03**
+Status: Ready for `$gsd-execute-phase 17`.
+Last activity: 2026-05-08 — `$gsd-plan-phase 17` produced RESEARCH + three PLAN files; roadmap goal/requirements updated.
 
-Progress: [#########.] 16/17 phases complete on shipped work; Phase 17 is new backlog.
+Progress: [#########.] 16/17 phases shipped; Phase 17 planned, execution pending.
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Progress: [#########.] 16/17 phases complete on shipped work; Phase 17 is new ba
 ### Roadmap Evolution
 
 - Phase 17 added: Cloudflare R2 upload — migrate backend media from local disk to object storage (2026-05-08).
+- Phase 17 planned: RESEARCH + plans 17-01..17-03 + PLAN-CHECK (2026-05-08).
 
 ### Pending Todos
 
@@ -82,6 +83,6 @@ Progress: [#########.] 16/17 phases complete on shipped work; Phase 17 is new ba
 
 ## Session Continuity
 
-Last session: 2026-05-08 (GSD add-phase — Phase 17 R2 storage)
-Stopped at: Phase 17 scaffolded; run **`$gsd-plan-phase 17`** to produce `PLAN.md` waves under `.planning/phases/17-cloudflare-r2-upload-migrate-backend-media-from-local-disk-to-object-storage/`.
-Resume file: `docs/plans/cloudflare-r2-upload-migration.md` (issue-style breakdown); phase verification TBD after plans execute.
+Last session: 2026-05-08 (`$gsd-plan-phase 17` — research + executable plans)
+Stopped at: **Execute** — run `$gsd-execute-phase 17`.
+Resume file: `.planning/phases/17-cloudflare-r2-upload-migrate-backend-media-from-local-disk-to-object-storage/17-01-PLAN.md`

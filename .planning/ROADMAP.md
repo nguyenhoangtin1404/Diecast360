@@ -359,10 +359,12 @@ Gợi ý tài liệu follow-up: cập nhật `docs/API_CONTRACT.md` / `ENV.md` k
 
 ### Phase 17: Cloudflare R2 upload — migrate backend media from local disk to object storage
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Persist uploaded media in **Cloudflare R2** (S3-compatible) behind `IStorageService`, with **presigned GET** URLs by default and optional **`GET /api/v1/media` proxy** for signed-link compatibility; keep **`STORAGE_DRIVER=local`** for dev/Pi fallback; document cutover from existing `UPLOAD_DIR`.
+**Requirements:** MEDI-01, MEDI-02, MEDI-03, PLAT-01, PLAT-02
 **Depends on:** Phase 16
-**Plans:** 0 plans
+**Plans:** 3 plans (2 waves + docs wave)
 
 Plans:
-- [ ] TBD (run `$gsd-plan-phase 17` to break down)
+- [ ] 17-01: Backend — `R2StorageService`, `STORAGE_DRIVER` wiring, presigned `getFileUrl`, unit tests with mocked S3
+- [ ] 17-02: Backend — `MediaController` R2 streaming branch + contract docs for URL semantics
+- [ ] 17-03: Ops/docs — ENV + deployment + Pi notes + cutover runbook (optional staging smoke checkpoint)
