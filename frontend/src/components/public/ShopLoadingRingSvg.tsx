@@ -24,7 +24,7 @@ type ShopLoadingRingSvgProps = {
 };
 
 /**
- * Dual expanding-ring loader (SMIL) from loading.io — two stroked circles with r/opacity animation.
+ * Dual expanding-ring loader (SMIL): two stroked circles with r/opacity animation.
  * When `prefers-reduced-motion: reduce`, shows static rings (no SMIL).
  */
 export const ShopLoadingRingSvg: FC<ShopLoadingRingSvgProps> = ({ className, pixelSize = 200 }) => {
