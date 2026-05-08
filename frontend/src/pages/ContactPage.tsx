@@ -40,7 +40,7 @@ function renderInlineBold(text: string): ReactNode {
 }
 
 export const ContactPage = () => {
-  const { data } = usePublicShopContact();
+  const { data, refetch } = usePublicShopContact();
 
   const contact = data?.contact;
 
@@ -55,7 +55,25 @@ export const ContactPage = () => {
   }, [contact?.phone?.tel]);
 
   if (!contact) {
-    return null;
+    return (
+      <div className="relative min-h-[40vh] px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-2xl">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-rose-800 shadow-corporate-card">
+            <p className="font-semibold">Không có nội dung liên hệ</p>
+            <p className="mt-1 text-sm text-rose-700/90">
+              Phản hồi từ máy chủ không chứa phần liên hệ. Bạn có thể thử tải lại; nếu lỗi vẫn còn, vui lòng báo quản trị viên.
+            </p>
+            <button
+              type="button"
+              className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-lg bg-rose-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-rose-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+              onClick={() => void refetch()}
+            >
+              Thử lại
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const cardHoverEnter = (e: MouseEvent<HTMLDivElement>) => {

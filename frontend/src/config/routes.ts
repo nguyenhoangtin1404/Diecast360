@@ -24,17 +24,19 @@ export const ROUTES = {
 } as const;
 
 /**
- * Public routes that resolve shop via `usePublicShopContext` and load branding/contact from
- * `GET /public/shops/:shopId/contact`. Pre-order and my-orders use separate shop resolution.
+ * Pathnames where `PublicShopMainGate` must not wait for catalog-scoped
+ * `GET /public/shops/:shopId/contact` (shop comes from env/JWT or other rules).
+ * When adding a new public route that is not catalog-scoped, append its base path here.
+ */
+const PUBLIC_PATHS_WITHOUT_CATALOG_CONTACT: readonly string[] = [ROUTES.preorders, ROUTES.myOrders];
+
+/**
+ * True for public pages that use `usePublicShopContext` + public shop contact for branding.
  */
 export function publicRouteNeedsCatalogShopContact(pathname: string): boolean {
-  if (pathname === ROUTES.preorders || pathname.startsWith(`${ROUTES.preorders}/`)) {
-    return false;
-  }
-  if (pathname === ROUTES.myOrders || pathname.startsWith(`${ROUTES.myOrders}/`)) {
-    return false;
-  }
-  return true;
+  return !PUBLIC_PATHS_WITHOUT_CATALOG_CONTACT.some(
+    (base) => pathname === base || pathname.startsWith(`${base}/`),
+  );
 }
 
 export function isAdminShopSettingsActive(pathname: string): boolean {

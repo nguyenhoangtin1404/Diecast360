@@ -1,8 +1,10 @@
 import type { FC, ReactNode } from 'react';
+import type { UseQueryResult } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { publicRouteNeedsCatalogShopContact } from '../../config/routes';
 import { usePublicShopContext } from '../../hooks/usePublicShopContext';
 import { usePublicShopContact } from '../../hooks/usePublicShopContact';
+import type { PublicShopContactResponse } from '../../types/shopContactPublic';
 
 function SpinnerBlock({ caption }: { caption: string }) {
   return (
@@ -65,7 +67,7 @@ export const PublicShopMainGate: FC<{ children: ReactNode }> = ({ children }) =>
   const { pathname } = useLocation();
   const needsCatalogContact = publicRouteNeedsCatalogShopContact(pathname);
   const { shopContextReady, publicApiShopReady } = usePublicShopContext();
-  const contactQuery = usePublicShopContact(needsCatalogContact);
+  const contactQuery: UseQueryResult<PublicShopContactResponse> = usePublicShopContact(needsCatalogContact);
 
   if (!needsCatalogContact) {
     return <>{children}</>;
