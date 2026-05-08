@@ -22,7 +22,7 @@ function formatQueryError(err: unknown): string {
 function SpinnerBlock({ caption }: { caption: string }) {
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-[#F8FAFC]/94 px-4 backdrop-blur-[2px] motion-reduce:backdrop-blur-none"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-white px-4"
       role="status"
       aria-busy="true"
       aria-live="polite"
@@ -38,7 +38,7 @@ function SpinnerBlock({ caption }: { caption: string }) {
 function MissingShopScopePanel() {
   return (
     <div
-      className="fixed inset-0 z-[200] overflow-y-auto bg-[#F8FAFC]/94 px-4 py-16 backdrop-blur-[2px] motion-reduce:backdrop-blur-none sm:px-6"
+      className="fixed inset-0 z-[200] overflow-y-auto bg-white px-4 py-16 sm:px-6"
       role="region"
       aria-labelledby="missing-shop-title"
     >
@@ -60,7 +60,7 @@ function MissingShopScopePanel() {
 function PublicShopContactErrorPanel({ onRetry, errorDetail }: { onRetry: () => void; errorDetail: string }) {
   return (
     <div
-      className="fixed inset-0 z-[200] overflow-y-auto bg-[#F8FAFC]/94 px-4 py-16 backdrop-blur-[2px] motion-reduce:backdrop-blur-none sm:px-6"
+      className="fixed inset-0 z-[200] overflow-y-auto bg-white px-4 py-16 sm:px-6"
       role="alert"
       aria-live="assertive"
       aria-labelledby="shop-contact-error-title"
