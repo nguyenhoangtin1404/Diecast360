@@ -44,7 +44,12 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
+      # NODE_ENV=production (e.g. in shell profile) makes `npm ci` skip devDependencies,
+      # so @nestjs/cli is missing and `nest build` fails — force dev deps for this step.
       - name: Install & build
+        env:
+          NPM_CONFIG_PRODUCTION: "false"
+          NODE_ENV: development
         run: |
           npm ci
           npm run build

@@ -77,7 +77,8 @@ Lợi ích: không cần mở cổng inbound trên router, không phụ thuộc 
 
   ```bash
   cd /path/to/Diecast360/backend
-  npm ci
+  # Không đặt NODE_ENV=production trước bước này — npm sẽ bỏ qua devDependencies và `nest` không có.
+  NPM_CONFIG_PRODUCTION=false NODE_ENV=development npm ci
   npm run build
   npm ci --omit=dev
   npx prisma generate
