@@ -34,7 +34,7 @@ Trình duyệt
 
 4. Không commit URL có mật khẩu; chỉ đặt trong env trên Pi hoặc secret CI.
 
-**Preview DB theo PR (Neon ↔ GitHub):** Sau khi kết nối repo trong Neon Console, GitHub có biến `NEON_PROJECT_ID` và secret `NEON_API_KEY`. Workflow [`.github/workflows/neon-preview-branches.yml`](../.github/workflows/neon-preview-branches.yml) tạo branch Neon `preview/pr-<số>-<git-branch>`, chạy `prisma migrate deploy` trên branch đó, và xóa branch khi đóng PR. Fork PR không chạy (không có secret).
+**Preview DB theo PR (Neon ↔ GitHub):** Sau khi kết nối repo trong Neon Console, GitHub có biến `NEON_PROJECT_ID` và secret `NEON_API_KEY`. Workflow [`.github/workflows/neon-preview-branches.yml`](../.github/workflows/neon-preview-branches.yml) (tên hiển thị Actions: **Create/Delete Branch for Pull Request**) tạo branch Neon `preview/pr-<số>-<git-branch>` (hết hạn sau ~14 ngày), chạy `prisma migrate deploy` trên branch đó, và xóa branch khi đóng PR. Fork PR không chạy (không có secret).
 
 ---
 
