@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Palette } from 'lucide-react';
 import { apiClient, uploadFile } from '../../api/client';
 import { useAuth } from '../../hooks/useAuth';
 import { useShop } from '../../hooks/useShop';
+import type { Shop } from '../../contexts/ShopContext';
 import { jsonStableStringify } from '../../utils/jsonStableStringify';
 import {
   buildShopContactPatch,
@@ -16,7 +17,7 @@ import type { ShopAppearanceFormState } from '@/types/shopAppearance';
 import { parseAppearanceFormDefaults } from '@/utils/shopAppearance';
 import { ShopContactFields } from './shops/ShopContactFields';
 import { publicShopContactQueryKey } from '../../hooks/usePublicShopContact';
-import { fetchShopSettings, shopSettingsQueryKey } from '../../hooks/shopSettingsQuery';
+import { fetchShopSettings, shopSettingsQueryKey, type ShopSettingsApiRow } from '../../hooks/shopSettingsQuery';
 import { notifyShopAppearanceUpdated } from '../../utils/shopThemeBridge';
 import styles from './shopSettingsPage.module.css';
 import { cn } from '@/lib/utils';
@@ -47,49 +48,38 @@ function extractApiErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
-export const ShopSettingsPage = () => {
-  const { activeShop } = useShop();
-  const { user } = useAuth();
+/** Remount editor when server JSON snapshot changes — avoids effect-driven setState sync. */
+function shopSettingsServerSyncKey(row: ShopSettingsApiRow): string {
+  return jsonStableStringify({
+    id: row.id,
+    contact_json: row.contact_json ?? null,
+    appearance_json: row.appearance_json ?? null,
+  });
+}
+
+type ShopSettingsEditorProps = {
+  serverRow: ShopSettingsApiRow;
+  activeShop: Shop | null;
+  canEditSettings: boolean;
+};
+
+function ShopSettingsEditor({ serverRow, activeShop, canEditSettings }: ShopSettingsEditorProps) {
   const queryClient = useQueryClient();
-  const [contact, setContact] = useState<ShopContactFormState>(() => parseShopContactFormDefaults(undefined));
-  const [appearance, setAppearance] = useState<ShopAppearanceFormState>(() => parseAppearanceFormDefaults(undefined));
+  const [contact, setContact] = useState<ShopContactFormState>(() =>
+    parseShopContactFormDefaults(serverRow.contact_json),
+  );
+  const [appearance, setAppearance] = useState<ShopAppearanceFormState>(() =>
+    parseAppearanceFormDefaults(serverRow.appearance_json),
+  );
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
 
-  const shopSettingsQueryKeyResolved = shopSettingsQueryKey(activeShop?.id ?? null);
-
-  const roleForActiveShop =
-    activeShop?.id && user?.shop_roles?.length
-      ? user.shop_roles.find((r) => r.shop_id === activeShop.id)?.role ?? null
-      : null;
-
-  /** PATCH /shop-settings: RolesGuard allows shop_admin; legacy tenant super_admin is treated as admin. */
-  const canEditSettings =
-    roleForActiveShop === 'shop_admin' || roleForActiveShop === 'super_admin';
-
-  const settingsQuery = useQuery({
-    queryKey: shopSettingsQueryKeyResolved,
-    queryFn: fetchShopSettings,
-    enabled: Boolean(activeShop?.id),
-  });
-
-  /* Sync form from server when GET /shop-settings resolves (or refetches) — TanStack Query v5 has no useQuery onSuccess */
-  useEffect(() => {
-    const row = settingsQuery.data;
-    if (!row) return;
-    setContact(parseShopContactFormDefaults(row.contact_json));
-    setAppearance(parseAppearanceFormDefaults(row.appearance_json));
-  }, [settingsQuery.data]);
-
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!settingsQuery.data) {
-        throw new Error('Chưa tải xong cấu hình.');
-      }
-      const serverContact = parseShopContactFormDefaults(settingsQuery.data.contact_json);
-      const serverAppearance = parseAppearanceFormDefaults(settingsQuery.data.appearance_json);
+      const serverContact = parseShopContactFormDefaults(serverRow.contact_json);
+      const serverAppearance = parseAppearanceFormDefaults(serverRow.appearance_json);
       const nextContact = buildShopContactPatch(contact).contact;
       const nextAppearance = buildAppearancePatch(appearance);
       const patch: { contact?: typeof nextContact; appearance?: typeof nextAppearance } = {};
@@ -180,22 +170,6 @@ export const ShopSettingsPage = () => {
     sectionTitle: {},
   };
 
-  if (settingsQuery.isLoading) {
-    return (
-      <div className={styles.container}>
-        <p className={styles.mutedCenter}>Đang tải cấu hình...</p>
-      </div>
-    );
-  }
-
-  if (settingsQuery.isError) {
-    return (
-      <div className={styles.container}>
-        <p className={styles.errorCenter}>Không tải được cấu hình. Kiểm tra đã chọn shop và đăng nhập.</p>
-      </div>
-    );
-  }
-
   return (
     <div className={styles.container}>
       <header className={styles.pageHeader}>
@@ -207,8 +181,8 @@ export const ShopSettingsPage = () => {
         </div>
         <p className={styles.subtitle}>
           Chỉnh nội dung trang liên hệ công khai và giao diện (mở rộng) cho shop:{' '}
-          <strong>{activeShop?.name ?? settingsQuery.data?.name}</strong>
-          <span className={styles.shopMetaSlug}> · slug {activeShop?.slug ?? settingsQuery.data?.slug}</span>
+          <strong>{activeShop?.name ?? serverRow.name}</strong>
+          <span className={styles.shopMetaSlug}> · slug {activeShop?.slug ?? serverRow.slug}</span>
         </p>
       </header>
 
@@ -390,5 +364,60 @@ export const ShopSettingsPage = () => {
         </div>
       </form>
     </div>
+  );
+}
+
+export const ShopSettingsPage = () => {
+  const { activeShop } = useShop();
+  const { user } = useAuth();
+  const shopSettingsQueryKeyResolved = shopSettingsQueryKey(activeShop?.id ?? null);
+
+  const roleForActiveShop =
+    activeShop?.id && user?.shop_roles?.length
+      ? user.shop_roles.find((r) => r.shop_id === activeShop.id)?.role ?? null
+      : null;
+
+  /** PATCH /shop-settings: RolesGuard allows shop_admin; legacy tenant super_admin is treated as admin. */
+  const canEditSettings =
+    roleForActiveShop === 'shop_admin' || roleForActiveShop === 'super_admin';
+
+  const settingsQuery = useQuery({
+    queryKey: shopSettingsQueryKeyResolved,
+    queryFn: fetchShopSettings,
+    enabled: Boolean(activeShop?.id),
+  });
+
+  if (settingsQuery.isLoading) {
+    return (
+      <div className={styles.container}>
+        <p className={styles.mutedCenter}>Đang tải cấu hình...</p>
+      </div>
+    );
+  }
+
+  if (settingsQuery.isError) {
+    return (
+      <div className={styles.container}>
+        <p className={styles.errorCenter}>Không tải được cấu hình. Kiểm tra đã chọn shop và đăng nhập.</p>
+      </div>
+    );
+  }
+
+  const serverRow = settingsQuery.data;
+  if (!serverRow) {
+    return (
+      <div className={styles.container}>
+        <p className={styles.mutedCenter}>Đang tải cấu hình...</p>
+      </div>
+    );
+  }
+
+  return (
+    <ShopSettingsEditor
+      key={shopSettingsServerSyncKey(serverRow)}
+      serverRow={serverRow}
+      activeShop={activeShop}
+      canEditSettings={canEditSettings}
+    />
   );
 };

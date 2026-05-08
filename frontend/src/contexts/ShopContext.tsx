@@ -123,7 +123,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [authCtx?.isAuthenticated, authCtx?.loading, switchToShop]);
 
   useEffect(() => {
-    void loadUserShops();
+    queueMicrotask(() => {
+      void loadUserShops();
+    });
   }, [loadUserShops]);
 
   const switchShop = async (shopId: string) => {
