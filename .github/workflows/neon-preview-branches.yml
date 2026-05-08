@@ -1,0 +1,86 @@
+# Neon GitHub integration: preview DB branch per PR + Prisma migrate on that branch.
+# Requires repo Variables: NEON_PROJECT_ID — Secrets: NEON_API_KEY (set by Neon when you connect the repo).
+
+name: Neon preview branch (PR)
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+
+concurrency:
+  group: neon-pr-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ steps.branch_name.outputs.current_branch }}
+    steps:
+      - name: Get branch name
+        id: branch_name
+        uses: tj-actions/branch-names@v8
+
+  create_neon_branch:
+    name: Create Neon branch & migrate
+    needs: setup
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event_name == 'pull_request' && (
+        github.event.action == 'synchronize'
+        || github.event.action == 'opened'
+        || github.event.action == 'reopened')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Neon branch
+        id: create_neon_branch
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          prisma: true
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Prisma migrate on preview branch
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_pooled }}
+          DIRECT_URL: ${{ steps.create_neon_branch.outputs.db_url }}
+        run: |
+          npm ci
+          npx prisma generate
+          npx prisma migrate deploy
+
+  delete_neon_branch:
+    name: Delete Neon branch
+    needs: setup
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete Neon branch
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
