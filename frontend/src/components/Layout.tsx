@@ -31,6 +31,7 @@ import { useShop } from '../hooks/useShop';
 import { useDocumentTitleAndFavicon, DEFAULT_DOCUMENT_TITLE } from '../hooks/useDocumentTitleAndFavicon';
 import { safeHttpUrlForAttribute } from '../utils/safeHttpUrl';
 import ShopSelector from './admin/ShopSelector';
+import { PublicShopMainGate } from './public/PublicShopMainGate';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -390,7 +391,9 @@ export const Layout = ({ children }: LayoutProps) => {
           </div>
         </header>
 
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">
+          <PublicShopMainGate>{children}</PublicShopMainGate>
+        </main>
         {sharedFooter}
       </div>
     );

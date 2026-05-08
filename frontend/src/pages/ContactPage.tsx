@@ -1,6 +1,5 @@
 import { useMemo, type ReactNode, type MouseEvent } from 'react';
 import { Phone, Facebook, MessageCircle } from 'lucide-react';
-import { usePublicShopContext } from '../hooks/usePublicShopContext';
 import { usePublicShopContact } from '../hooks/usePublicShopContact';
 
 /** Icon circles + links — same tokens as catalog / preorder CTAs (`ShopThemeProvider`). */
@@ -41,9 +40,7 @@ function renderInlineBold(text: string): ReactNode {
 }
 
 export const ContactPage = () => {
-  const { shopContextReady, publicApiShopReady } = usePublicShopContext();
-
-  const { data, isLoading, error } = usePublicShopContact();
+  const { data } = usePublicShopContact();
 
   const contact = data?.contact;
 
@@ -57,43 +54,8 @@ export const ContactPage = () => {
     return withScheme;
   }, [contact?.phone?.tel]);
 
-  if (!shopContextReady) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>Đang tải...</div>
-    );
-  }
-
-  if (!publicApiShopReady) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: 8 }}>Chưa chọn cửa hàng</h2>
-        <p style={{ color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
-          Thêm{' '}
-          <code style={{ background: '#fef3c7', padding: '2px 6px', borderRadius: 4 }}>
-            ?shop_id=
-          </code>{' '}
-          vào URL (UUID hoặc slug), hoặc cấu hình{' '}
-          <code style={{ background: '#fef3c7', padding: '2px 6px', borderRadius: 4 }}>
-            VITE_PUBLIC_CATALOG_SHOP_ID
-          </code>{' '}
-          khi build.
-        </p>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>Đang tải liên hệ...</div>
-    );
-  }
-
-  if (error || !contact) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#b91c1c' }}>
-        Không tải được thông tin liên hệ. Thử lại sau.
-      </div>
-    );
+  if (!contact) {
+    return null;
   }
 
   const cardHoverEnter = (e: MouseEvent<HTMLDivElement>) => {

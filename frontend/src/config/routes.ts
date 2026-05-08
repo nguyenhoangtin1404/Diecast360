@@ -23,6 +23,20 @@ export const ROUTES = {
   },
 } as const;
 
+/**
+ * Public routes that resolve shop via `usePublicShopContext` and load branding/contact from
+ * `GET /public/shops/:shopId/contact`. Pre-order and my-orders use separate shop resolution.
+ */
+export function publicRouteNeedsCatalogShopContact(pathname: string): boolean {
+  if (pathname === ROUTES.preorders || pathname.startsWith(`${ROUTES.preorders}/`)) {
+    return false;
+  }
+  if (pathname === ROUTES.myOrders || pathname.startsWith(`${ROUTES.myOrders}/`)) {
+    return false;
+  }
+  return true;
+}
+
 export function isAdminShopSettingsActive(pathname: string): boolean {
   return pathname.startsWith(ROUTES.admin.shopSettings);
 }
