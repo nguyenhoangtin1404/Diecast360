@@ -1,13 +1,16 @@
-# Deploy backend: build on a self-hosted runner on the Raspberry Pi, then sync into
-# DEPLOY_REMOTE_PATH (default /opt/diecast360-backend), npm ci, migrate, restart.
+# CD: (1) Apply Prisma migrations on GitHub-hosted runner (reaches Neon reliably).
+#     (2) Build on self-hosted Pi, sync to DEPLOY_REMOTE_PATH, generate client, restart.
 #
-# Requires a registered self-hosted runner with labels: self-hosted, diecast360-pi
-# (see docs/BACKEND_SELF_HOSTED_RUNNER.md).
+# Requires: self-hosted runner on the Pi with labels: self-hosted, diecast360-pi
+#           (see docs/BACKEND_SELF_HOSTED_RUNNER.md).
+#
+# GitHub Environment "production" secrets (for migrate job):
+#   PRODUCTION_DATABASE_URL — Neon pooled URL (same meaning as backend DATABASE_URL)
+#   PRODUCTION_DIRECT_URL     — Neon direct URL (for prisma migrate)
+#
+# Optional: workflow_dispatch input `skip_migrate` when Neon/GitHub already applied migrations.
 #
 # Optional secret: DEPLOY_REMOTE_PATH (default /opt/diecast360-backend)
-#
-# Legacy SSH deploy from GitHub-hosted runners is removed — use self-hosted on the Pi
-# or adapt a fork if you still need rsync over SSH.
 
 name: Deploy backend (Pi)
 
@@ -18,13 +21,55 @@ on:
       - "backend/**"
       - ".github/workflows/deploy-backend.yml"
   workflow_dispatch:
+    inputs:
+      skip_migrate:
+        description: "Skip prisma migrate (use if Neon/GitHub already migrated)"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: deploy-backend-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  migrate:
+    name: Prisma migrate (production)
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Prisma generate & migrate deploy
+        if: ${{ github.event_name != 'workflow_dispatch' || (github.event_name == 'workflow_dispatch' && !fromJSON(github.event.inputs.skip_migrate || 'false')) }}
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
+        run: |
+          npx prisma generate
+          npx prisma migrate deploy
+
+      - name: Skip migrate (manual dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.skip_migrate || 'false') }}
+        run: echo "::notice::Skipped prisma migrate deploy — using Neon/GitHub or manual migration."
+
   deploy:
+    name: Build & deploy on Pi
+    needs: migrate
     runs-on: [self-hosted, diecast360-pi]
     environment: production
     env:
@@ -68,7 +113,7 @@ jobs:
           rsync -a ./package.json ./package-lock.json "${REDIR}/"
           rsync -a --delete ./prisma/ "${REDIR}/prisma/"
 
-      - name: Install prod deps, migrate, restart
+      - name: Install prod deps, generate, restart
         run: |
           set -euo pipefail
           REDIR="${DEPLOY_REMOTE_PATH:-/opt/diecast360-backend}"
@@ -80,7 +125,6 @@ jobs:
           PORT="${PORT:-3000}"
           npm ci --omit=dev
           npx prisma generate
-          npx prisma migrate deploy
           sudo systemctl restart diecast360-api
           systemctl is-active --quiet diecast360-api
           # Post-restart probe: Pi/Node may need several seconds before accepting IPv4.

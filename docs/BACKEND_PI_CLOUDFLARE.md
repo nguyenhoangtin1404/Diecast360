@@ -1,6 +1,6 @@
 # Backend trên Raspberry Pi + Cloudflare Tunnel + GitHub Actions
 
-Luồng hiện tại: **self-hosted GitHub Actions runner chạy trực tiếp trên Pi** → `checkout` → build NestJS trên ARM → `rsync` `dist/`, `package.json`, `package-lock.json`, `prisma/` vào `DEPLOY_REMOTE_PATH` → `npm ci --omit=dev` → `prisma generate` → `prisma migrate deploy` → `systemctl restart` → probe `GET /api/v1/health`.
+Luồng hiện tại: job **migrate** trên **GitHub-hosted** (`prisma migrate deploy` với secret Neon) → job trên **Pi**: `checkout` → build NestJS trên ARM → `rsync` `dist/`, `package.json`, `package-lock.json`, `prisma/` vào `DEPLOY_REMOTE_PATH` → `npm ci --omit=dev` → `prisma generate` → `systemctl restart` → probe `GET /api/v1/health`.
 
 API ra ngoài qua **Cloudflare Tunnel** trỏ tới `http://127.0.0.1:3000` (hoặc cổng `PORT` trong `.env`).
 
