@@ -196,9 +196,6 @@ export const PublicCatalogPage = () => {
     };
   }, [filterPanelOpen]);
 
-  const waitingForShopContext = !shopContextReady;
-  const missingShopScope = shopContextReady && !publicApiShopReady;
-
   if (error) {
     console.error('Error loading catalog:', error);
     return (
@@ -207,35 +204,6 @@ export const PublicCatalogPage = () => {
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-rose-800 shadow-corporate-card">
             <p className="font-semibold">Không tải được catalog</p>
             <p className="mt-1 text-sm text-rose-700/90">Vui lòng thử lại sau.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (missingShopScope) {
-    return (
-      <div className="relative min-h-[50vh] px-4 py-16 sm:px-6">
-        <div className="mx-auto max-w-7xl">
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-amber-900 shadow-corporate-card">
-            <p className="font-semibold">Chưa chọn cửa hàng</p>
-            <p className="mt-1 text-sm text-amber-800/90">
-              Thêm <code className="rounded bg-amber-100/80 px-1">?shop_id=</code> vào URL (UUID hoặc slug cửa hàng), hoặc cấu hình biến build{' '}
-              <code className="rounded bg-amber-100/80 px-1">VITE_PUBLIC_CATALOG_SHOP_ID</code> cho bản triển khai một-cửa-hàng.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (waitingForShopContext) {
-    return (
-      <div className="relative min-h-[50vh] px-4 py-16 sm:px-6">
-        <div className="mx-auto max-w-7xl">
-          <div className="py-16 text-center">
-            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-shop/25 border-t-shop" />
-            <p className="mt-4 text-sm font-medium text-slate-500">Đang tải catalog…</p>
           </div>
         </div>
       </div>

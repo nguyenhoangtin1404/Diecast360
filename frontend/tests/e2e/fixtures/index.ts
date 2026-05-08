@@ -58,6 +58,28 @@ export function apiError(message: string, status = 400) {
   return { status, json: { ok: false, data: null, message } };
 }
 
+/**
+ * Stub `GET /api/v1/public/shops/:shopId/contact` so `PublicShopMainGate` can finish
+ * (matches `usePublicShopContact` + standard `{ ok, data }` envelope).
+ */
+export async function routePublicShopContact(page: Page) {
+  await page.route('**/api/v1/public/shops/*/contact', (route: Route) => {
+    const m = route.request().url().match(/\/public\/shops\/([^/?#]+)\/contact/);
+    const raw = m?.[1] ?? 'shop-a';
+    const shopId = decodeURIComponent(raw);
+    return route.fulfill({
+      json: apiOk({
+        shop: { id: shopId, name: `Shop ${shopId}`, slug: shopId },
+        contact: {
+          page_title: 'Liên hệ',
+          page_subtitle: '',
+        },
+        appearance: {},
+      }),
+    });
+  });
+}
+
 /** Builds the standard `/auth/me` success response envelope. */
 export function authMePayload(user: MockUser = ADMIN_USER) {
   return apiOk({ user });

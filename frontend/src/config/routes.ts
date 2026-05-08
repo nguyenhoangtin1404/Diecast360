@@ -23,6 +23,22 @@ export const ROUTES = {
   },
 } as const;
 
+/**
+ * Pathnames where `PublicShopMainGate` must not wait for catalog-scoped
+ * `GET /public/shops/:shopId/contact` (shop comes from env/JWT or other rules).
+ * When adding a new public route that is not catalog-scoped, append its base path here.
+ */
+const PUBLIC_PATHS_WITHOUT_CATALOG_CONTACT: readonly string[] = [ROUTES.preorders, ROUTES.myOrders];
+
+/**
+ * True for public pages that use `usePublicShopContext` + public shop contact for branding.
+ */
+export function publicRouteNeedsCatalogShopContact(pathname: string): boolean {
+  return !PUBLIC_PATHS_WITHOUT_CATALOG_CONTACT.some(
+    (base) => pathname === base || pathname.startsWith(`${base}/`),
+  );
+}
+
 export function isAdminShopSettingsActive(pathname: string): boolean {
   return pathname.startsWith(ROUTES.admin.shopSettings);
 }

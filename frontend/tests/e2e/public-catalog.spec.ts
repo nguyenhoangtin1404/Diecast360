@@ -1,4 +1,4 @@
-import { test, expect, apiOk, type Route } from './fixtures';
+import { test, expect, apiOk, routePublicShopContact, type Route } from './fixtures';
 
 /** Shared shapes — list API returns snake_case fields used by catalog cards */
 const aggregateItems = [
@@ -86,6 +86,7 @@ async function routePublicItemsByShop(page: import('@playwright/test').Page) {
 
 test.describe('Public catalog smoke', () => {
   test.beforeEach(async ({ page }) => {
+    await routePublicShopContact(page);
     await routePublicItemsByShop(page);
   });
 
@@ -151,6 +152,7 @@ test.describe('Public catalog smoke', () => {
 
 test.describe('Public catalog multi-tenant (shop_id)', () => {
   test.beforeEach(async ({ page }) => {
+    await routePublicShopContact(page);
     await routePublicItemsByShop(page);
   });
 

@@ -1,6 +1,5 @@
 import { useMemo, type ReactNode, type MouseEvent } from 'react';
 import { Phone, Facebook, MessageCircle } from 'lucide-react';
-import { usePublicShopContext } from '../hooks/usePublicShopContext';
 import { usePublicShopContact } from '../hooks/usePublicShopContact';
 
 /** Icon circles + links — same tokens as catalog / preorder CTAs (`ShopThemeProvider`). */
@@ -41,9 +40,7 @@ function renderInlineBold(text: string): ReactNode {
 }
 
 export const ContactPage = () => {
-  const { shopContextReady, publicApiShopReady } = usePublicShopContext();
-
-  const { data, isLoading, error } = usePublicShopContact();
+  const { data, refetch } = usePublicShopContact();
 
   const contact = data?.contact;
 
@@ -57,41 +54,24 @@ export const ContactPage = () => {
     return withScheme;
   }, [contact?.phone?.tel]);
 
-  if (!shopContextReady) {
+  if (!contact) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>Đang tải...</div>
-    );
-  }
-
-  if (!publicApiShopReady) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: 8 }}>Chưa chọn cửa hàng</h2>
-        <p style={{ color: '#64748b', fontSize: '14px', lineHeight: 1.6 }}>
-          Thêm{' '}
-          <code style={{ background: '#fef3c7', padding: '2px 6px', borderRadius: 4 }}>
-            ?shop_id=
-          </code>{' '}
-          vào URL (UUID hoặc slug), hoặc cấu hình{' '}
-          <code style={{ background: '#fef3c7', padding: '2px 6px', borderRadius: 4 }}>
-            VITE_PUBLIC_CATALOG_SHOP_ID
-          </code>{' '}
-          khi build.
-        </p>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>Đang tải liên hệ...</div>
-    );
-  }
-
-  if (error || !contact) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#b91c1c' }}>
-        Không tải được thông tin liên hệ. Thử lại sau.
+      <div className="relative min-h-[40vh] px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-2xl">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-rose-800 shadow-corporate-card">
+            <p className="font-semibold">Không có nội dung liên hệ</p>
+            <p className="mt-1 text-sm text-rose-700/90">
+              Phản hồi từ máy chủ không chứa phần liên hệ. Bạn có thể thử tải lại; nếu lỗi vẫn còn, vui lòng báo quản trị viên.
+            </p>
+            <button
+              type="button"
+              className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-lg bg-rose-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-rose-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+              onClick={() => void refetch()}
+            >
+              Thử lại
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

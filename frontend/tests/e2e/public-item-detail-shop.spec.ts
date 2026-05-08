@@ -1,9 +1,10 @@
-import { test, expect, apiOk, type Route } from './fixtures';
+import { test, expect, apiOk, routePublicShopContact, type Route } from './fixtures';
 
 const ITEM_ID = 'pub-detail-1';
 
 test.describe('Public item detail — shop scope', () => {
   test.beforeEach(async ({ page }) => {
+    await routePublicShopContact(page);
     await page.route(`**/api/v1/public/items/${ITEM_ID}**`, (route: Route) => {
       const url = new URL(route.request().url());
       if (!url.searchParams.get('shop_id')) {
@@ -50,7 +51,7 @@ test.describe('Public item detail — shop scope', () => {
     });
 
     await page.goto(`/items/${ITEM_ID}`);
-    await expect(page.getByRole('heading', { name: 'Chưa chọn cửa hàng' })).toBeVisible();
+    await expect(page.getByText('Chưa chọn cửa hàng')).toBeVisible();
     expect(detailRequestCount).toBe(0);
   });
 
