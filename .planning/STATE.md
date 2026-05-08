@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: complete
-last_updated: "2026-04-30T12:00:00.000Z"
+last_updated: "2026-05-08T12:00:00.000Z"
 progress:
-  total_phases: 16
+  total_phases: 17
   completed_phases: 16
   total_plans: 36
   completed_plans: 21
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-30)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 16 (Per-Shop Public Homepage) **complete** 2026-04-30; no further phases in v1.0 roadmap after 16.
+**Current focus:** Phase 17 (Cloudflare R2 media storage) added 2026-05-08 — not planned yet; see `docs/plans/cloudflare-r2-upload-migration.md`.
 
 ## Current Position
 
-Phase: **16 complete** (per-shop public catalog / PBLC-03)
-Plan: **16-01, 16-02, 16-03** all delivered
-Status: Backend `shop_id` resolution, frontend `usePublicShopContext` + nav, Playwright multi-tenant catalog E2E, verification doc in phase folder.
-Last activity: 2026-04-30 — closed Phase 16, updated ROADMAP / REQUIREMENTS / PROJECT.
+Phase: **17** — Cloudflare R2 upload (roadmap entry + phase folder created; **PLAN.md pending**)
+Plan: —
+Status: Awaiting `$gsd-plan-phase 17` (or equivalent) to break down plans and requirements.
+Last activity: 2026-05-08 — `$gsd-add-phase` added Phase 17; ROADMAP + STATE updated.
 
-Progress: [##########] 100% (roadmap)
+Progress: [#########.] 16/17 phases complete on shipped work; Phase 17 is new backlog.
 
 ## Performance Metrics
 
@@ -68,6 +68,10 @@ Progress: [##########] 100% (roadmap)
 - (2026-04-29) Completed Phase 15: PlatformRole enum + User.platform_role migration+backfill; dual-layer RolesGuard (platform_role check + shop_staff HTTP-method enforcement — Option C); @PlatformRoles decorator; AddShopAdminDto extended with role field; frontend isPlatformSuper + useIsSuperAdmin updated; AddMemberModal role picker (shop_admin/shop_staff); audit labels for new actions.
 - (2026-04-30) **Phase 16:** Public catalog/detail accept optional `shop_id` (UUID or slug); explicit query overrides JWT for reads; frontend propagates `shop_id` via URL, `VITE_PUBLIC_CATALOG_SHOP_ID`, or JWT after auth settles (`shopContextReady`); Playwright two-shop mock proves UI isolation.
 
+### Roadmap Evolution
+
+- Phase 17 added: Cloudflare R2 upload — migrate backend media from local disk to object storage (2026-05-08).
+
 ### Pending Todos
 
 - Merge nhánh `feat/security-signed-media-csrf-throttle` + cập nhật `docs/API_CONTRACT.md` / `ENV.md` nếu chưa làm.
@@ -78,6 +82,6 @@ Progress: [##########] 100% (roadmap)
 
 ## Session Continuity
 
-Last session: 2026-04-30 (Phase 16 Per-Shop Public Homepage — complete)
-Stopped at: **All roadmap phases through 16 shipped**; next work is product backlog / Phase 9+ items outside current roadmap numbering.
-Resume file: `.planning/phases/16-per-shop-public-homepage/16-VERIFICATION.md`
+Last session: 2026-05-08 (GSD add-phase — Phase 17 R2 storage)
+Stopped at: Phase 17 scaffolded; run **`$gsd-plan-phase 17`** to produce `PLAN.md` waves under `.planning/phases/17-cloudflare-r2-upload-migrate-backend-media-from-local-disk-to-object-storage/`.
+Resume file: `docs/plans/cloudflare-r2-upload-migration.md` (issue-style breakdown); phase verification TBD after plans execute.

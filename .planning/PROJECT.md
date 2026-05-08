@@ -37,7 +37,7 @@ A seller can create and publish a diecast listing with complete media and ready-
 ## Context
 
 The repository already contains backend and frontend implementation, plus domain and API documentation under `docs/`.
-Current work is focused on pre-order marketplace MVP delivery, starting with pre-order schema, APIs, and admin/public mobile workflows.
+Roadmap Phase 17 adds **Cloudflare R2** for backend uploads (see `docs/plans/cloudflare-r2-upload-migration.md`); prior milestone focus included pre-order and multi-tenant work, now largely shipped per `ROADMAP.md`.
 
 ## Constraints
 
