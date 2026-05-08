@@ -76,6 +76,22 @@ HTTPS và certificate do Cloudflare lo; trên backend production nên:
 - `COOKIE_SECURE=true`
 - `COOKIE_SAME_SITE`: nếu UI (Vercel/domain shop) và API **khác site** → `none` + `COOKIE_SECURE=true`; cùng site → `lax` hoặc `strict`
 
+### Xử lý sự cố tunnel (cloudflared)
+
+- **`ERR icmp router terminated error="context canceled"`** khi log có `Stopped cloudflared` / restart: ICMP proxy dừng theo shutdown — **không** chứng minh tunnel hỏng.
+- **Log `Updated to new configuration` chỉ có `"service":"http_status:503"`** (không có `hostname`): trong Zero Trust → tunnel → **Public Hostname** chưa được thêm hoặc dashboard đang sync. Mọi request sẽ **503** cho tới khi có route (vd `api.example.com` → `http://127.0.0.1:3000`).
+- **Tunnel đã `Registered tunnel connection` (QUIC, có `location=...`)** là phần ra internet ổn. Nếu trình duyệt vẫn **502 / Connection timed out**: lỗi thường ở **origin**, không phải kết nối tunnel.
+- **Kiểm tra trên Pi** (cùng máy chạy cloudflared):
+
+  ```bash
+  systemctl is-active diecast360-api
+  # PORT lấy đúng như trong .env (mặc định 3000)
+  curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/api/v1/health
+  ```
+
+  Trả `200` → backend OK; cloudflared trỏ đúng cổng đó. Trả lỗi kết nối hoặc `503` (health DB fail) → sửa API/DB trước.
+- **CORS**: origin frontend phải có trong `FRONTEND_URL` / `FRONTEND_URLS` của backend (tunnel chỉ proxy HTTP, không sửa header Origin).
+
 ## 4. Frontend (hosting khác)
 
 Trong `.env` build frontend (vd `VITE_API_BASE_URL`):
