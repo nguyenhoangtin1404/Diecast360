@@ -19,7 +19,9 @@ export const PublicBlobPageShell = ({ children }: PublicBlobPageShellProps) => {
         className="pointer-events-none absolute -right-24 top-32 h-[380px] w-[380px] rounded-full bg-gradient-to-bl from-shopAccent/25 to-shop/20 blur-3xl motion-safe:animate-blob-drift [animation-delay:-6s]"
         aria-hidden
       />
-      <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20">{children}</div>
+      <div className="relative mx-auto flex min-h-[calc(100dvh-12rem)] max-w-7xl flex-col px-4 py-12 sm:min-h-[calc(100dvh-13rem)] sm:px-6 sm:py-16 lg:min-h-[calc(100dvh-14rem)] lg:py-20">
+        {children}
+      </div>
     </div>
   );
 };
