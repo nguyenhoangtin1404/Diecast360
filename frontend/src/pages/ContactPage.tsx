@@ -54,6 +54,33 @@ export const ContactPage = () => {
     const withScheme = raw.startsWith('tel:') ? raw : `tel:${raw}`;
     return withScheme;
   }, [contact?.phone?.tel]);
+  const titleText = contact?.page_title?.trim() || 'Liên hệ với chúng tôi';
+  const highlightedTitle = useMemo(() => {
+    const matchedKeyword = titleText.match(/liên hệ/i)?.[0];
+    if (!matchedKeyword) return titleText;
+
+    const keywordIndex = titleText.toLowerCase().indexOf(matchedKeyword.toLowerCase());
+    if (keywordIndex < 0) return titleText;
+
+    const before = titleText.slice(0, keywordIndex);
+    const after = titleText.slice(keywordIndex + matchedKeyword.length);
+    return (
+      <>
+        {before}
+        <span
+          style={{
+            background: 'linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed))',
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            color: 'transparent',
+          }}
+        >
+          {matchedKeyword}
+        </span>
+        {after}
+      </>
+    );
+  }, [titleText]);
 
   if (!contact) {
     return (
@@ -96,31 +123,6 @@ export const ContactPage = () => {
   const showPhone = Boolean(contact.phone?.tel?.trim() || contact.phone?.label?.trim());
   const showFacebook = Boolean(facebookUrl);
   const showZalo = Boolean(zaloUrl);
-  const titleText = contact.page_title?.trim() || 'Liên hệ với chúng tôi';
-  const highlightedTitle = (() => {
-    const keyword = 'Liên hệ';
-    const keywordIndex = titleText.indexOf(keyword);
-    if (keywordIndex < 0) return titleText;
-
-    const before = titleText.slice(0, keywordIndex);
-    const after = titleText.slice(keywordIndex + keyword.length);
-    return (
-      <>
-        {before}
-        <span
-          style={{
-            background: 'linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed))',
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            color: 'transparent',
-          }}
-        >
-          {keyword}
-        </span>
-        {after}
-      </>
-    );
-  })();
 
   return (
     <PublicBlobPageShell>
