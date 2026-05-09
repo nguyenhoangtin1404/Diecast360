@@ -22,6 +22,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 14: Multi-Tenant Shop** - Support multiple isolated diecast shops on a single deployment with scoped access.
 - [x] **Phase 15: Admin RBAC & Tenant Authorization** - Separate platform operator permissions from per-shop roles; extend shop roles (e.g. read-only staff) and align API + admin UI.
 - [x] **Phase 16: Per-Shop Public Homepage** - Resolve public catalog and item detail to a single shop tenant via URL or explicit query param, aligned with existing multi-tenant isolation. (completed 2026-04-30)
+- [ ] **Phase 17: Cloudflare R2 upload — migrate backend media from local disk to object storage** - S3-compatible R2 behind `IStorageService`; presigned or proxied media URLs; optional disk→R2 migration.
 
 ## Phase Details
 
@@ -355,3 +356,15 @@ Plans:
 - Bắt buộc secret dài, `runtime-security` production checks, throttle điểm nóng (auth/upload/AI), cô lập tenant thêm cho AI routes.
 
 Gợi ý tài liệu follow-up: cập nhật `docs/API_CONTRACT.md` / `ENV.md` khi merge PR (media raw response, biến env mới).
+
+### Phase 17: Cloudflare R2 upload — migrate backend media from local disk to object storage
+
+**Goal:** Persist uploaded media in **Cloudflare R2** (S3-compatible) behind `IStorageService`, with **presigned GET** URLs by default and optional **`GET /api/v1/media` proxy** for signed-link compatibility; keep **`STORAGE_DRIVER=local`** for dev/Pi fallback; document cutover from existing `UPLOAD_DIR`.
+**Requirements:** MEDI-01, MEDI-02, MEDI-03, PLAT-01, PLAT-02
+**Depends on:** Phase 16
+**Plans:** 3 plans (2 waves + docs wave)
+
+Plans:
+- [ ] 17-01: Backend — `R2StorageService`, `STORAGE_DRIVER` wiring, presigned `getFileUrl`, unit tests with mocked S3
+- [ ] 17-02: Backend — `MediaController` R2 streaming branch + contract docs for URL semantics
+- [ ] 17-03: Ops/docs — ENV + deployment + Pi notes + cutover runbook (optional staging smoke checkpoint)
