@@ -88,10 +88,16 @@ describe('LocalStorageService', () => {
     });
 
     it('should silently handle file-not-found errors', async () => {
-      mockedFs.unlink.mockRejectedValue(new Error('ENOENT'));
+      mockedFs.unlink.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' as const }));
 
       // Should not throw
       await service.deleteFile('nonexistent.jpg');
+    });
+
+    it('should propagate other unlink errors', async () => {
+      mockedFs.unlink.mockRejectedValue(Object.assign(new Error('permission'), { code: 'EACCES' as const }));
+
+      await expect(service.deleteFile('images/locked.jpg')).rejects.toMatchObject({ code: 'EACCES' });
     });
   });
 

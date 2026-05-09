@@ -128,7 +128,10 @@ describe('MediaController', () => {
     }
 
     it('streams object from R2 when signature is valid', async () => {
-      mockR2Send.mockResolvedValueOnce({ Body: Readable.from([Buffer.from('r2-bytes')]) });
+      mockR2Send.mockResolvedValueOnce({
+        Body: Readable.from([Buffer.from('r2-bytes')]),
+        ContentLength: 8,
+      });
       const controller = r2ControllerFromConfig((key) => {
         if (key === 'JWT_SECRET') return secret;
         if (key === 'STORAGE_DRIVER') return 'r2';
@@ -147,6 +150,7 @@ describe('MediaController', () => {
       expect(mockR2Send).toHaveBeenCalledTimes(1);
       expect(Buffer.concat(res.chunks).toString()).toBe('r2-bytes');
       expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/png');
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Length', '8');
     });
 
     it('returns 404 when R2 object is missing', async () => {

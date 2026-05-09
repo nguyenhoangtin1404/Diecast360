@@ -102,6 +102,9 @@ export class MediaController {
 
         res.setHeader('Content-Type', mime);
         res.setHeader('Cache-Control', 'private, max-age=3600');
+        if (out.ContentLength != null && Number.isFinite(out.ContentLength)) {
+          res.setHeader('Content-Length', String(out.ContentLength));
+        }
         if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
           res.setHeader('Content-Disposition', 'inline');
         }

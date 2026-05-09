@@ -41,10 +41,13 @@ export class LocalStorageService implements IStorageService {
     const fullPath = path.join(this.uploadDir, filePath);
     try {
       await fs.unlink(fullPath);
-    } catch {
-      // File may not exist, ignore
+    } catch (err) {
+      const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined;
+      if (code !== 'ENOENT') {
+        throw err;
+      }
     }
-    }
+  }
 
 
   async moveFile(currentPath: string, newFilename: string, destinationSubfolder: string): Promise<string> {
