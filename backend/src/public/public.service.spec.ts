@@ -44,7 +44,7 @@ describe('PublicService', () => {
     };
 
     storage = {
-      getFileUrl: jest.fn((path: string) => `http://localhost/uploads/${path}`),
+      getFileUrl: jest.fn(async (path: string) => `http://localhost/uploads/${path}`),
     };
 
     const module: TestingModule = await Test.createTestingModule({

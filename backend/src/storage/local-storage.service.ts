@@ -66,7 +66,7 @@ export class LocalStorageService implements IStorageService {
     }
   }
 
-  getFileUrl(filePath: string): string {
+  async getFileUrl(filePath: string): Promise<string> {
     const backend = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').replace(/\/$/, '');
     const apiBase = `${backend}/api/v1`;
     const secret = resolveMediaSigningSecret(this.config);

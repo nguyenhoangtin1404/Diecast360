@@ -19,7 +19,7 @@ describe('PreordersService', () => {
       groupBy: jest.fn(),
     },
   };
-  const storage = { getFileUrl: jest.fn((path: string) => `http://localhost/${path}`) };
+  const storage = { getFileUrl: jest.fn(async (path: string) => `http://localhost/${path}`) };
 
   const tenantId = '00000000-0000-0000-0000-000000000001';
 

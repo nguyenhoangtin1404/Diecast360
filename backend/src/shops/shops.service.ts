@@ -466,7 +466,7 @@ export class ShopsService {
     }
     const filename = `${tenantId}_${kind}_${uuidv4()}${ext}`;
     const relativePath = await this.storage.saveFile(payloadBuffer, filename, 'shop-branding');
-    const publicUrl = this.storage.getFileUrl(relativePath);
+    const publicUrl = await this.storage.getFileUrl(relativePath);
 
     const patch: ShopAppearancePatchDto =
       kind === 'logo' ? { logo_url: publicUrl } : { favicon_url: publicUrl };
@@ -600,15 +600,17 @@ export class ShopsService {
     ]);
 
     return {
-      items: items.map((item) => ({
-        id: item.id,
-        name: item.name,
-        price: toNumber(item.price),
-        created_at: item.created_at,
-        cover_image_url: item.item_images[0]
-          ? this.storage.getFileUrl(item.item_images[0].file_path)
-          : null,
-      })),
+      items: await Promise.all(
+        items.map(async (item) => ({
+          id: item.id,
+          name: item.name,
+          price: toNumber(item.price),
+          created_at: item.created_at,
+          cover_image_url: item.item_images[0]
+            ? await this.storage.getFileUrl(item.item_images[0].file_path)
+            : null,
+        })),
+      ),
       pagination: {
         page,
         page_size: pageSize,

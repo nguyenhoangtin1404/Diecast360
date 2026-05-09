@@ -190,31 +190,33 @@ export class PublicService {
       this.getCachedTotal(where),
     ]);
 
-    const itemsWithMeta = items.map((item) => {
-      const coverImage = item.item_images[0] ?? null;
-      const defaultSpinSet = item.spin_sets[0] ?? null;
+    const itemsWithMeta = await Promise.all(
+      items.map(async (item) => {
+        const coverImage = item.item_images[0] ?? null;
+        const defaultSpinSet = item.spin_sets[0] ?? null;
 
-      return {
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        scale: item.scale,
-        brand: item.brand,
-        car_brand: item.car_brand || null,
-        model_brand: item.model_brand || null,
-        condition: item.condition || null,
-        price: toNumber(item.price),
-        original_price: toNumber(item.original_price),
-        status: item.status,
-        is_public: item.is_public,
-        cover_image_url: coverImage
-          ? this.storage.getFileUrl(coverImage.file_path)
-          : null,
-        has_spinner: Boolean(defaultSpinSet && defaultSpinSet.frames.length > 0),
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-      };
-    });
+        return {
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          scale: item.scale,
+          brand: item.brand,
+          car_brand: item.car_brand || null,
+          model_brand: item.model_brand || null,
+          condition: item.condition || null,
+          price: toNumber(item.price),
+          original_price: toNumber(item.original_price),
+          status: item.status,
+          is_public: item.is_public,
+          cover_image_url: coverImage
+            ? await this.storage.getFileUrl(coverImage.file_path)
+            : null,
+          has_spinner: Boolean(defaultSpinSet && defaultSpinSet.frames.length > 0),
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+        };
+      }),
+    );
 
     return {
       items: itemsWithMeta,
@@ -263,39 +265,50 @@ export class PublicService {
       Boolean(frame.file_path?.trim()),
     );
 
+    const images = await Promise.all(
+      normalizedImages.map(async (img) => ({
+        id: img.id,
+        item_id: img.item_id,
+        url: await this.storage.getFileUrl(img.file_path),
+        thumbnail_url: img.thumbnail_path
+          ? await this.storage.getFileUrl(img.thumbnail_path)
+          : null,
+        is_cover: img.is_cover,
+        display_order: img.display_order,
+        created_at: img.created_at,
+      })),
+    );
+
+    const frames =
+      defaultSpinSet != null
+        ? await Promise.all(
+            normalizedFrames.map(async (frame) => ({
+              id: frame.id,
+              spin_set_id: frame.spin_set_id,
+              frame_index: frame.frame_index,
+              image_url: await this.storage.getFileUrl(frame.file_path),
+              thumbnail_url: frame.thumbnail_path
+                ? await this.storage.getFileUrl(frame.thumbnail_path)
+                : null,
+              created_at: frame.created_at,
+            })),
+          )
+        : [];
+
     return {
       item: {
         ...itemData,
         price: toNumber(itemData.price),
         original_price: toNumber(itemData.original_price),
       },
-      images: normalizedImages.map((img) => ({
-        id: img.id,
-        item_id: img.item_id,
-        url: this.storage.getFileUrl(img.file_path),
-        thumbnail_url: img.thumbnail_path
-          ? this.storage.getFileUrl(img.thumbnail_path)
-          : null,
-        is_cover: img.is_cover,
-        display_order: img.display_order,
-        created_at: img.created_at,
-      })),
+      images,
       spinner: defaultSpinSet
         ? {
             id: defaultSpinSet.id,
             item_id: defaultSpinSet.item_id,
             label: defaultSpinSet.label,
             is_default: defaultSpinSet.is_default,
-            frames: normalizedFrames.map((frame) => ({
-              id: frame.id,
-              spin_set_id: frame.spin_set_id,
-              frame_index: frame.frame_index,
-              image_url: this.storage.getFileUrl(frame.file_path),
-              thumbnail_url: frame.thumbnail_path
-                ? this.storage.getFileUrl(frame.thumbnail_path)
-                : null,
-              created_at: frame.created_at,
-            })),
+            frames,
             created_at: defaultSpinSet.created_at,
             updated_at: defaultSpinSet.updated_at,
           }

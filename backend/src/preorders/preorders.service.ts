@@ -81,7 +81,7 @@ export class PreordersService {
     }
   }
 
-  private toCard(data: {
+  private async toCard(data: {
     id: string;
     status: PreOrderStatus;
     quantity: number;
@@ -111,7 +111,7 @@ export class PreordersService {
         .filter(Boolean)
         .join(' | '),
       cover_image_url: data.item.item_images[0]
-        ? this.storage.getFileUrl(data.item.item_images[0].file_path)
+        ? await this.storage.getFileUrl(data.item.item_images[0].file_path)
         : null,
     };
   }
@@ -357,7 +357,7 @@ export class PreordersService {
     });
 
     return {
-      cards: rows.map((row) => this.toCard(row)),
+      cards: await Promise.all(rows.map((row) => this.toCard(row))),
       pagination: {
         page,
         page_size: pageSize,
@@ -396,7 +396,7 @@ export class PreordersService {
     ]);
 
     return {
-      cards: rows.map((row) => this.toCard(row)),
+      cards: await Promise.all(rows.map((row) => this.toCard(row))),
       pagination: {
         page,
         page_size: pageSize,

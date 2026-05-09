@@ -166,18 +166,20 @@ Condition: ${item.condition || ''}`;
         .map(id => idMap.get(id))
         .filter(item => item !== undefined);
 
-      const itemsWithCover = sortedItems.map((item) => {
-        const itemWithImages = item as ItemWithCoverImage;
-        return {
-          ...itemWithImages,
-          price: toNumber(itemWithImages.price),
-          original_price: toNumber(itemWithImages.original_price),
-          cover_image_url: itemWithImages.item_images[0]
-            ? this.getImageUrl(itemWithImages.item_images[0].file_path)
-            : null,
-          item_images: undefined,
-        };
-      });
+      const itemsWithCover = await Promise.all(
+        sortedItems.map(async (item) => {
+          const itemWithImages = item as ItemWithCoverImage;
+          return {
+            ...itemWithImages,
+            price: toNumber(itemWithImages.price),
+            original_price: toNumber(itemWithImages.original_price),
+            cover_image_url: itemWithImages.item_images[0]
+              ? await this.getImageUrl(itemWithImages.item_images[0].file_path)
+              : null,
+            item_images: undefined,
+          };
+        }),
+      );
 
       return {
         items: itemsWithCover,
@@ -274,22 +276,24 @@ Condition: ${item.condition || ''}`;
       this.prisma.item.count({ where }),
     ]);
 
-    const itemsWithCover = items.map((item) => ({
-      ...item,
-      price: toNumber(item.price),
-      original_price: toNumber(item.original_price),
-      cover_image_url: item.item_images[0]
-        ? this.getImageUrl(item.item_images[0].file_path)
-        : null,
-      has_default_spin_set: item.spin_sets.length > 0,
-      fb_post_url: item.facebook_posts[0]?.post_url || null,
-      fb_posted_at: item.facebook_posts[0]?.posted_at || null,
-      fb_posts_count: item._count.facebook_posts,
-      item_images: undefined,
-      spin_sets: undefined,
-      facebook_posts: undefined,
-      _count: undefined,
-    }));
+    const itemsWithCover = await Promise.all(
+      items.map(async (item) => ({
+        ...item,
+        price: toNumber(item.price),
+        original_price: toNumber(item.original_price),
+        cover_image_url: item.item_images[0]
+          ? await this.getImageUrl(item.item_images[0].file_path)
+          : null,
+        has_default_spin_set: item.spin_sets.length > 0,
+        fb_post_url: item.facebook_posts[0]?.post_url || null,
+        fb_posted_at: item.facebook_posts[0]?.posted_at || null,
+        fb_posts_count: item._count.facebook_posts,
+        item_images: undefined,
+        spin_sets: undefined,
+        facebook_posts: undefined,
+        _count: undefined,
+      })),
+    );
 
     return {
       items: itemsWithCover,
@@ -331,10 +335,45 @@ Condition: ${item.condition || ''}`;
       throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
     }
 
-    const { item_images, spin_sets, facebook_posts, ...itemData } = item;
+    const { item_images, spin_sets: spinSetsFromDb, facebook_posts, ...itemData } = item;
 
     const priceValue = itemData.price as unknown as { toNumber?: () => number } | number | null;
     const originalPriceValue = itemData.original_price as unknown as { toNumber?: () => number } | number | null;
+
+    const images = await Promise.all(
+      item_images.map(async (img) => ({
+        id: img.id,
+        item_id: img.item_id,
+        url: await this.getImageUrl(img.file_path),
+        thumbnail_url: img.thumbnail_path ? await this.getImageUrl(img.thumbnail_path) : null,
+        is_cover: img.is_cover,
+        display_order: img.display_order,
+        created_at: img.created_at,
+      })),
+    );
+
+    const spin_sets = await Promise.all(
+      spinSetsFromDb.map(async (set) => ({
+        id: set.id,
+        item_id: set.item_id,
+        label: set.label,
+        is_default: set.is_default,
+        frames: await Promise.all(
+          set.frames.map(async (frame) => ({
+            id: frame.id,
+            spin_set_id: frame.spin_set_id,
+            frame_index: frame.frame_index,
+            image_url: await this.getImageUrl(frame.file_path),
+            thumbnail_url: frame.thumbnail_path
+              ? await this.getImageUrl(frame.thumbnail_path)
+              : null,
+            created_at: frame.created_at,
+          })),
+        ),
+        created_at: set.created_at,
+        updated_at: set.updated_at,
+      })),
+    );
 
     return {
       item: {
@@ -342,31 +381,8 @@ Condition: ${item.condition || ''}`;
         price: priceValue != null ? (typeof (priceValue as { toNumber?: () => number }).toNumber === 'function' ? (priceValue as { toNumber: () => number }).toNumber() : Number(priceValue)) : null,
         original_price: originalPriceValue != null ? (typeof (originalPriceValue as { toNumber?: () => number }).toNumber === 'function' ? (originalPriceValue as { toNumber: () => number }).toNumber() : Number(originalPriceValue)) : null,
       },
-      images: item_images.map((img) => ({
-        id: img.id,
-        item_id: img.item_id,
-        url: this.getImageUrl(img.file_path),
-        thumbnail_url: img.thumbnail_path ? this.getImageUrl(img.thumbnail_path) : null,
-        is_cover: img.is_cover,
-        display_order: img.display_order,
-        created_at: img.created_at,
-      })),
-      spin_sets: spin_sets.map((set) => ({
-        id: set.id,
-        item_id: set.item_id,
-        label: set.label,
-        is_default: set.is_default,
-        frames: set.frames.map((frame) => ({
-          id: frame.id,
-          spin_set_id: frame.spin_set_id,
-          frame_index: frame.frame_index,
-          image_url: this.getImageUrl(frame.file_path),
-          thumbnail_url: frame.thumbnail_path ? this.getImageUrl(frame.thumbnail_path) : null,
-          created_at: frame.created_at,
-        })),
-        created_at: set.created_at,
-        updated_at: set.updated_at,
-      })),
+      images,
+      spin_sets,
       facebook_posts,
     };
   }
@@ -762,7 +778,7 @@ Condition: ${item.condition || ''}`;
     await this.prisma.vectorSyncTask.deleteMany({ where: { item_id: itemId } });
   }
 
-  private getImageUrl(filePath: string): string {
+  private async getImageUrl(filePath: string): Promise<string> {
     // Use storage service to get consistent URL format
     return this.storage.getFileUrl(filePath);
   }

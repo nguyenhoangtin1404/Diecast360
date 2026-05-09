@@ -129,8 +129,8 @@ describe('LocalStorageService', () => {
   // getFileUrl
   // ============================================================
   describe('getFileUrl', () => {
-    it('should return signed media URL', () => {
-      const href = service.getFileUrl('images/test.jpg');
+    it('should return signed media URL', async () => {
+      const href = await service.getFileUrl('images/test.jpg');
       const u = new URL(href);
       expect(u.pathname).toBe('/api/v1/media');
       const d = u.searchParams.get('d');
@@ -141,15 +141,15 @@ describe('LocalStorageService', () => {
       expect(payload?.p).toBe('images/test.jpg');
     });
 
-    it('should strip leading ./ from path', () => {
-      const href = service.getFileUrl('./images/test.jpg');
+    it('should strip leading ./ from path', async () => {
+      const href = await service.getFileUrl('./images/test.jpg');
       const u = new URL(href);
       const payload = verifySignedMediaParams(u.searchParams.get('d')!, u.searchParams.get('s')!, mediaSigningSecret);
       expect(payload?.p).toBe('images/test.jpg');
     });
 
-    it('should strip leading / from path', () => {
-      const href = service.getFileUrl('/images/test.jpg');
+    it('should strip leading / from path', async () => {
+      const href = await service.getFileUrl('/images/test.jpg');
       const u = new URL(href);
       const payload = verifySignedMediaParams(u.searchParams.get('d')!, u.searchParams.get('s')!, mediaSigningSecret);
       expect(payload?.p).toBe('images/test.jpg');
