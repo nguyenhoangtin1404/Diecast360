@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode, type MouseEvent } from 'react';
 import { Phone, Facebook, MessageCircle } from 'lucide-react';
 import { usePublicShopContact } from '../hooks/usePublicShopContact';
+import { PublicBlobPageShell } from '../components/PublicBlobPageShell';
 
 /** Icon circles + links — same tokens as catalog / preorder CTAs (`ShopThemeProvider`). */
 const contactChannelAccent = {
@@ -53,11 +54,38 @@ export const ContactPage = () => {
     const withScheme = raw.startsWith('tel:') ? raw : `tel:${raw}`;
     return withScheme;
   }, [contact?.phone?.tel]);
+  const titleText = contact?.page_title?.trim() || 'Liên hệ với chúng tôi';
+  const highlightedTitle = useMemo(() => {
+    const matchedKeyword = titleText.match(/liên hệ/i)?.[0];
+    if (!matchedKeyword) return titleText;
+
+    const keywordIndex = titleText.toLowerCase().indexOf(matchedKeyword.toLowerCase());
+    if (keywordIndex < 0) return titleText;
+
+    const before = titleText.slice(0, keywordIndex);
+    const after = titleText.slice(keywordIndex + matchedKeyword.length);
+    return (
+      <>
+        {before}
+        <span
+          style={{
+            background: 'linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed))',
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            color: 'transparent',
+          }}
+        >
+          {matchedKeyword}
+        </span>
+        {after}
+      </>
+    );
+  }, [titleText]);
 
   if (!contact) {
     return (
-      <div className="relative min-h-[40vh] px-4 py-16 sm:px-6">
-        <div className="mx-auto max-w-2xl">
+      <PublicBlobPageShell>
+        <div className="mx-auto w-full max-w-2xl">
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-rose-800 shadow-corporate-card">
             <p className="font-semibold">Không có nội dung liên hệ</p>
             <p className="mt-1 text-sm text-rose-700/90">
@@ -72,7 +100,7 @@ export const ContactPage = () => {
             </button>
           </div>
         </div>
-      </div>
+      </PublicBlobPageShell>
     );
   }
 
@@ -97,19 +125,19 @@ export const ContactPage = () => {
   const showZalo = Boolean(zaloUrl);
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 200px)', padding: '40px 20px' }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+    <PublicBlobPageShell>
+      <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '48px' }}>
           <h1
             style={{
               fontSize: '36px',
               fontWeight: '700',
-              color: '#1a1a1a',
+              color: 'var(--ct-ink, #0f172a)',
               margin: '0 0 12px 0',
               letterSpacing: '-0.5px',
             }}
           >
-            {contact.page_title || 'Liên hệ'}
+            {highlightedTitle}
           </h1>
           {contact.page_subtitle ? (
             <p
@@ -422,6 +450,6 @@ export const ContactPage = () => {
           ) : null}
         </div>
       </div>
-    </div>
+    </PublicBlobPageShell>
   );
 };
