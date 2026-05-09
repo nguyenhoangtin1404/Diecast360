@@ -1,18 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  CopyObjectCommand,
-  DeleteObjectCommand,
-} from '@aws-sdk/client-s3';
+import { PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { IStorageService } from './storage.interface';
-
-function normalizeObjectKey(filePath: string): string {
-  return filePath.replace(/^\.\//, '').replace(/^\//, '');
-}
+import { createR2S3ClientAndBucket, normalizeR2ObjectKey } from './r2-s3.factory';
 
 function contentTypeForFilename(filename: string): string {
   const ext = filename.toLowerCase().split('.').pop() || '';
@@ -29,33 +20,20 @@ function copySourceHeader(bucket: string, sourceKey: string): string {
 
 @Injectable()
 export class R2StorageService implements IStorageService {
-  private readonly client: S3Client;
+  private readonly client: ReturnType<typeof createR2S3ClientAndBucket>['client'];
   private readonly bucket: string;
   private readonly urlTtlMs: number;
 
   constructor(private readonly config: ConfigService) {
-    const accountId = this.config.get<string>('R2_ACCOUNT_ID')?.trim();
-    const accessKeyId = this.config.get<string>('R2_ACCESS_KEY_ID')?.trim();
-    const secretAccessKey = this.config.get<string>('R2_SECRET_ACCESS_KEY')?.trim();
-    const bucket = this.config.get<string>('R2_BUCKET')?.trim();
-    if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
-      throw new Error(
-        'STORAGE_DRIVER=r2 requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET. See backend/.env.example.',
-      );
-    }
+    const { client, bucket } = createR2S3ClientAndBucket(config);
+    this.client = client;
     this.bucket = bucket;
     this.urlTtlMs = Number(this.config.get('MEDIA_URL_TTL_MS')) || 7 * 24 * 60 * 60 * 1000;
-    this.client = new S3Client({
-      region: 'auto',
-      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-      credentials: { accessKeyId, secretAccessKey },
-      forcePathStyle: true,
-    });
   }
 
   async saveFile(file: Buffer, filename: string, subfolder?: string): Promise<string> {
     const relativePath = subfolder ? `${subfolder}/${filename}` : filename;
-    const key = normalizeObjectKey(relativePath);
+    const key = normalizeR2ObjectKey(relativePath);
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
@@ -68,7 +46,7 @@ export class R2StorageService implements IStorageService {
   }
 
   async deleteFile(filePath: string): Promise<void> {
-    const key = normalizeObjectKey(filePath);
+    const key = normalizeR2ObjectKey(filePath);
     try {
       await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
     } catch {
@@ -81,9 +59,9 @@ export class R2StorageService implements IStorageService {
     newFilename: string,
     destinationSubfolder: string,
   ): Promise<string> {
-    const sourceKey = normalizeObjectKey(currentPath);
+    const sourceKey = normalizeR2ObjectKey(currentPath);
     const destRelative = `${destinationSubfolder}/${newFilename}`;
-    const destKey = normalizeObjectKey(destRelative);
+    const destKey = normalizeR2ObjectKey(destRelative);
 
     await this.client.send(
       new CopyObjectCommand({
@@ -100,7 +78,7 @@ export class R2StorageService implements IStorageService {
   }
 
   async getFileUrl(filePath: string): Promise<string> {
-    const key = normalizeObjectKey(filePath);
+    const key = normalizeR2ObjectKey(filePath);
     const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
     const expiresIn = Math.max(1, Math.floor(this.urlTtlMs / 1000));
     return getSignedUrl(this.client, cmd, { expiresIn });

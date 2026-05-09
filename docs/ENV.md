@@ -20,7 +20,7 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 | JWT_SECRET | Secret ký access token | `super-secret` | Bắt buộc, đủ entropy |
 | JWT_EXPIRES_IN | TTL access token | `15m` | Chuỗi thời gian (ms, s, m, h...) |
 | REFRESH_TOKEN_EXPIRES_IN | TTL refresh token | `7d` | Dùng để tính `expires_at` |
-| UPLOAD_DIR | Thư mục lưu file local | `./uploads` | Phải tồn tại/ghi được |
+| UPLOAD_DIR | Thư mục lưu file local | `./uploads` | Khi `STORAGE_DRIVER=local` phải tồn tại/ghi được. Khi `STORAGE_DRIVER=r2`, thư mục không dùng cho đọc media (upload qua S3 API); vẫn có thể để mặc định cho dev. |
 | MAX_UPLOAD_MB | Giới hạn kích thước upload | `10` | Áp dụng cho ảnh thường và frame spinner |
 | ALLOWED_MIME | MIME type cho upload | `image/jpeg,image/png` | Server validate trước khi lưu |
 | BACKEND_URL | Base public URL của backend | `http://localhost:3000` | Dùng để ghép signed media URL (`/api/v1/media?...`); production nên đặt URL public của API. |
@@ -33,8 +33,22 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 | CORS_ALLOW_LAN | Cho phép origin LAN private trong dev | `true` (dev LAN) / `false` (prod) | Chỉ dùng khi test UI qua Vite `--host`; production boot sẽ reject nếu `true`. |
 | MEDIA_SIGNING_SECRET | Secret ký URL media | random 32+ chars | Tùy chọn nhưng khuyến nghị; nếu bỏ trống dùng `JWT_SECRET`, làm xoay JWT có thể vô hiệu link ảnh cũ. |
 | MEDIA_URL_TTL_MS | TTL signed media URL | `604800000` | Tùy chọn; mặc định 7 ngày. |
+| STORAGE_DRIVER | Backend lưu object: `local` hoặc `r2` | `local` | Với `r2` cần đủ biến `R2_*` (xem mục Object storage). |
+| R2_ACCOUNT_ID | Cloudflare account id (segment endpoint S3) | `abc123...` | Bắt buộc khi `STORAGE_DRIVER=r2` |
+| R2_ACCESS_KEY_ID | R2 S3 API access key | `...` | Bắt buộc khi `STORAGE_DRIVER=r2`; rotate định kỳ |
+| R2_SECRET_ACCESS_KEY | R2 S3 API secret | `...` | **Không** commit; chỉ env/secret manager |
+| R2_BUCKET | Tên bucket R2 | `diecast360-media` | Bắt buộc khi `STORAGE_DRIVER=r2` |
+| R2_PUBLIC_BASE_URL | (Tuỳ chọn) CDN/public base nếu không dùng presigned | — | Thường để trống; app ưu tiên presigned GET |
 | FACEBOOK_PAGE_ID | Facebook Page ID cho publish | `123456789` | Tùy chọn (bắt buộc cho FB publish) |
 | FACEBOOK_PAGE_ACCESS_TOKEN | Long-lived Page Access Token | `EAA...` | Tùy chọn (bắt buộc cho FB publish) |
+
+## Object storage (Cloudflare R2)
+
+Khi `STORAGE_DRIVER=r2`, backend dùng S3-compatible API (`@aws-sdk/client-s3`) với endpoint `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`, `region: auto`, `forcePathStyle: true`. Object key trùng đường dẫn tương đối trong DB (`images/...`, `spinner/...`, v.v.).
+
+- **Bảo mật:** Tạo R2 API token tối thiểu quyền (read/write trên một bucket). Không bật public bucket list nếu không cần. Rotate key khi nghi ngờ lộ; cập nhật env trên mọi replica trước khi revoke key cũ.
+- **Presigned URL:** `getFileUrl` trả link có thời hạn; client nên refetch JSON khi ảnh hết hạn (TTL `MEDIA_URL_TTL_MS`).
+- **Proxy `/api/v1/media`:** Vẫn xác thực `d`/`s` rồi stream object từ R2 — hữu ích cho link đã lưu/cache; không đọc file từ `UPLOAD_DIR` ở chế độ R2.
 
 ## DATABASE_URL / DIRECT_URL Format
 
