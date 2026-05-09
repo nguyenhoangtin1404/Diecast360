@@ -20,21 +20,7 @@ import {
   isR2StorageDriver,
   normalizeR2ObjectKey,
 } from '../../storage/r2-s3.factory';
-
-function mimeFromMediaRelativePath(relPath: string): { mime: string; ext: string } {
-  const ext = relPath.toLowerCase().split('.').pop() || '';
-  const mime =
-    ext === 'jpg' || ext === 'jpeg'
-      ? 'image/jpeg'
-      : ext === 'png'
-        ? 'image/png'
-        : ext === 'webp'
-          ? 'image/webp'
-          : ext === 'gif'
-            ? 'image/gif'
-            : 'application/octet-stream';
-  return { mime, ext };
-}
+import { imageMimeAndExtForPath } from './media-mime.util';
 
 function isS3NoSuchKey(err: unknown): boolean {
   if (err instanceof S3ServiceException) {
@@ -89,7 +75,7 @@ export class MediaController {
       throw new BadRequestException('Invalid or expired media link');
     }
 
-    const { mime, ext } = mimeFromMediaRelativePath(payload.p);
+    const { mime, ext } = imageMimeAndExtForPath(payload.p);
 
     if (isR2StorageDriver(this.config)) {
       assertSafeR2ObjectKeyFromPayload(payload.p);

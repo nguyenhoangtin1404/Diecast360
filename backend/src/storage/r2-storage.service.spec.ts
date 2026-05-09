@@ -99,6 +99,25 @@ describe('R2StorageService', () => {
 
       expect(result).toBe('images/new.jpg');
     });
+
+    it('retries DeleteObject when first attempt fails after successful copy', async () => {
+      mockSend
+        .mockResolvedValueOnce({})
+        .mockRejectedValueOnce(new Error('throttle'))
+        .mockResolvedValueOnce({});
+
+      const result = await service.moveFile('drafts/old.jpg', 'new.jpg', 'images');
+
+      expect(mockSend).toHaveBeenCalledTimes(3);
+      expect(result).toBe('images/new.jpg');
+    });
+
+    it('throws after delete retries exhausted', async () => {
+      mockSend.mockResolvedValueOnce({}).mockRejectedValue(new Error('network'));
+
+      await expect(service.moveFile('drafts/old.jpg', 'new.jpg', 'images')).rejects.toThrow('network');
+      expect(mockSend).toHaveBeenCalledTimes(5);
+    });
   });
 
   describe('deleteFile', () => {
@@ -109,9 +128,9 @@ describe('R2StorageService', () => {
       expect(cmd.input.Key).toBe('images/x.jpg');
     });
 
-    it('should swallow errors', async () => {
+    it('propagates DeleteObject errors', async () => {
       mockSend.mockRejectedValueOnce(new Error('network'));
-      await expect(service.deleteFile('images/x.jpg')).resolves.toBeUndefined();
+      await expect(service.deleteFile('images/x.jpg')).rejects.toThrow('network');
     });
   });
 
@@ -122,6 +141,26 @@ describe('R2StorageService', () => {
       expect(mockedGetSignedUrl).toHaveBeenCalled();
       expect(url).toContain('X-Amz-');
       expect(url).toContain('r2.cloudflarestorage.com');
+    });
+
+    it('uses default TTL when MEDIA_URL_TTL_MS is invalid', async () => {
+      const cfg = {
+        get: jest.fn((key: string) => {
+          if (key === 'R2_ACCOUNT_ID') return 'test-account';
+          if (key === 'R2_ACCESS_KEY_ID') return 'test-access-key';
+          if (key === 'R2_SECRET_ACCESS_KEY') return 'test-secret-key';
+          if (key === 'R2_BUCKET') return 'test-bucket';
+          if (key === 'MEDIA_URL_TTL_MS') return 'not-a-number';
+          return undefined;
+        }),
+      } as unknown as ConfigService;
+      const s = new R2StorageService(cfg);
+      await s.getFileUrl('a.jpg');
+      expect(mockedGetSignedUrl).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ expiresIn: 604800 }),
+      );
     });
 
     it('should pass expiresIn derived from MEDIA_URL_TTL_MS', async () => {

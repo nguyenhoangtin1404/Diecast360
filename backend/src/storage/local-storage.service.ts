@@ -4,6 +4,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { buildSignedMediaFileUrl } from '../common/media/signed-media.util';
 import { resolveMediaSigningSecret } from '../common/media/media-signing-secret';
+import { parseMediaUrlTtlMs } from '../common/media/media-url-ttl.util';
 import { IStorageService } from './storage.interface';
 
 @Injectable()
@@ -70,7 +71,7 @@ export class LocalStorageService implements IStorageService {
     const backend = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').replace(/\/$/, '');
     const apiBase = `${backend}/api/v1`;
     const secret = resolveMediaSigningSecret(this.config);
-    const ttlMs = Number(this.config.get('MEDIA_URL_TTL_MS')) || 7 * 24 * 60 * 60 * 1000;
+    const ttlMs = parseMediaUrlTtlMs(this.config);
     const cleanPath = filePath.replace(/^\.\//, '').replace(/^\//, '');
     return buildSignedMediaFileUrl(apiBase, cleanPath, secret, ttlMs);
   }

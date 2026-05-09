@@ -1,25 +1,26 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PutObjectCommand, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { imageMimeAndExtForPath } from '../common/media/media-mime.util';
+import { parseMediaUrlTtlMs } from '../common/media/media-url-ttl.util';
 import { IStorageService } from './storage.interface';
 import { createR2S3ClientAndBucket, normalizeR2ObjectKey } from './r2-s3.factory';
-
-function contentTypeForFilename(filename: string): string {
-  const ext = filename.toLowerCase().split('.').pop() || '';
-  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
-  if (ext === 'png') return 'image/png';
-  if (ext === 'webp') return 'image/webp';
-  if (ext === 'gif') return 'image/gif';
-  return 'application/octet-stream';
-}
 
 function copySourceHeader(bucket: string, sourceKey: string): string {
   return `${bucket}/${sourceKey.split('/').map(encodeURIComponent).join('/')}`;
 }
 
+function moveDeleteBackoffMs(attemptIndex: number): number {
+  if (typeof process.env.JEST_WORKER_ID === 'string') {
+    return 0;
+  }
+  return Math.min(2000, 100 * 2 ** attemptIndex);
+}
+
 @Injectable()
 export class R2StorageService implements IStorageService {
+  private readonly logger = new Logger(R2StorageService.name);
   private readonly client: ReturnType<typeof createR2S3ClientAndBucket>['client'];
   private readonly bucket: string;
   private readonly urlTtlMs: number;
@@ -28,18 +29,19 @@ export class R2StorageService implements IStorageService {
     const { client, bucket } = createR2S3ClientAndBucket(config);
     this.client = client;
     this.bucket = bucket;
-    this.urlTtlMs = Number(this.config.get('MEDIA_URL_TTL_MS')) || 7 * 24 * 60 * 60 * 1000;
+    this.urlTtlMs = parseMediaUrlTtlMs(config);
   }
 
   async saveFile(file: Buffer, filename: string, subfolder?: string): Promise<string> {
     const relativePath = subfolder ? `${subfolder}/${filename}` : filename;
     const key = normalizeR2ObjectKey(relativePath);
+    const { mime } = imageMimeAndExtForPath(filename);
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
         Key: key,
         Body: file,
-        ContentType: contentTypeForFilename(filename),
+        ContentType: mime,
       }),
     );
     return relativePath;
@@ -47,11 +49,7 @@ export class R2StorageService implements IStorageService {
 
   async deleteFile(filePath: string): Promise<void> {
     const key = normalizeR2ObjectKey(filePath);
-    try {
-      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
-    } catch {
-      // Best-effort; mirror LocalStorageService ignoring missing files
-    }
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
 
   async moveFile(
@@ -62,19 +60,46 @@ export class R2StorageService implements IStorageService {
     const sourceKey = normalizeR2ObjectKey(currentPath);
     const destRelative = `${destinationSubfolder}/${newFilename}`;
     const destKey = normalizeR2ObjectKey(destRelative);
+    const { mime } = imageMimeAndExtForPath(newFilename);
 
     await this.client.send(
       new CopyObjectCommand({
         Bucket: this.bucket,
         CopySource: copySourceHeader(this.bucket, sourceKey),
         Key: destKey,
-        ContentType: contentTypeForFilename(newFilename),
+        ContentType: mime,
         MetadataDirective: 'REPLACE',
       }),
     );
 
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: sourceKey }));
+    await this.deleteSourceAfterCopyWithRetry(sourceKey, destKey);
     return destRelative;
+  }
+
+  private async deleteSourceAfterCopyWithRetry(sourceKey: string, destKey: string): Promise<void> {
+    const maxAttempts = 4;
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: sourceKey }));
+        return;
+      } catch (err) {
+        lastErr = err;
+        this.logger.warn(
+          `DeleteObject after CopyObject failed (attempt ${attempt + 1}/${maxAttempts}) sourceKey=${sourceKey}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        if (attempt < maxAttempts - 1) {
+          const ms = moveDeleteBackoffMs(attempt);
+          if (ms > 0) {
+            await new Promise((r) => setTimeout(r, ms));
+          }
+        }
+      }
+    }
+    this.logger.error(
+      `moveFile left duplicate objects after successful copy: sourceKey=${sourceKey} destKey=${destKey} — manual cleanup of source may be required`,
+    );
+    throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
   }
 
   async getFileUrl(filePath: string): Promise<string> {
