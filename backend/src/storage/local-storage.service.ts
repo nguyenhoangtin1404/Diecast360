@@ -41,7 +41,7 @@ export class LocalStorageService implements IStorageService {
     const fullPath = path.join(this.uploadDir, filePath);
     try {
       await fs.unlink(fullPath);
-    } catch (error) {
+    } catch {
       // File may not exist, ignore
     }
     }
@@ -59,7 +59,7 @@ export class LocalStorageService implements IStorageService {
     try {
       await fs.rename(fullCurrentPath, destPath);
       return relativeDestPath;
-    } catch (error) {
+    } catch {
       // If rename fails (e.g. cross-device), try copy + unlink
       await fs.copyFile(fullCurrentPath, destPath);
       await fs.unlink(fullCurrentPath);
