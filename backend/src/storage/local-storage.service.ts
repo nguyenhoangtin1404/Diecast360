@@ -4,6 +4,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { buildSignedMediaFileUrl } from '../common/media/signed-media.util';
 import { resolveMediaSigningSecret } from '../common/media/media-signing-secret';
+import { parseMediaUrlTtlMs } from '../common/media/media-url-ttl.util';
 import { IStorageService } from './storage.interface';
 
 @Injectable()
@@ -40,10 +41,13 @@ export class LocalStorageService implements IStorageService {
     const fullPath = path.join(this.uploadDir, filePath);
     try {
       await fs.unlink(fullPath);
-    } catch (error) {
-      // File may not exist, ignore
+    } catch (err) {
+      const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined;
+      if (code !== 'ENOENT') {
+        throw err;
+      }
     }
-    }
+  }
 
 
   async moveFile(currentPath: string, newFilename: string, destinationSubfolder: string): Promise<string> {
@@ -58,7 +62,7 @@ export class LocalStorageService implements IStorageService {
     try {
       await fs.rename(fullCurrentPath, destPath);
       return relativeDestPath;
-    } catch (error) {
+    } catch {
       // If rename fails (e.g. cross-device), try copy + unlink
       await fs.copyFile(fullCurrentPath, destPath);
       await fs.unlink(fullCurrentPath);
@@ -66,11 +70,11 @@ export class LocalStorageService implements IStorageService {
     }
   }
 
-  getFileUrl(filePath: string): string {
+  async getFileUrl(filePath: string): Promise<string> {
     const backend = (this.config.get<string>('BACKEND_URL') || 'http://localhost:3000').replace(/\/$/, '');
     const apiBase = `${backend}/api/v1`;
     const secret = resolveMediaSigningSecret(this.config);
-    const ttlMs = Number(this.config.get('MEDIA_URL_TTL_MS')) || 7 * 24 * 60 * 60 * 1000;
+    const ttlMs = parseMediaUrlTtlMs(this.config);
     const cleanPath = filePath.replace(/^\.\//, '').replace(/^\//, '');
     return buildSignedMediaFileUrl(apiBase, cleanPath, secret, ttlMs);
   }

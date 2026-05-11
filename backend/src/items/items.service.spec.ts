@@ -69,7 +69,7 @@ describe('ItemsService', () => {
   beforeEach(async () => {
     storage = {
       moveFile: jest.fn(),
-      getFileUrl: jest.fn((path: string) => `http://localhost/uploads/${path}`),
+      getFileUrl: jest.fn(async (path: string) => `http://localhost/uploads/${path}`),
       saveFile: jest.fn(),
       deleteFile: jest.fn(),
     };

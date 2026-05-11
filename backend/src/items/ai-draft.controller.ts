@@ -59,7 +59,7 @@ export class AiDraftController {
         const filename = this.buildDraftFilename(file.originalname, index, tenantId);
         const path = await this.storage.saveFile(file.buffer, filename, 'drafts');
         savedPaths.push(path);
-        imageUrls.push(this.storage.getFileUrl(path));
+        imageUrls.push(await this.storage.getFileUrl(path));
       }
 
       // 3. Save Draft to DB

@@ -42,7 +42,7 @@ describe('AiDraftController', () => {
     storage = {
       saveFile: jest.fn().mockResolvedValue('drafts/test.jpg'),
       deleteFile: jest.fn().mockResolvedValue(undefined),
-      getFileUrl: jest.fn((path: string) => `http://localhost/uploads/${path}`),
+      getFileUrl: jest.fn(async (path: string) => `http://localhost/uploads/${path}`),
     };
 
     const module: TestingModule = await Test.createTestingModule({

@@ -10,9 +10,12 @@ API ra ngoài qua **Cloudflare Tunnel** trỏ tới `http://127.0.0.1:3000` (ho�
 - Thư mục deploy (mặc định): `/opt/diecast360-backend`. Clone repo hoặc tạo thư mục và `git init` + remote — workflow **không** tự clone lần đầu; rsync tạo/tệp tin trong thư mục đó.
 
 ```bash
+# Chỉ cần khi STORAGE_DRIVER=local — volume ghi ảnh trên Pi
 sudo mkdir -p /opt/diecast360-backend/uploads
 sudo chown -R "$USER:$USER" /opt/diecast360-backend
 ```
+
+Khi `STORAGE_DRIVER=r2`, bước `mkdir uploads` **không bắt buộc** cho media (object nằm trên R2). Vẫn cần `backend/.env` đầy đủ `R2_*` và bucket đã đồng bộ nếu đang cutover từ disk — xem [`ENV.md`](ENV.md) và [`docs/plans/cloudflare-r2-upload-migration.md`](../docs/plans/cloudflare-r2-upload-migration.md).
 
 - Copy **`.env`** production trên Pi (Neon `DATABASE_URL` / `DIRECT_URL`, `JWT_SECRET`, `COOKIE_SECRET`, `FRONTEND_URL` = origin frontend hosting, v.v.). Xem [`ENV.md`](ENV.md).
 - **`BACKEND_URL`**: đặt URL public của API (vd `https://api.example.com`) để ký và trả link ảnh qua `GET /api/v1/media`.

@@ -49,24 +49,17 @@ export class SpinnerService {
     });
 
     return {
-      spin_sets: spinSets.map((set) => ({
-        id: set.id,
-        item_id: set.item_id,
-        label: set.label,
-        is_default: set.is_default,
-        frames: set.frames.map((frame) => ({
-          id: frame.id,
-          spin_set_id: frame.spin_set_id,
-          frame_index: frame.frame_index,
-          image_url: this.storage.getFileUrl(frame.file_path),
-          thumbnail_url: frame.thumbnail_path
-            ? this.storage.getFileUrl(frame.thumbnail_path)
-            : null,
-          created_at: frame.created_at,
+      spin_sets: await Promise.all(
+        spinSets.map(async (set) => ({
+          id: set.id,
+          item_id: set.item_id,
+          label: set.label,
+          is_default: set.is_default,
+          frames: await Promise.all(set.frames.map((frame) => this.mapFrame(frame))),
+          created_at: set.created_at,
+          updated_at: set.updated_at,
         })),
-        created_at: set.created_at,
-        updated_at: set.updated_at,
-      })),
+      ),
     };
   }
 
@@ -160,16 +153,7 @@ export class SpinnerService {
         item_id: updated.item_id,
         label: updated.label,
         is_default: updated.is_default,
-        frames: updated.frames.map((frame) => ({
-          id: frame.id,
-          spin_set_id: frame.spin_set_id,
-          frame_index: frame.frame_index,
-          image_url: this.storage.getFileUrl(frame.file_path),
-          thumbnail_url: frame.thumbnail_path
-            ? this.storage.getFileUrl(frame.thumbnail_path)
-            : null,
-          created_at: frame.created_at,
-        })),
+        frames: await Promise.all(updated.frames.map((frame) => this.mapFrame(frame))),
         created_at: updated.created_at,
         updated_at: updated.updated_at,
       },
@@ -235,7 +219,7 @@ export class SpinnerService {
         uploadDto.frame_index,
       );
 
-      return { frame: this.mapFrame(frame) };
+      return { frame: await this.mapFrame(frame) };
     } catch (error) {
       await this.cleanupSavedFiles(savedPaths, `uploadFrame:spinSetId=${spinSetId}`);
       throw error;
@@ -321,13 +305,15 @@ export class SpinnerService {
     );
   }
 
-  private mapFrame(frame: SpinFrame) {
+  private async mapFrame(frame: SpinFrame) {
     return {
       id: frame.id,
       spin_set_id: frame.spin_set_id,
       frame_index: frame.frame_index,
-      image_url: this.storage.getFileUrl(frame.file_path),
-      thumbnail_url: frame.thumbnail_path ? this.storage.getFileUrl(frame.thumbnail_path) : null,
+      image_url: await this.storage.getFileUrl(frame.file_path),
+      thumbnail_url: frame.thumbnail_path
+        ? await this.storage.getFileUrl(frame.thumbnail_path)
+        : null,
       created_at: frame.created_at,
     };
   }
@@ -390,16 +376,9 @@ export class SpinnerService {
         );
 
         return {
-          frames: updatedFrames.map((frame) => ({
-            id: frame.id,
-            spin_set_id: frame.spin_set_id,
-            frame_index: frame.frame_index,
-            image_url: this.storage.getFileUrl(frame.file_path),
-            thumbnail_url: frame.thumbnail_path
-              ? this.storage.getFileUrl(frame.thumbnail_path)
-              : null,
-            created_at: frame.created_at,
-          })),
+          frames: await Promise.all(
+            updatedFrames.map((frame) => this.mapFrame(frame)),
+          ),
         };
       } catch (error) {
         const shouldRetry =

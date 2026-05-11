@@ -90,7 +90,7 @@ export class ImagesService {
         Boolean(isCover),
       );
 
-      return { image: this.mapImage(image) };
+      return { image: await this.mapImage(image) };
     } catch (error) {
       await this.cleanupSavedFiles(savedPaths, `uploadImage:itemId=${itemId}`);
       throw error;
@@ -236,7 +236,7 @@ export class ImagesService {
       return nextImage;
     });
 
-    return { image: this.mapImage(updated) };
+    return { image: await this.mapImage(updated) };
   }
 
   async reorderImages(itemId: string, reorderDto: ReorderImagesDto, tenantId: string) {
@@ -299,7 +299,7 @@ export class ImagesService {
         );
 
         return {
-          images: updatedImages.map((img) => this.mapImage(img)),
+          images: await Promise.all(updatedImages.map((img) => this.mapImage(img))),
         };
       } catch (error) {
         const shouldRetry =
@@ -391,12 +391,14 @@ export class ImagesService {
     await this.uploadSupport.validateFile(file, this.allowedMimeTypes, this.maxUploadBytes);
   }
 
-  private mapImage(image: ItemImage) {
+  private async mapImage(image: ItemImage) {
     return {
       id: image.id,
       item_id: image.item_id,
-      url: this.storage.getFileUrl(image.file_path),
-      thumbnail_url: image.thumbnail_path ? this.storage.getFileUrl(image.thumbnail_path) : null,
+      url: await this.storage.getFileUrl(image.file_path),
+      thumbnail_url: image.thumbnail_path
+        ? await this.storage.getFileUrl(image.thumbnail_path)
+        : null,
       is_cover: image.is_cover,
       display_order: image.display_order,
       created_at: image.created_at,

@@ -74,7 +74,8 @@ Lợi ích: không cần mở cổng inbound trên router, không phụ thuộc 
 
 - Dùng OS 64-bit; Node 20 (khớp workflow deploy hiện tại).
 - **Chỉ chạy backend trên Pi**; database để trên Neon để tránh Postgres + Nest tranh RAM.
-- Tạo thư mục `UPLOAD_DIR` trên ổ đủ dung lượng (USB nếu cần); giới hạn `MAX_UPLOAD_MB` hợp lý — xử lý ảnh (Sharp) có thể tốn RAM khi upload đồng thời.
+- **`UPLOAD_DIR` / thư mục uploads:** Cần khi `STORAGE_DRIVER=local` (đủ dung lượng, có thể USB). Khi `STORAGE_DRIVER=r2`, có thể **không** cần volume lớn trên Pi cho media; vẫn cần bucket R2 + biến `R2_*` — xem [`ENV.md`](ENV.md) mục Object storage và [`docs/plans/cloudflare-r2-upload-migration.md`](plans/cloudflare-r2-upload-migration.md) phần Cutover runbook.
+- Giới hạn `MAX_UPLOAD_MB` hợp lý — xử lý ảnh (Sharp) có thể tốn RAM khi upload đồng thời.
 - Nếu deploy thủ công, cài dependency, build, migrate rồi restart:
 
   ```bash
@@ -123,7 +124,8 @@ WantedBy=multi-user.target
 | **Pi** | `BACKEND_URL` | URL public của API (HTTPS), dùng làm base cho signed media URL `/api/v1/media` |
 | **Pi** | `MEDIA_SIGNING_SECRET`, `MEDIA_URL_TTL_MS` | Tùy chọn cho signed media URL; nếu không set secret riêng, backend fallback sang `JWT_SECRET` |
 | **Pi** | `COOKIE_SECURE=true`, `COOKIE_SAME_SITE` | Production HTTPS — xem [`ENV.md`](ENV.md) |
-| **Pi** | `UPLOAD_DIR` | Đường dẫn tuyệt đối trên Pi, thư mục tồn tại và ghi được |
+| **Pi** | `UPLOAD_DIR` | Bắt buộc khi `STORAGE_DRIVER=local` — đường dẫn ghi được. Với `STORAGE_DRIVER=r2` có thể giữ mặc định hoặc bỏ qua nhu cầu volume lớn cho media |
+| **Pi** | `STORAGE_DRIVER`, `R2_*` | Khi dùng Cloudflare R2 — xem [`ENV.md`](ENV.md) |
 | **Vercel / Pages** (build) | `VITE_API_BASE_URL` | `https://<api-host>/api/v1` |
 
 Chi tiết Facebook, OpenAI, Pinecone: tùy tính năng bật — vẫn trong [`ENV.md`](ENV.md).
@@ -166,3 +168,17 @@ Pi không cần mở outbound tới Neon chỉ để migrate trong CD (runtime A
 - Sao lưu định kỳ thư mục upload trên Pi; Neon có backup theo gói dịch vụ.
 - Sau deploy: kiểm tra `sudo systemctl status diecast360-api`, `journalctl -u diecast360-api -n 100 --no-pager`, và `curl -sfS http://127.0.0.1:$PORT/api/v1/health`.
 - Cập nhật code: merge `main` (workflow self-hosted trên Pi) hoặc tay: build theo mục Pi ở trên rồi `systemctl restart …`.
+
+---
+
+## 8. Cutover: local disk → Cloudflare R2
+
+Thứ tự gợi ý (staging trước production):
+
+1. Tạo bucket R2 + API token; ghi `STORAGE_DRIVER=r2` và đủ `R2_*` trên **staging** (xem [`ENV.md`](ENV.md)).
+2. **Đồng bộ object** từ thư mục `UPLOAD_DIR` hiện tại lên R2 với **cùng key** (đường dẫn tương đối trong DB). Có thể dùng `rclone sync` — ví dụ trong [`docs/plans/cloudflare-r2-upload-migration.md`](plans/cloudflare-r2-upload-migration.md) (Cutover runbook) và [`backend/scripts/README.md`](../backend/scripts/README.md).
+3. Khởi động lại backend; spot-check: upload mới, mở ảnh catalog, `GET /api/v1/media?...` với link đã ký cũ (proxy R2).
+4. **Production:** lặp lại sync → đổi env → restart; theo dõi log và egress.
+5. **Rollback:** đặt lại `STORAGE_DRIVER=local`, khôi phục tree file dưới `UPLOAD_DIR` từ backup nếu đã xoá; hoặc trỏ lại disk snapshot.
+
+Chi tiết và lệnh mẫu: [`docs/plans/cloudflare-r2-upload-migration.md`](plans/cloudflare-r2-upload-migration.md).

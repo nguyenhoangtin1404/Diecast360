@@ -201,4 +201,42 @@ Issue 1.
 
 ---
 
+## Cutover runbook
+
+**Mục tiêu:** Đưa object từ `UPLOAD_DIR` lên Cloudflare R2 **giữ nguyên key** (trùng `file_path` trong DB), rồi bật `STORAGE_DRIVER=r2`.
+
+**Prerequisites**
+
+- Bucket R2 + API token (S3-compatible); biến `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` trên môi trường đích.
+- Backup tree `UPLOAD_DIR` (hoặc snapshot disk) trước khi xoá local sau cutover.
+- Code đã gồm plans **17-01** (`R2StorageService` + driver), **17-02** (`MediaController` proxy R2), **17-03** (docs này).
+
+**Đồng bộ object (ví dụ rclone)**
+
+1. Cài [rclone](https://rclone.org/) và cấu hình remote R2 (S3 provider, endpoint `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`, `region` = `auto`, access key + secret).
+2. Sync một chiều từ local lên bucket (điều chỉnh đường dẫn local và tên remote/bucket):
+
+```bash
+# Ví dụ — KHÔNG chạy copy-paste: thay LOCAL_UPLOADS, r2remote, bucket
+rclone sync /path/to/LOCAL_UPLOADS r2remote:diecast360-media --progress
+```
+
+Đảm bảo **cấu trúc key** trong bucket là `images/...`, `spinner/...`, v.v. (không thêm prefix không có trong DB).
+
+**Sau sync**
+
+- Restart backend với `STORAGE_DRIVER=r2`.
+- Spot-check: vài `file_path` ngẫu nhiên từ DB mở được qua presigned URL hoặc `GET /api/v1/media?d=&s=`.
+- (Tuỳ chọn) So sánh số file local vs object count trên bucket (rclone `size` / dashboard R2).
+
+**Thứ tự feature flag**
+
+1. Sync dữ liệu → verify key.
+2. Bật `STORAGE_DRIVER=r2` trên staging → kiểm thử upload + đọc ảnh.
+3. Production: maintenance ngắn nếu cần → sync cuối → đổi env → restart.
+
+**Implementers:** Chi tiết code và hợp đồng API trong `.planning/phases/17-cloudflare-r2-upload-migrate-backend-media-from-local-disk-to-object-storage/17-01-PLAN.md`, `17-02-PLAN.md`, `17-03-PLAN.md`.
+
+---
+
 *Tài liệu kế hoạch; triển khai code theo các issue trên.*

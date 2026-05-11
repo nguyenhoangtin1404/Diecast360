@@ -75,7 +75,7 @@ describe('ShopsService', () => {
 
     storage = {
       saveFile: jest.fn().mockResolvedValue('shop-branding/x.png'),
-      getFileUrl: jest.fn((p: string) => `https://signed.example/${p}`),
+      getFileUrl: jest.fn(async (p: string) => `https://signed.example/${p}`),
       deleteFile: jest.fn().mockResolvedValue(undefined),
     };
     uploadSupport = {

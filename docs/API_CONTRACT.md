@@ -476,6 +476,8 @@ Ghi chu: nhom endpoint nay la ke hoach de trien khai MVP pre-order, chua mac din
 - Spinner: `frame_index` phải trong khoảng 0..n và không trùng; order phải đủ tất cả `frame_ids` hiện có.
 
 ## Lưu ý response
-- URL trả về cho ảnh/frame là signed media URL dạng `GET /api/v1/media?d=...&s=...`; backend ghép từ `BACKEND_URL` + `/api/v1` và ký bằng `MEDIA_SIGNING_SECRET` (fallback `JWT_SECRET`).
+- **Lưu trữ media (`STORAGE_DRIVER`):**
+  - `local` (mặc định): URL ảnh/frame trong JSON thường là signed media URL dạng `GET /api/v1/media?d=...&s=...` (backend ghép từ `BACKEND_URL` + `/api/v1`, ký bằng `MEDIA_SIGNING_SECRET` hoặc fallback `JWT_SECRET`). TTL mặc định 7 ngày (`MEDIA_URL_TTL_MS`).
+  - `r2`: Cùng payload DB (đường dẫn tương đối như `images/...`). API thường trả **presigned GET** trỏ thẳng R2; TTL căn `MEDIA_URL_TTL_MS`. Endpoint `GET /api/v1/media?d=&s=` vẫn được hỗ trợ: sau khi xác thực chữ ký, backend **proxy** object từ R2 (không đọc `UPLOAD_DIR`) để tương thích link cũ trong cache/CDN.
 - Không trả password_hash/token_hash.
 - Khi thay đổi API/DB, phải cập nhật docs trước rồi mới code.
