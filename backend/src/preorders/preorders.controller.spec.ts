@@ -34,14 +34,14 @@ describe('PreordersController', () => {
       { note: 'updated' },
       'shop-1',
       'user-2',
-      { user: { role: 'admin' } } as never,
+      { user: { platform_role: null } } as never,
     );
     expect(result).toEqual({ preorder: { id: 'po-2' } });
     expect(service.update).toHaveBeenCalledWith(
       'po-2',
       { note: 'updated' },
       'shop-1',
-      { userId: 'user-2', role: 'admin' },
+      { userId: 'user-2', platformRole: null },
     );
   });
 
@@ -51,13 +51,13 @@ describe('PreordersController', () => {
       { item_id: '26fcb08a-76d7-4b2f-aef5-8a6e30a8f2ab', quantity: 1 },
       'shop-1',
       'user-1',
-      { user: { role: 'admin' } } as never,
+      { user: { platform_role: null } } as never,
     );
     expect(result).toEqual({ preorder: { id: 'po-1' } });
     expect(service.create).toHaveBeenCalledWith(
       { item_id: '26fcb08a-76d7-4b2f-aef5-8a6e30a8f2ab', quantity: 1 },
       'shop-1',
-      { userId: 'user-1', role: 'admin' },
+      { userId: 'user-1', platformRole: null },
     );
   });
 

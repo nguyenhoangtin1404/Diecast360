@@ -13,7 +13,7 @@ import { UpdatePreorderDto } from './dto/update-preorder.dto';
 import { TransitionPreorderStatusDto } from './dto/transition-preorder-status.dto';
 import { QueryPreordersDto } from './dto/query-preorders.dto';
 import { QueryPublicPreordersDto } from './dto/query-public-preorders.dto';
-import { ShopRole } from '../generated/prisma/client';
+import { PlatformRole, ShopRole } from '../generated/prisma/client';
 
 @Controller('preorders')
 export class PreordersController {
@@ -28,8 +28,8 @@ export class PreordersController {
     @CurrentUserId() userId: string | null,
     @Req() req: Request,
   ) {
-    const role = (req.user as { role?: string } | undefined)?.role ?? null;
-    return this.preordersService.create(dto, tenantId, { userId, role });
+    const platformRole = (req.user as { platform_role?: PlatformRole | null } | undefined)?.platform_role ?? null;
+    return this.preordersService.create(dto, tenantId, { userId, platformRole });
   }
 
   @Patch(':id')
@@ -42,8 +42,8 @@ export class PreordersController {
     @CurrentUserId() userId: string | null,
     @Req() req: Request,
   ) {
-    const role = (req.user as { role?: string } | undefined)?.role ?? null;
-    return this.preordersService.update(id, dto, tenantId, { userId, role });
+    const platformRole = (req.user as { platform_role?: PlatformRole | null } | undefined)?.platform_role ?? null;
+    return this.preordersService.update(id, dto, tenantId, { userId, platformRole });
   }
 
   @Patch(':id/status')

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PreOrderStatus } from '../generated/prisma/client';
+import { PlatformRole, PreOrderStatus, ShopRole } from '../generated/prisma/client';
 import { AppException } from '../common/exceptions/http-exception.filter';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PreordersService } from './preorders.service';
@@ -9,6 +9,7 @@ describe('PreordersService', () => {
   const prisma = {
     shop: { findFirst: jest.fn() },
     item: { findFirst: jest.fn() },
+    userShopRole: { findUnique: jest.fn() },
     preOrder: {
       create: jest.fn(),
       findFirst: jest.fn(),
@@ -117,7 +118,7 @@ describe('PreordersService', () => {
           deposit_amount: 120,
         },
         tenantId,
-        { userId: 'user-1', role: 'admin' },
+        { userId: 'user-1', platformRole: null },
       ),
     ).rejects.toBeInstanceOf(AppException);
   });
@@ -134,7 +135,7 @@ describe('PreordersService', () => {
         paid_amount: 50,
       },
       tenantId,
-      { userId: 'user-1', role: 'admin' },
+      { userId: 'user-1', platformRole: null },
     );
 
     expect(prisma.preOrder.create).toHaveBeenCalledWith(
@@ -161,7 +162,7 @@ describe('PreordersService', () => {
           paid_amount: 30,
         },
         tenantId,
-        { userId: 'user-1', role: 'admin' },
+        { userId: 'user-1', platformRole: null },
       ),
     ).rejects.toBeInstanceOf(AppException);
   });
@@ -188,11 +189,13 @@ describe('PreordersService', () => {
     prisma.preOrder.findFirst.mockResolvedValue({
       id: 'po-1',
       shop_id: tenantId,
+      user_id: null,
       quantity: 2,
       unit_price: { toNumber: () => 100 },
       deposit_amount: { toNumber: () => 20 },
       paid_amount: { toNumber: () => 20 },
     });
+    prisma.userShopRole.findUnique.mockResolvedValue({ role: ShopRole.shop_admin });
     prisma.preOrder.update.mockResolvedValue({ id: 'po-1' });
 
     await service.update(
@@ -202,7 +205,7 @@ describe('PreordersService', () => {
         expected_delivery_at: null,
       },
       tenantId,
-      { userId: null, role: 'admin' },
+      { userId: 'shop-admin-1', platformRole: null },
     );
 
     expect(prisma.preOrder.update).toHaveBeenCalledWith(
@@ -215,8 +218,9 @@ describe('PreordersService', () => {
     );
   });
 
-  it('rejects create for another user when actor is not admin', async () => {
+  it('rejects create for another user when assignee is not a shop member', async () => {
     prisma.item.findFirst.mockResolvedValue({ id: 'item-1' });
+    prisma.userShopRole.findUnique.mockResolvedValue(null);
     await expect(
       service.create(
         {
@@ -225,9 +229,50 @@ describe('PreordersService', () => {
           quantity: 1,
         },
         tenantId,
-        { userId: '4fc7be0b-913e-4e34-a754-d12d6457f174', role: 'member' },
+        { userId: '4fc7be0b-913e-4e34-a754-d12d6457f174', platformRole: null },
       ),
     ).rejects.toBeInstanceOf(AppException);
+  });
+
+  it('allows create for another shop member (same tenant)', async () => {
+    prisma.item.findFirst.mockResolvedValue({ id: 'item-1' });
+    prisma.userShopRole.findUnique.mockResolvedValue({ user_id: '63bbf6a8-7a4f-4e95-a860-2e3b2df8f218' });
+    prisma.preOrder.create.mockResolvedValue({ id: 'new-po' });
+
+    await service.create(
+      {
+        item_id: 'f9f4f357-4957-4bdf-a8ea-1434d9f801f7',
+        user_id: '63bbf6a8-7a4f-4e95-a860-2e3b2df8f218',
+        quantity: 1,
+      },
+      tenantId,
+      { userId: '4fc7be0b-913e-4e34-a754-d12d6457f174', platformRole: null },
+    );
+
+    expect(prisma.preOrder.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          user_id: '63bbf6a8-7a4f-4e95-a860-2e3b2df8f218',
+        }),
+      }),
+    );
+  });
+
+  it('allows create for arbitrary user when actor is platform_super', async () => {
+    prisma.item.findFirst.mockResolvedValue({ id: 'item-1' });
+    prisma.preOrder.create.mockResolvedValue({ id: 'new-po' });
+
+    await service.create(
+      {
+        item_id: 'f9f4f357-4957-4bdf-a8ea-1434d9f801f7',
+        user_id: '63bbf6a8-7a4f-4e95-a860-2e3b2df8f218',
+        quantity: 1,
+      },
+      tenantId,
+      { userId: '4fc7be0b-913e-4e34-a754-d12d6457f174', platformRole: PlatformRole.platform_super },
+    );
+
+    expect(prisma.userShopRole.findUnique).not.toHaveBeenCalled();
   });
 
   it('returns pagination metadata for my-orders', async () => {
@@ -243,7 +288,7 @@ describe('PreordersService', () => {
     });
   });
 
-  it('rejects update when actor is not owner and not admin', async () => {
+  it('rejects update when actor is not owner and not shop admin', async () => {
     prisma.preOrder.findFirst.mockResolvedValue({
       id: 'po-3',
       shop_id: tenantId,
@@ -253,13 +298,14 @@ describe('PreordersService', () => {
       deposit_amount: { toNumber: () => 10 },
       paid_amount: { toNumber: () => 10 },
     });
+    prisma.userShopRole.findUnique.mockResolvedValue({ role: ShopRole.shop_staff });
 
     await expect(
       service.update(
         'po-3',
         { note: 'try update' },
         tenantId,
-        { userId: 'other-user', role: 'member' },
+        { userId: 'other-user', platformRole: null },
       ),
     ).rejects.toBeInstanceOf(AppException);
   });
