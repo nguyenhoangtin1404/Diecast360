@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { PreOrderStatus, Prisma } from '../generated/prisma/client';
+import { PlatformRole, PreOrderStatus, Prisma, ShopRole } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { toNumber } from '../common/utils/decimal.utils';
@@ -51,6 +51,66 @@ export class PreordersService {
     if (!shop) {
       throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found or inactive');
     }
+  }
+
+  /** Who may appear as {@link PreOrder.user_id} when different from the actor. */
+  private async assertPreorderAssigneeAllowed(
+    shopId: string,
+    assigneeUserId: string,
+    actorUserId: string | null,
+    platformRole: PlatformRole | null,
+  ): Promise<void> {
+    if (!actorUserId) {
+      throw new AppException(ErrorCode.AUTH_FORBIDDEN, 'Authenticated user is required.');
+    }
+    if (assigneeUserId === actorUserId) {
+      return;
+    }
+    if (platformRole === PlatformRole.platform_super) {
+      return;
+    }
+    const assigneeMembership = await this.prisma.userShopRole.findUnique({
+      where: { user_id_shop_id: { user_id: assigneeUserId, shop_id: shopId } },
+      select: { user_id: true },
+    });
+    if (!assigneeMembership) {
+      throw new AppException(
+        ErrorCode.AUTH_FORBIDDEN,
+        'You may only assign pre-orders to yourself or to users who belong to this shop.',
+      );
+    }
+  }
+
+  /** Who may PATCH a preorder row (owner, shop admin for this shop, or platform super). */
+  private async assertActorCanMutatePreorder(
+    shopId: string,
+    preorderOwnerUserId: string | null,
+    actorUserId: string | null,
+    platformRole: PlatformRole | null,
+  ): Promise<void> {
+    if (!actorUserId) {
+      throw new AppException(ErrorCode.AUTH_FORBIDDEN, 'Authenticated user is required.');
+    }
+    if (platformRole === PlatformRole.platform_super) {
+      return;
+    }
+    if (preorderOwnerUserId != null && preorderOwnerUserId === actorUserId) {
+      return;
+    }
+    const actorMembership = await this.prisma.userShopRole.findUnique({
+      where: { user_id_shop_id: { user_id: actorUserId, shop_id: shopId } },
+      select: { role: true },
+    });
+    if (
+      actorMembership &&
+      (actorMembership.role === ShopRole.shop_admin || actorMembership.role === ShopRole.super_admin)
+    ) {
+      return;
+    }
+    throw new AppException(
+      ErrorCode.AUTH_FORBIDDEN,
+      'You can only update your own pre-order unless you are a shop admin.',
+    );
   }
 
   private validateFinancials(input: {
@@ -119,11 +179,11 @@ export class PreordersService {
   async create(
     dto: CreatePreorderDto,
     tenantId: string,
-    actor: { userId: string | null; role: string | null },
+    actor: { userId: string | null; platformRole: PlatformRole | null },
   ) {
     const shopId = this.requireActiveShopId(tenantId);
-    if (dto.user_id && dto.user_id !== actor.userId && actor.role !== 'admin') {
-      throw new AppException(ErrorCode.AUTH_FORBIDDEN, 'Only admin can create pre-order for another user');
+    if (dto.user_id) {
+      await this.assertPreorderAssigneeAllowed(shopId, dto.user_id, actor.userId, actor.platformRole);
     }
     await this.assertItemInShop(dto.item_id, shopId);
     const normalizedUnitPrice =
@@ -163,7 +223,7 @@ export class PreordersService {
     id: string,
     dto: UpdatePreorderDto,
     tenantId: string,
-    actor: { userId: string | null; role: string | null },
+    actor: { userId: string | null; platformRole: PlatformRole | null },
   ) {
     const shopId = this.requireActiveShopId(tenantId);
     const current = await this.prisma.preOrder.findFirst({
@@ -172,8 +232,14 @@ export class PreordersService {
     if (!current) {
       throw new AppException(ErrorCode.NOT_FOUND, 'Pre-order not found');
     }
-    if (current.user_id !== actor.userId && actor.role !== 'admin') {
-      throw new AppException(ErrorCode.AUTH_FORBIDDEN, 'You can only update your own pre-order');
+    await this.assertActorCanMutatePreorder(
+      shopId,
+      current.user_id,
+      actor.userId,
+      actor.platformRole,
+    );
+    if (dto.user_id !== undefined) {
+      await this.assertPreorderAssigneeAllowed(shopId, dto.user_id, actor.userId, actor.platformRole);
     }
     if (dto.item_id) {
       await this.assertItemInShop(dto.item_id, shopId);
