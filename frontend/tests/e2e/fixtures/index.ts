@@ -120,13 +120,13 @@ type TestFixtures = {
 };
 
 export const test = base.extend<TestFixtures>({
-  authenticatedPage: async ({ page }, use) => {
+  // `use` is Playwright's fixture runner; name it to avoid tripping `react-hooks/rules-of-hooks` on `use*`.
+  authenticatedPage: async ({ page }, runFixture) => {
     await stubAuthCsrf(page);
     await page.route('**/api/v1/auth/me', (route: Route) =>
       route.fulfill({ json: authMePayload() }),
     );
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- `use` is Playwright's fixture callback, not a React Hook
-    await use(page);
+    await runFixture(page);
   },
 });
 

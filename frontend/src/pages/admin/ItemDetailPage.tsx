@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, type KeyboardEvent } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, uploadFile } from '../../api/client';
@@ -10,7 +10,12 @@ import type { CategoryItem, ApiResponse } from '../../types/category';
 import { showToast } from '../../utils/toast';
 import type { FacebookPost } from '../../types/item.types';
 import { jumpToStepWithAutoSave, navigateStepWithAutoSave, type ProductStep } from './itemStepNavigation';
-import { buildStepUrlAfterCreate, evaluateFinishDecision, shouldBlockEnterSubmit } from './itemWorkflow';
+import {
+  buildStepUrlAfterCreate,
+  evaluateFinishDecision,
+  parseProductStepFromSearchParams,
+  shouldBlockEnterSubmit,
+} from './itemWorkflow';
 import { MAX_SPINNER_FRAMES } from '../../constants/spinner';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useOptionalActiveShopId } from '../../hooks/useOptionalActiveShopId';
@@ -359,8 +364,23 @@ export const ItemDetailPage = () => {
   const socialSellingRef = useRef<HTMLDivElement>(null);
   const stepNavInFlightRef = useRef(false);
   const imagePreviewUrlsRef = useRef<string[]>([]);
-  const [searchParams] = useSearchParams();
-  const [currentStep, setCurrentStep] = useState<ProductStep>(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlStep = useMemo(() => parseProductStepFromSearchParams(searchParams), [searchParams]);
+  /** Wizard step is driven by `?step=` so URL and UI stay aligned without effect-driven sync. */
+  const currentStep: ProductStep = urlStep ?? 1;
+  const setCurrentStep = useCallback(
+    (step: ProductStep) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('step', String(step));
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
   const isMobile = useIsMobile();
   const activeShopId = useOptionalActiveShopId();
 
@@ -474,16 +494,7 @@ export const ItemDetailPage = () => {
         socialSellingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 300);
     }
-  }, [searchParams, data]);
-
-  useEffect(() => {
-    const stepFromQuery = searchParams.get('step');
-    if (!stepFromQuery) return;
-    const parsed = Number(stepFromQuery);
-    if ([1, 2, 3, 4].includes(parsed)) {
-      queueMicrotask(() => setCurrentStep(parsed as ProductStep)); // defer to avoid sync setState in effect body
-    }
-  }, [searchParams]);
+  }, [searchParams, data, setCurrentStep]);
 
   const extractItemIdFromResponse = (response: unknown): string | null => {
     const isApiResponse = (r: unknown): r is ApiResponse<ItemResponse> => {

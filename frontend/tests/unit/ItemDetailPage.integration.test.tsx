@@ -23,7 +23,20 @@ const h = vi.hoisted(() => ({
 vi.mock('react-router-dom', () => ({
   useParams: () => h.params,
   useNavigate: () => h.mockNavigate,
-  useSearchParams: () => [new URLSearchParams(h.search)],
+  useSearchParams: () => {
+    const [params, setParams] = React.useState(() => new URLSearchParams(h.search));
+    const setSearchParams = React.useCallback(
+      (next: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams)) => {
+        setParams((prev) => {
+          const resolved = typeof next === 'function' ? next(prev) : next;
+          h.search = resolved.toString();
+          return new URLSearchParams(resolved.toString());
+        });
+      },
+      [],
+    );
+    return [params, setSearchParams] as const;
+  },
 }));
 
 vi.mock('../../src/api/client', () => ({
@@ -152,6 +165,25 @@ describe('ItemDetailPage integration (real React Query)', () => {
       expect(h.apiClient.post).toHaveBeenCalled();
       expect(h.mockNavigate).not.toHaveBeenCalled();
       expect(h.mockShowToast).toHaveBeenCalledWith('Không thể tạo sản phẩm. Vui lòng thử lại.');
+    });
+  });
+
+  it('writes ?step= to the URL when advancing the wizard via the stepper', async () => {
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ItemDetailPage />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect((screen.getAllByRole('textbox')[0] as HTMLInputElement).value).toBe('Ferrari F40');
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Hình ảnh/i })[0]);
+
+    await waitFor(() => {
+      expect(h.search).toContain('step=2');
     });
   });
 

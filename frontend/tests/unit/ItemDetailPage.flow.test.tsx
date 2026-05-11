@@ -71,7 +71,20 @@ function createBaseItemData() {
 vi.mock('react-router-dom', () => ({
   useParams: () => h.params,
   useNavigate: () => h.mockNavigate,
-  useSearchParams: () => [new URLSearchParams(h.search)],
+  useSearchParams: () => {
+    const [params, setParams] = React.useState(() => new URLSearchParams(h.search));
+    const setSearchParams = React.useCallback(
+      (next: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams)) => {
+        setParams((prev) => {
+          const resolved = typeof next === 'function' ? next(prev) : next;
+          h.search = resolved.toString();
+          return new URLSearchParams(resolved.toString());
+        });
+      },
+      [],
+    );
+    return [params, setSearchParams] as const;
+  },
 }));
 
 vi.mock('../../src/api/client', () => ({

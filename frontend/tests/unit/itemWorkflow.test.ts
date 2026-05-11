@@ -2,12 +2,21 @@ import { describe, expect, it } from 'vitest';
 import {
   buildStepUrlAfterCreate,
   evaluateFinishDecision,
+  parseProductStepFromSearchParams,
   shouldBlockEnterSubmit,
 } from '../../src/pages/admin/itemWorkflow';
 
 describe('itemWorkflow', () => {
   it('builds create->step2 url correctly', () => {
     expect(buildStepUrlAfterCreate('abc123')).toBe('/admin/items/abc123?step=2');
+  });
+
+  it('parses valid step query (1–4) and rejects invalid or missing', () => {
+    expect(parseProductStepFromSearchParams(new URLSearchParams('step=3'))).toBe(3);
+    expect(parseProductStepFromSearchParams(new URLSearchParams(''))).toBeNull();
+    expect(parseProductStepFromSearchParams(new URLSearchParams('step=0'))).toBeNull();
+    expect(parseProductStepFromSearchParams(new URLSearchParams('step=5'))).toBeNull();
+    expect(parseProductStepFromSearchParams(new URLSearchParams('step=banana'))).toBeNull();
   });
 
   it('allows finishing and returning to list when media is complete', () => {
