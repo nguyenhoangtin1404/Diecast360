@@ -10,13 +10,15 @@ Danh sach plan chi tiet theo tung issue:
 - `49-reporting-and-analytics.md`
 - `57-quantity-and-custom-attributes.md`
 - `58-mobile-responsive-ui.md`
+- `59-category-tenant-guard-hardening.md`
 
 Thu tu uu tien de xuat:
-1. 58
-2. 57
-3. 46
-4. 13
-5. 49
-6. 48
-7. 44
-8. 33
+1. 59 (security hardening)
+2. 58
+3. 57
+4. 46
+5. 13
+6. 49
+7. 48
+8. 44
+9. 33

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-05-09T03:03:14.681Z"
+last_updated: "2026-05-12T07:45:00.000Z"
 progress:
-  total_phases: 17
-  completed_phases: 11
-  total_plans: 39
-  completed_plans: 22
+  total_phases: 18
+  completed_phases: 17
+  total_plans: 40
+  completed_plans: 39
 ---
 
 ---
@@ -31,16 +31,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-30)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 17 (Cloudflare R2 media storage) — **planned** 2026-05-08; execute with `$gsd-execute-phase 17`. Plans under `.planning/phases/17-cloudflare-r2-upload-migrate-backend-media-from-local-disk-to-object-storage/`.
+**Current focus:** Phase 18 (Issue #59 - Category Tenant Guard Hardening) — planned 2026-05-12; execute `18-01` to close inactive-shop authorization lifecycle gap on category mutate routes.
 
 ## Current Position
 
-Phase: **17** — Cloudflare R2 upload (**planned**: 17-01..17-03 + RESEARCH)
-Plan: **17-01** (wave 1) → **17-02** → **17-03**
-Status: Ready for `$gsd-execute-phase 17`.
-Last activity: 2026-05-08 — `$gsd-plan-phase 17` produced RESEARCH + three PLAN files; roadmap goal/requirements updated.
+Phase: **18** — Issue #59 Category Tenant Guard Hardening (**planned**: 18-01)
+Plan: **18-01** Harden category mutate tenant authorization
+Status: Ready for implementation.
+Last activity: 2026-05-12 — created Issue #59 and Phase 18 plan from code review finding.
 
-Progress: [#########.] 16/17 phases shipped; Phase 17 planned, execution pending.
+Progress: [#########.] 17/18 phases shipped; Phase 18 planned, execution pending.
 
 ## Performance Metrics
 
@@ -85,9 +85,11 @@ Progress: [#########.] 16/17 phases shipped; Phase 17 planned, execution pending
 
 - Phase 17 added: Cloudflare R2 upload — migrate backend media from local disk to object storage (2026-05-08).
 - Phase 17 planned: RESEARCH + plans 17-01..17-03 + PLAN-CHECK (2026-05-08).
+- Phase 18 added: Issue #59 Category Tenant Guard Hardening (2026-05-12).
 
 ### Pending Todos
 
+- Execute Phase 18 Plan 18-01 to harden category mutate tenant authorization.
 - Merge nhánh `feat/security-signed-media-csrf-throttle` + cập nhật `docs/API_CONTRACT.md` / `ENV.md` nếu chưa làm.
 
 ### Blockers/Concerns
@@ -96,6 +98,6 @@ Progress: [#########.] 16/17 phases shipped; Phase 17 planned, execution pending
 
 ## Session Continuity
 
-Last session: 2026-05-08 (`$gsd-plan-phase 17` — research + executable plans)
-Stopped at: **Execute** — run `$gsd-execute-phase 17`.
-Resume file: `.planning/phases/17-cloudflare-r2-upload-migrate-backend-media-from-local-disk-to-object-storage/17-01-PLAN.md`
+Last session: 2026-05-12 (created Issue #59 + Phase 18 executable plan)
+Stopped at: **Execute** — implement `.planning/phases/18-category-tenant-guard-hardening/18-01-PLAN.md`.
+Resume file: `.planning/phases/18-category-tenant-guard-hardening/18-01-PLAN.md`

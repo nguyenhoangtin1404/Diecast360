@@ -6,20 +6,22 @@ Ngay lap: 2026-03-04
 
 | Thu tu | Issue | Muc tieu |
 |---|---|---|
-| 1 | #58 - Responsive mobile | On dinh UI tren mobile truoc khi mo rong tinh nang |
-| 2 | #57 - So luong + thuoc tinh dac biet | Chuan hoa du lieu san pham/kho |
-| 3 | #13 - Quan ly Pre-Order | Them luong dat truoc va theo doi trang thai |
-| 4 | #46 - Quan ly kho mo rong | Xay module kho cho shop quy mo lon hon |
-| 5 | #49 - Bao cao thong ke | Co dashboard KPI ban hang/kho |
-| 6 | #48 - Diem + hoi vien | Mo rong loyalty |
-| 7 | #44 - Playwright automation | Tu dong hoa test E2E cho cac luong chinh |
-| 8 | #33 - Playwright hardening/coverage | Tang do bao phu test + CI gate |
+| 1 | #59 - Category Tenant Guard Hardening | Dong bo active-shop authorization cho category mutate routes |
+| 2 | #58 - Responsive mobile | On dinh UI tren mobile truoc khi mo rong tinh nang |
+| 3 | #57 - So luong + thuoc tinh dac biet | Chuan hoa du lieu san pham/kho |
+| 4 | #13 - Quan ly Pre-Order | Them luong dat truoc va theo doi trang thai |
+| 5 | #46 - Quan ly kho mo rong | Xay module kho cho shop quy mo lon hon |
+| 6 | #49 - Bao cao thong ke | Co dashboard KPI ban hang/kho |
+| 7 | #48 - Diem + hoi vien | Mo rong loyalty |
+| 8 | #44 - Playwright automation | Tu dong hoa test E2E cho cac luong chinh |
+| 9 | #33 - Playwright hardening/coverage | Tang do bao phu test + CI gate |
 
 Ghi chu:
 - #44 va #33 deu lien quan Playwright. Tach 2 giai doan: setup co ban -> mo rong coverage + chat luong CI.
 
 ## 2) Phu thuoc giua cac issue
 
+- #59 la security hardening nen uu tien truoc cac feature/UI work.
 - #58 la nen tang UI, can xong som de giam no UI debt.
 - #57 la nen tang data model cho #46, #49, #13.
 - #13 + #46 tao du lieu van hanh de #49 thong ke chinh xac.
@@ -27,6 +29,26 @@ Ghi chu:
 - #44 bat dau song song tu som, #33 la buoc nang cao sau khi cac luong chinh on.
 
 ## 3) Ke hoach chi tiet tung issue
+
+
+## Issue #59 - Category Tenant Guard Hardening
+
+Muc tieu:
+- Dong bo authorization lifecycle cho cac route mutate category voi cac tenant API khac.
+- Dam bao shop inactive khong con mutate duoc category bang JWT cu.
+
+Cong viec:
+- Audit `CategoriesController` route matrix cho public read, platform-super global mutate, va shop-level mutate.
+- Them active-shop validation vao path mutate category shop-level thong qua `TenantGuard` hoac equivalent check trong `RolesGuard`.
+- Bao toan defense-in-depth trong `CategoriesService.assertCanMutateCategory`.
+- Them regression tests cho inactive-shop denial, active-shop admin success, staff read-only restriction, va platform-super global flow.
+
+DoD:
+- Inactive active shop bi deny khi mutate category.
+- Platform-super khong bi regression khi quan ly global category.
+- Backend lint + targeted/full Jest pass.
+
+---
 
 ## Issue #58 - Cap nhat giao dien responsive mobile
 
