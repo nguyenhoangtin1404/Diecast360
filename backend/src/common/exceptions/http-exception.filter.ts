@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ErrorCode, HTTP_STATUS_MAP } from '../constants/error-codes';
+import { pathWithoutQuery } from '../middleware/csrf.middleware';
 
 // Export ErrorCode để các module khác có thể import
 export { ErrorCode };
@@ -50,6 +51,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest();
+    const logPath = pathWithoutQuery(
+      typeof request.originalUrl === 'string' ? request.originalUrl : String(request.url ?? ''),
+    );
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let errorResponse: ErrorResponse = {
@@ -103,7 +107,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       this.logger.error(
         `Unexpected error: ${exception instanceof Error ? exception.message : String(exception)}`,
         exception instanceof Error ? exception.stack : undefined,
-        `${request.method} ${request.url}`,
+        `${request.method} ${logPath}`,
       );
     }
 
@@ -112,7 +116,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         typeof errorResponse.error?.code === 'string' ? errorResponse.error.code : 'unknown';
       if (code !== ErrorCode.AUTH_INVALID_CREDENTIALS) {
         this.logger.warn(
-          `http.client_error status=${status} method=${request.method} path=${request.url} code=${code}`,
+          `http.client_error status=${status} method=${request.method} path=${logPath} code=${code}`,
         );
       }
     }
