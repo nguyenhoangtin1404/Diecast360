@@ -21,8 +21,8 @@ Neu mot shop bi deactivate sau khi JWT da duoc cap, shop admin/staff co the con 
 - Khong doi platform-super global category behavior.
 
 ## Tasks
-1. Add `TenantGuard` vao cac route category mutate shop-level de request duoc validate active shop truoc khi vao `RolesGuard`/service.
-2. Bao toan platform-super behavior cho global category create/update/toggle/delete neu route can platform-level access.
+1. Thiet ke patch khong lam regression platform-super: split route platform-only/tenant-only hoac bo sung active-shop validation vao tenant-role path.
+2. Khong them `TenantGuard` mot cach may moc vao mixed platform+tenant routes neu viec do buoc platform_super phai co active shop.
 3. Them/bo sung test cho scenario shop inactive sau khi JWT da cap:
    - shop admin/staff bi deny khi mutate shop category cua inactive active shop.
    - platform_super van mutate global category duoc theo rule hien tai.
@@ -35,7 +35,7 @@ Neu mot shop bi deactivate sau khi JWT da duoc cap, shop admin/staff co the con 
 - Cap nhat docs/planning summary neu behavior authorization thay doi dang ke.
 
 ## Done Criteria
-- Category mutate routes shop-level deu di qua active-shop validation tu `TenantGuard` hoac equivalent check trong `RolesGuard`.
+- Category mutate routes shop-level deu di qua active-shop validation tu `TenantGuard` sau khi split route, hoac equivalent check trong `RolesGuard`/tenant-role path.
 - Inactive shop khong the mutate shop-scoped category bang JWT cu.
 - Platform-super flow khong bi regression.
 - Backend lint + relevant Jest suite pass.

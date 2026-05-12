@@ -13,7 +13,7 @@ Code review ngay 2026-05-12 phat hien category mutate routes dang thieu `TenantG
 Sau khi shop bi deactivate, access token cu van co `active_shop_id`. Neu user van co `user_shop_roles` row, `RolesGuard` co the pass route mutate category cho den khi token het han. Day la authorization lifecycle gap, khong phai cross-tenant data leak truc tiep.
 
 ## Preferred Direction
-Giu pattern hien tai cua codebase: them `TenantGuard` vao category mutate routes can tenant-level roles. Neu can route chap nhan ca platform-super va tenant roles, plan can dam bao platform-super khong bi buoc phai co active shop khi thao tac global category.
+Giu active-shop validation nhat quan voi cac tenant API khac, nhung khong them `TenantGuard` may moc vao mixed platform+tenant routes. Neu route chap nhan ca platform-super va tenant roles, implementation phai split platform-only/tenant-only path hoac bo sung `shop.is_active` validation trong tenant-role branch de platform_super khong bi buoc phai co active shop khi thao tac global category.
 
 ## Files to Inspect
 - `backend/src/categories/categories.controller.ts`

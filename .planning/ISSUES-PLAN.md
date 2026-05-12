@@ -39,13 +39,13 @@ Muc tieu:
 
 Cong viec:
 - Audit `CategoriesController` route matrix cho public read, platform-super global mutate, va shop-level mutate.
-- Them active-shop validation vao path mutate category shop-level thong qua `TenantGuard` hoac equivalent check trong `RolesGuard`.
+- Them active-shop validation vao path mutate category shop-level thong qua route split + `TenantGuard` hoac equivalent check trong `RolesGuard`/tenant-role path.
 - Bao toan defense-in-depth trong `CategoriesService.assertCanMutateCategory`.
 - Them regression tests cho inactive-shop denial, active-shop admin success, staff read-only restriction, va platform-super global flow.
 
 DoD:
 - Inactive active shop bi deny khi mutate category.
-- Platform-super khong bi regression khi quan ly global category.
+- Platform-super khong bi regression khi quan ly global category va khong bi buoc chon active shop.
 - Backend lint + targeted/full Jest pass.
 
 ---
