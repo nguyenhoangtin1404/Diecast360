@@ -107,6 +107,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       );
     }
 
+    if (status === 401 || status === 403) {
+      const code =
+        typeof errorResponse.error?.code === 'string' ? errorResponse.error.code : 'unknown';
+      this.logger.warn(`http.client_error status=${status} method=${request.method} path=${request.url} code=${code}`);
+    }
+
     response.status(status).json(errorResponse);
   }
 }

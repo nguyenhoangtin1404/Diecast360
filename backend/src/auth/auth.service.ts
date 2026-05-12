@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { StringValue } from 'ms';
 import * as bcrypt from 'bcrypt';
@@ -12,6 +12,8 @@ import { SwitchShopDto } from './dto/switch-shop.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -23,11 +25,13 @@ export class AuthService {
     });
 
     if (!user || !user.is_active) {
+      this.logger.warn(`auth.login_failed reason=user_missing_or_inactive email=${loginDto.email}`);
       throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials');
     }
 
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.password_hash);
     if (!isPasswordValid) {
+      this.logger.warn(`auth.login_failed reason=bad_password email=${loginDto.email}`);
       throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials');
     }
 

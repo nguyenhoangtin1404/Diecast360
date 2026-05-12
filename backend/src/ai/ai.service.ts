@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { Item } from '../generated/prisma/client';
@@ -11,6 +11,9 @@ import { AiDescriptionResponseDto } from './dto/ai-description.dto';
 @Injectable()
 export class AiService {
   private openai: OpenAI;
+  private readonly logger = new Logger(AiService.name);
+
+  private static readonly CUSTOM_INSTRUCTIONS_MAX = 2000;
 
   constructor(
     private prisma: PrismaService,
@@ -18,7 +21,7 @@ export class AiService {
   ) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (!apiKey) {
-      console.warn('OPENAI_API_KEY not configured. AI features will not work.');
+      this.logger.warn('OPENAI_API_KEY not configured. AI features will not work.');
     }
     this.openai = new OpenAI({
       apiKey: apiKey || 'not-configured',
@@ -46,11 +49,13 @@ export class AiService {
     }
 
     // Build prompt
-    const prompt = this.buildPrompt(item, customInstructions);
+    const prompt = this.buildPrompt(item, this.clampCustomInstructions(customInstructions));
 
     try {
       const model = this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
-      
+      this.logger.log(
+        `ai.openai_call op=description shop_id=${tenantId} item_id=${itemId} model=${model}`,
+      );
       const completion = await this.openai.chat.completions.create({
         model,
         messages: [
@@ -87,7 +92,7 @@ Trả về JSON với format sau (KHÔNG có markdown code block):
       if (error instanceof AppException) {
         throw error;
       }
-      console.error('OpenAI API error:', error);
+      this.logger.error('OpenAI API error', error instanceof Error ? error.stack : String(error));
       throw this.mapProviderError(error, 'Failed to generate AI description');
     }
   }
@@ -113,11 +118,11 @@ Trả về JSON với format sau (KHÔNG có markdown code block):
     }
 
     // Build prompt for FB post
-    const prompt = this.buildFbPostPrompt(item, customInstructions);
+    const prompt = this.buildFbPostPrompt(item, this.clampCustomInstructions(customInstructions));
 
     try {
       const model = this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
-      
+      this.logger.log(`ai.openai_call op=fb_post shop_id=${tenantId} item_id=${itemId} model=${model}`);
       const completion = await this.openai.chat.completions.create({
         model,
         messages: [
@@ -154,7 +159,7 @@ Cấu trúc bài viết:
       if (error instanceof AppException) {
         throw error;
       }
-      console.error('OpenAI API error:', error);
+      this.logger.error('OpenAI API error', error instanceof Error ? error.stack : String(error));
       throw this.mapProviderError(error, 'Failed to generate Facebook post');
     }
   }
@@ -234,10 +239,18 @@ Cấu trúc bài viết:
   }
 
 
-  async analyzeImages(imageBuffers: Buffer[]): Promise<import('../items/dto/ai-draft.dto').AiAnalysisResult> {
+  async analyzeImages(
+    imageBuffers: Buffer[],
+    context?: { shop_id?: string; op?: string },
+  ): Promise<import('../items/dto/ai-draft.dto').AiAnalysisResult> {
     this.ensureApiKeyConfigured();
 
     const model = this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
+    if (context?.shop_id) {
+      this.logger.log(
+        `ai.openai_call op=${context.op ?? 'image_analyze'} shop_id=${context.shop_id} model=${model} images=${imageBuffers.length}`,
+      );
+    }
 
     const imageMessages = imageBuffers.map(buffer => ({
       type: 'image_url' as const,
@@ -298,9 +311,21 @@ Cấu trúc bài viết:
       if (error instanceof AppException) {
         throw error;
       }
-      console.error('OpenAI Vision Error:', error);
+      this.logger.error('OpenAI Vision Error', error instanceof Error ? error.stack : String(error));
       throw this.mapProviderError(error, 'Failed to analyze images');
     }
+  }
+
+  private clampCustomInstructions(raw?: string): string | undefined {
+    if (raw == null || typeof raw !== 'string') {
+      return undefined;
+    }
+    const t = raw.trim();
+    if (!t) return undefined;
+    if (t.length <= AiService.CUSTOM_INSTRUCTIONS_MAX) {
+      return t;
+    }
+    return t.slice(0, AiService.CUSTOM_INSTRUCTIONS_MAX);
   }
 
   private ensureApiKeyConfigured() {

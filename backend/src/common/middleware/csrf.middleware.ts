@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import { Logger } from '@nestjs/common';
 
 const CSRF_COOKIE = 'csrf_token';
 const CSRF_HEADER = 'x-csrf-token';
@@ -51,6 +52,7 @@ export function isCsrfExemptRoute(fullUrl: string): boolean {
  * Raw binary endpoint GET /api/v1/media is also safe method — not listed here intentionally.
  */
 export function createCsrfMiddleware(): (req: Request, res: Response, next: NextFunction) => void {
+  const logger = new Logger('CsrfMiddleware');
   return (req: Request, res: Response, next: NextFunction) => {
     const method = (req.method || 'GET').toUpperCase();
     if (isSafeMethod(method)) {
@@ -70,6 +72,8 @@ export function createCsrfMiddleware(): (req: Request, res: Response, next: Next
     const cookie = req.cookies?.[CSRF_COOKIE] as string | undefined;
 
     if (!header || !cookie || header !== cookie) {
+      const pathOnly = pathWithoutQuery(fullPath);
+      logger.warn(`csrf.rejected method=${method} path=${pathOnly}`);
       res.status(403).json({
         ok: false,
         error: { code: 'CSRF_INVALID', details: [] },

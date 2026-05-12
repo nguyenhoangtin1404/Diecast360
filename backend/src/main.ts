@@ -6,8 +6,10 @@ import { AllExceptionsFilter } from './common/exceptions/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import * as sharp from 'sharp';
 import * as cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { createCsrfMiddleware } from './common/middleware/csrf.middleware';
 import { validateRuntimeSecurityConfig } from './common/security/runtime-security';
+import { buildHelmetOptions } from './common/security/security-headers';
 
 /** Merge FRONTEND_URL + FRONTEND_URLS and add localhost ↔ 127.0.0.1 variants (same port). */
 function buildCorsAllowedOrigins(): string[] {
@@ -63,7 +65,9 @@ sharp.simd(false); // Disable SIMD to reduce memory footprint (slight performanc
 async function bootstrap() {
   validateRuntimeSecurityConfig();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  
+
+  app.use(helmet(buildHelmetOptions()));
+
   // Cookie parser middleware - enables reading cookies from requests
   const cookieSecret = process.env.COOKIE_SECRET;
   if (!cookieSecret || cookieSecret.trim().length < 32) {

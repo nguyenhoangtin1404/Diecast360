@@ -18,6 +18,7 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 | DATABASE_URL | Kết nối Database | Xem bên dưới | Bắt buộc |
 | DIRECT_URL | Kết nối trực tiếp DB cho Prisma CLI | Xem bên dưới | Bắt buộc với PostgreSQL + Prisma migrate/introspect |
 | JWT_SECRET | Secret ký access token | `super-secret` | Bắt buộc, đủ entropy |
+| JWT_ALLOW_AUTHORIZATION_BEARER | Cho phép đọc access JWT từ header `Authorization: Bearer` | `true` (mặc định) | Đặt `false` khi chỉ dùng web + cookie HttpOnly để thu hẹp kênh lộ token (XSS không đọc được cookie nhưng có thể đọc header nếu JS chèn được fetch tùy biến). |
 | JWT_EXPIRES_IN | TTL access token | `15m` | Chuỗi thời gian (ms, s, m, h...) |
 | REFRESH_TOKEN_EXPIRES_IN | TTL refresh token | `7d` | Dùng để tính `expires_at` |
 | UPLOAD_DIR | Thư mục lưu file local | `./uploads` | Khi `STORAGE_DRIVER=local` phải tồn tại/ghi được. Khi `STORAGE_DRIVER=r2`, thư mục không dùng cho đọc media (upload qua S3 API); vẫn có thể để mặc định cho dev. |
@@ -29,6 +30,7 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 | COOKIE_SECRET | Secret ký cookies | random 32+ chars | Bắt buộc, đổi trong production |
 | COOKIE_SECURE | Chỉ gửi cookies qua HTTPS | `false` (dev) / `true` (prod) | Bật khi deploy HTTPS |
 | COOKIE_SAME_SITE | SameSite attribute cho cookies | `lax` (dev) / `strict` hoặc `none` (prod) | Dùng **`none`** khi frontend và API **khác domain**; bắt buộc `COOKIE_SECURE=true` |
+| SECURITY_HSTS_DISABLED | Tắt header HSTS dù production + HTTPS cookie | `false` (mặc định) | Chỉ đặt `true` khi cần rollback khẩn cấp; HSTS được bật khi `NODE_ENV=production` và `COOKIE_SECURE=true`. Header bảo mật khác (CSP API, `X-Content-Type-Options`, frame) do Helmet trong `main.ts`. |
 | FRONTEND_URLS | Danh sách origin frontend bổ sung | `https://preview.example.com,https://admin.example.com` | Tùy chọn; tách bằng dấu phẩy. Backend tự thêm biến thể `localhost`/`127.0.0.1` cùng port từ `FRONTEND_URL`. |
 | CORS_ALLOW_LAN | Cho phép origin LAN private trong dev | `true` (dev LAN) / `false` (prod) | Chỉ dùng khi test UI qua Vite `--host`; production boot sẽ reject nếu `true`. |
 | MEDIA_SIGNING_SECRET | Secret ký URL media | random 32+ chars | Tùy chọn nhưng khuyến nghị; nếu bỏ trống dùng `JWT_SECRET`, làm xoay JWT có thể vô hiệu link ảnh cũ. |
