@@ -2,6 +2,9 @@
 
 Tài liệu này dành cho **người vận hành cửa hàng** (không cần biết lập trình). Bạn chỉ cần trình duyệt web (Chrome, Edge, Safari, Firefox) và tài khoản được cấp.
 
+**Tên miền chính của cửa hàng:** `https://www.dhtoys.store`  
+Mọi đường dẫn trong tài liệu (dạng `/admin/...`, `/contact`, …) khi dùng thật trên mạng đều gắn **phía trước** tên miền này. Ví dụ: `/admin/login` → `https://www.dhtoys.store/admin/login`.
+
 ---
 
 ## 1. Diecast360 là gì (một cách dễ hiểu)
@@ -15,19 +18,39 @@ Mỗi **shop** (cửa hàng) có dữ liệu **tách biệt**: sản phẩm, dan
 
 ## 2. Chuẩn bị trước khi vào quản trị
 
-1. **Địa chỉ trang web**  
-   Ví dụ môi trường phát triển: `http://localhost:5173` (số cổng có thể khác tùy cài đặt của đội kỹ thuật).  
-   Địa chỉ thật khi lên mạng do đơn vị vận hành cung cấp.
+1. **Địa chỉ trang web (chính thức)**  
+   Mở trang chủ: `https://www.dhtoys.store`  
+   *(Nếu đội kỹ thuật cho bạn thử trên máy nội bộ, họ có thể đưa địa chỉ dạng `http://localhost:…` — cách dùng giống hệt, chỉ khác phần đầu URL.)*
 
 2. **Đường dẫn đăng nhập quản trị**  
-   Mở: `…/admin/login`  
-   (Ví dụ: `http://localhost:5173/admin/login`)
+   Mở trực tiếp: `https://www.dhtoys.store/admin/login`
 
 3. **Email và mật khẩu**  
    Do quản trị hệ thống hoặc chủ shop cấp. Nếu quên mật khẩu, liên hệ người quản lý tài khoản (hệ thống không mô tả trang “quên mật khẩu” trong tài liệu này).
 
 4. **Sau khi đăng nhập thành công**  
-   Trang đầu tiên thường là **Báo cáo** (`/admin/reports`).
+   Trang đầu tiên thường là **Báo cáo**: `https://www.dhtoys.store/admin/reports`
+
+### Link nhanh (đã gắn tên miền `https://www.dhtoys.store`)
+
+| Khu vực | Địa chỉ đầy đủ |
+|--------|----------------|
+| Đăng nhập quản trị | `https://www.dhtoys.store/admin/login` |
+| Báo cáo | `https://www.dhtoys.store/admin/reports` |
+| Hội viên | `https://www.dhtoys.store/admin/members` |
+| Sản phẩm | `https://www.dhtoys.store/admin/items` |
+| AI tool (thêm SP từ ảnh) | `https://www.dhtoys.store/admin/items/import` |
+| Danh mục (không có trong menu) | `https://www.dhtoys.store/admin/categories` |
+| Pre-order | `https://www.dhtoys.store/admin/preorders` |
+| Tạo pre-order | `https://www.dhtoys.store/admin/preorders/create` |
+| Pre-order theo campaign | `https://www.dhtoys.store/admin/preorders/manage` |
+| Bài đăng Facebook | `https://www.dhtoys.store/admin/facebook-posts` |
+| Cấu hình shop | `https://www.dhtoys.store/admin/shop-settings` |
+| Quản lý shop (quản trị nền tảng) | `https://www.dhtoys.store/admin/shops` |
+| Trang chủ catalog (khách) | `https://www.dhtoys.store/` |
+| Đặt trước (khách) | `https://www.dhtoys.store/preorders` |
+| Đơn của tôi (khách) | `https://www.dhtoys.store/my-orders` |
+| Liên hệ (khách) | `https://www.dhtoys.store/contact` |
 
 ---
 
@@ -86,7 +109,7 @@ Gần logo Diecast360 ở sidebar có **ô chọn shop** (hoặc hiển thị t�
 
 ### Đăng nhập
 
-1. Mở trình duyệt, vào `…/admin/login`.
+1. Mở trình duyệt, vào `https://www.dhtoys.store/admin/login`.
 2. Nhập **email**.
 3. Nhập **mật khẩu**.
 4. Nhấn nút đăng nhập.
@@ -310,7 +333,9 @@ Các mục bạn có thể chỉnh (theo form trong hệ thống):
 
 **Mẹo:** Để trống một trường rồi **Lưu** thường có nghĩa là **xóa** giá trị đó trên trang công khai (theo gợi ý trên màn hình).
 
-Trang liên hệ công khai của khách nằm ở đường dẫn dạng `/contact?shop_id=…` (ID hoặc slug shop — kỹ thuật viên có thể gửi link đầy đủ cho bạn).
+Trang liên hệ công khai của khách có dạng:  
+`https://www.dhtoys.store/contact?shop_id=…`  
+(phần `shop_id` là ID hoặc slug shop — kỹ thuật viên có thể gửi link đầy đủ cho bạn).
 
 ### 13.3 Giao diện (logo, màu, font)
 
@@ -348,10 +373,9 @@ Sau khi lưu, catalog / admin có thể **cập nhật logo màu** sau một lú
 
 Trang này quản lý **Hãng xe** và **Hãng mô hình** (hai loại tab).
 
-**Cách vào:** Gõ trực tiếp đường dẫn trên trình duyệt:  
-`…/admin/categories`  
-(ví dụ `http://localhost:5173/admin/categories`)  
-vì **menu sidebar hiện không có mục “Danh mục”** — bạn có thể **đánh dấu bookmark** để khỏi nhớ.
+**Cách vào:** Gõ trực tiếp trên trình duyệt:  
+`https://www.dhtoys.store/admin/categories`  
+vì **menu sidebar hiện không có mục “Danh mục”** — bạn nên **đánh dấu bookmark** link này để khỏi nhớ.
 
 **Thao tác:**
 
@@ -369,13 +393,13 @@ Luôn **chọn đúng shop** ở ô ShopSelector trước khi thao tác danh m�
 
 ## 16. Khách hàng & đặt trước (tham khảo cho admin)
 
-Các trang **công khai** (không cần quyền admin) thường gồm:
+Các trang **công khai** (không cần quyền admin), gắn với tên miền chính:
 
-- **Trang chủ catalog** `/`
-- **Đặt trước** `/preorders`
-- **Đơn hàng của tôi** `/my-orders` (khách theo dõi đơn đã đặt)
-- **Liên hệ** `/contact`
-- **Chi tiết sản phẩm** `/items/{id}`
+- **Trang chủ catalog:** `https://www.dhtoys.store/`
+- **Đặt trước:** `https://www.dhtoys.store/preorders`
+- **Đơn hàng của tôi** (khách theo dõi đơn đã đặt): `https://www.dhtoys.store/my-orders`
+- **Liên hệ:** `https://www.dhtoys.store/contact` (thường thêm `?shop_id=…` để đúng shop)
+- **Chi tiết một sản phẩm:** `https://www.dhtoys.store/items/{id}` — thay `{id}` bằng mã sản phẩm (copy từ admin hoặc từ URL khi xem thử).
 
 Admin không cần nhớ hết URL; quan trọng là khi **bật Công khai** và cấu hình shop đúng, khách sẽ thấy nội dung tương ứng.
 
@@ -408,7 +432,7 @@ Admin không cần nhớ hết URL; quan trọng là khi **bật Công khai** v�
 
 ## 18. Bản tóm tắt một trang (checklist hàng ngày)
 
-1. Đăng nhập `…/admin/login`.  
+1. Đăng nhập `https://www.dhtoys.store/admin/login`.  
 2. Kiểm tra **shop đang chọn**.  
 3. Vào **Báo cáo** xem nhanh hôm nay / tuần.  
 4. Cập nhật **Sản phẩm** (giá, trạng thái, ảnh, 360).  
