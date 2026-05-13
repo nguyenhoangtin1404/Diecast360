@@ -2,8 +2,10 @@
 
 Tài liệu này dành cho **người vận hành cửa hàng** (không cần biết lập trình). Bạn chỉ cần trình duyệt web (Chrome, Edge, Safari, Firefox) và tài khoản được cấp.
 
-**Tên miền chính của cửa hàng:** `https://www.dhtoys.store`  
+**Tên miền chính của cửa hàng (bản triển khai DH Toys):** `https://www.dhtoys.store`  
 Mọi đường dẫn trong tài liệu (dạng `/admin/...`, `/contact`, …) khi dùng thật trên mạng đều gắn **phía trước** tên miền này. Ví dụ: `/admin/login` → `https://www.dhtoys.store/admin/login`.
+
+**Phạm vi:** Đây là tài liệu vận hành **gắn với một tenant / một tên miền cụ thể** (không phải thông tin bảo mật — hostname là địa chỉ công khai). Nếu bạn sao chép repo hoặc dùng **shop / tên miền khác**, hãy **tìm và thay** toàn bộ chuỗi `https://www.dhtoys.store` trong file này (hoặc trong bản PDF/HTML xuất ra) bằng URL gốc của bạn, **không** thêm dấu `/` thừa ở cuối (ví dụ đúng: `https://shop-cua-toi.com` + `/admin/login`).
 
 ---
 
@@ -444,3 +446,5 @@ Admin không cần nhớ hết URL; quan trọng là khi **bật Công khai** v�
 ---
 
 *Tài liệu được soạn dựa trên mã nguồn ứng dụng Diecast360 (frontend admin + luồng nghiệp vụ liên quan). Nếu giao diện được cập nhật, một số tên nút hoặc vị trí có thể thay đổi nhẹ; khi đó hãy ưu tiên những gì hiển thị trên màn hình thực tế.*
+
+**Cập nhật nội dung:** tháng 5/2026 — khi đổi menu, quyền hoặc URL trong code, nên rà soát lại các mục tương ứng trong file này.
