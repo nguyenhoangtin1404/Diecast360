@@ -25,6 +25,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 16: Per-Shop Public Homepage** - Resolve public catalog and item detail to a single shop tenant via URL or explicit query param, aligned with existing multi-tenant isolation. (completed 2026-04-30)
 - [x] **Phase 17: Cloudflare R2 upload — migrate backend media from local disk to object storage** - S3-compatible R2 behind `IStorageService`; presigned or proxied media URLs; optional disk→R2 migration. (completed 2026-05-09)
 
+- [ ] **Phase 19: Pre-order PAID → điểm hội viên** - Gắn `Member` bắt buộc khi tạo đơn; cộng điểm khi `PAID` theo cấu hình shop; hoàn tác sau `PAID` trừ điểm (FSM + ledger idempotent).
 ## Phase Details
 
 ### Phase 1: Inventory Foundation
@@ -147,6 +148,7 @@ Plans:
 | 16. Per-Shop Public Homepage | 3/3 | Complete | 2026-04-30 |
 | 17. Cloudflare R2 upload | 3/3 | Complete | 2026-05-09 |
 | 18. Issue #59 - Category Tenant Guard Hardening | 0/1 | Planned | — |
+| 19. Pre-order PAID → điểm hội viên | 0/3 | Planned | — |
 
 
 ### Phase 12: Issue #44 - Playwright Phase 1
@@ -318,7 +320,8 @@ Implemented in codebase for Phase 13:
 ## Remaining Work Snapshot (By Phase)
 
 Phases not yet complete and pending tasks:
-- None (Phase 16 shipped 2026-04-30).
+- **Phase 19** — Pre-order loyalty points on `PAID` / refund (planned 2026-05-13; xem `.planning/phases/19-preorder-member-points-on-paid/`).
+- **Phase 18** — Issue #59 Category Tenant Guard Hardening (xem `.planning/phases/18-category-tenant-guard-hardening/`).
 
 Partially executed phases (still pending full completion):
 - None.
@@ -380,3 +383,18 @@ Plans:
 - [ ] 17-01: Backend — `R2StorageService`, `STORAGE_DRIVER` wiring, presigned `getFileUrl`, unit tests with mocked S3
 - [ ] 17-02: Backend — `MediaController` R2 streaming branch + contract docs for URL semantics
 - [ ] 17-03: Ops/docs — ENV + deployment + Pi notes + cutover runbook (optional staging smoke checkpoint)
+
+### Phase 19: Pre-order PAID → điểm hội viên
+
+**Goal:** Khi pre-order chuyển `PAID`, tự động cộng điểm cho `Member` đã gắn trên đơn theo `vnd_per_point` và basis (`paid_amount` | `total_amount`); khi hoàn tác sau `PAID`, trừ điểm tương ứng; admin bắt buộc chọn hội viên lúc tạo đơn.
+
+**Requirements:** PORD-02 (đề xuất), MEMB-01 (tái sử dụng ledger)
+
+**Depends on:** Phase 9 (pre-order), Phase 11 (members/points)
+
+**Plans:** 3 plans
+
+Plans:
+- [ ] 19-01: Schema — `pre_orders.member_id`, shop loyalty config, ledger `reference_*` + idempotency unique
+- [ ] 19-02: Backend — validate member on create; transaction earn on `PAID`; export `MembersService`; shop settings API
+- [ ] 19-03: FSM `PAID → REFUNDED` (tên cuối theo CONTEXT), trừ điểm idempotent; admin UI member picker + labels/tests
