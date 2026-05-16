@@ -643,6 +643,7 @@ describe('ShopsService', () => {
         slug: 't',
         contact_json: {},
         appearance_json: {},
+        loyalty_json: {},
       });
 
       const out = await service.getTenantShopSettings(tenantId);
@@ -660,6 +661,7 @@ describe('ShopsService', () => {
         slug: 't',
         contact_json: {},
         appearance_json: {},
+        loyalty_json: {},
       });
       prisma.shop.update.mockResolvedValue({
         id: tenantId,

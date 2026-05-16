@@ -3,6 +3,7 @@ export const PREORDER_STATUSES = [
   'WAITING_FOR_GOODS',
   'ARRIVED',
   'PAID',
+  'REFUNDED',
   'CANCELLED',
 ] as const;
 

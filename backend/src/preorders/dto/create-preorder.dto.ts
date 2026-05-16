@@ -17,6 +17,9 @@ export class CreatePreorderDto {
   @IsUUID()
   item_id: string;
 
+  @IsUUID()
+  member_id: string;
+
   @IsOptional()
   @IsUUID()
   user_id?: string;

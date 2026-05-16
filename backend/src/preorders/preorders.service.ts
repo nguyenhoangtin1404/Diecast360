@@ -10,6 +10,8 @@ import { CreatePreorderDto } from './dto/create-preorder.dto';
 import { UpdatePreorderDto } from './dto/update-preorder.dto';
 import { QueryPreordersDto } from './dto/query-preorders.dto';
 import { totalPagesFromCount } from '../common/utils/pagination.utils';
+import { MembersService } from '../members/members.service';
+import { parseShopLoyaltyJson } from '../shops/shop-loyalty-json.util';
 
 @Injectable()
 export class PreordersService {
@@ -21,6 +23,7 @@ export class PreordersService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject('IStorageService') private readonly storage: IStorageService,
+    private readonly membersService: MembersService,
   ) {}
 
   private requireActiveShopId(tenantId: string | undefined | null): string {
@@ -40,6 +43,16 @@ export class PreordersService {
     });
     if (!item) {
       throw new AppException(ErrorCode.NOT_FOUND, 'Item not found in active shop');
+    }
+  }
+
+  private async assertMemberInShop(memberId: string, shopId: string): Promise<void> {
+    const member = await this.prisma.member.findFirst({
+      where: { id: memberId, shop_id: shopId },
+      select: { id: true },
+    });
+    if (!member) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Member not found in this shop');
     }
   }
 
@@ -186,6 +199,7 @@ export class PreordersService {
       await this.assertPreorderAssigneeAllowed(shopId, dto.user_id, actor.userId, actor.platformRole);
     }
     await this.assertItemInShop(dto.item_id, shopId);
+    await this.assertMemberInShop(dto.member_id, shopId);
     const normalizedUnitPrice =
       dto.unit_price != null && dto.unit_price > 0 ? dto.unit_price : null;
     this.validateFinancials({
@@ -204,6 +218,7 @@ export class PreordersService {
         shop_id: shopId,
         item_id: dto.item_id,
         user_id: dto.user_id ?? actor.userId ?? null,
+        member_id: dto.member_id,
         quantity: dto.quantity,
         unit_price: normalizedUnitPrice,
         total_amount: totalAmount,
@@ -244,6 +259,19 @@ export class PreordersService {
     if (dto.item_id) {
       await this.assertItemInShop(dto.item_id, shopId);
     }
+    if (dto.member_id !== undefined) {
+      if (
+        current.status === PreOrderStatus.PAID ||
+        current.status === PreOrderStatus.REFUNDED ||
+        current.status === PreOrderStatus.CANCELLED
+      ) {
+        throw new AppException(
+          ErrorCode.VALIDATION_ERROR,
+          'Cannot change member on a pre-order that is already paid, refunded, or cancelled.',
+        );
+      }
+      await this.assertMemberInShop(dto.member_id, shopId);
+    }
 
     const quantity = dto.quantity ?? current.quantity;
     const mergedUnitPrice =
@@ -270,6 +298,7 @@ export class PreordersService {
       data: {
         item_id: dto.item_id,
         user_id: dto.user_id,
+        member_id: dto.member_id,
         quantity: dto.quantity,
         unit_price: dto.unit_price !== undefined ? normalizedUnitPrice : undefined,
         total_amount: shouldRefreshPricing ? totalAmount : undefined,
@@ -292,54 +321,108 @@ export class PreordersService {
     return { preorder };
   }
 
-  async transitionStatus(id: string, nextStatus: PreOrderStatus, tenantId: string) {
+  async transitionStatus(
+    id: string,
+    nextStatus: PreOrderStatus,
+    tenantId: string,
+    actorUserId: string | null,
+  ) {
     const shopId = this.requireActiveShopId(tenantId);
-    const current = await this.prisma.preOrder.findFirst({
-      where: { id, shop_id: shopId },
-    });
-    if (!current) {
-      throw new AppException(ErrorCode.NOT_FOUND, 'Pre-order not found');
-    }
 
-    try {
-      assertValidPreOrderStatusTransition(current.status as PreOrderStatus, nextStatus);
-    } catch (error) {
-      if (!(error instanceof PreOrderDomainException)) {
-        throw error;
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.preOrder.findFirst({
+        where: { id, shop_id: shopId },
+      });
+      if (!current) {
+        throw new AppException(ErrorCode.NOT_FOUND, 'Pre-order not found');
       }
-      throw new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        `Invalid pre-order status transition from "${current.status}" to "${nextStatus}"`,
-      );
-    }
 
-    const now = new Date();
-    const updated = await this.prisma.preOrder.updateMany({
-      where: {
-        id,
-        shop_id: shopId,
-        status: current.status,
-      },
-      data: {
+      try {
+        assertValidPreOrderStatusTransition(current.status as PreOrderStatus, nextStatus);
+      } catch (error) {
+        if (!(error instanceof PreOrderDomainException)) {
+          throw error;
+        }
+        throw new AppException(
+          ErrorCode.VALIDATION_ERROR,
+          `Invalid pre-order status transition from "${current.status}" to "${nextStatus}"`,
+        );
+      }
+
+      const now = new Date();
+      const data: Prisma.PreOrderUpdateManyMutationInput = {
         status: nextStatus,
         cancelled_at: nextStatus === PreOrderStatus.CANCELLED ? now : null,
-        completed_at: nextStatus === PreOrderStatus.PAID ? now : null,
-      },
-    });
-    if (updated.count === 0) {
-      throw new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        'Pre-order status changed concurrently. Please refresh and retry.',
-      );
-    }
-    const preorder = await this.prisma.preOrder.findFirst({
-      where: { id, shop_id: shopId },
-    });
-    if (!preorder) {
-      throw new AppException(ErrorCode.NOT_FOUND, 'Pre-order not found');
-    }
+      };
+      if (nextStatus === PreOrderStatus.PAID) {
+        data.completed_at = now;
+      }
 
-    return { preorder };
+      const updated = await tx.preOrder.updateMany({
+        where: {
+          id,
+          shop_id: shopId,
+          status: current.status,
+        },
+        data,
+      });
+      if (updated.count === 0) {
+        throw new AppException(
+          ErrorCode.VALIDATION_ERROR,
+          'Pre-order status changed concurrently. Please refresh and retry.',
+        );
+      }
+
+      if (nextStatus === PreOrderStatus.PAID) {
+        if (!current.member_id) {
+          throw new AppException(
+            ErrorCode.VALIDATION_ERROR,
+            'Cannot mark as paid without a member on this pre-order. Assign a member first.',
+          );
+        }
+        const shop = await tx.shop.findFirst({
+          where: { id: shopId },
+          select: { loyalty_json: true },
+        });
+        const loyalty = parseShopLoyaltyJson(shop?.loyalty_json ?? {});
+        const basisVnd =
+          loyalty.preorder_points_basis === 'total_amount'
+            ? (toNumber(current.total_amount) ?? 0)
+            : (toNumber(current.paid_amount) ?? 0);
+        await this.membersService.applyPreorderPaidPointsIfNeededInTx(tx, {
+          shopId,
+          preorderId: id,
+          memberId: current.member_id,
+          basisVnd,
+          vndPerPoint: loyalty.vnd_per_point,
+          actorUserId,
+        });
+      }
+
+      if (nextStatus === PreOrderStatus.REFUNDED) {
+        if (!current.member_id) {
+          throw new AppException(
+            ErrorCode.VALIDATION_ERROR,
+            'Cannot refund without a member on this pre-order.',
+          );
+        }
+        await this.membersService.applyPreorderRefundRedeemIfNeededInTx(tx, {
+          shopId,
+          preorderId: id,
+          memberId: current.member_id,
+          actorUserId,
+        });
+      }
+
+      const preorder = await tx.preOrder.findFirst({
+        where: { id, shop_id: shopId },
+      });
+      if (!preorder) {
+        throw new AppException(ErrorCode.NOT_FOUND, 'Pre-order not found');
+      }
+
+      return { preorder };
+    });
   }
 
   async findAdminList(query: QueryPreordersDto, tenantId: string) {
@@ -360,6 +443,7 @@ export class PreordersService {
         include: {
           item: { select: { name: true } },
           user: { select: { id: true, full_name: true, email: true } },
+          member: { select: { id: true, full_name: true, phone: true } },
         },
       }),
       this.prisma.preOrder.count({ where }),
@@ -506,6 +590,7 @@ export class PreordersService {
         orderBy: [{ created_at: 'desc' }],
         include: {
           user: { select: { id: true, full_name: true, email: true } },
+          member: { select: { id: true, full_name: true, phone: true } },
         },
       }),
       this.prisma.preOrder.count({ where }),
@@ -518,7 +603,9 @@ export class PreordersService {
         quantity: row.quantity,
         deposit_amount: toNumber(row.deposit_amount) ?? 0,
         paid_amount: toNumber(row.paid_amount) ?? 0,
+        member_id: row.member_id,
         user: row.user,
+        member: row.member,
       })),
       pagination: {
         page,

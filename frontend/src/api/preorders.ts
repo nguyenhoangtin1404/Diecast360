@@ -50,6 +50,7 @@ export const transitionPreorderStatus = async (id: string, status: PreOrderStatu
 
 export const createPreorder = async (payload: {
   item_id: string;
+  member_id: string;
   quantity: number;
   unit_price?: number;
   deposit_amount?: number;

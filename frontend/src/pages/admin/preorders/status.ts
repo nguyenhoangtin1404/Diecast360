@@ -9,6 +9,7 @@ export const PREORDER_STATUS_COLORS: Record<PreOrderStatus, string> = {
   WAITING_FOR_GOODS: '#dbeafe',
   ARRIVED: '#dcfce7',
   PAID: '#c7d2fe',
+  REFUNDED: '#e5e7eb',
   CANCELLED: '#fecaca',
 };
 
@@ -16,6 +17,7 @@ export const PREORDER_TRANSITIONS: Record<PreOrderStatus, PreOrderStatus[]> = {
   PENDING_CONFIRMATION: ['WAITING_FOR_GOODS', 'CANCELLED'],
   WAITING_FOR_GOODS: ['ARRIVED', 'CANCELLED'],
   ARRIVED: ['PAID', 'CANCELLED'],
-  PAID: [],
+  PAID: ['REFUNDED'],
+  REFUNDED: [],
   CANCELLED: [],
 };

@@ -3,12 +3,14 @@ import { PlatformRole, PreOrderStatus, ShopRole } from '../generated/prisma/clie
 import { AppException } from '../common/exceptions/http-exception.filter';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PreordersService } from './preorders.service';
+import { MembersService } from '../members/members.service';
 
 describe('PreordersService', () => {
   let service: PreordersService;
   const prisma = {
     shop: { findFirst: jest.fn() },
     item: { findFirst: jest.fn() },
+    member: { findFirst: jest.fn() },
     userShopRole: { findUnique: jest.fn() },
     preOrder: {
       create: jest.fn(),
@@ -19,10 +21,16 @@ describe('PreordersService', () => {
       count: jest.fn(),
       groupBy: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
   const storage = { getFileUrl: jest.fn(async (path: string) => `http://localhost/${path}`) };
+  const membersService = {
+    applyPreorderPaidPointsIfNeededInTx: jest.fn(),
+    applyPreorderRefundRedeemIfNeededInTx: jest.fn(),
+  };
 
   const tenantId = '00000000-0000-0000-0000-000000000001';
+  const memberId = '11111111-1111-1111-1111-111111111111';
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -30,11 +38,16 @@ describe('PreordersService', () => {
         PreordersService,
         { provide: PrismaService, useValue: prisma },
         { provide: 'IStorageService', useValue: storage },
+        { provide: MembersService, useValue: membersService },
       ],
     }).compile();
 
     service = module.get<PreordersService>(PreordersService);
     jest.clearAllMocks();
+    prisma.member.findFirst.mockResolvedValue({ id: memberId });
+    prisma.$transaction.mockImplementation(async (fn: (client: typeof prisma) => Promise<unknown>) =>
+      fn(prisma as never),
+    );
   });
 
   it('rejects invalid transition', async () => {
@@ -45,7 +58,7 @@ describe('PreordersService', () => {
     });
 
     await expect(
-      service.transitionStatus('po-1', PreOrderStatus.WAITING_FOR_GOODS, tenantId),
+      service.transitionStatus('po-1', PreOrderStatus.WAITING_FOR_GOODS, tenantId, 'u1'),
     ).rejects.toBeInstanceOf(AppException);
   });
 
@@ -113,6 +126,7 @@ describe('PreordersService', () => {
       service.create(
         {
           item_id: 'f9f4f357-4957-4bdf-a8ea-1434d9f801f7',
+          member_id: memberId,
           quantity: 1,
           unit_price: 100,
           deposit_amount: 120,
@@ -130,6 +144,7 @@ describe('PreordersService', () => {
     await service.create(
       {
         item_id: 'f9f4f357-4957-4bdf-a8ea-1434d9f801f7',
+        member_id: memberId,
         quantity: 2,
         deposit_amount: 50,
         paid_amount: 50,
@@ -156,6 +171,7 @@ describe('PreordersService', () => {
       service.create(
         {
           item_id: 'f9f4f357-4957-4bdf-a8ea-1434d9f801f7',
+          member_id: memberId,
           quantity: 1,
           unit_price: 100,
           deposit_amount: 80,
@@ -190,6 +206,7 @@ describe('PreordersService', () => {
       id: 'po-1',
       shop_id: tenantId,
       user_id: null,
+      status: PreOrderStatus.WAITING_FOR_GOODS,
       quantity: 2,
       unit_price: { toNumber: () => 100 },
       deposit_amount: { toNumber: () => 20 },
@@ -225,6 +242,7 @@ describe('PreordersService', () => {
       service.create(
         {
           item_id: 'f9f4f357-4957-4bdf-a8ea-1434d9f801f7',
+          member_id: memberId,
           user_id: '63bbf6a8-7a4f-4e95-a860-2e3b2df8f218',
           quantity: 1,
         },
@@ -242,6 +260,7 @@ describe('PreordersService', () => {
     await service.create(
       {
         item_id: 'f9f4f357-4957-4bdf-a8ea-1434d9f801f7',
+        member_id: memberId,
         user_id: '63bbf6a8-7a4f-4e95-a860-2e3b2df8f218',
         quantity: 1,
       },
@@ -265,6 +284,7 @@ describe('PreordersService', () => {
     await service.create(
       {
         item_id: 'f9f4f357-4957-4bdf-a8ea-1434d9f801f7',
+        member_id: memberId,
         user_id: '63bbf6a8-7a4f-4e95-a860-2e3b2df8f218',
         quantity: 1,
       },
@@ -273,6 +293,42 @@ describe('PreordersService', () => {
     );
 
     expect(prisma.userShopRole.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('on PAID transition, applies earn via MembersService when member and amounts present', async () => {
+    const preorderId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    prisma.preOrder.findFirst
+      .mockResolvedValueOnce({
+        id: preorderId,
+        shop_id: tenantId,
+        status: PreOrderStatus.ARRIVED,
+        member_id: memberId,
+        paid_amount: { toNumber: () => 50_000 },
+        total_amount: { toNumber: () => 100_000 },
+      })
+      .mockResolvedValueOnce({
+        id: preorderId,
+        shop_id: tenantId,
+        status: PreOrderStatus.PAID,
+        member_id: memberId,
+      });
+    prisma.shop.findFirst.mockResolvedValue({
+      loyalty_json: { vnd_per_point: 1000, preorder_points_basis: 'paid_amount' },
+    });
+    prisma.preOrder.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.transitionStatus(preorderId, PreOrderStatus.PAID, tenantId, 'actor-1');
+
+    expect(membersService.applyPreorderPaidPointsIfNeededInTx).toHaveBeenCalledWith(
+      prisma,
+      expect.objectContaining({
+        preorderId,
+        memberId,
+        basisVnd: 50_000,
+        vndPerPoint: 1000,
+        actorUserId: 'actor-1',
+      }),
+    );
   });
 
   it('returns pagination metadata for my-orders', async () => {
@@ -337,7 +393,7 @@ describe('PreordersService', () => {
     prisma.preOrder.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      service.transitionStatus('po-2', PreOrderStatus.WAITING_FOR_GOODS, tenantId),
+      service.transitionStatus('po-2', PreOrderStatus.WAITING_FOR_GOODS, tenantId, 'u1'),
     ).rejects.toBeInstanceOf(AppException);
   });
 });

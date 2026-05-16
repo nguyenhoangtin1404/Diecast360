@@ -8,7 +8,7 @@ import { QueryShopMembersDto } from './dto/query-shop-members.dto';
 import { QueryShopItemsDto } from './dto/query-shop-items.dto';
 import { QueryShopAuditLogsDto } from './dto/query-shop-audit-logs.dto';
 import { UpdateShopDto, ShopContactPatchDto } from './dto/update-shop.dto';
-import { ShopAppearancePatchDto } from './dto/update-shop-appearance.dto';
+import { ShopAppearancePatchDto, ShopLoyaltyPatchDto } from './dto/update-shop-appearance.dto';
 import { AddShopAdminDto } from './dto/add-shop-admin.dto';
 import { Prisma, ShopAuditAction, ShopRole } from '../generated/prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -18,6 +18,7 @@ import { toNumber } from '../common/utils/decimal.utils';
 import { totalPagesFromCount } from '../common/utils/pagination.utils';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { jsonStableStringify } from './json-stable-stringify';
+import { parseShopLoyaltyJson } from './shop-loyalty-json.util';
 import { UploadSupportService } from '../common/upload/upload-support.service';
 import { verifySignedMediaParams } from '../common/media/signed-media.util';
 import { resolveMediaSigningSecret } from '../common/media/media-signing-secret';
@@ -131,6 +132,25 @@ export class ShopsService {
       }
     }
     return next as Prisma.InputJsonValue;
+  }
+
+  private mergeLoyaltyJson(existing: Prisma.JsonValue, patch: ShopLoyaltyPatchDto): Prisma.InputJsonValue {
+    const baseObj =
+      typeof existing === 'object' && existing !== null && !Array.isArray(existing)
+        ? { ...(existing as Record<string, unknown>) }
+        : {};
+    const next: Record<string, unknown> = { ...baseObj };
+    if (patch.vnd_per_point !== undefined) {
+      next.vnd_per_point = patch.vnd_per_point;
+    }
+    if (patch.preorder_points_basis !== undefined) {
+      next.preorder_points_basis = patch.preorder_points_basis;
+    }
+    const normalized = parseShopLoyaltyJson(next);
+    return {
+      vnd_per_point: normalized.vnd_per_point,
+      preorder_points_basis: normalized.preorder_points_basis,
+    };
   }
 
   private extractAppearanceUrl(json: Prisma.JsonValue, key: 'logo_url' | 'favicon_url'): string | undefined {
@@ -334,6 +354,7 @@ export class ShopsService {
         slug: true,
         contact_json: true,
         appearance_json: true,
+        loyalty_json: true,
       },
     });
     if (!shop) {
@@ -347,8 +368,9 @@ export class ShopsService {
     contact?: ShopContactPatchDto,
     appearance?: ShopAppearancePatchDto,
     actorUserId?: string | null,
+    loyalty?: ShopLoyaltyPatchDto,
   ) {
-    if (contact === undefined && appearance === undefined) {
+    if (contact === undefined && appearance === undefined && loyalty === undefined) {
       return this.getTenantShopSettings(tenantId);
     }
 
@@ -360,6 +382,7 @@ export class ShopsService {
         slug: true,
         contact_json: true,
         appearance_json: true,
+        loyalty_json: true,
       },
     });
     if (!oldShop) {
@@ -373,6 +396,9 @@ export class ShopsService {
     if (appearance !== undefined) {
       data.appearance_json = this.mergeAppearanceJson(oldShop.appearance_json, appearance);
     }
+    if (loyalty !== undefined) {
+      data.loyalty_json = this.mergeLoyaltyJson(oldShop.loyalty_json, loyalty);
+    }
 
     const contactChanged =
       contact !== undefined &&
@@ -380,6 +406,9 @@ export class ShopsService {
     const appearanceChanged =
       appearance !== undefined &&
       jsonStableStringify(oldShop.appearance_json) !== jsonStableStringify(data.appearance_json);
+    const loyaltyChanged =
+      loyalty !== undefined &&
+      jsonStableStringify(oldShop.loyalty_json) !== jsonStableStringify(data.loyalty_json);
 
     const updated = await this.prisma.$transaction(async (tx) => {
       return tx.shop.update({
@@ -396,6 +425,11 @@ export class ShopsService {
     if (appearanceChanged) {
       await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
         field: 'appearance_json',
+      });
+    }
+    if (loyaltyChanged) {
+      await this.logAudit(tenantId, ShopAuditAction.update_shop, actorUserId ?? null, 'shop', tenantId, {
+        field: 'loyalty_json',
       });
     }
 

@@ -18,6 +18,8 @@ const adminListResponse = {
         item_id: 'item-1',
         item: { name: 'Mini GT Porsche' },
         user: { id: 'u2', full_name: 'Buyer A', email: 'buyer@example.com' },
+        member_id: 'mem-1',
+        member: { id: 'mem-1', full_name: 'Member A', phone: null },
       },
     ],
     pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
@@ -53,6 +55,8 @@ const adminListMultiCampaignResponse = {
         item_id: 'item-2',
         item: { name: 'Hot Wheels Set' },
         user: { id: 'u3', full_name: 'Buyer B', email: 'buyerb@example.com' },
+        member_id: 'mem-2',
+        member: { id: 'mem-2', full_name: 'Member B', phone: null },
       },
     ],
     pagination: { page: 1, page_size: 20, total: 2, total_pages: 1 },
@@ -70,7 +74,9 @@ const participantsResponse = {
         quantity: 2,
         deposit_amount: 200000,
         paid_amount: 200000,
+        member_id: 'mem-1',
         user: { id: 'u2', full_name: 'Buyer A', email: 'buyer@example.com' },
+        member: { id: 'mem-1', full_name: 'Member A', phone: null },
       },
     ],
     pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
@@ -88,7 +94,9 @@ const participantsResponseItem2 = {
         quantity: 1,
         deposit_amount: 100000,
         paid_amount: 100000,
+        member_id: 'mem-2',
         user: { id: 'u3', full_name: 'Buyer B', email: 'buyerb@example.com' },
+        member: { id: 'mem-2', full_name: 'Member B', phone: null },
       },
     ],
     pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
@@ -454,6 +462,30 @@ test.describe('Pre-order flows', () => {
 
   test('create preorder form shows validation errors and handles API failure', async ({ page }) => {
     await mockBase(page);
+    await page.route('**/api/v1/members**', (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          data: {
+            members: [
+              {
+                id: 'mem-e2e-1',
+                full_name: 'E2E Member',
+                email: null,
+                phone: null,
+                points_balance: 0,
+                tier_id: null,
+                created_at: new Date().toISOString(),
+              },
+            ],
+            pagination: { page: 1, page_size: 200, total: 1, total_pages: 1 },
+          },
+          message: '',
+        }),
+      }),
+    );
     await page.route('**/api/v1/preorders', (route: Route) =>
       route.fulfill({
         status: 400,
@@ -463,6 +495,7 @@ test.describe('Pre-order flows', () => {
     );
 
     await page.goto('/admin/preorders/create');
+    await page.getByTestId('admin-preorder-member-id').selectOption('mem-e2e-1');
     await page.getByTestId('admin-preorder-item-id').fill('item-1');
     await page.getByTestId('admin-preorder-unit-price').fill('100');
     await page.getByTestId('admin-preorder-deposit-amount').fill('200');

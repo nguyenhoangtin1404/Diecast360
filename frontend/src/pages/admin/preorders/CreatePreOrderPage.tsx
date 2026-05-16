@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createPreorder } from '../../../api/preorders';
+import { fetchMembers } from '../../../api/members';
 import { isOptionalHttpOrHttpsUrl } from '../../../utils/safeHttpUrl';
 import styles from './preordersAdmin.module.css';
 
 type FormState = {
+  member_id: string;
   cover_image_url: string;
   item_id: string;
   quantity: number;
@@ -18,6 +20,7 @@ type FormState = {
 };
 
 const emptyForm = (itemId: string): FormState => ({
+  member_id: '',
   cover_image_url: '',
   item_id: itemId,
   quantity: 1,
@@ -62,6 +65,11 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
   const [success, setSuccess] = useState<string | null>(null);
   const postSuccessNavigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  const membersQuery = useQuery({
+    queryKey: ['admin-preorder-members-picker'],
+    queryFn: async () => fetchMembers({ page: 1, pageSize: 200 }),
+  });
+
   useEffect(() => {
     return () => {
       if (postSuccessNavigateTimeoutRef.current !== undefined) {
@@ -90,6 +98,9 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
   });
 
   const validationError = (() => {
+    if (!form.member_id.trim()) {
+      return 'Vui lòng chọn hội viên.';
+    }
     if (!Number.isFinite(form.quantity) || !Number.isInteger(form.quantity) || form.quantity < 1) {
       return 'Số lượng phải là số nguyên dương.';
     }
@@ -156,6 +167,7 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
           }
           await createMutation.mutateAsync({
             item_id: form.item_id.trim(),
+            member_id: form.member_id.trim(),
             quantity: form.quantity,
             unit_price:
               Number.isFinite(form.unit_price) && form.unit_price > 0 ? form.unit_price : undefined,
@@ -180,6 +192,30 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
             }
           />
         </label>
+
+        <div className={styles.gridTwo}>
+          <label>
+            Hội viên (bắt buộc)
+            <select
+              className={styles.input}
+              data-testid="admin-preorder-member-id"
+              value={form.member_id}
+              onChange={(event) => setForm((current) => ({ ...current, member_id: event.target.value }))}
+            >
+              <option value="">— Chọn hội viên —</option>
+              {(membersQuery.data?.members ?? []).map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.full_name}
+                  {m.phone ? ` · ${m.phone}` : ''}
+                  {m.email ? ` · ${m.email}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          {membersQuery.isError && (
+            <p className={styles.error}>Không tải được danh sách hội viên. Thử tải lại trang.</p>
+          )}
+        </div>
 
         <div className={styles.gridTwo}>
           <label>

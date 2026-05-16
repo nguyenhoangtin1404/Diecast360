@@ -3,6 +3,7 @@ export type PreOrderStatus =
   | 'WAITING_FOR_GOODS'
   | 'ARRIVED'
   | 'PAID'
+  | 'REFUNDED'
   | 'CANCELLED';
 
 export interface PreOrderCard {
@@ -30,6 +31,7 @@ export interface AdminPreOrder {
   expected_arrival_at: string | null;
   expected_delivery_at: string | null;
   item_id: string;
+  member_id?: string | null;
   item?: {
     name: string;
   };
@@ -37,6 +39,11 @@ export interface AdminPreOrder {
     id: string;
     full_name: string | null;
     email: string | null;
+  } | null;
+  member?: {
+    id: string;
+    full_name: string;
+    phone: string | null;
   } | null;
 }
 
@@ -53,10 +60,16 @@ export interface Participant {
   quantity: number;
   deposit_amount: number;
   paid_amount: number;
+  member_id: string | null;
   user: {
     id: string;
     full_name: string | null;
     email: string | null;
+  } | null;
+  member?: {
+    id: string;
+    full_name: string;
+    phone: string | null;
   } | null;
 }
 

@@ -185,7 +185,12 @@ export const PreOrderManagementPage = () => {
         {participantsQuery.isLoading && <p>Đang tải danh sách...</p>}
         {(participantsQuery.data?.participants ?? []).map((participant) => (
           <div key={participant.preorder_id} className={styles.row} data-testid="admin-participant-row">
-            <strong>{participant.user?.full_name ?? participant.user?.email ?? 'Khách lẻ'}</strong>
+            <strong>
+              {participant.member?.full_name ??
+                participant.user?.full_name ??
+                participant.user?.email ??
+                'Khách lẻ'}
+            </strong>
             <span>Số lượng: {participant.quantity}</span>
             <span>Trạng thái: {PREORDER_STATUS_LABELS[participant.status]}</span>
             <div className={styles.controls}>

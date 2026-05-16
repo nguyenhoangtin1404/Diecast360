@@ -7,6 +7,7 @@ export type ShopSettingsApiRow = {
   slug: string;
   contact_json?: unknown;
   appearance_json?: unknown;
+  loyalty_json?: unknown;
 };
 
 export const shopSettingsQueryKey = (shopId: string | null) =>

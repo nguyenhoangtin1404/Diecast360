@@ -53,8 +53,9 @@ export class PreordersController {
     @Param('id') id: string,
     @Body() dto: TransitionPreorderStatusDto,
     @CurrentTenantId() tenantId: string,
+    @CurrentUserId() userId: string | null,
   ) {
-    return this.preordersService.transitionStatus(id, dto.status, tenantId);
+    return this.preordersService.transitionStatus(id, dto.status, tenantId, userId);
   }
 
   @Get('admin')

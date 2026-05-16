@@ -21,6 +21,10 @@ export class UpdatePreorderDto {
   user_id?: string;
 
   @IsOptional()
+  @IsUUID()
+  member_id?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
