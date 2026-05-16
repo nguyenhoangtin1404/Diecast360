@@ -37,10 +37,16 @@ describe('pre-order status transitions', () => {
     expect(() => assertValidPreOrderStatusTransition('ARRIVED', 'CANCELLED')).not.toThrow();
   });
 
-  it('treats PAID as terminal state', () => {
-    const nonSelf = PREORDER_STATUSES.filter((status) => status !== 'PAID');
+  it('allows PAID to REFUNDED only (not back to ARRIVED)', () => {
+    expect(canTransitionPreOrderStatus('PAID', 'REFUNDED')).toBe(true);
+    expect(canTransitionPreOrderStatus('PAID', 'ARRIVED')).toBe(false);
+    expect(() => assertValidPreOrderStatusTransition('PAID', 'REFUNDED')).not.toThrow();
+  });
+
+  it('treats REFUNDED as terminal state', () => {
+    const nonSelf = PREORDER_STATUSES.filter((status) => status !== 'REFUNDED');
     nonSelf.forEach((status) => {
-      expect(canTransitionPreOrderStatus('PAID', status)).toBe(false);
+      expect(canTransitionPreOrderStatus('REFUNDED', status)).toBe(false);
     });
   });
 

@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '../generated/prisma/client';
+import { Prisma, MemberPointsMutationType } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
+import { isPrismaUniqueConstraintError } from '../common/prisma/prisma-error.utils';
 import { QueryMembersDto } from './dto/query-members.dto';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { CreateMemberDto } from './dto/create-member.dto';
@@ -11,6 +12,7 @@ import { CreateMembershipTierDto } from './dto/create-membership-tier.dto';
 import { UpdateMembershipTierDto } from './dto/update-membership-tier.dto';
 import { resolvePointsAdjustment } from './rules/points-adjustment.resolver';
 import { totalPagesFromCount } from '../common/utils/pagination.utils';
+import { MEMBER_POINTS_REF_PREORDER_PAID, MEMBER_POINTS_REF_PREORDER_REFUND } from './member-ledger-reference';
 
 @Injectable()
 export class MembersService {
@@ -298,6 +300,177 @@ export class MembersService {
       );
       throw error;
     }
+  }
+
+  /**
+   * Idempotent earn on pre-order PAID (reference preorder_paid + preorder id). Skips when points would be 0.
+   */
+  async applyPreorderPaidPointsIfNeededInTx(
+    tx: Prisma.TransactionClient,
+    input: {
+      shopId: string;
+      preorderId: string;
+      memberId: string;
+      basisVnd: number;
+      vndPerPoint: number;
+      actorUserId: string | null;
+    },
+  ): Promise<void> {
+    if (!Number.isFinite(input.basisVnd) || input.basisVnd < 0) {
+      return;
+    }
+    if (!Number.isFinite(input.vndPerPoint) || input.vndPerPoint < 1) {
+      return;
+    }
+    const points = Math.floor(input.basisVnd / input.vndPerPoint);
+    if (!Number.isInteger(points) || points <= 0) {
+      return;
+    }
+    await this.appendLedgerMutationInTx(tx, {
+      shopId: input.shopId,
+      memberId: input.memberId,
+      type: 'earn',
+      pointsMagnitude: points,
+      reason: 'Thanh toán pre-order',
+      note: `pre_order=${input.preorderId}`,
+      actorUserId: input.actorUserId,
+      referenceType: MEMBER_POINTS_REF_PREORDER_PAID,
+      referenceId: input.preorderId,
+    });
+  }
+
+  /**
+   * Idempotent redeem after pre-order refund (reference preorder_refund). Uses prior earn row magnitude.
+   */
+  async applyPreorderRefundRedeemIfNeededInTx(
+    tx: Prisma.TransactionClient,
+    input: {
+      shopId: string;
+      preorderId: string;
+      memberId: string;
+      actorUserId: string | null;
+    },
+  ): Promise<void> {
+    const existingRefund = await tx.memberPointsLedger.findFirst({
+      where: {
+        shop_id: input.shopId,
+        reference_type: MEMBER_POINTS_REF_PREORDER_REFUND,
+        reference_id: input.preorderId,
+      },
+      select: { id: true },
+    });
+    if (existingRefund) {
+      return;
+    }
+
+    const earn = await tx.memberPointsLedger.findFirst({
+      where: {
+        shop_id: input.shopId,
+        reference_type: MEMBER_POINTS_REF_PREORDER_PAID,
+        reference_id: input.preorderId,
+        type: 'earn',
+      },
+      select: { points: true },
+    });
+    const points = earn?.points ?? 0;
+    if (points <= 0) {
+      return;
+    }
+
+    await this.appendLedgerMutationInTx(tx, {
+      shopId: input.shopId,
+      memberId: input.memberId,
+      type: 'redeem',
+      pointsMagnitude: points,
+      reason: 'Hoàn tiền pre-order (trừ điểm tích lũy)',
+      note: `pre_order=${input.preorderId}`,
+      actorUserId: input.actorUserId,
+      referenceType: MEMBER_POINTS_REF_PREORDER_REFUND,
+      referenceId: input.preorderId,
+    });
+  }
+
+  private async appendLedgerMutationInTx(
+    tx: Prisma.TransactionClient,
+    args: {
+      shopId: string;
+      memberId: string;
+      type: MemberPointsMutationType;
+      pointsMagnitude: number;
+      reason: string;
+      note: string | null;
+      actorUserId: string | null;
+      referenceType: string;
+      referenceId: string;
+    },
+  ): Promise<void> {
+    const dup = await tx.memberPointsLedger.findFirst({
+      where: {
+        shop_id: args.shopId,
+        reference_type: args.referenceType,
+        reference_id: args.referenceId,
+      },
+      select: { id: true },
+    });
+    if (dup) {
+      return;
+    }
+
+    const member = await tx.member.findFirst({
+      where: { id: args.memberId, shop_id: args.shopId },
+    });
+    if (!member) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Member not found');
+    }
+
+    const tiers = await tx.membershipTier.findMany({
+      where: { shop_id: args.shopId },
+      select: { id: true, rank: true, min_points: true },
+      orderBy: [{ rank: 'asc' }],
+    });
+
+    const pointsResolution = resolvePointsAdjustment({
+      type: args.type,
+      points: args.pointsMagnitude,
+      currentBalance: member.points_balance,
+      currentTierId: member.tier_id,
+      tiers,
+    });
+
+    try {
+      await tx.member.update({
+        where: { id: member.id },
+        data: {
+          points_balance: pointsResolution.nextBalance,
+          tier_id: pointsResolution.nextTierId,
+        },
+      });
+
+      await tx.memberPointsLedger.create({
+        data: {
+          member_id: member.id,
+          shop_id: args.shopId,
+          actor_user_id: args.actorUserId,
+          type: args.type,
+          points: args.pointsMagnitude,
+          delta: pointsResolution.delta,
+          balance_after: pointsResolution.nextBalance,
+          reason: args.reason,
+          note: args.note,
+          reference_type: args.referenceType,
+          reference_id: args.referenceId,
+        },
+      });
+    } catch (error) {
+      if (isPrismaUniqueConstraintError(error)) {
+        return;
+      }
+      throw error;
+    }
+
+    this.logger.log(
+      `points.preorder_ledger tenant=${args.shopId} member=${member.id} type=${args.type} ref=${args.referenceType}/${args.referenceId} delta=${pointsResolution.delta}`,
+    );
   }
 
   async listTiers(tenantId: string) {

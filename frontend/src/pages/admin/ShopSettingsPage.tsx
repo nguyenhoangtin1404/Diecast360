@@ -48,12 +48,30 @@ function extractApiErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Pre-order points config in `Shop.loyalty_json` — defaults match backend. */
+type LoyaltyFormState = { vnd_per_point: number; preorder_points_basis: 'paid_amount' | 'total_amount' };
+
+function parseLoyaltyFormDefaults(raw: unknown): LoyaltyFormState {
+  const d: LoyaltyFormState = { vnd_per_point: 1000, preorder_points_basis: 'paid_amount' };
+  if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
+    const o = raw as Record<string, unknown>;
+    if (typeof o.vnd_per_point === 'number' && Number.isInteger(o.vnd_per_point) && o.vnd_per_point >= 1) {
+      d.vnd_per_point = o.vnd_per_point;
+    }
+    if (o.preorder_points_basis === 'total_amount' || o.preorder_points_basis === 'paid_amount') {
+      d.preorder_points_basis = o.preorder_points_basis;
+    }
+  }
+  return d;
+}
+
 /** Remount editor when server JSON snapshot changes — avoids effect-driven setState sync. */
 function shopSettingsServerSyncKey(row: ShopSettingsApiRow): string {
   return jsonStableStringify({
     id: row.id,
     contact_json: row.contact_json ?? null,
     appearance_json: row.appearance_json ?? null,
+    loyalty_json: row.loyalty_json ?? null,
   });
 }
 
@@ -71,6 +89,7 @@ function ShopSettingsEditor({ serverRow, activeShop, canEditSettings }: ShopSett
   const [appearance, setAppearance] = useState<ShopAppearanceFormState>(() =>
     parseAppearanceFormDefaults(serverRow.appearance_json),
   );
+  const [loyalty, setLoyalty] = useState<LoyaltyFormState>(() => parseLoyaltyFormDefaults(serverRow.loyalty_json));
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -80,14 +99,25 @@ function ShopSettingsEditor({ serverRow, activeShop, canEditSettings }: ShopSett
     mutationFn: async () => {
       const serverContact = parseShopContactFormDefaults(serverRow.contact_json);
       const serverAppearance = parseAppearanceFormDefaults(serverRow.appearance_json);
+      const serverLoyalty = parseLoyaltyFormDefaults(serverRow.loyalty_json);
       const nextContact = buildShopContactPatch(contact).contact;
       const nextAppearance = buildAppearancePatch(appearance);
-      const patch: { contact?: typeof nextContact; appearance?: typeof nextAppearance } = {};
+      const patch: {
+        contact?: typeof nextContact;
+        appearance?: typeof nextAppearance;
+        loyalty?: { vnd_per_point: number; preorder_points_basis: 'paid_amount' | 'total_amount' };
+      } = {};
       if (jsonStableStringify(nextContact) !== jsonStableStringify(buildShopContactPatch(serverContact).contact)) {
         patch.contact = nextContact;
       }
       if (jsonStableStringify(nextAppearance) !== jsonStableStringify(buildAppearancePatch(serverAppearance))) {
         patch.appearance = nextAppearance;
+      }
+      if (jsonStableStringify(loyalty) !== jsonStableStringify(serverLoyalty)) {
+        patch.loyalty = {
+          vnd_per_point: loyalty.vnd_per_point,
+          preorder_points_basis: loyalty.preorder_points_basis,
+        };
       }
       if (Object.keys(patch).length === 0) {
         return { skipped: true as const };
@@ -350,6 +380,56 @@ function ShopSettingsEditor({ serverRow, activeShop, canEditSettings }: ShopSett
               placeholder="Inter, system-ui, sans-serif"
               disabled={!canEditSettings}
             />
+          </div>
+        </section>
+
+        <section className={styles.card} aria-labelledby="loyalty-heading">
+          <h2 id="loyalty-heading" className={styles.sectionTitle}>
+            Điểm thưởng pre-order
+          </h2>
+          <p className={styles.hint}>
+            Khi đơn chuyển sang &quot;Đã thanh toán&quot;, điểm = làm tròn xuống (số tiền cơ sở ÷ VND mỗi điểm).
+          </p>
+          <div className={styles.formRow}>
+            <label className={styles.label} htmlFor="loyalty-vnd-per-point">
+              VND / 1 điểm
+            </label>
+            <input
+              id="loyalty-vnd-per-point"
+              type="number"
+              min={1}
+              step={1}
+              className={styles.input}
+              disabled={!canEditSettings}
+              value={loyalty.vnd_per_point}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setLoyalty((prev) => ({
+                  ...prev,
+                  vnd_per_point: Number.isFinite(n) && n >= 1 ? Math.floor(n) : prev.vnd_per_point,
+                }));
+              }}
+            />
+          </div>
+          <div className={styles.formRow}>
+            <label className={styles.label} htmlFor="loyalty-basis">
+              Cơ sở tính điểm
+            </label>
+            <select
+              id="loyalty-basis"
+              className={styles.input}
+              disabled={!canEditSettings}
+              value={loyalty.preorder_points_basis}
+              onChange={(e) =>
+                setLoyalty((prev) => ({
+                  ...prev,
+                  preorder_points_basis: e.target.value as 'paid_amount' | 'total_amount',
+                }))
+              }
+            >
+              <option value="paid_amount">Tiền đã thanh toán (paid_amount)</option>
+              <option value="total_amount">Tổng giá trị đơn (total_amount)</option>
+            </select>
           </div>
         </section>
 

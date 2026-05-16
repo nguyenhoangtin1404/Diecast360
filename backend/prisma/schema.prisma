@@ -47,6 +47,7 @@ enum PreOrderStatus {
   WAITING_FOR_GOODS    @map("dang_cho_hang")
   ARRIVED              @map("da_ve")
   PAID                 @map("da_thanh_toan")
+  REFUNDED             @map("da_hoan_tien")
   CANCELLED            @map("da_huy")
 }
 
@@ -71,6 +72,8 @@ model Shop {
   contact_json Json          @default("{}")
   // Storefront branding (logo URL, favicon, colors, fonts) — shop admin; apply on public UI later
   appearance_json Json       @default("{}")
+  /** Pre-order loyalty: `{ "vnd_per_point": 1000, "preorder_points_basis": "paid_amount" | "total_amount" }` */
+  loyalty_json   Json         @default("{}")
   created_at DateTime       @default(now())
   updated_at DateTime       @updatedAt
 
@@ -227,6 +230,7 @@ model PreOrder {
   shop_id              String
   item_id              String
   user_id              String?
+  member_id            String?
   status               PreOrderStatus @default(PENDING_CONFIRMATION)
   quantity             Int            @default(1)
   unit_price           Decimal?
@@ -245,11 +249,13 @@ model PreOrder {
   shop Shop  @relation(fields: [shop_id], references: [id], onDelete: Cascade)
   item Item  @relation(fields: [item_id], references: [id], onDelete: Restrict)
   user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  member Member? @relation(fields: [member_id], references: [id], onDelete: Restrict)
 
   @@map("pre_orders")
   @@index([shop_id, status])
   @@index([item_id])
   @@index([user_id])
+  @@index([member_id])
   @@index([shop_id, expected_arrival_at])
 }
 
@@ -285,6 +291,7 @@ model Member {
   shop   Shop            @relation(fields: [shop_id], references: [id], onDelete: Cascade)
   tier   MembershipTier? @relation(fields: [tier_id], references: [id], onDelete: SetNull)
   points MemberPointsLedger[]
+  pre_orders PreOrder[]
 
   @@map("members")
   @@index([shop_id, created_at])
@@ -305,6 +312,9 @@ model MemberPointsLedger {
   balance_after Int
   reason        String
   note          String?
+  /** Idempotency key with {@link reference_id}, e.g. `preorder_paid` / `preorder_refund`. */
+  reference_type String?
+  reference_id   String?
   created_at    DateTime                 @default(now())
 
   member Member @relation(fields: [member_id], references: [id], onDelete: Cascade)

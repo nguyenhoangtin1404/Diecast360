@@ -1,4 +1,15 @@
-import { IsOptional, IsString, IsUrl, Matches, MaxLength, ValidateIf, ValidateNested } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Matches,
+  MaxLength,
+  Min,
+  ValidateIf,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ShopContactPatchDto } from './update-shop.dto';
 
@@ -46,6 +57,18 @@ export class ShopAppearancePatchDto {
   font_family?: string;
 }
 
+export class ShopLoyaltyPatchDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  vnd_per_point?: number;
+
+  @IsOptional()
+  @IsIn(['paid_amount', 'total_amount'])
+  preorder_points_basis?: 'paid_amount' | 'total_amount';
+}
+
 export class UpdateShopSettingsDto {
   @IsOptional()
   @ValidateNested()
@@ -56,4 +79,9 @@ export class UpdateShopSettingsDto {
   @ValidateNested()
   @Type(() => ShopAppearancePatchDto)
   appearance?: ShopAppearancePatchDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ShopLoyaltyPatchDto)
+  loyalty?: ShopLoyaltyPatchDto;
 }

@@ -52,6 +52,7 @@ export class ShopSettingsController {
       dto.contact,
       dto.appearance,
       actorUserId,
+      dto.loyalty,
     );
   }
 
