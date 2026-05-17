@@ -438,14 +438,6 @@ export class MembersService {
     });
 
     try {
-      await tx.member.update({
-        where: { id: member.id },
-        data: {
-          points_balance: pointsResolution.nextBalance,
-          tier_id: pointsResolution.nextTierId,
-        },
-      });
-
       await tx.memberPointsLedger.create({
         data: {
           member_id: member.id,
@@ -467,6 +459,14 @@ export class MembersService {
       }
       throw error;
     }
+
+    await tx.member.update({
+      where: { id: member.id },
+      data: {
+        points_balance: pointsResolution.nextBalance,
+        tier_id: pointsResolution.nextTierId,
+      },
+    });
 
     this.logger.log(
       `points.preorder_ledger tenant=${args.shopId} member=${member.id} type=${args.type} ref=${args.referenceType}/${args.referenceId} delta=${pointsResolution.delta}`,

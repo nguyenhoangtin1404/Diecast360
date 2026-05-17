@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { MemberPointsMutationType } from '../generated/prisma/client';
+import { MemberPointsMutationType, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { MembersService } from './members.service';
 
@@ -23,6 +23,7 @@ describe('MembersService', () => {
     },
     memberPointsLedger: {
       create: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
     },
@@ -140,6 +141,44 @@ describe('MembersService', () => {
         }),
       }),
     );
+  });
+
+  it('does not update member balance when preorder ledger reference already exists concurrently', async () => {
+    const tx = {
+      member: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'm1',
+          shop_id: 'shop-1',
+          points_balance: 100,
+          tier_id: null,
+        }),
+        update: jest.fn(),
+      },
+      membershipTier: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      memberPointsLedger: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockRejectedValue(
+          new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+            code: 'P2002',
+            clientVersion: 'test',
+          }),
+        ),
+      },
+    };
+
+    await service.applyPreorderPaidPointsIfNeededInTx(tx as never, {
+      shopId: 'shop-1',
+      preorderId: 'po-1',
+      memberId: 'm1',
+      basisVnd: 50_000,
+      vndPerPoint: 1000,
+      actorUserId: 'user-1',
+    });
+
+    expect(tx.memberPointsLedger.create).toHaveBeenCalled();
+    expect(tx.member.update).not.toHaveBeenCalled();
   });
 
   it('create/update/delete tier works through prisma', async () => {
