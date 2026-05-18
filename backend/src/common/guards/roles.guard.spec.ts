@@ -10,16 +10,29 @@ import { RolesGuard } from './roles.guard';
 describe('RolesGuard', () => {
   let guard: RolesGuard;
   let reflector: Reflector;
-  let prisma: { userShopRole: { findMany: jest.Mock } };
+  let prisma: { userShopRole: { findMany: jest.Mock }; shop: { findUnique: jest.Mock } };
 
-  const createContext = (requestUser: unknown, method = 'GET'): ExecutionContext =>
-    ({
+  type TestRequest = {
+    user: unknown;
+    method: string;
+    tenantAccessVerified?: boolean;
+  };
+
+  const createContext = (
+    requestUser: unknown,
+    method = 'GET',
+    requestOverrides: Partial<TestRequest> = {},
+  ): ExecutionContext => {
+    const request: TestRequest = { user: requestUser, method, ...requestOverrides };
+
+    return {
       getHandler: () => jest.fn(),
       getClass: () => class TestController {},
       switchToHttp: () => ({
-        getRequest: () => ({ user: requestUser, method }),
+        getRequest: () => request,
       }),
-    }) as unknown as ExecutionContext;
+    } as unknown as ExecutionContext;
+  };
 
   const mockReflector = (
     platformRoles?: PlatformRole[],
@@ -36,7 +49,10 @@ describe('RolesGuard', () => {
 
   beforeEach(() => {
     reflector = new Reflector();
-    prisma = { userShopRole: { findMany: jest.fn() } };
+    prisma = {
+      userShopRole: { findMany: jest.fn() },
+      shop: { findUnique: jest.fn().mockResolvedValue({ is_active: true }) },
+    };
     guard = new RolesGuard(reflector, prisma as unknown as PrismaService);
     // Clear the static cache between tests to prevent cross-test contamination.
     RolesGuard['shopRolesCache'].clear();
@@ -60,6 +76,7 @@ describe('RolesGuard', () => {
     mockReflector([PlatformRole.platform_super]);
     const ctx = createContext({ id: 'u1', platform_role: PlatformRole.platform_super });
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(prisma.shop.findUnique).not.toHaveBeenCalled();
   });
 
   it('denies user without platform_role on @PlatformRoles route', async () => {
@@ -102,6 +119,72 @@ describe('RolesGuard', () => {
       shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
     });
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(prisma.shop.findUnique).toHaveBeenCalledWith({
+      where: { id: 'shop-a' },
+      select: { is_active: true },
+    });
+  });
+
+  it('skips shop.is_active lookup when tenant access was already verified upstream', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin]);
+    const ctx = createContext(
+      {
+        id: 'u1',
+        active_shop_id: 'shop-a',
+        shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
+      },
+      'GET',
+      { tenantAccessVerified: true },
+    );
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(prisma.shop.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('denies shop_admin when active shop is deactivated (is_active false)', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin]);
+    prisma.shop.findUnique.mockResolvedValueOnce({ is_active: false });
+    const ctx = createContext({
+      id: 'u1',
+      active_shop_id: 'shop-a',
+      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
+    });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('denies shop_admin when active shop no longer exists', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin]);
+    prisma.shop.findUnique.mockResolvedValueOnce(null);
+    const ctx = createContext({
+      id: 'u1',
+      active_shop_id: 'shop-a',
+      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
+    });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('denies tenant user on mixed platform+tenant route when active shop is inactive', async () => {
+    mockReflector([PlatformRole.platform_super], [ShopRole.shop_admin, ShopRole.shop_staff]);
+    prisma.shop.findUnique.mockResolvedValueOnce({ is_active: false });
+    const ctx = createContext(
+      {
+        id: 'u1',
+        platform_role: null,
+        active_shop_id: 'shop-a',
+        shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
+      },
+      'PATCH',
+    );
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('allows platform_super on mixed platform+tenant route without shop.is_active lookup', async () => {
+    mockReflector([PlatformRole.platform_super], [ShopRole.shop_admin, ShopRole.shop_staff]);
+    const ctx = createContext(
+      { id: 'u1', platform_role: PlatformRole.platform_super, active_shop_id: 'shop-a' },
+      'PATCH',
+    );
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(prisma.shop.findUnique).not.toHaveBeenCalled();
   });
 
   it('allows legacy super_admin shop row when route requires shop_admin', async () => {

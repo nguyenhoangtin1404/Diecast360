@@ -17,6 +17,17 @@ export interface JwtUserShopRole {
   role: ShopRole;
 }
 
+type RolesGuardRequest = {
+  method?: string;
+  tenantAccessVerified?: boolean;
+  user?: {
+    id?: string;
+    active_shop_id?: string | null;
+    platform_role?: PlatformRole | null;
+    shop_roles?: JwtUserShopRole[];
+  };
+};
+
 /**
  * HTTP methods considered safe/read-only for shop_staff enforcement (Option C).
  *
@@ -68,7 +79,9 @@ function userRoleSatisfiesTenantRequirement(userRole: ShopRole, tenantRoles: Sho
  * Routes decorated with `@Roles(ShopRole.shop_admin)` (or shop_staff) require:
  *   1. A valid `active_shop_id` in the JWT.
  *   2. A matching `UserShopRole` row for that shop.
- *   3. Option C: `shop_staff` users are automatically restricted to safe HTTP methods
+ *   3. The shop row exists and `shop.is_active` is true (live DB read; not cached with
+ *      shop roles so deactivated shops cannot authorize via stale 30s role cache).
+ *   4. Option C: `shop_staff` users are automatically restricted to safe HTTP methods
  *      (GET/HEAD/OPTIONS) — no individual controller needs to check this.
  *
  * ## Legacy compatibility
@@ -115,7 +128,7 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<RolesGuardRequest>();
     const { user } = request;
     if (!user?.id) {
       throw new ForbiddenException('A role is required to access this resource.');
@@ -194,6 +207,16 @@ export class RolesGuard implements CanActivate {
 
     if (!matchingRole) {
       throw new ForbiddenException(`Access forbidden. Required roles: ${tenantRoles.join(', ')}`);
+    }
+
+    if (!request.tenantAccessVerified) {
+      const shopState = await this.prisma.shop.findUnique({
+        where: { id: activeShopId },
+        select: { is_active: true },
+      });
+      if (!shopState?.is_active) {
+        throw new ForbiddenException('Access forbidden for the selected active shop.');
+      }
     }
 
     // ── Option C: shop_staff HTTP-method enforcement ─────────────────────────

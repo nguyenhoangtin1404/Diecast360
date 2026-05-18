@@ -21,7 +21,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 13: Issue #33 - Playwright Phase 2** - Extended E2E coverage and quality-gate hardening. *(2026-04-29)*
 - [x] **Phase 14: Multi-Tenant Shop** - Support multiple isolated diecast shops on a single deployment with scoped access.
 - [x] **Phase 15: Admin RBAC & Tenant Authorization** - Separate platform operator permissions from per-shop roles; extend shop roles (e.g. read-only staff) and align API + admin UI.
-- [ ] **Phase 18: Issue #59 - Category Tenant Guard Hardening** - Close inactive-shop authorization lifecycle gap on category mutate routes.
+- [x] **Phase 18: Issue #59 - Category Tenant Guard Hardening** - Close inactive-shop authorization lifecycle gap on category mutate routes. *(2026-05-16)*
 - [x] **Phase 16: Per-Shop Public Homepage** - Resolve public catalog and item detail to a single shop tenant via URL or explicit query param, aligned with existing multi-tenant isolation. (completed 2026-04-30)
 - [x] **Phase 17: Cloudflare R2 upload — migrate backend media from local disk to object storage** - S3-compatible R2 behind `IStorageService`; presigned or proxied media URLs; optional disk→R2 migration. (completed 2026-05-09)
 
@@ -141,13 +141,13 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 18-01: Harden category mutate tenant authorization
+- [x] 18-01: Harden category mutate tenant authorization
 
 
 | 15. Admin RBAC & Tenant Authorization | 3/3 | Complete | 2026-04-29 |
 | 16. Per-Shop Public Homepage | 3/3 | Complete | 2026-04-30 |
 | 17. Cloudflare R2 upload | 3/3 | Complete | 2026-05-09 |
-| 18. Issue #59 - Category Tenant Guard Hardening | 0/1 | Planned | — |
+| 18. Issue #59 - Category Tenant Guard Hardening | 1/1 | Complete | 2026-05-16 |
 | 19. Pre-order PAID → điểm hội viên | 0/3 | Planned | — |
 
 

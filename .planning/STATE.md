@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planned
-last_updated: "2026-05-12T07:45:00.000Z"
+status: complete
+last_updated: "2026-05-16T15:30:00.000Z"
 progress:
   total_phases: 18
-  completed_phases: 17
+  completed_phases: 18
   total_plans: 40
-  completed_plans: 39
+  completed_plans: 40
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-30)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 18 (Issue #59 - Category Tenant Guard Hardening) — planned 2026-05-12; execute `18-01` to close inactive-shop authorization lifecycle gap on category mutate routes.
+**Current focus:** Phase 19 (Pre-order PAID → điểm hội viên) — next milestone work when picked up.
 
 ## Current Position
 
-Phase: **18** — Issue #59 Category Tenant Guard Hardening (**planned**: 18-01)
+Phase: **18** — Issue #59 Category Tenant Guard Hardening (**complete**: 18-01 shipped 2026-05-16)
 Plan: **18-01** Harden category mutate tenant authorization
-Status: Ready for implementation.
-Last activity: 2026-05-12 — created Issue #59 and Phase 18 plan from code review finding.
+Status: Implemented — `RolesGuard` tenant branch now verifies `shop.is_active` via live `shop.findUnique` (aligns category mutate routes with tenant lifecycle; platform_super early-return unchanged).
+Last activity: 2026-05-16 — Phase 18 merged implementation: inactive `active_shop_id` JWT context cannot pass tenant `RolesGuard`.
 
-Progress: [#########.] 17/18 phases shipped; Phase 18 planned, execution pending.
+Progress: [##########] 18/18 phases shipped for current roadmap slice; Phase 19 remains planned.
 
 ## Performance Metrics
 
@@ -67,17 +67,19 @@ Progress: [#########.] 17/18 phases shipped; Phase 18 planned, execution pending
 - (2026-04-29) Completed Phase 13: advanced Playwright specs (`spinner`, `social-selling`, `responsive`), CI runner tuning (retries/workers), E2E triage notes in `docs/TODO.md`, `stubAuthCsrf` helper for admin mocks.
 - (2026-04-29) Completed Phase 15: PlatformRole enum + User.platform_role migration+backfill; dual-layer RolesGuard (platform_role check + shop_staff HTTP-method enforcement — Option C); @PlatformRoles decorator; AddShopAdminDto extended with role field; frontend isPlatformSuper + useIsSuperAdmin updated; AddMemberModal role picker (shop_admin/shop_staff); audit labels for new actions.
 - (2026-04-30) **Phase 16:** Public catalog/detail accept optional `shop_id` (UUID or slug); explicit query overrides JWT for reads; frontend propagates `shop_id` via URL, `VITE_PUBLIC_CATALOG_SHOP_ID`, or JWT after auth settles (`shopContextReady`); Playwright two-shop mock proves UI isolation.
+- (2026-05-16) **Phase 18 / Issue #59:** Tenant-layer `RolesGuard` now loads `shop.is_active` per request (`shop.findUnique`) after role match so deactivated shops cannot authorize mutating routes (including category PATCH/DELETE) with stale JWT `active_shop_id`; platform_super still bypasses tenant branch; regression tests in `roles.guard.spec.ts`.
 
 ### Roadmap Evolution
 
 - Phase 17 added: Cloudflare R2 upload — migrate backend media from local disk to object storage (2026-05-08).
 - Phase 17 planned: RESEARCH + plans 17-01..17-03 + PLAN-CHECK (2026-05-08).
 - Phase 18 added: Issue #59 Category Tenant Guard Hardening (2026-05-12).
+- Phase 18 completed: RolesGuard active-shop lifecycle hardening (2026-05-16).
 
 ### Pending Todos
 
-- Execute Phase 18 Plan 18-01 to harden category mutate tenant authorization.
 - Merge nhánh `feat/security-signed-media-csrf-throttle` + cập nhật `docs/API_CONTRACT.md` / `ENV.md` nếu chưa làm.
+- Execute Phase 19 plans when scheduled (pre-order PAID → member points).
 
 ### Blockers/Concerns
 
@@ -85,6 +87,6 @@ Progress: [#########.] 17/18 phases shipped; Phase 18 planned, execution pending
 
 ## Session Continuity
 
-Last session: 2026-05-12 (created Issue #59 + Phase 18 executable plan)
-Stopped at: **Execute** — implement `.planning/phases/18-category-tenant-guard-hardening/18-01-PLAN.md`.
-Resume file: `.planning/phases/18-category-tenant-guard-hardening/18-01-PLAN.md`
+Last session: 2026-05-16 (Phase 18 — RolesGuard `shop.is_active` check + tests + roadmap/state)
+Stopped at: **Complete** — branch `cursor/category-tenant-guard-hardening-8c96` ready for review/merge.
+Resume file: `.planning/phases/19-preorder-member-points-on-paid/19-01-PLAN.md` (next phase when prioritized)
