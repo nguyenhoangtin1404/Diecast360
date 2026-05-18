@@ -7,6 +7,15 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+type TenantVerifiedRequest = {
+  user?: {
+    id?: string;
+    active_shop_id?: string | null;
+  };
+  tenantId?: string;
+  tenantAccessVerified?: boolean;
+};
+
 /**
  * TenantGuard — enforces that a request has an active_shop_id bound in the JWT.
  *
@@ -23,7 +32,7 @@ export class TenantGuard implements CanActivate {
   constructor(private readonly prisma: PrismaService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<TenantVerifiedRequest>();
     const user = request.user;
 
     if (!user?.id) {
@@ -66,6 +75,7 @@ export class TenantGuard implements CanActivate {
 
     // Inject tenantId for downstream use via @CurrentTenantId() decorator
     request.tenantId = activeShopId;
+    request.tenantAccessVerified = true;
     return true;
   }
 }

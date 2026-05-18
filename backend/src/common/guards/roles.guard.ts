@@ -17,6 +17,17 @@ export interface JwtUserShopRole {
   role: ShopRole;
 }
 
+type RolesGuardRequest = {
+  method?: string;
+  tenantAccessVerified?: boolean;
+  user?: {
+    id?: string;
+    active_shop_id?: string | null;
+    platform_role?: PlatformRole | null;
+    shop_roles?: JwtUserShopRole[];
+  };
+};
+
 /**
  * HTTP methods considered safe/read-only for shop_staff enforcement (Option C).
  *
@@ -117,7 +128,7 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<RolesGuardRequest>();
     const { user } = request;
     if (!user?.id) {
       throw new ForbiddenException('A role is required to access this resource.');
@@ -198,12 +209,14 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException(`Access forbidden. Required roles: ${tenantRoles.join(', ')}`);
     }
 
-    const shopState = await this.prisma.shop.findUnique({
-      where: { id: activeShopId },
-      select: { is_active: true },
-    });
-    if (!shopState?.is_active) {
-      throw new ForbiddenException('Access forbidden for the selected active shop.');
+    if (!request.tenantAccessVerified) {
+      const shopState = await this.prisma.shop.findUnique({
+        where: { id: activeShopId },
+        select: { is_active: true },
+      });
+      if (!shopState?.is_active) {
+        throw new ForbiddenException('Access forbidden for the selected active shop.');
+      }
     }
 
     // ── Option C: shop_staff HTTP-method enforcement ─────────────────────────

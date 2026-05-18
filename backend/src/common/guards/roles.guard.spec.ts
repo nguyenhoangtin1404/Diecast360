@@ -12,14 +12,27 @@ describe('RolesGuard', () => {
   let reflector: Reflector;
   let prisma: { userShopRole: { findMany: jest.Mock }; shop: { findUnique: jest.Mock } };
 
-  const createContext = (requestUser: unknown, method = 'GET'): ExecutionContext =>
-    ({
+  type TestRequest = {
+    user: unknown;
+    method: string;
+    tenantAccessVerified?: boolean;
+  };
+
+  const createContext = (
+    requestUser: unknown,
+    method = 'GET',
+    requestOverrides: Partial<TestRequest> = {},
+  ): ExecutionContext => {
+    const request: TestRequest = { user: requestUser, method, ...requestOverrides };
+
+    return {
       getHandler: () => jest.fn(),
       getClass: () => class TestController {},
       switchToHttp: () => ({
-        getRequest: () => ({ user: requestUser, method }),
+        getRequest: () => request,
       }),
-    }) as unknown as ExecutionContext;
+    } as unknown as ExecutionContext;
+  };
 
   const mockReflector = (
     platformRoles?: PlatformRole[],
@@ -110,6 +123,21 @@ describe('RolesGuard', () => {
       where: { id: 'shop-a' },
       select: { is_active: true },
     });
+  });
+
+  it('skips shop.is_active lookup when tenant access was already verified upstream', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin]);
+    const ctx = createContext(
+      {
+        id: 'u1',
+        active_shop_id: 'shop-a',
+        shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
+      },
+      'GET',
+      { tenantAccessVerified: true },
+    );
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(prisma.shop.findUnique).not.toHaveBeenCalled();
   });
 
   it('denies shop_admin when active shop is deactivated (is_active false)', async () => {
