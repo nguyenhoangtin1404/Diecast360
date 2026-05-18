@@ -151,6 +151,17 @@ describe('RolesGuard', () => {
     await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
+  it('denies shop_admin when active shop no longer exists', async () => {
+    mockReflector(undefined, [ShopRole.shop_admin]);
+    prisma.shop.findUnique.mockResolvedValueOnce(null);
+    const ctx = createContext({
+      id: 'u1',
+      active_shop_id: 'shop-a',
+      shop_roles: [{ shop_id: 'shop-a', role: ShopRole.shop_admin }],
+    });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
   it('denies tenant user on mixed platform+tenant route when active shop is inactive', async () => {
     mockReflector([PlatformRole.platform_super], [ShopRole.shop_admin, ShopRole.shop_staff]);
     prisma.shop.findUnique.mockResolvedValueOnce({ is_active: false });

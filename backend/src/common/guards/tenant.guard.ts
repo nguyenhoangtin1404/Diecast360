@@ -73,7 +73,9 @@ export class TenantGuard implements CanActivate {
       throw new ForbiddenException('Access forbidden for the selected active shop.');
     }
 
-    // Inject tenantId for downstream use via @CurrentTenantId() decorator
+    // Inject tenantId for downstream use via @CurrentTenantId() decorator.
+    // RolesGuard uses tenantAccessVerified to avoid repeating this live tenant
+    // membership + shop.is_active check on routes that run TenantGuard first.
     request.tenantId = activeShopId;
     request.tenantAccessVerified = true;
     return true;
