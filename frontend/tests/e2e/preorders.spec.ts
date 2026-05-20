@@ -366,9 +366,9 @@ test.describe('Pre-order flows', () => {
 
     await page.goto('/admin/preorders/manage');
     await expect(page.getByTestId('admin-campaign-summary')).toBeVisible();
-    await expect(page.getByTestId('admin-participant-row').first()).toContainText('Buyer A');
+    await expect(page.getByTestId('admin-participant-row').first()).toContainText('Member A');
     await page.getByTestId('admin-campaign-selector').selectOption('item-2');
-    await expect(page.getByTestId('admin-participant-row').first()).toContainText('Buyer B');
+    await expect(page.getByTestId('admin-participant-row').first()).toContainText('Member B');
   });
 
   test('create preorder form prefills item_id from query string', async ({ page }) => {
