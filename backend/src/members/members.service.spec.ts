@@ -6,6 +6,7 @@ import { MembersService } from './members.service';
 describe('MembersService', () => {
   let service: MembersService;
   const prisma = {
+    preOrder: { count: jest.fn() },
     member: {
       findMany: jest.fn(),
       count: jest.fn(),
@@ -214,6 +215,7 @@ describe('MembersService', () => {
 
   it('deletes member by id in tenant', async () => {
     prisma.member.findFirst.mockResolvedValue({ id: 'm1' });
+    prisma.preOrder.count.mockResolvedValue(0);
     prisma.member.delete.mockResolvedValue({ id: 'm1' });
 
     const result = await service.deleteMember('m1', 'shop-1');
@@ -222,7 +224,68 @@ describe('MembersService', () => {
       where: { id: 'm1', shop_id: 'shop-1' },
       select: { id: true },
     });
+    expect(prisma.preOrder.count).toHaveBeenCalledWith({
+      where: { member_id: 'm1', shop_id: 'shop-1' },
+    });
     expect(prisma.member.delete).toHaveBeenCalledWith({ where: { id: 'm1' } });
     expect(result).toEqual({ ok: true });
+  });
+
+  it('applyPreorderRefundRedeemIfNeededInTx claws back points even when balance is insufficient', async () => {
+    const tx = {
+      memberPointsLedger: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce({ points: 80 })
+          .mockResolvedValueOnce(null),
+        create: jest.fn().mockResolvedValue({ id: 'refund-ledger' }),
+      },
+      member: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'm1',
+          shop_id: 'shop-1',
+          points_balance: 10,
+          tier_id: null,
+        }),
+        update: jest.fn().mockResolvedValue({ id: 'm1', points_balance: -70 }),
+      },
+      membershipTier: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+
+    await service.applyPreorderRefundRedeemIfNeededInTx(tx as never, {
+      shopId: 'shop-1',
+      preorderId: 'po-1',
+      memberId: 'm1',
+      actorUserId: 'user-1',
+    });
+
+    expect(tx.member.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ points_balance: -70 }),
+      }),
+    );
+    expect(tx.memberPointsLedger.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          type: MemberPointsMutationType.adjust,
+          points: 80,
+          delta: -80,
+          reference_type: 'preorder_refund',
+        }),
+      }),
+    );
+  });
+
+  it('rejects delete when member is linked to pre-orders', async () => {
+    prisma.member.findFirst.mockResolvedValue({ id: 'm1' });
+    prisma.preOrder.count.mockResolvedValue(2);
+
+    await expect(service.deleteMember('m1', 'shop-1')).rejects.toThrow(
+      'Cannot delete member linked to 2 pre-order(s)',
+    );
+    expect(prisma.member.delete).not.toHaveBeenCalled();
   });
 });

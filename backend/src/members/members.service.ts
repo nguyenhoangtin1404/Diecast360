@@ -200,6 +200,15 @@ export class MembersService {
 
   async deleteMember(memberId: string, tenantId: string) {
     await this.ensureMemberExists(memberId, tenantId);
+    const linkedPreorders = await this.prisma.preOrder.count({
+      where: { member_id: memberId, shop_id: tenantId },
+    });
+    if (linkedPreorders > 0) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        `Cannot delete member linked to ${linkedPreorders} pre-order(s). Reassign or complete those orders first.`,
+      );
+    }
     await this.prisma.member.delete({ where: { id: memberId } });
     this.logger.log(`member.deleted tenant=${tenantId} member=${memberId}`);
     return { ok: true };
@@ -377,16 +386,18 @@ export class MembersService {
       return;
     }
 
+    // Claw back earned points even when the member spent them (may go negative).
     await this.appendLedgerMutationInTx(tx, {
       shopId: input.shopId,
       memberId: input.memberId,
-      type: 'redeem',
-      pointsMagnitude: points,
+      type: 'adjust',
+      pointsMagnitude: -points,
       reason: 'Hoàn tiền pre-order (trừ điểm tích lũy)',
       note: `pre_order=${input.preorderId}`,
       actorUserId: input.actorUserId,
       referenceType: MEMBER_POINTS_REF_PREORDER_REFUND,
       referenceId: input.preorderId,
+      allowNegativeBalance: true,
     });
   }
 
@@ -396,12 +407,14 @@ export class MembersService {
       shopId: string;
       memberId: string;
       type: MemberPointsMutationType;
+      /** Positive magnitude for earn/redeem; signed delta for adjust. */
       pointsMagnitude: number;
       reason: string;
       note: string | null;
       actorUserId: string | null;
       referenceType: string;
       referenceId: string;
+      allowNegativeBalance?: boolean;
     },
   ): Promise<void> {
     const dup = await tx.memberPointsLedger.findFirst({
@@ -429,12 +442,22 @@ export class MembersService {
       orderBy: [{ rank: 'asc' }],
     });
 
+    const resolverPoints =
+      args.type === 'adjust' ? args.pointsMagnitude : args.pointsMagnitude;
+    if (args.type !== 'adjust' && resolverPoints <= 0) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Points magnitude must be positive.');
+    }
+    if (args.type === 'adjust' && resolverPoints === 0) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Adjust points must be non-zero.');
+    }
+
     const pointsResolution = resolvePointsAdjustment({
       type: args.type,
-      points: args.pointsMagnitude,
+      points: resolverPoints,
       currentBalance: member.points_balance,
       currentTierId: member.tier_id,
       tiers,
+      allowNegativeBalance: args.allowNegativeBalance,
     });
 
     try {
@@ -452,7 +475,7 @@ export class MembersService {
           shop_id: args.shopId,
           actor_user_id: args.actorUserId,
           type: args.type,
-          points: args.pointsMagnitude,
+          points: args.type === 'adjust' ? Math.abs(args.pointsMagnitude) : args.pointsMagnitude,
           delta: pointsResolution.delta,
           balance_after: pointsResolution.nextBalance,
           reason: args.reason,

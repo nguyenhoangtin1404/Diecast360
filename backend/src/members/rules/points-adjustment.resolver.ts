@@ -14,6 +14,7 @@ type ResolvePointsAdjustmentInput = {
   currentBalance: number;
   currentTierId: string | null;
   tiers: TierInput[];
+  allowNegativeBalance?: boolean;
 };
 
 export function resolvePointsAdjustment(input: ResolvePointsAdjustmentInput) {
@@ -22,6 +23,7 @@ export function resolvePointsAdjustment(input: ResolvePointsAdjustmentInput) {
     currentBalance: input.currentBalance,
     type: input.type as 'earn' | 'redeem' | 'adjust',
     points: input.points,
+    allowNegativeBalance: input.allowNegativeBalance,
   });
   const tierEval = evaluateTierForBalance({
     currentTierId: input.currentTierId,
