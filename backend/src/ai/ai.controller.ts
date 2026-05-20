@@ -16,7 +16,7 @@ export class AiController {
   constructor(private readonly aiService: AiService) {}
 
   @Post(':id/ai-description')
-  @Throttle({ default: { ttl: 60000, limit: 25 } })
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
   async generateDescription(
     @Param('id') id: string,
     @Body() dto: GenerateAiDescriptionDto,
@@ -26,7 +26,7 @@ export class AiController {
   }
 
   @Post(':id/fb-post')
-  @Throttle({ default: { ttl: 60000, limit: 25 } })
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
   async generateFbPost(
     @Param('id') id: string,
     @Body() dto: GenerateFbPostDto,

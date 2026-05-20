@@ -1,8 +1,9 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class GenerateAiDescriptionDto {
   @IsOptional()
   @IsString()
+  @MaxLength(2000, { message: 'custom_instructions must be at most 2000 characters' })
   custom_instructions?: string;
 }
 
@@ -17,6 +18,7 @@ export class AiDescriptionResponseDto {
 export class GenerateFbPostDto {
   @IsOptional()
   @IsString()
+  @MaxLength(2000, { message: 'custom_instructions must be at most 2000 characters' })
   custom_instructions?: string;
 }
 

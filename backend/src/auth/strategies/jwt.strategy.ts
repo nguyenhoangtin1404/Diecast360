@@ -3,26 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../auth.service';
-import { Request } from 'express';
-
-/**
- * Custom extractor function that reads JWT from HttpOnly cookie
- * Falls back to Authorization header for backward compatibility
- */
-const cookieExtractor = (req: Request): string | null => {
-  // First, try to get token from HttpOnly cookie (preferred for security)
-  if (req && req.cookies && req.cookies.access_token) {
-    return req.cookies.access_token;
-  }
-  
-  // Fallback: try to get from Authorization header (for API clients, mobile apps, etc.)
-  const authHeader = req?.headers?.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7);
-  }
-  
-  return null;
-};
+import { createAccessTokenExtractor } from './jwt-from-request';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -34,8 +15,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!secret || secret.trim().length < 32) {
       throw new Error('JWT_SECRET must be set and at least 32 characters long');
     }
+    const allowBearer =
+      (configService.get<string>('JWT_ALLOW_AUTHORIZATION_BEARER') ?? 'true').trim().toLowerCase() !== 'false';
     super({
-      jwtFromRequest: cookieExtractor,
+      jwtFromRequest: createAccessTokenExtractor(allowBearer),
       ignoreExpiration: false,
       secretOrKey: secret,
     });

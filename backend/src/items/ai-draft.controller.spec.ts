@@ -65,7 +65,10 @@ describe('AiDraftController', () => {
   it('should create a draft after analyzing and saving images', async () => {
     const result = await controller.createDraft([buildFile('box.jpg'), buildFile('bottom.jpg')], 'shop-1');
 
-    expect(aiService.analyzeImages).toHaveBeenCalledWith([Buffer.from('box.jpg'), Buffer.from('bottom.jpg')]);
+    expect(aiService.analyzeImages).toHaveBeenCalledWith(
+      [Buffer.from('box.jpg'), Buffer.from('bottom.jpg')],
+      { shop_id: 'shop-1', op: 'image_draft_analyze' },
+    );
     expect(prisma.aiItemDraft.create).toHaveBeenCalledWith({
       data: {
         images_json: JSON.stringify([

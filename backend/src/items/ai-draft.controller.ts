@@ -48,7 +48,10 @@ export class AiDraftController {
     }
 
     // 1. Analyze
-    const analysis = await this.aiService.analyzeImages(files.map(f => f.buffer));
+    const analysis = await this.aiService.analyzeImages(files.map(f => f.buffer), {
+      shop_id: tenantId,
+      op: 'image_draft_analyze',
+    });
 
     const savedPaths: string[] = [];
 
