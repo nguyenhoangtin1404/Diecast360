@@ -22,6 +22,17 @@ describe('applyPointsMutation', () => {
     );
   });
 
+  it('allows negative balance when explicitly permitted (pre-order refund clawback)', () => {
+    expect(
+      applyPointsMutation({
+        currentBalance: 10,
+        type: 'adjust',
+        points: -50,
+        allowNegativeBalance: true,
+      }),
+    ).toEqual({ delta: -50, nextBalance: -40 });
+  });
+
   it('supports signed adjust', () => {
     expect(applyPointsMutation({ currentBalance: 10, type: 'adjust', points: -3 })).toEqual({
       delta: -3,

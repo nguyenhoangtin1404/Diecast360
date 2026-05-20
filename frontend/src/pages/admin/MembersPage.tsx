@@ -346,7 +346,7 @@ export const MembersPage = () => {
             <p className="mt-2 text-sm text-slate-600">
               Bạn có chắc muốn xoá hội viên{' '}
               <span className="font-semibold text-slate-900">"{deleteMemberCandidate.full_name}"</span>? Thao tác này
-              sẽ xoá cả lịch sử điểm liên quan.
+              sẽ xoá lịch sử điểm. Không thể xoá nếu hội viên còn gắn với đơn pre-order.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button

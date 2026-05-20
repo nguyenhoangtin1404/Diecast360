@@ -273,6 +273,25 @@ export class PreordersService {
       await this.assertMemberInShop(dto.member_id, shopId);
     }
 
+    const isFinanciallyLocked =
+      current.status === PreOrderStatus.PAID ||
+      current.status === PreOrderStatus.REFUNDED ||
+      current.status === PreOrderStatus.CANCELLED;
+    if (isFinanciallyLocked) {
+      const triesFinancialChange =
+        dto.item_id !== undefined ||
+        dto.quantity !== undefined ||
+        dto.unit_price !== undefined ||
+        dto.deposit_amount !== undefined ||
+        dto.paid_amount !== undefined;
+      if (triesFinancialChange) {
+        throw new AppException(
+          ErrorCode.VALIDATION_ERROR,
+          'Cannot change item, quantity, or amounts on a pre-order that is paid, refunded, or cancelled.',
+        );
+      }
+    }
+
     const quantity = dto.quantity ?? current.quantity;
     const mergedUnitPrice =
       dto.unit_price !== undefined ? dto.unit_price : toNumber(current.unit_price);
@@ -356,6 +375,9 @@ export class PreordersService {
       };
       if (nextStatus === PreOrderStatus.PAID) {
         data.completed_at = now;
+      }
+      if (nextStatus === PreOrderStatus.REFUNDED) {
+        data.completed_at = null;
       }
 
       const updated = await tx.preOrder.updateMany({

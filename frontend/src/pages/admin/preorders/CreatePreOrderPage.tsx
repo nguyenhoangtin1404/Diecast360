@@ -65,9 +65,16 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
   const [success, setSuccess] = useState<string | null>(null);
   const postSuccessNavigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  const [memberSearch, setMemberSearch] = useState('');
+
   const membersQuery = useQuery({
-    queryKey: ['admin-preorder-members-picker'],
-    queryFn: async () => fetchMembers({ page: 1, pageSize: 200 }),
+    queryKey: ['admin-preorder-members-picker', memberSearch.trim()],
+    queryFn: async () =>
+      fetchMembers({
+        page: 1,
+        pageSize: 100,
+        keyword: memberSearch.trim() || undefined,
+      }),
   });
 
   useEffect(() => {
@@ -196,6 +203,14 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
         <div className={styles.gridTwo}>
           <label>
             Hội viên (bắt buộc)
+            <input
+              className={styles.input}
+              type="search"
+              placeholder="Tìm theo tên, SĐT, email…"
+              value={memberSearch}
+              onChange={(event) => setMemberSearch(event.target.value)}
+              data-testid="admin-preorder-member-search"
+            />
             <select
               className={styles.input}
               data-testid="admin-preorder-member-id"
@@ -214,6 +229,12 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
           </label>
           {membersQuery.isError && (
             <p className={styles.error}>Không tải được danh sách hội viên. Thử tải lại trang.</p>
+          )}
+          {membersQuery.data?.pagination && membersQuery.data.pagination.total > 100 && (
+            <p role="note">
+              Có {membersQuery.data.pagination.total} hội viên — hiển thị tối đa 100. Dùng ô tìm kiếm để
+              thu hẹp.
+            </p>
           )}
         </div>
 

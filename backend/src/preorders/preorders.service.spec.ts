@@ -384,6 +384,30 @@ describe('PreordersService', () => {
     });
   });
 
+  it('rejects financial field updates when pre-order is already paid', async () => {
+    prisma.preOrder.findFirst.mockResolvedValue({
+      id: 'po-paid',
+      shop_id: tenantId,
+      user_id: 'owner-user',
+      status: PreOrderStatus.PAID,
+      quantity: 1,
+      unit_price: { toNumber: () => 100 },
+      deposit_amount: { toNumber: () => 10 },
+      paid_amount: { toNumber: () => 100 },
+    });
+    prisma.userShopRole.findUnique.mockResolvedValue({ role: ShopRole.shop_admin });
+
+    await expect(
+      service.update(
+        'po-paid',
+        { paid_amount: 50 },
+        tenantId,
+        { userId: 'admin-user', platformRole: null },
+      ),
+    ).rejects.toThrow('Cannot change item, quantity, or amounts');
+    expect(prisma.preOrder.update).not.toHaveBeenCalled();
+  });
+
   it('handles concurrent transition conflict', async () => {
     prisma.preOrder.findFirst.mockResolvedValueOnce({
       id: 'po-2',
