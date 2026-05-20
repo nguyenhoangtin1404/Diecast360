@@ -314,6 +314,7 @@ const PRODUCT_STEPS: Array<{ id: ProductStep; title: string; shortTitle: string 
   { id: 2, title: 'Hình ảnh', shortTitle: 'Hình ảnh' },
   { id: 3, title: 'Ảnh 360', shortTitle: 'Ảnh 360' },
   { id: 4, title: 'AI gen nội dung FB', shortTitle: 'AI FB' },
+  { id: 5, title: 'Mã QR sản phẩm', shortTitle: 'Mã QR' },
 ];
 
 
@@ -361,6 +362,13 @@ export const ItemDetailPage = () => {
   const [isSavingFbLink, setIsSavingFbLink] = useState(false);
   const [isPublishingToFb, setIsPublishingToFb] = useState(false);
   const [publishFbMessage, setPublishFbMessage] = useState<string | null>(null);
+
+  // QR states
+  interface QrData { token: string; resolve_url: string; image_data_url: string }
+  const [qrData, setQrData] = useState<QrData | null>(null);
+  const [isLoadingQr, setIsLoadingQr] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+
   const socialSellingRef = useRef<HTMLDivElement>(null);
   const stepNavInFlightRef = useRef(false);
   const imagePreviewUrlsRef = useRef<string[]>([]);
@@ -495,6 +503,18 @@ export const ItemDetailPage = () => {
       }, 300);
     }
   }, [searchParams, data, setCurrentStep]);
+
+  // Lazy-load QR code when user enters step 5
+  useEffect(() => {
+    if (currentStep !== 5 || !id || id === 'new' || qrData || isLoadingQr) return;
+    setIsLoadingQr(true);
+    setQrError(null);
+    apiClient
+      .get<{ data: QrData }>(`/items/${id}/qr`)
+      .then((res) => setQrData(res.data.data))
+      .catch(() => setQrError('Không thể tải mã QR. Vui lòng thử lại.'))
+      .finally(() => setIsLoadingQr(false));
+  }, [currentStep, id, qrData, isLoadingQr]);
 
   const extractItemIdFromResponse = (response: unknown): string | null => {
     const isApiResponse = (r: unknown): r is ApiResponse<ItemResponse> => {
@@ -2870,6 +2890,86 @@ export const ItemDetailPage = () => {
           </div>
           </div>
           </div>
+          {/* Step 5: QR Code */}
+          <div style={{ display: currentStep === 5 ? 'block' : 'none' }}>
+            <h2 style={{
+              marginTop: '40px',
+              fontSize: '24px',
+              fontWeight: '600',
+              color: '#1a1a1a',
+              marginBottom: '20px',
+              paddingBottom: '12px',
+              borderBottom: '2px solid #f0f0f0',
+            }}>
+              Mã QR sản phẩm
+            </h2>
+
+            {(!id || id === 'new') ? (
+              <div style={{ padding: '20px', background: '#f9fafb', borderRadius: '10px', color: '#6b7280', fontSize: '14px' }}>
+                Lưu sản phẩm trước khi tạo mã QR.
+              </div>
+            ) : isLoadingQr ? (
+              <div style={{ padding: '20px', color: '#6b7280', fontSize: '14px' }}>Đang tạo mã QR...</div>
+            ) : qrError ? (
+              <div style={{ padding: '16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', color: '#dc2626', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>{qrError}</span>
+                <button
+                  type="button"
+                  onClick={() => { setQrData(null); setQrError(null); }}
+                  style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '13px', cursor: 'pointer' }}
+                >
+                  Thử lại
+                </button>
+              </div>
+            ) : qrData ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '400px' }}>
+                <div style={{ textAlign: 'center', padding: '20px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
+                  <img
+                    src={qrData.image_data_url}
+                    alt="Mã QR sản phẩm"
+                    style={{ width: '200px', height: '200px', display: 'block', margin: '0 auto' }}
+                  />
+                </div>
+
+                <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '14px' }}>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px', fontWeight: '500' }}>Link sản phẩm (trong QR)</div>
+                  <div style={{ fontSize: '13px', color: '#374151', wordBreak: 'break-all', fontFamily: 'monospace' }}>{qrData.resolve_url}</div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(qrData.resolve_url).then(
+                        () => showToast('Đã copy link QR', 'success'),
+                        () => showToast('Không thể copy', 'error'),
+                      );
+                    }}
+                    style={{ padding: '9px 16px', background: '#4b5563', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '500', cursor: 'pointer' }}
+                  >
+                    📋 Copy link
+                  </button>
+                  <a
+                    href={qrData.image_data_url}
+                    download={`qr-${id}.png`}
+                    style={{ padding: '9px 16px', background: 'linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed))', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', textDecoration: 'none', display: 'inline-block' }}
+                  >
+                    ⬇ Tải PNG
+                  </a>
+                </div>
+
+                {!data?.item?.is_public && (
+                  <div style={{ padding: '12px 14px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: '8px', fontSize: '13px', color: '#92400e' }}>
+                    ⚠️ Sản phẩm đang ở chế độ riêng tư. Người quét QR sẽ thấy lỗi "sản phẩm không tồn tại" cho đến khi bạn bật công khai.
+                  </div>
+                )}
+
+                <div style={{ padding: '12px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', fontSize: '13px', color: '#1e40af' }}>
+                  💡 Mã QR này dẫn đến trang sản phẩm công khai. Trong tương lai sẽ hỗ trợ thêm các hành động như <strong>thêm giỏ hàng</strong> và <strong>thanh toán</strong>.
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       )}
       <div className="item-detail-actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '20px', maxWidth: '800px' }}>
@@ -2893,28 +2993,28 @@ export const ItemDetailPage = () => {
         <button
           type="button"
           onClick={goToNextStep}
-          disabled={currentStep === 4 || saveMutation.isPending || uploadingImages}
+          disabled={currentStep === 5 || saveMutation.isPending || uploadingImages}
           style={{
             padding: '10px 16px',
             background:
-              currentStep === 4 || saveMutation.isPending || uploadingImages
+              currentStep === 5 || saveMutation.isPending || uploadingImages
                 ? '#d2d6dc'
                 : 'linear-gradient(90deg, var(--ct-primary, #4f46e5), var(--ct-secondary, #7c3aed))',
             color: '#fff',
             border: 'none',
             borderRadius: '8px',
-            cursor: currentStep === 4 || saveMutation.isPending || uploadingImages ? 'not-allowed' : 'pointer',
+            cursor: currentStep === 5 || saveMutation.isPending || uploadingImages ? 'not-allowed' : 'pointer',
             fontSize: '14px',
             fontWeight: '600',
             boxShadow:
-              currentStep === 4 || saveMutation.isPending || uploadingImages
+              currentStep === 5 || saveMutation.isPending || uploadingImages
                 ? 'none'
                 : '0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.28)',
           }}
         >
           {saveMutation.isPending ? 'Đang lưu...' : 'Bước tiếp →'}
         </button>
-        {currentStep === 4 && (
+        {currentStep === 5 && (
           <button
             type="button"
             onClick={handleSaveAndBackToList}

@@ -149,6 +149,15 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 - Response 200: `data: { item, images: ItemImage[], spin_sets: SpinSet[], facebook_posts: FacebookPost[] }` (frames sắp xếp theo `frame_index`, `facebook_posts` sắp xếp mới nhất trước).
 - Errors: `NOT_FOUND (404)`.
 
+### GET /api/v1/items/:id/qr
+- Auth: admin (JwtAuthGuard + TenantGuard + RolesGuard — shop_admin hoặc shop_staff).
+- Tạo mã QR cho sản phẩm theo tenant. Nếu `qr_token` chưa tồn tại, server sinh token 16-char hex ngẫu nhiên, lưu vào DB (unique), rồi trả về. Token được giữ cố định — in QR một lần, dùng lâu dài.
+- Response 200: `data: { token: string, resolve_url: string, image_data_url: string }`.
+  - `token`: mã định danh ngắn.
+  - `resolve_url`: URL đầy đủ nhúng trong QR (trỏ đến `GET /public/qr/:token`).
+  - `image_data_url`: chuỗi `data:image/png;base64,...` — client render thẳng vào `<img src>` hoặc dùng làm href để tải PNG.
+- Errors: `NOT_FOUND (404)` khi item không thuộc tenant, `INTERNAL_SERVER_ERROR (500)` khi không thể tạo token unique sau 3 lần thử.
+
 ### PATCH /api/v1/items/:id
 - Body JSON: các field cho phép cập nhật `name/description/scale/brand/car_brand/model_brand/condition/price/original_price/status/quantity/attributes/is_public/fb_post_content`.
 - Invariant: item `da_ban` luôn có `quantity = 0` trong mọi response (GET/PATCH); client không thể giữ stock > 0 khi đã bán.
@@ -414,6 +423,14 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 - Shop phải `is_active: true`. Slug/UUID không tồn tại hoặc shop không active → **`NOT_FOUND (404)`**, message ổn định (ví dụ shop không tìm thấy).
 - **Ưu tiên:** Nếu request có `shop_id` hợp lệ, server **bỏ qua** `active_shop_id` từ JWT khi lọc catalog (tránh lệch tenant khi admin đang switch shop trong cùng trình duyệt).
 - **Khi bỏ qua `shop_id`:** Hành vi như trước: nếu có JWT với `active_shop_id` thì lọc theo shop đó; nếu không (khách) thì trả **toàn bộ** item public trên deployment (aggregate). Single-tenant / dev có thể dùng biến frontend `VITE_PUBLIC_CATALOG_SHOP_ID` để luôn gửi `shop_id` (xem Phase 16 frontend).
+
+### GET /api/v1/public/qr/:token
+- Public, không auth, không CSRF.
+- Resolve token QR → redirect 302 về trang chi tiết sản phẩm trên frontend.
+- Redirect target: `{FRONTEND_URL}/items/:item_id?shop_id=:shop_id&source=qr&action=view`.
+- Validate: token tồn tại + item chưa xóa mềm + `is_public = true` + shop đang active.
+- Errors: `NOT_FOUND (404)` khi token không hợp lệ, item không còn public, hoặc shop không active. Không dùng redirect khi có lỗi — trả JSON lỗi bình thường để client / scanner hiển thị thông báo thân thiện.
+- Contract mở rộng: query `action` trong redirect URL có thể là `view` (MVP), `add_to_cart`, `checkout` (future). Frontend đọc `action` nhưng fallback về `view` nếu chưa hỗ trợ.
 
 ### GET /api/v1/public/items/:id
 - Query: **`shop_id` (optional)** — cùng quy tắc như `GET /public/items` (UUID hoặc slug, shop active, 404 nếu không resolve được).

@@ -15,9 +15,14 @@ describe('PublicController', () => {
     resolveCanonicalShopId: jest.fn(),
   };
 
+  const qrService = {
+    resolveToken: jest.fn(),
+  };
+
   const controller = new PublicController(
     publicService as unknown as PublicService,
     resolver as unknown as PublicShopResolverService,
+    qrService as never,
   );
 
   const prevNodeEnv = process.env.NODE_ENV;

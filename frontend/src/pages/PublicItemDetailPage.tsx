@@ -98,8 +98,27 @@ export const PublicItemDetailPage = () => {
     Math.min(MOBILE_SPINNER_MAX_SIZE, viewportWidth - MOBILE_SPINNER_HORIZONTAL_PADDING),
   );
 
+  const isFromQr = searchParams.get('source') === 'qr';
+
   return (
     <div style={{ padding: pagePadding, maxWidth: '1200px', margin: '0 auto' }}>
+      {isFromQr && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '10px 16px',
+          background: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: '8px',
+          fontSize: '13px',
+          color: '#1e40af',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}>
+          <span>📷</span>
+          <span>Bạn đang xem sản phẩm qua mã QR</span>
+        </div>
+      )}
       {/* Back Button */}
       <div style={{ marginBottom: '24px' }}>
         <button

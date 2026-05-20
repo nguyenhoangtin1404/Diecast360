@@ -172,6 +172,7 @@ model Item {
   quantity       Int         @default(1)
   attributes     Json        @default("{}")
   is_public      Boolean     @default(false)
+  qr_token       String?     @unique
   created_at     DateTime    @default(now())
   updated_at     DateTime    @updatedAt
   deleted_at     DateTime?

@@ -1,4 +1,4 @@
-export type ProductStep = 1 | 2 | 3 | 4;
+export type ProductStep = 1 | 2 | 3 | 4 | 5;
 
 interface NavigateWithAutoSaveParams {
   currentStep: ProductStep;
@@ -21,7 +21,7 @@ export async function navigateStepWithAutoSave({
   if (!saved) return false;
 
   if (direction === 'next') {
-    const next = Math.min(4, currentStep + 1) as ProductStep;
+    const next = Math.min(5, currentStep + 1) as ProductStep;
     setCurrentStep(next);
     return true;
   }
