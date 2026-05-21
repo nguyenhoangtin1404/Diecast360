@@ -1,7 +1,7 @@
 # AI RULES – Diecast360
 
 ## Nguồn chân lý
-- **DIECAST360_AI_MASTER_GUIDE** là single source of truth. Mọi thay đổi phải bám sát nội dung đó + các file trong `docs/`.
+- Bộ tài liệu trong `docs/` là nguồn chân lý đang dùng: `DOMAIN.md`, `DB_SCHEMA.md`, `API_CONTRACT.md`, `ERROR_HANDLING.md`, `ARCHITECTURE.md`, `ENV.md`, kèm README.
 - Không sáng tác ngoài phạm vi mô tả; nếu thiếu thông tin phải hỏi lại.
 
 ## Luật chung khi code
@@ -15,7 +15,7 @@
 1) Đọc yêu cầu + đối chiếu với `docs/DOMAIN.md`, `DB_SCHEMA.md`, `API_CONTRACT.md`, `ERROR_HANDLING.md`.
 2) Nếu thay đổi API/DB: cập nhật docs trước, rồi mới viết code/migration.
 3) Xuất kết quả là file hoàn chỉnh; không bỏ sót phần liên quan (model, DTO, validation, test nếu có).
-4) Viết code dễ test, không bypass layer (Controller → Service → Repository → Storage/Processor).
+4) Viết code dễ test, không bypass layer (Controller → Service → PrismaService/Storage/Processor).
 5) Khi thiếu dữ liệu hoặc có xung đột, hỏi lại thay vì đoán.
 
 ## Forbidden

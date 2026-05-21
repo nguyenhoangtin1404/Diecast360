@@ -15,7 +15,7 @@ sudo mkdir -p /opt/diecast360-backend/uploads
 sudo chown -R "$USER:$USER" /opt/diecast360-backend
 ```
 
-Khi `STORAGE_DRIVER=r2`, bước `mkdir uploads` **không bắt buộc** cho media (object nằm trên R2). Vẫn cần `backend/.env` đầy đủ `R2_*` và bucket đã đồng bộ nếu đang cutover từ disk — xem [`ENV.md`](ENV.md) và [`docs/plans/cloudflare-r2-upload-migration.md`](../docs/plans/cloudflare-r2-upload-migration.md).
+Khi `STORAGE_DRIVER=r2`, bước `mkdir uploads` **không bắt buộc** cho media (object nằm trên R2). Vẫn cần `backend/.env` đầy đủ `R2_*` và bucket đã đồng bộ nếu đang cutover từ disk — xem [`ENV.md`](ENV.md) mục Object storage và [`backend/scripts/README.md`](../backend/scripts/README.md).
 
 - Copy **`.env`** production trên Pi (Neon `DATABASE_URL` / `DIRECT_URL`, `JWT_SECRET`, `COOKIE_SECRET`, `FRONTEND_URL` = origin frontend hosting, v.v.). Xem [`ENV.md`](ENV.md).
 - **`BACKEND_URL`**: đặt URL public của API (vd `https://api.example.com`) để ký và trả link ảnh qua `GET /api/v1/media`.
@@ -94,7 +94,7 @@ Origin frontend phải nằm trong `FRONTEND_URL` / `FRONTEND_URLS` của backen
 File: [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml)
 
 - Trigger: push `main` khi đổi `backend/**`, hoặc **Run workflow** thủ công.
-- Job chạy trên **self-hosted runner trên Pi** (label `diecast360-pi`): checkout → build ARM → `rsync` vào `DEPLOY_REMOTE_PATH` → `npm ci --omit=dev` → migrate → restart.
+- Job deploy chạy trên **self-hosted runner trên Pi** (label `diecast360-pi`): checkout → build ARM → `rsync` vào `DEPLOY_REMOTE_PATH` → `npm ci --omit=dev` → `prisma generate` → restart. Migration production chạy ở job `migrate` trước đó trên GitHub-hosted runner.
 - Không copy `node_modules` giữa máy khác và Pi: luôn `npm ci --omit=dev` tại thư mục deploy.
 - **`rsync --delete`** cho `dist/` và `prisma/`: thư mục deploy **khớp repo** — không giữ file chỉ có local (tránh drift). Migration chỉ nên có trong Git.
 - Job dùng GitHub **Environment** tên `production` (tự tạo lần đầu). Vào **Settings → Environments → production** để bật **Required reviewers** nếu muốn chặn migrate/restart cho đến khi duyệt (khuyến nghị cho DB production). Có thể bật **Restrict deployments** (chỉ `main`) để tránh deploy nhầm nhánh.
