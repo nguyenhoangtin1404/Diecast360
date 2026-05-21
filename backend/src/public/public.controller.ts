@@ -1,4 +1,5 @@
 import { Controller, Get, Param, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { PublicService } from './public.service';
 import { PublicShopResolverService } from './public-shop-resolver.service';
@@ -43,6 +44,7 @@ export class PublicController {
   }
 
   @Get('qr/:token')
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
   async resolveQr(
     @Param('token') token: string,
     @Req() req: Request,

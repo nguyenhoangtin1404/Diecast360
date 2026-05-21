@@ -317,6 +317,7 @@ const PRODUCT_STEPS: Array<{ id: ProductStep; title: string; shortTitle: string 
   { id: 5, title: 'Mã QR sản phẩm', shortTitle: 'Mã QR' },
 ];
 
+interface QrData { token: string; resolve_url: string; image_data_url: string }
 
 export const ItemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -364,9 +365,9 @@ export const ItemDetailPage = () => {
   const [publishFbMessage, setPublishFbMessage] = useState<string | null>(null);
 
   // QR states
-  interface QrData { token: string; resolve_url: string; image_data_url: string }
   const [qrData, setQrData] = useState<QrData | null>(null);
   const [isLoadingQr, setIsLoadingQr] = useState(false);
+  const isLoadingQrRef = useRef(false);
   const [qrError, setQrError] = useState<string | null>(null);
 
   const socialSellingRef = useRef<HTMLDivElement>(null);
@@ -506,15 +507,19 @@ export const ItemDetailPage = () => {
 
   // Lazy-load QR code when user enters step 5
   useEffect(() => {
-    if (currentStep !== 5 || !id || id === 'new' || qrData || isLoadingQr) return;
+    if (currentStep !== 5 || !id || id === 'new' || qrData || isLoadingQrRef.current) return;
+    isLoadingQrRef.current = true;
     setIsLoadingQr(true);
     setQrError(null);
     apiClient
       .get<{ data: QrData }>(`/items/${id}/qr`)
       .then((res) => setQrData(res.data.data))
       .catch(() => setQrError('Không thể tải mã QR. Vui lòng thử lại.'))
-      .finally(() => setIsLoadingQr(false));
-  }, [currentStep, id, qrData, isLoadingQr]);
+      .finally(() => {
+        isLoadingQrRef.current = false;
+        setIsLoadingQr(false);
+      });
+  }, [currentStep, id, qrData]);
 
   const extractItemIdFromResponse = (response: unknown): string | null => {
     const isApiResponse = (r: unknown): r is ApiResponse<ItemResponse> => {

@@ -28,9 +28,13 @@ export class QrService {
           data: { qr_token: token },
         });
         return token;
-      } catch {
-        // Unique constraint violation — retry with a new token.
-        if (attempt === 2) throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'Failed to generate QR token');
+      } catch (err) {
+        // Only retry on unique constraint violation (Prisma P2002); surface all other errors immediately.
+        const isUniqueViolation =
+          typeof err === 'object' && err !== null && (err as Record<string, unknown>)['code'] === 'P2002';
+        if (!isUniqueViolation || attempt === 2) {
+          throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'Failed to generate QR token');
+        }
       }
     }
     throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'Failed to generate QR token');
