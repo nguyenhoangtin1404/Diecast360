@@ -39,11 +39,11 @@ DIRECT_URL="postgresql://postgres:postgres@localhost:5432/diecast360"
 
 ### A2. Cấu hình `.env`
 
-1. `cp backend/.env.example backend/.env` — chỉnh DB, `JWT_SECRET`, `COOKIE_SECRET` (bắt buộc cho auth ổn định). Nên thêm `REFRESH_TOKEN_EXPIRES_IN` nếu muốn khớp [`docs/ENV.md`](ENV.md) (file `.env.example` của backend có thể chưa liệt kê hết; tham chiếu bảng trong ENV).
+1. `cp backend/.env.example backend/.env` — chỉnh DB, `JWT_SECRET`, `COOKIE_SECRET` (bắt buộc cho auth ổn định) và các biến optional theo [`docs/ENV.md`](ENV.md) khi bật AI/R2/Facebook.
 2. `cp frontend/.env.example frontend/.env` — tối thiểu:
 
-   - `VITE_API_BASE_URL=http://localhost:3000/api/v1`  
-   - Hoặc bỏ trống / đặt `auto` để dùng logic mặc định trong `frontend/src/config/api.ts` (suy ra host từ `window.location` + cổng `3000`).
+   - `VITE_API_BASE_URL=auto` hoặc bỏ trống để frontend gọi same-origin `/api/v1` qua proxy Vite trong `frontend/vite.config.ts`.
+   - Nếu trình duyệt không đi qua proxy Vite hoặc API ở host khác, đặt URL tuyệt đối như `http://localhost:3000/api/v1`.
 
 ### A3. Cài package & migration
 

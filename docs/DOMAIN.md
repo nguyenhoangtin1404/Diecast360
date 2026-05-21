@@ -3,11 +3,11 @@
 ## Bối cảnh
 - Ứng dụng web giúp admin quản lý kho xe diecast tỉ lệ 1:64, đăng catalog công khai và cung cấp viewer 360° để khách xoay xe.
 - Hỗ trợ bán trên Facebook qua thao tác copy caption + copy link từ trang admin.
-- Mọi quy tắc dưới đây tuân theo DIECAST360_AI_MASTER_GUIDE và được dùng làm gốc cho API/DB/UX.
+- Mọi quy tắc dưới đây là nguồn nghiệp vụ cho API/DB/UX; khi đổi domain phải đồng bộ `DB_SCHEMA.md`, `API_CONTRACT.md`, `ERROR_HANDLING.md`, `ARCHITECTURE.md`, `ENV.md` và README.
 
 ## Thực thể & trách nhiệm
 ### Item
-- Mẫu xe diecast; thuộc tính chính: `id (uuid)`, `name`, `description`, `scale` (mặc định "1:64"), `brand` (tùy chọn), `car_brand`, `model_brand`, `condition`, `price`, `original_price`, `status`, `is_public`, `fb_post_content` (nội dung bài FB), `created_at`, `updated_at`, `deleted_at` (soft delete).
+- Mẫu xe diecast thuộc một shop; thuộc tính chính: `id (uuid)`, `shop_id`, `name`, `description`, `scale` (mặc định "1:64"), `brand` (tùy chọn), `car_brand`, `model_brand`, `condition`, `price`, `original_price`, `status`, `quantity`, `attributes`, `notes`, `is_public`, `fb_post_content` (nội dung bài FB), `created_at`, `updated_at`, `deleted_at` (soft delete).
 - Quan hệ: nhiều `ItemImage`, nhiều `SpinSet`; duy nhất 1 `SpinSet` được gắn cờ `is_default`.
 - Giá trị trạng thái: `con_hang`, `giu_cho`, `da_ban` (lưu ý khi hiển thị catalog/sao chép caption).
 - Ảnh cover lấy từ `ItemImage.is_cover = true`, fallback ảnh đầu tiên theo `display_order`.
@@ -27,9 +27,11 @@
 - Thuộc tính: `id`, `spin_set_id`, `frame_index` (0..n-1, không bỏ số), `file_path`, `thumbnail_path`, `created_at`, `updated_at`.
 - Ràng buộc: `(spin_set_id, frame_index)` UNIQUE; `frame_index` liên tục sau khi reorder.
 
-### User
-- Admin hệ thống.
-- Thuộc tính: `id`, `email` (duy nhất), `password_hash`, `full_name` (tùy chọn), `role` (mặc định `admin`), `is_active`, timestamp.
+### Shop / User / RBAC
+- `Shop` là tenant dữ liệu, có `name`, `slug`, `is_active`, `contact_json`, `appearance_json`, `loyalty_json`.
+- `User` có `email`, `password_hash`, `full_name`, `role` legacy, `platform_role`, `is_active`.
+- `UserShopRole` gán user vào shop với vai trò `shop_admin` hoặc `shop_staff`; `shop_staff` là read-only cho mutating API theo guard chung; `platform_super` thao tác quản trị nền tảng không cần active tenant.
+- `ShopAuditLog` ghi thay đổi nhạy cảm: thêm admin/staff, reset password, active/inactive user, update/deactivate/activate shop, đổi role.
 
 ### RefreshToken
 - Lưu refresh token đã phát hành để hỗ trợ revoke.
@@ -40,38 +42,43 @@
 - Thuộc tính: `id (uuid)`, `images_json` (JSON paths ảnh), `extracted_text` (text trích xuất), `ai_json` (dữ liệu item do AI phân tích), `confidence_json` (confidence scores), `status` (`PENDING|CONFIRMED|REJECTED`), `created_at`, `updated_at`.
 - Quy trình: Upload ảnh → AI phân tích → tạo draft PENDING → user xác nhận hoặc hủy.
 
-### PreOrder (planned - Phase 9)
-- Thực thể pre-order cho luồng đặt cọc và theo dõi đơn hàng.
-- Thuoc tinh du kien MVP: `id`, `item_id`, `customer_name`, `customer_phone`, `quantity`, `deposit_amount`, `unit_price`, `expected_arrival_at`, `status`, `note`, `created_at`, `updated_at`.
-- Trang thai du kien: `draft`, `open`, `reserved`, `arrived`, `completed`, `cancelled`.
-- Muc tieu: tach ro luong ban thuong (`items`) va luong pre-order de quan ly transition minh bach.
+### Category
+- Danh mục `car_brand` / `model_brand`; có category global (`shop_id = null`) và category riêng theo shop.
+- Public/admin dropdown merge global + category theo shop được resolve từ query `shop_id` hoặc JWT active shop.
+
+### InventoryTransaction
+- Ledger nhập/xuất/điều chỉnh tồn kho theo shop và item.
+- Mỗi transaction lưu `type`, `quantity`, `delta`, `resulting_quantity`, `reason`, `note`, `actor_user_id`; transaction đảo chiều dùng `reversal_of_id`.
+
+### PreOrder
+- Đơn pre-order thuộc shop, item, optional user và member.
+- Thuộc tính chính: `status`, `quantity`, `unit_price`, `total_amount`, `deposit_amount`, `paid_amount`, `expected_arrival_at`, `expected_delivery_at`, `cover_image_url`, `note`, `cancelled_at`, `completed_at`.
+- Trạng thái: `PENDING_CONFIRMATION`, `WAITING_FOR_GOODS`, `ARRIVED`, `PAID`, `REFUNDED`, `CANCELLED`.
+- Transition hợp lệ: `PENDING_CONFIRMATION → WAITING_FOR_GOODS|CANCELLED → ARRIVED|CANCELLED → PAID|CANCELLED → REFUNDED`; `REFUNDED` và `CANCELLED` là terminal.
+
+### Member / MembershipTier / MemberPointsLedger
+- Member thuộc shop, có `full_name`, optional `email`/`phone`, `points_balance`, optional tier.
+- Tier có `name`, `rank`, `min_points`; unique theo shop.
+- Points ledger ghi `earn`, `redeem`, `adjust`, `balance_after`, `reference_type/reference_id`. Pre-order paid/refund có thể tạo ledger theo `loyalty_json`.
 
 ## Quy tắc nghiệp vụ
 - Soft delete: item dùng `deleted_at`; dữ liệu đã xóa mềm không xuất hiện ở danh sách admin/public.
 - Spinner:
   - Tối thiểu 1 spin set default mới cho phép hiển thị spinner; nếu chưa có → fallback gallery ảnh thường.
-  - Số frame khuyến nghị 24 (tối đa 36); `frame_index` tăng dần, không bỏ số.
+  - Số frame khuyến nghị 24 (tối đa mặc định 48 theo `MAX_SPINNER_FRAMES` / `VITE_MAX_SPINNER_FRAMES`); `frame_index` tăng dần, không bỏ số.
   - Có thumbnail cho frame (dùng Sharp).
 - Ảnh thường:
   - Upload nhiều ảnh; có thể đổi cover và sắp xếp thứ tự.
   - Xóa ảnh phải cập nhật cover nếu ảnh cover bị xóa (chọn ảnh đầu tiên còn lại).
-- Public catalog: chỉ hiển thị item `is_public = true` và chưa bị soft delete; trạng thái hiển thị nguyên giá trị (`con_hang/giu_cho/da_ban`).
+- Public catalog: chỉ hiển thị item `is_public = true` và chưa bị soft delete; trạng thái hiển thị nguyên giá trị (`con_hang/giu_cho/da_ban`). Production yêu cầu `shop_id` hoặc JWT có active shop để tránh aggregate nhiều shop.
 - Social selling: UI cần cung cấp thao tác copy caption/link dựa trên dữ liệu item (không thay đổi dữ liệu gốc).
-- Pre-order (planned): lifecycle pre-order phai duoc quan ly bang state model tuong minh, khong cap nhat trang thai tuy y.
+- Pre-order: lifecycle phải đi qua state machine; không cập nhật trạng thái tùy ý.
+- Member points: mọi thay đổi điểm phải đi qua ledger để có audit trail.
 
 ## Luồng chính
 - Admin
   - Tạo item → upload ảnh thường → đặt cover + reorder → tạo spin set → upload frame → reorder frame → đặt default spin set → bật `is_public` để xuất bản.
-  - Quản lý trạng thái kho (con_hang/giu_cho/da_ban), xóa mềm item, quản lý phiên đăng nhập (access/refresh token).
+  - Quản lý trạng thái kho (con_hang/giu_cho/da_ban), xóa mềm item, inventory ledger, pre-order, member points, báo cáo, shop settings và phiên đăng nhập (access/refresh token).
 - Public
-  - Xem danh sách item công khai, xem chi tiết item.
+  - Xem danh sách item công khai, xem chi tiết item, pre-order cards, đơn của tôi và trang liên hệ theo shop.
   - Nếu item có spin set default → dùng Spinner360 với drag/touch/autoplay/preload thông minh; nếu không → hiển thị gallery ảnh thường.
-
-## Planned for MVP pre-order
-- Public/Customer:
-  - `Mo hinh Dat truoc`: danh sach pre-order dang mo (badge, countdown, gia, CTA, bottom nav).
-  - `Don hang cua toi`: theo doi trang thai don va thao tac theo tung don.
-- Admin:
-  - `Tao Pre-Order Moi`: tao campaign pre-order voi form day du.
-  - `Quan ly Pre-order`: tong quan campaign + danh sach nguoi tham gia + thao tac quan ly.
-- Ghi chu: phan nay la ke hoach cho Phase 9, chua duoc xem la da hoan thanh implementation.

@@ -18,7 +18,7 @@ Diecast360 is a pnpm monorepo (`backend/` + `frontend/`) for a diecast model car
 ### Key gotchas
 
 - **COOKIE_SECRET** must be at least 32 characters in `backend/.env` or the app will throw at startup.
-- **Object storage (Cloudflare R2):** optional `STORAGE_DRIVER=r2` and `R2_*` variables — see [`docs/ENV.md`](docs/ENV.md) section **Object storage (Cloudflare R2)** and cutover notes in [`docs/plans/cloudflare-r2-upload-migration.md`](docs/plans/cloudflare-r2-upload-migration.md).
+- **Object storage (Cloudflare R2):** optional `STORAGE_DRIVER=r2` and `R2_*` variables — see [`docs/ENV.md`](docs/ENV.md) section **Object storage (Cloudflare R2)** and cutover notes in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 - **pnpm.onlyBuiltDependencies** in root `package.json` is required so that native modules (`sharp`, `bcrypt`, `prisma`, `esbuild`) build during `pnpm install`. Without it, pnpm v10+ silently skips their build scripts.
 - After `pnpm install`, the backend `postinstall` runs `prisma generate` automatically.
 - `prisma migrate dev` prompts interactively for a migration name if the schema drifts; use `prisma migrate deploy` (non-interactive) when only applying existing migrations.

@@ -1,167 +1,278 @@
 # Database Schema – Diecast360
 
+Tài liệu này phản ánh `backend/prisma/schema.prisma` hiện tại. Runtime dùng PostgreSQL + Prisma; mọi migration mới phải đi qua `backend/prisma/migrations/`.
+
 ## Quy ước chung
-- DB: PostgreSQL
-- UUID cho mọi khóa chính
-- Timestamps: DateTime (TIMESTAMP trong PostgreSQL)
-- Soft delete cho `items` bằng `deleted_at` (nullable)
-- Prisma làm ORM; schema phải bám sát domain, không tự ý đổi tên/kiểu khi chưa cập nhật docs
 
-## Lựa chọn Database
+- DB: PostgreSQL.
+- Prisma client generated vào `backend/src/generated/prisma`.
+- UUID cho mọi khóa chính trừ bảng join composite.
+- Timestamp dùng `created_at` và `updated_at` theo snake_case.
+- `items.deleted_at` là soft delete; query business phải lọc `deleted_at IS NULL`.
+- `DATABASE_URL` dùng cho runtime; `DIRECT_URL` dùng cho Prisma migrate/introspect.
 
-| Mode | Kết nối | Ghi chú |
-|------|----------|---------|
-| PostgreSQL Local | `postgresql://postgres:postgres@localhost:5432/diecast360` | Dùng cho dev/self-host |
-| PostgreSQL Neon | Runtime dùng pooler + migrate dùng direct | Dùng cho production managed |
+## Enum
 
-## Bảng & cột
+| Enum | Values |
+|------|--------|
+| `ItemStatus` | `con_hang`, `giu_cho`, `da_ban` |
+| `PlatformRole` | `platform_super` |
+| `ShopRole` | `shop_admin` (default), `shop_staff`; `super_admin` là giá trị legacy từ trước khi có RBAC đa cấp — không gán mới, chỉ tồn tại do backward-compat |
+| `ShopAuditAction` | `add_shop_admin`, `reset_member_password`, `set_member_active`, `update_shop`, `deactivate_shop`, `activate_shop`, `set_platform_role`, `set_shop_member_role` |
+| `PreOrderStatus` | `PENDING_CONFIRMATION` (`cho_xac_nhan`), `WAITING_FOR_GOODS` (`dang_cho_hang`), `ARRIVED` (`da_ve`), `PAID` (`da_thanh_toan`), `REFUNDED` (`da_hoan_tien`), `CANCELLED` (`da_huy`) |
+| `InventoryTransactionType` | `stock_in`, `stock_out`, `adjustment` |
+| `MemberPointsMutationType` | `earn`, `redeem`, `adjust` |
+
+## Bảng chính
 
 ### shops
-| Column | Type | Constraints/Notes |
-|--------|------|-------------------|
-| id | uuid | PK |
-| name | varchar | NOT NULL |
-| slug | varchar | NOT NULL, UNIQUE |
-| is_active | boolean | NOT NULL, default `true` |
-| created_at | datetime | NOT NULL, default now() |
-| updated_at | datetime | NOT NULL, auto update |
 
-### user_shop_roles
-| Column | Type | Constraints/Notes |
-|--------|------|-------------------|
-| user_id | uuid | FK → users(id) ON DELETE CASCADE |
-| shop_id | uuid | FK → shops(id) ON DELETE CASCADE |
-| role | enum | NOT NULL, values: `super_admin` \| `shop_admin`, default `shop_admin` |
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `name` | string | NOT NULL |
+| `slug` | string | UNIQUE, dùng public `shop_id` khi truyền slug |
+| `is_active` | boolean | default `true` |
+| `contact_json` | jsonb | Public contact page settings |
+| `appearance_json` | jsonb | Logo, favicon, màu, font |
+| `loyalty_json` | jsonb | Ví dụ `vnd_per_point`, `preorder_points_basis` |
+| `created_at`, `updated_at` | datetime | timestamps |
 
 ### users
-| Column | Type | Constraints/Notes |
-|--------|------|-------------------|
-| id | uuid | PK |
-| email | varchar | NOT NULL, UNIQUE |
-| password_hash | varchar | NOT NULL |
-| full_name | varchar | NULL |
-| role | varchar | NOT NULL, default `admin` |
-| is_active | boolean | NOT NULL, default `true` |
-| created_at | datetime | NOT NULL, default now() |
-| updated_at | datetime | NOT NULL, auto update |
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `email` | string | UNIQUE |
+| `password_hash` | string | Không trả ra API |
+| `full_name` | string? | Nullable |
+| `role` | string | Legacy role, default `admin` |
+| `platform_role` | enum? | `platform_super` cho quản trị nền tảng |
+| `is_active` | boolean | default `true` |
+| `created_at`, `updated_at` | datetime | timestamps |
+
+### user_shop_roles
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `user_id` | uuid | FK `users(id)` ON DELETE CASCADE |
+| `shop_id` | uuid | FK `shops(id)` ON DELETE CASCADE |
+| `role` | enum | `shop_admin` default, hoặc `shop_staff` / legacy `super_admin` |
+
+Primary key: `(user_id, shop_id)`.
 
 ### refresh_tokens
-| Column | Type | Constraints/Notes |
-|--------|------|-------------------|
-| id | uuid | PK |
-| user_id | uuid | FK → users(id) ON DELETE CASCADE |
-| token_hash | varchar | NOT NULL, UNIQUE (lưu hash, không lưu plain) |
-| expires_at | datetime | NOT NULL |
-| revoked_at | datetime | NULL |
-| created_at | datetime | NOT NULL, default now() |
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `user_id` | uuid | FK `users(id)` ON DELETE CASCADE |
+| `token_hash` | string | UNIQUE, không lưu plain token |
+| `expires_at` | datetime | TTL refresh |
+| `revoked_at` | datetime? | Null nếu còn hiệu lực |
+| `created_at` | datetime | timestamp |
+
+### shop_audit_logs
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `shop_id` | uuid | FK `shops(id)` ON DELETE CASCADE |
+| `actor_user_id` | uuid? | FK `users(id)` ON DELETE SET NULL |
+| `action` | enum | `ShopAuditAction` |
+| `target_type` | string | Loại object bị tác động |
+| `target_id` | string? | ID target nếu có |
+| `metadata_json` | string? | JSON string metadata |
+| `created_at` | datetime | timestamp |
+
+## Inventory & catalog
 
 ### items
-| Column | Type | Constraints/Notes |
-|--------|------|-------------------|
-| id | uuid | PK |
-| shop_id | uuid | NULL, FK → shops(id) (NO ACTION/RESTRICT semantics; no cascade item delete) |
-| name | varchar | NOT NULL |
-| description | text | NULL |
-| scale | varchar | NOT NULL, default `1:64` |
-| brand | varchar | NULL |
-| car_brand | varchar | NULL |
-| model_brand | varchar | NULL |
-| condition | varchar | NULL |
-| price | decimal | NULL |
-| original_price | decimal | NULL |
-| status | enum | NOT NULL, values: `con_hang` \| `giu_cho` \| `da_ban`, default `con_hang` |
-| quantity | integer | NOT NULL, default `1`, CHECK `quantity >= 0` |
-| attributes | jsonb | NOT NULL, default `{}` (thuộc tính mở rộng key-value cho từng item) |
-| is_public | boolean | NOT NULL, default `false` |
-| created_at | datetime | NOT NULL, default now() |
-| updated_at | datetime | NOT NULL, auto update |
-| deleted_at | datetime | NULL (soft delete) |
-| fb_post_content | text | NULL (nội dung bài FB do AI hoặc user tạo) |
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `shop_id` | uuid? | FK `shops(id)`, nullable do migration backward-compatible; item mới phải có shop |
+| `name` | string | NOT NULL |
+| `description` | text? | Nullable |
+| `scale` | string | default `1:64` |
+| `brand`, `car_brand`, `model_brand`, `condition` | string? | Filter/catalog fields |
+| `price`, `original_price` | decimal? | Nullable |
+| `status` | enum | `ItemStatus`, default `con_hang` |
+| `quantity` | int | default `1`; service giữ không âm, `da_ban` ép về `0` |
+| `attributes` | jsonb | Flat key-value object, default `{}` |
+| `is_public` | boolean | default `false` |
+| `notes` | text? | Internal notes |
+| `fb_post_content` | text? | Caption/content lưu cho social selling |
+| `created_at`, `updated_at`, `deleted_at` | datetime | soft delete bằng `deleted_at` |
+
+Indexes: `status`, `created_at`, `deleted_at`, `car_brand`, `model_brand`, `condition`, `shop_id`.
 
 ### item_images
-| Column | Type | Constraints/Notes |
-|--------|------|-------------------|
-| id | uuid | PK |
-| item_id | uuid | FK → items(id) ON DELETE CASCADE |
-| file_path | text | NOT NULL (đường dẫn lưu trữ) |
-| thumbnail_path | text | NULL |
-| is_cover | boolean | NOT NULL, default `false` |
-| display_order | integer | NOT NULL, default `0` |
-| created_at | datetime | NOT NULL, default now() |
-| updated_at | datetime | NOT NULL, auto update |
 
-### spin_sets
-| Column | Type | Constraints/Notes |
-|--------|------|-------------------|
-| id | uuid | PK |
-| item_id | uuid | FK → items(id) ON DELETE CASCADE |
-| label | varchar | NULL (mô tả ngắn, ví dụ "24 frames default") |
-| is_default | boolean | NOT NULL, default `false` |
-| created_at | datetime | NOT NULL, default now() |
-| updated_at | datetime | NOT NULL, auto update |
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `item_id` | uuid | FK `items(id)` ON DELETE CASCADE |
+| `file_path` | text | Storage key/path |
+| `thumbnail_path` | text? | Nullable |
+| `is_cover` | boolean | default `false` |
+| `display_order` | int | Gallery order |
+| `created_at`, `updated_at` | datetime | timestamps |
 
-### spin_frames
-| Column | Type | Constraints/Notes |
-|--------|------|-------------------|
-| id | uuid | PK |
-| spin_set_id | uuid | FK → spin_sets(id) ON DELETE CASCADE |
-| frame_index | integer | NOT NULL, 0-based, liên tục |
-| file_path | text | NOT NULL |
-| thumbnail_path | text | NULL |
-| created_at | datetime | NOT NULL, default now() |
-| updated_at | datetime | NOT NULL, auto update |
+Index: `(item_id, display_order)`.
+
+### spin_sets / spin_frames
+
+`spin_sets` thuộc `items`; `spin_frames` thuộc `spin_sets`.
+
+| Table | Key fields | Constraints |
+|-------|------------|-------------|
+| `spin_sets` | `id`, `item_id`, `label`, `is_default`, timestamps | indexes `(item_id)`, `(item_id, is_default)` |
+| `spin_frames` | `id`, `spin_set_id`, `frame_index`, `file_path`, `thumbnail_path`, timestamps | UNIQUE `(spin_set_id, frame_index)`, index `(spin_set_id, frame_index)` |
+
+Service giữ rule chỉ một default spin set có ý nghĩa trong UI và `frame_index` liên tục sau reorder/delete.
+
+### categories
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `shop_id` | uuid? | Null = global seed; non-null = category theo shop |
+| `name` | string | Category name |
+| `type` | string | `car_brand` hoặc `model_brand` |
+| `is_active` | boolean | default `true` |
+| `display_order` | int | default `0` |
+| `created_at`, `updated_at` | datetime | timestamps |
+
+Indexes: `(type, is_active)`, `(type, display_order)`, `(shop_id, type)`, `(shop_id, type, name)`.
+
+### inventory_transactions
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `shop_id` | uuid | FK `shops(id)` ON DELETE CASCADE |
+| `item_id` | uuid | FK `items(id)` ON DELETE CASCADE |
+| `actor_user_id` | uuid? | FK `users(id)` ON DELETE SET NULL |
+| `reversal_of_id` | uuid? | UNIQUE, self relation |
+| `type` | enum | `stock_in`, `stock_out`, `adjustment` |
+| `quantity` | int | Input quantity |
+| `delta` | int | Signed stock delta |
+| `resulting_quantity` | int | Stock sau transaction |
+| `reason`, `note` | string/text? | Audit fields |
+| `created_at` | datetime | timestamp |
+
+Indexes: `(shop_id, created_at)`, `(item_id, created_at)`, `(item_id, type, created_at)`.
+
+## Pre-order, members & points
+
+### pre_orders
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `shop_id` | uuid | FK `shops(id)` ON DELETE CASCADE |
+| `item_id` | uuid | FK `items(id)` ON DELETE RESTRICT |
+| `user_id` | uuid? | FK `users(id)` ON DELETE SET NULL |
+| `member_id` | uuid? | FK `members(id)` ON DELETE RESTRICT |
+| `status` | enum | default `PENDING_CONFIRMATION` |
+| `quantity` | int | default `1` |
+| `unit_price`, `total_amount` | decimal? | Amounts |
+| `deposit_amount`, `paid_amount` | decimal | default `0` |
+| `expected_arrival_at`, `expected_delivery_at` | datetime? | Nullable |
+| `cover_image_url` | string? | Optional override |
+| `note` | text? | Nullable |
+| `created_at`, `updated_at`, `cancelled_at`, `completed_at` | datetime | lifecycle timestamps |
+
+Indexes: `(shop_id, status)`, `item_id`, `user_id`, `member_id`, `(shop_id, expected_arrival_at)`.
+
+Status transition hiện tại: `PENDING_CONFIRMATION → WAITING_FOR_GOODS|CANCELLED → ARRIVED|CANCELLED → PAID|CANCELLED → REFUNDED`; `REFUNDED` và `CANCELLED` là terminal.
+
+**FK RESTRICT trên `member_id`:** Không thể xóa member khi còn pre-order chưa terminal (`PENDING_CONFIRMATION`, `WAITING_FOR_GOODS`, `ARRIVED`, `PAID`). Service phải kiểm tra trước khi gọi `DELETE`; DB sẽ reject nếu bỏ qua bước này.
+
+### membership_tiers
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `shop_id` | uuid | FK `shops(id)` ON DELETE CASCADE |
+| `name` | string | Tier name |
+| `rank` | int | Thứ hạng |
+| `min_points` | int | Điểm tối thiểu |
+| `created_at`, `updated_at` | datetime | timestamps |
+
+Unique: `(shop_id, name)`, `(shop_id, rank)`. Index: `(shop_id, rank)`.
+
+### members
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `shop_id` | uuid | FK `shops(id)` ON DELETE CASCADE |
+| `full_name` | string | NOT NULL |
+| `email`, `phone` | string? | Unique theo shop khi có giá trị |
+| `points_balance` | int | default `0` |
+| `tier_id` | uuid? | FK `membership_tiers(id)` ON DELETE SET NULL |
+| `created_at`, `updated_at` | datetime | timestamps |
+
+Indexes: `(shop_id, created_at)`, `(shop_id, points_balance)`, `(shop_id, full_name)`.
+
+### member_points_ledger
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `member_id` | uuid | FK `members(id)` ON DELETE CASCADE |
+| `shop_id` | uuid | FK `shops(id)` ON DELETE CASCADE |
+| `actor_user_id` | uuid? | FK `users(id)` ON DELETE SET NULL |
+| `type` | enum | `earn`, `redeem`, `adjust` |
+| `points`, `delta`, `balance_after` | int | Ledger math |
+| `reason`, `note` | string/text? | Audit fields |
+| `reference_type`, `reference_id` | string? | Idempotency/reference, ví dụ pre-order paid/refund |
+| `created_at` | datetime | timestamp |
+
+Indexes: `(member_id, created_at)`, `(shop_id, created_at)`, `(shop_id, type, created_at)`.
+
+## AI, social & vector
 
 ### ai_item_drafts
-| Column | Type | Constraints/Notes |
-|--------|------|-------------------|
-| id | uuid | PK |
-| images_json | text | NOT NULL (JSON string danh sách image paths) |
-| extracted_text | text | NULL (text trích xuất từ ảnh) |
-| ai_json | text | NOT NULL (JSON string dữ liệu item do AI phân tích) |
-| confidence_json | text | NULL (JSON string confidence scores) |
-| status | varchar | NOT NULL, default `PENDING`, values: `PENDING` \| `CONFIRMED` \| `REJECTED` |
-| created_at | datetime | NOT NULL, default now() |
-| updated_at | datetime | NOT NULL, auto update |
 
-### pre_orders (planned - Phase 9)
-| Column | Type | Constraints/Notes |
-|--------|------|-------------------|
-| id | uuid | PK |
-| item_id | uuid | FK -> items(id), NOT NULL |
-| customer_name | varchar | NOT NULL |
-| customer_phone | varchar | NOT NULL |
-| quantity | integer | NOT NULL, CHECK `quantity > 0` |
-| unit_price | decimal | NOT NULL, CHECK `unit_price >= 0` |
-| deposit_amount | decimal | NOT NULL, CHECK `deposit_amount >= 0` |
-| expected_arrival_at | datetime | NULL |
-| status | enum | NOT NULL, planned values: `draft` \| `open` \| `reserved` \| `arrived` \| `completed` \| `cancelled` |
-| note | text | NULL |
-| created_at | datetime | NOT NULL, default now() |
-| updated_at | datetime | NOT NULL, auto update |
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `images_json` | text | JSON string image paths |
+| `extracted_text` | text? | Nullable |
+| `ai_json` | text | JSON string structured draft |
+| `confidence_json` | text? | Nullable |
+| `status` | string | `PENDING`, `CONFIRMED`, `REJECTED` |
+| `created_at`, `updated_at` | datetime | timestamps |
 
-## Ràng buộc bắt buộc
-- `(spin_set_id, frame_index)` UNIQUE
-- Spin set default: UNIQUE (item_id) WHERE is_default = true
-- Item soft delete: mọi query business phải filter `deleted_at IS NULL`
-- `items.quantity >= 0` enforced at DB level
-- Khi xóa ảnh/frames, đảm bảo cập nhật order/index liên tục và cover/default hợp lệ
-- Pre-order (planned): transition status chi duoc cap nhat theo state machine hop le tai service layer
+### facebook_posts
 
-## Index đề xuất
-- `shops(is_active)` – filter active shops
-- `user_shop_roles(user_id)` – lookup user's assigned shops
-- `items(shop_id)` – tenant isolation lookup
-- `items(status)` – lọc theo trạng thái kho
-- `items(created_at)` – sort danh sách
-- `items(deleted_at)` – filter soft delete
-- `items(car_brand)` – filter theo hãng xe
-- `items(model_brand)` – filter theo hãng mô hình
-- `items(condition)` – filter theo tình trạng
-- `item_images(item_id, display_order)` – render gallery
-- `spin_frames(spin_set_id, frame_index)` – tải spinner tuần tự
-- `pre_orders(item_id, status, created_at)` – filter danh sach pre-order theo item/trang thai/thoi gian (planned)
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `item_id` | uuid | FK `items(id)` ON DELETE CASCADE |
+| `post_url` | string | URL bài Facebook |
+| `content` | text? | Caption snapshot |
+| `posted_at`, `created_at` | datetime | timestamps |
+
+Index: `item_id`.
+
+### vector_sync_tasks
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `item_id` | uuid | PK, FK `items(id)` ON DELETE CASCADE |
+| `attempt_count` | int | default `0` |
+| `last_error` | string? | Nullable |
+| `scheduled_at`, `created_at`, `updated_at` | datetime | queue timestamps |
+
+Index: `scheduled_at`.
 
 ## Nguyên tắc migration
+
 - Không chỉnh sửa migration đã apply ở bất kỳ môi trường nào.
 - Khi cần đổi schema: tạo migration mới thay vì sửa file migration cũ.
-- Nếu phát hiện checksum cũ đã được apply ở môi trường bất kỳ, revert migration file về đúng blob đã apply trước khi rollout migration mới.
+- Nếu checksum cũ đã được apply ở môi trường bất kỳ, revert migration file về đúng blob đã apply trước khi rollout migration mới.

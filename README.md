@@ -1,6 +1,6 @@
 # Diecast360
 
-Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thường + viewer 360°, catalog công khai, luồng hỗ trợ đăng bài (caption / link / SEO). Đặc tả triển khai tham chiếu: [`DIECAST360_AI_MASTER_GUIDE.md`](DIECAST360_AI_MASTER_GUIDE.md).
+Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thường + viewer 360°, catalog công khai, pre-order, membership, báo cáo và công cụ hỗ trợ đăng bài (caption / link / SEO). Tài liệu nguồn nằm trong [`docs/`](docs/) và được đồng bộ theo codebase hiện tại.
 
 ## Mục lục
 
@@ -28,7 +28,7 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 | **Sản phẩm** | CRUD item, trạng thái `con_hang \| giu_cho \| da_ban`, cờ `is_public`, soft delete. |
 | **Media** | Nhiều ảnh, thumbnail, cover, sắp xếp; spinner 360° (nhiều spin set, một default; khuyến nghị 24 frame, tối đa 48 frame — cấu hình qua `VITE_MAX_SPINNER_FRAMES`). |
 | **Catalog công khai** | `GET /api/v1/public/items`, `GET /api/v1/public/items/:id` — query `shop_id` (UUID hoặc slug) **ưu tiên** so với `active_shop_id` trong JWT. **Production:** khách không đăng nhập **bắt buộc** `shop_id` **hoặc** phiên có `active_shop_id` — không gom toàn bộ shop; **dev** vẫn có thể xem aggregate khi không có shop. JWT tùy chọn; token sai/hết hạn: `401`. Chi tiết: `docs/API_CONTRACT.md`. |
-| **Đa shop & quản trị** | Super admin: quản lý shop, thành viên, mặt hàng; nhật ký **audit** (MVP). **RBAC:** `platform_role` + vai trò theo shop (`shop_admin` / `shop_staff`); guard hai lớp cho API nhạy cảm. Chi tiết: `docs/API_CONTRACT.md`. |
+| **Đa shop & quản trị** | `platform_super`: quản lý shop, thành viên, mặt hàng; nhật ký **audit**. **RBAC:** `platform_role` + vai trò theo shop (`shop_admin` / `shop_staff`); `shop_staff` read-only cho mutating API. Chi tiết: `docs/API_CONTRACT.md`. |
 | **Branding & theme** | Logo, favicon và theme (màu primary/accent) theo từng shop trên catalog/layout công khai; token CSS đồng bộ với giao diện admin. |
 | **Trang liên hệ** | Nội dung contact theo shop (`GET /api/v1/public/shops/:shopId/contact`); layout đồng bộ với home / preorder / đơn hàng. |
 | **Kho nâng cao** | Ledger giao dịch tồn kho (import/export/adjust/reverse), timeline theo item, cập nhật tồn kho có khóa cạnh tranh (`FOR UPDATE`) để tránh lost update. |
@@ -36,9 +36,9 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 | **Báo cáo & thống kê** | Dashboard KPI với 10 chỉ số (nhập kho, xuất kho, pre-order, doanh thu, tồn kho); trend chart theo ngày/tuần/tháng; filter range 7d / 30d / 90d. |
 | **Hội viên & điểm thưởng** | Hệ thống hạng hội viên (tier) với ngưỡng điểm; ledger điểm (earn/redeem/adjust); tự động nâng hạng; admin dashboard quản lý thành viên và lịch sử giao dịch. |
 | **Xác thực** | Access + refresh JWT, revoke qua refresh token; cookie-based session aspects — xem `docs/COOKIE_AUTH.md`; route admin kèm guard + kiểm tra vai trò. |
-| **Social / AI / tìm kiếm** | Copy caption + link; semantic search (Pinecone tùy chọn); OpenAI cho gợi ý / import (**category & brand scope theo shop** khi tạo item); gợi ý SEO (xem guide); publish Facebook từ admin item detail. |
+| **Social / AI / tìm kiếm** | Copy caption + link; semantic search (Pinecone tùy chọn); OpenAI cho gợi ý / import (**category & brand scope theo shop** khi tạo item); gợi ý SEO; publish Facebook từ admin item detail. |
 | **Responsive UX** | Harden UI cho màn hình mobile/tablet ở các luồng admin/public cốt lõi (layout, navigation, item workflows). |
-| **E2E Testing** | Playwright smoke suite (**52** test): auth, items, members, pre-orders, reports, public catalog & detail theo shop, RBAC, responsive, social selling, spinner; shared fixture layer; CI upload báo cáo khi fail. |
+| **E2E Testing** | Playwright smoke suite (**53** test): auth, items, members, pre-orders, reports, public catalog & detail theo shop, RBAC, responsive, social selling, spinner; shared fixture layer; CI upload báo cáo khi fail. |
 
 ## Tiến độ triển khai theo phase
 
@@ -55,9 +55,9 @@ Full-stack ứng dụng quản lý kho xe diecast tỉ lệ 1:64: media thườn
 | **Phase 9 — Pre-Order Management** | ✅ Hoàn thành | Hoàn thiện pre-order lifecycle cho admin + public, vá review gaps và đồng bộ transition/error UX. |
 | **Phase 10 — Reporting & Analytics** | ✅ Hoàn thành | Dashboard KPI 10 chỉ số, trend chart theo ngày/tuần/tháng, filter range, API `/reports/summary` + `/reports/trends`. |
 | **Phase 11 — Membership & Points** | ✅ Hoàn thành | Schema tier/member/ledger, engine tính điểm và nâng hạng tự động, REST APIs đầy đủ, admin members dashboard. |
-| **Phase 12 — Playwright Phase 1** | ✅ Hoàn thành | Shared fixture layer, smoke E2E (suite đã nới rộng — hiện **52** test), CI artifact upload khi fail, HTML reporter. |
-| **Phase 13 — Playwright Phase 2** | ✅ Hoàn thành | Spec nâng cao (`spinner`, `social-selling`, `responsive`), tinh chỉnh CI (retry/worker), ghi chú triage E2E trong `docs/TODO.md`, helper `stubAuthCsrf`; job Frontend trên GitHub Actions là quality gate (xem `.planning/ROADMAP.md`). |
-| **Phase 14 — Multi-Tenant Shop** | ✅ Hoàn thành | Multi-tenant theo shop với `TenantGuard`, `switch-shop`, quản trị shop cho super admin và cách ly dữ liệu. |
+| **Phase 12 — Playwright Phase 1** | ✅ Hoàn thành | Shared fixture layer, smoke E2E (suite đã nới rộng — hiện **53** test), CI artifact upload khi fail, HTML reporter. |
+| **Phase 13 — Playwright Phase 2** | ✅ Hoàn thành | Spec nâng cao (`spinner`, `social-selling`, `responsive`), tinh chỉnh CI (retry/worker), helper `stubAuthCsrf`; job Frontend trên GitHub Actions là quality gate. |
+| **Phase 14 — Multi-Tenant Shop** | ✅ Hoàn thành | Multi-tenant theo shop với `TenantGuard`, `switch-shop`, quản trị shop cho `platform_super` và cách ly dữ liệu. |
 | **Phase 15 — Admin RBAC & Tenant Authorization** | ✅ Hoàn thành | `PlatformRole` + phân quyền platform vs shop; mở rộng vai trò shop (`shop_admin` / `shop_staff`); guard hai lớp; UI admin và API align. |
 | **Phase 16 — Per-Shop Public Homepage** | ✅ Hoàn thành | Catalog/detail công khai resolve một shop qua `shop_id` (query UUID hoặc slug), env `VITE_PUBLIC_CATALOG_SHOP_ID`, hoặc JWT sau khi context sẵn sàng; cô lập dữ liệu giữa shop. |
 
@@ -102,7 +102,7 @@ SECURITY.md           Chính sách báo cáo lỗ hổng
 
 - **Chạy backend/frontend trên máy (không Docker app):**  
   - `cp backend/.env.example backend/.env` và chỉnh `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `COOKIE_SECRET`, v.v.  
-  - `cp frontend/.env.example frontend/.env` — tối thiểu `VITE_API_BASE_URL=http://localhost:3000/api/v1` (hoặc để trống / `auto` để frontend tự suy ra host mặc định theo `frontend/src/config/api.ts`).
+  - `cp frontend/.env.example frontend/.env` — local dev có thể dùng `VITE_API_BASE_URL=auto` hoặc để trống để gọi same-origin `/api/v1` qua Vite proxy; production tách domain phải đặt URL API tuyệt đối như `https://api.example.com/api/v1`.
 - **Tham chiếu gộp cho Docker / tài liệu:** [`/.env.example`](.env.example) và chi tiết trong [`docs/ENV.md`](docs/ENV.md).
 
 ### 2. Cài dependency (root)
@@ -171,7 +171,7 @@ Thư mục làm việc trong container: `/workspaces/${localWorkspaceFolderBasen
 
 ## E2E Testing (Playwright)
 
-Playwright smoke suite gồm **52** test chạy trên Chromium, bao phủ các luồng nghiệp vụ chính (auth, kho, báo cáo, pre-order, catalog public & detail theo shop, hội viên, RBAC, responsive, social selling, spinner).
+Playwright smoke suite gồm **53** test chạy trên Chromium, bao phủ các luồng nghiệp vụ chính (auth, kho, báo cáo, pre-order, catalog public & detail theo shop, hội viên, RBAC, responsive, social selling, spinner).
 
 ### Cài đặt browser (lần đầu)
 
@@ -221,6 +221,7 @@ frontend/tests/e2e/
 | Tài liệu | Nội dung |
 |----------|----------|
 | [`AGENTS.md`](AGENTS.md) | Môi trường dev, lệnh lint/test, Postgres, pnpm — dùng chung với Cursor Cloud |
+| [`docs/DOMAIN.md`](docs/DOMAIN.md) | Domain và quy tắc nghiệp vụ |
 | [`docs/DB_SCHEMA.md`](docs/DB_SCHEMA.md) | Schema & quan hệ |
 | [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md) | Hợp đồng REST |
 | [`docs/ERROR_HANDLING.md`](docs/ERROR_HANDLING.md) | Mã lỗi & envelope |
@@ -231,13 +232,12 @@ frontend/tests/e2e/
 | [`SECURITY.md`](SECURITY.md) | Chính sách bảo mật và cách báo cáo |
 | [`docs/COOKIE_AUTH.md`](docs/COOKIE_AUTH.md) | Cookie & CORS liên quan auth |
 | [`docs/AI_RULES.md`](docs/AI_RULES.md) | Quy tắc tích hợp AI |
-| [`docs/TODO.md`](docs/TODO.md) | Lộ trình & E2E workflow |
 | [`docs/PROMPT_TEMPLATE.md`](docs/PROMPT_TEMPLATE.md) | Prompt mẫu |
 
 ## Quy tắc thay đổi
 
 1. Thay đổi hành vi nghiệp vụ / API / DB phải đi kèm cập nhật tài liệu tương ứng trong `docs/`.
-2. `DIECAST360_AI_MASTER_GUIDE.md` là nguồn đồng bộ với code và docs khi có chỉnh sửa lớn.
+2. Nguồn đồng bộ chính là `docs/DOMAIN.md`, `docs/DB_SCHEMA.md`, `docs/API_CONTRACT.md`, `docs/ERROR_HANDLING.md`, `docs/ARCHITECTURE.md`, `docs/ENV.md` và README.
 3. Thiếu thông tin → làm rõ trước khi implement; tránh suy đoán trong PR.
 
 ---

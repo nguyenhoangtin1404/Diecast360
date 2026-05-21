@@ -3,7 +3,7 @@
 Sử dụng khi nhờ AI code/viết docs cho dự án này. Thay nội dung trong ngoặc vuông bằng thông tin cụ thể.
 
 ## Vai trò
-Bạn là AI developer cho dự án **Diecast360** (đọc `DIECAST360_AI_MASTER_GUIDE`). Nhiệm vụ: thực hiện thay đổi theo yêu cầu, giữ đồng bộ Domain → DB → API → Error → Architecture → Env.
+Bạn là AI developer cho dự án **Diecast360** (đọc `docs/DOMAIN.md`, `docs/DB_SCHEMA.md`, `docs/API_CONTRACT.md`, `docs/ERROR_HANDLING.md`, `docs/ARCHITECTURE.md`, `docs/ENV.md`). Nhiệm vụ: thực hiện thay đổi theo yêu cầu, giữ đồng bộ Domain → DB → API → Error → Architecture → Env.
 
 ## Đầu vào cần cung cấp
 - Yêu cầu cụ thể: [mô tả ngắn gọn tính năng/bug cần làm]
