@@ -175,10 +175,34 @@ Pi không cần mở outbound tới Neon chỉ để migrate trong CD (runtime A
 
 Thứ tự gợi ý (staging trước production):
 
-1. Tạo bucket R2 + API token; ghi `STORAGE_DRIVER=r2` và đủ `R2_*` trên **staging** (xem [`ENV.md`](ENV.md)).
-2. **Đồng bộ object** từ thư mục `UPLOAD_DIR` hiện tại lên R2 với **cùng key** (đường dẫn tương đối trong DB). Có thể dùng `rclone sync`; xem ghi chú trong [`backend/scripts/README.md`](../backend/scripts/README.md).
-3. Khởi động lại backend; spot-check: upload mới, mở ảnh catalog, `GET /api/v1/media?...` với link đã ký cũ (proxy R2).
-4. **Production:** lặp lại sync → đổi env → restart; theo dõi log và egress.
-5. **Rollback:** đặt lại `STORAGE_DRIVER=local`, khôi phục tree file dưới `UPLOAD_DIR` từ backup nếu đã xoá; hoặc trỏ lại disk snapshot.
+1. Tạo bucket R2 + API token (S3-compatible: Object Read & Write); ghi `STORAGE_DRIVER=r2` và đủ `R2_*` trên **staging** (xem [`ENV.md`](ENV.md) mục Object storage).
 
-Chi tiết cấu hình R2: [`ENV.md`](ENV.md) mục Object storage.
+2. **Đồng bộ object** từ `UPLOAD_DIR` lên bucket, **giữ nguyên key** (trùng `file_path` trong DB, ví dụ `images/...`, `spinner/...`).
+
+   Khuyến nghị dùng **rclone** (resume + checksum):
+
+   ```bash
+   # 1. Cấu hình remote một lần
+   rclone config create r2remote s3 \
+     provider Cloudflare \
+     access_key_id $R2_ACCESS_KEY_ID \
+     secret_access_key $R2_SECRET_ACCESS_KEY \
+     endpoint https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com \
+     region auto
+
+   # 2. Dry-run — kiểm tra key trước khi copy thật
+   rclone sync /path/to/UPLOAD_DIR r2remote:$R2_BUCKET --dry-run --progress
+
+   # 3. Sync thật (không thêm prefix; cấu trúc key phải khớp DB)
+   rclone sync /path/to/UPLOAD_DIR r2remote:$R2_BUCKET --progress
+   ```
+
+   Sau sync, so sánh số file: `rclone size /path/to/UPLOAD_DIR` vs `rclone size r2remote:$R2_BUCKET`.
+
+3. Khởi động lại backend với `STORAGE_DRIVER=r2`; spot-check: upload mới, mở ảnh catalog, `GET /api/v1/media?...` với link đã ký cũ (proxy R2).
+
+4. **Production:** backup `UPLOAD_DIR` trước → lặp lại sync → đổi env → restart; theo dõi log và egress.
+
+5. **Rollback:** đặt lại `STORAGE_DRIVER=local`, khôi phục tree file dưới `UPLOAD_DIR` từ backup; hoặc trỏ lại disk snapshot.
+
+Chi tiết biến môi trường R2: [`ENV.md`](ENV.md) mục Object storage.

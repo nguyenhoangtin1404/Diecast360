@@ -17,7 +17,7 @@ Tài liệu này phản ánh `backend/prisma/schema.prisma` hiện tại. Runtim
 |------|--------|
 | `ItemStatus` | `con_hang`, `giu_cho`, `da_ban` |
 | `PlatformRole` | `platform_super` |
-| `ShopRole` | `super_admin`, `shop_admin`, `shop_staff` |
+| `ShopRole` | `shop_admin` (default), `shop_staff`; `super_admin` là giá trị legacy từ trước khi có RBAC đa cấp — không gán mới, chỉ tồn tại do backward-compat |
 | `ShopAuditAction` | `add_shop_admin`, `reset_member_password`, `set_member_active`, `update_shop`, `deactivate_shop`, `activate_shop`, `set_platform_role`, `set_shop_member_role` |
 | `PreOrderStatus` | `PENDING_CONFIRMATION` (`cho_xac_nhan`), `WAITING_FOR_GOODS` (`dang_cho_hang`), `ARRIVED` (`da_ve`), `PAID` (`da_thanh_toan`), `REFUNDED` (`da_hoan_tien`), `CANCELLED` (`da_huy`) |
 | `InventoryTransactionType` | `stock_in`, `stock_out`, `adjustment` |
@@ -188,6 +188,8 @@ Indexes: `(shop_id, created_at)`, `(item_id, created_at)`, `(item_id, type, crea
 Indexes: `(shop_id, status)`, `item_id`, `user_id`, `member_id`, `(shop_id, expected_arrival_at)`.
 
 Status transition hiện tại: `PENDING_CONFIRMATION → WAITING_FOR_GOODS|CANCELLED → ARRIVED|CANCELLED → PAID|CANCELLED → REFUNDED`; `REFUNDED` và `CANCELLED` là terminal.
+
+**FK RESTRICT trên `member_id`:** Không thể xóa member khi còn pre-order chưa terminal (`PENDING_CONFIRMATION`, `WAITING_FOR_GOODS`, `ARRIVED`, `PAID`). Service phải kiểm tra trước khi gọi `DELETE`; DB sẽ reject nếu bỏ qua bước này.
 
 ### membership_tiers
 
