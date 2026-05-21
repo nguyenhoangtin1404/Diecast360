@@ -507,7 +507,7 @@ export const ItemDetailPage = () => {
 
   // Lazy-load QR code when user enters step 5
   useEffect(() => {
-    if (currentStep !== 5 || !id || id === 'new' || qrData || isLoadingQrRef.current) return;
+    if (currentStep !== 5 || !id || id === 'new' || qrData !== null || isLoadingQrRef.current) return;
     isLoadingQrRef.current = true;
     setIsLoadingQr(true);
     setQrError(null);
