@@ -96,7 +96,7 @@ export class ItemsController {
     @CurrentTenantId() tenantId: string,
     @Req() req: Request,
   ) {
-    const gatewayBaseUrl = `${req.protocol}://${req.get('host')}`;
+    const gatewayBaseUrl = process.env.BACKEND_URL ?? `${req.protocol}://${req.get('host')}`;
     return this.qrService.getQrCode(id, tenantId, gatewayBaseUrl);
   }
 

@@ -23,11 +23,18 @@ export class QrService {
     for (let attempt = 0; attempt < 3; attempt++) {
       const token = this.generateToken();
       try {
-        await this.prisma.item.update({
-          where: { id: itemId },
+        // Guard against concurrent overwrites: only update when qr_token is still null.
+        const result = await this.prisma.item.updateMany({
+          where: { id: itemId, qr_token: null },
           data: { qr_token: token },
         });
-        return token;
+        if (result.count > 0) return token;
+        // Another concurrent request already set a token; return whatever is now in the DB.
+        const current = await this.prisma.item.findUnique({
+          where: { id: itemId },
+          select: { qr_token: true },
+        });
+        if (current?.qr_token) return current.qr_token;
       } catch (err) {
         // Only retry on unique constraint violation (Prisma P2002); surface all other errors immediately.
         const isUniqueViolation =
@@ -61,8 +68,12 @@ export class QrService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Mã QR không hợp lệ hoặc sản phẩm không còn hiển thị công khai');
     }
 
+    if (!item.shop_id) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Mã QR không hợp lệ hoặc sản phẩm không còn hiển thị công khai');
+    }
+
     const shop = await this.prisma.shop.findFirst({
-      where: { id: item.shop_id ?? undefined, is_active: true },
+      where: { id: item.shop_id, is_active: true },
       select: { id: true },
     });
     if (!shop) {

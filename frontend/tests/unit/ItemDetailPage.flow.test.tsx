@@ -234,7 +234,7 @@ describe('ItemDetailPage main flows', () => {
   it('allows finishing and returns to list when media is complete', async () => {
     h.apiClient.get.mockImplementation(async (url: unknown) => {
       if (typeof url === 'string' && url.includes('/qr')) {
-        return { data: { data: { token: 'tok', resolve_url: 'http://host/qr/tok', image_data_url: 'data:image/png;base64,abc' } } };
+        return { data: { token: 'tok', resolve_url: 'http://host/qr/tok', image_data_url: 'data:image/png;base64,abc' } };
       }
       return { data: h.mockItemResponse };
     });

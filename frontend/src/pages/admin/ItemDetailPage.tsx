@@ -369,6 +369,7 @@ export const ItemDetailPage = () => {
   const [isLoadingQr, setIsLoadingQr] = useState(false);
   const isLoadingQrRef = useRef(false);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [qrRetryKey, setQrRetryKey] = useState(0);
 
   const socialSellingRef = useRef<HTMLDivElement>(null);
   const stepNavInFlightRef = useRef(false);
@@ -505,6 +506,12 @@ export const ItemDetailPage = () => {
     }
   }, [searchParams, data, setCurrentStep]);
 
+  // Reset QR state when navigating to a different item
+  useEffect(() => {
+    setQrData(null);
+    setQrError(null);
+  }, [id]);
+
   // Lazy-load QR code when user enters step 5
   useEffect(() => {
     if (currentStep !== 5 || !id || id === 'new' || qrData !== null || isLoadingQrRef.current) return;
@@ -512,14 +519,14 @@ export const ItemDetailPage = () => {
     setIsLoadingQr(true);
     setQrError(null);
     apiClient
-      .get<{ data: QrData }>(`/items/${id}/qr`)
-      .then((res) => setQrData(res.data.data))
+      .get(`/items/${id}/qr`)
+      .then((res) => setQrData((res as unknown as { data: QrData }).data))
       .catch(() => setQrError('Không thể tải mã QR. Vui lòng thử lại.'))
       .finally(() => {
         isLoadingQrRef.current = false;
         setIsLoadingQr(false);
       });
-  }, [currentStep, id, qrData]);
+  }, [currentStep, id, qrData, qrRetryKey]);
 
   const extractItemIdFromResponse = (response: unknown): string | null => {
     const isApiResponse = (r: unknown): r is ApiResponse<ItemResponse> => {
@@ -2920,7 +2927,7 @@ export const ItemDetailPage = () => {
                 <span>{qrError}</span>
                 <button
                   type="button"
-                  onClick={() => { setQrData(null); setQrError(null); }}
+                  onClick={() => { setQrError(null); setQrRetryKey(k => k + 1); }}
                   style={{ background: '#dc2626', color: '#fff', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '13px', cursor: 'pointer' }}
                 >
                   Thử lại
