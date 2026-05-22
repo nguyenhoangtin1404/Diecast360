@@ -19,6 +19,7 @@ enum ItemStatus {
   con_hang
   giu_cho
   da_ban
+  preorder
 }
 
 enum PlatformRole {

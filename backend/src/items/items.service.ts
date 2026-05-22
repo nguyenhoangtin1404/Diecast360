@@ -19,9 +19,10 @@ import { CategoriesService } from '../categories/categories.service';
 import { normalizeCategoryBrandField } from '../common/utils/category-brand.utils';
 
 const ALLOWED_STATUS_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
-  con_hang: ['con_hang', 'giu_cho', 'da_ban'],
-  giu_cho: ['giu_cho', 'con_hang', 'da_ban'],
-  da_ban: ['da_ban'],
+  con_hang: ['con_hang', 'giu_cho', 'da_ban', 'preorder'],
+  giu_cho: ['giu_cho', 'con_hang', 'da_ban', 'preorder'],
+  da_ban: ['da_ban', 'preorder'],
+  preorder: ['con_hang'],
 };
 
 function getInitialQuantityForStatus(status: ItemStatus): number {

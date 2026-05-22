@@ -9,7 +9,7 @@
 ### Item
 - Mẫu xe diecast thuộc một shop; thuộc tính chính: `id (uuid)`, `shop_id`, `name`, `description`, `scale` (mặc định "1:64"), `brand` (tùy chọn), `car_brand`, `model_brand`, `condition`, `price`, `original_price`, `status`, `quantity`, `attributes`, `notes`, `is_public`, `fb_post_content` (nội dung bài FB), `qr_token` (token QR định danh; NULL cho đến khi admin tạo mã QR lần đầu), `created_at`, `updated_at`, `deleted_at` (soft delete).
 - Quan hệ: nhiều `ItemImage`, nhiều `SpinSet`; duy nhất 1 `SpinSet` được gắn cờ `is_default`.
-- Giá trị trạng thái: `con_hang`, `giu_cho`, `da_ban` (lưu ý khi hiển thị catalog/sao chép caption).
+- Giá trị trạng thái: `con_hang`, `giu_cho`, `da_ban`, `preorder` (item đang trong giai đoạn pre-order, chưa về hàng; hiển thị trên trang `/preorders` công khai) (lưu ý khi hiển thị catalog/sao chép caption).
 - Ảnh cover lấy từ `ItemImage.is_cover = true`, fallback ảnh đầu tiên theo `display_order`.
 
 ### ItemImage

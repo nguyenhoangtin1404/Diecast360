@@ -963,6 +963,24 @@ describe('ItemsService', () => {
       expect(prisma.category.findFirst).not.toHaveBeenCalled();
     });
 
+    it('should allow transition from con_hang to preorder', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'preorder' });
+
+      const result = await service.update('item-123', { status: 'preorder' }, TEST_SHOP_ID);
+
+      expect(result.item.status).toBe('preorder');
+    });
+
+    it('should allow transition from preorder to con_hang', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder' });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'con_hang' });
+
+      const result = await service.update('item-123', { status: 'con_hang' }, TEST_SHOP_ID);
+
+      expect(result.item.status).toBe('con_hang');
+    });
+
     it('should reject invalid status transition from da_ban to con_hang', async () => {
       prisma.item.findFirst.mockResolvedValue({
         ...mockItem,

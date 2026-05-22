@@ -12,7 +12,7 @@ export type ItemAttributesPayload = Record<string, string | number | boolean | n
 export interface BaseItem {
   id: string;
   name: string;
-  status: 'con_hang' | 'giu_cho' | 'da_ban';
+  status: 'con_hang' | 'giu_cho' | 'da_ban' | 'preorder';
   car_brand?: string;
   model_brand?: string;
   condition?: string;

@@ -179,7 +179,7 @@ interface SpinSet {
 interface ItemData {
   name: string;
   description?: string;
-  status?: "con_hang" | "giu_cho" | "da_ban";
+  status?: "con_hang" | "giu_cho" | "da_ban" | "preorder";
   is_public?: boolean;
   car_brand?: string;
   model_brand?: string;
@@ -739,7 +739,7 @@ export const ItemDetailPage = () => {
     const itemData: ItemData = {
       name,
       description,
-      status: status as "con_hang" | "giu_cho" | "da_ban",
+      status: status as "con_hang" | "giu_cho" | "da_ban" | "preorder",
       is_public: isPublic,
     };
 
@@ -2004,8 +2004,9 @@ export const ItemDetailPage = () => {
                 { value: "con_hang", label: "Còn hàng", minWidth: "70px" },
                 { value: "giu_cho", label: "Giữ chỗ", minWidth: "70px" },
                 { value: "da_ban", label: "Đã bán", minWidth: "70px" },
+                { value: "preorder", label: "Pre-order", minWidth: "70px" },
               ]}
-              value={status as "con_hang" | "giu_cho" | "da_ban"}
+              value={status as "con_hang" | "giu_cho" | "da_ban" | "preorder"}
               onChange={(next) => setStatus(next)}
               mobile={isMobile}
               fullWidthOnMobile
