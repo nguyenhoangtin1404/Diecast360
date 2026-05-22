@@ -61,7 +61,7 @@ Mỗi **shop** (cửa hàng) có dữ liệu **tách biệt**: sản phẩm, dan
 | Vai trò (trong hệ thống) | Bạn là ai | Điểm quan trọng |
 |--------------------------|-----------|------------------|
 | **Quản trị shop** (`shop_admin`) | Chủ shop / người được ủy quyền đầy đủ cho một shop | Được **lưu cấu hình shop**, tạo danh mục mới cho shop, quản lý sản phẩm, pre-order, v.v. |
-| **Nhân viên shop** (`shop_staff`) | Nhân viên hỗ trợ nhập liệu / bán hàng | Xem và thao tác nhiều phần giống admin shop, nhưng **không được lưu “Cấu hình shop”** (trang đó ở chế độ chỉ xem). **Không** tạo danh mục mới qua API shop (thực tế: nút tạo trên trang Danh mục dành cho quản trị shop). |
+| **Nhân viên shop** (`shop_staff`) | Nhân viên xem dữ liệu / hỗ trợ vận hành | Quyền hiện tại là **chỉ đọc** cho thao tác API đổi dữ liệu (`POST`/`PATCH`/`DELETE`) trừ route được kỹ thuật đánh dấu ngoại lệ. Trang cấu hình shop ở chế độ xem. |
 | **Quản trị nền tảng** (`platform_super`) | Đội vận hành / kỹ thuật tổng | Thấy thêm mục **Quản lý shop** trên menu, có thể tạo shop, thêm thành viên, bật/tắt shop, v.v. |
 
 Nếu bạn thấy menu **Quản lý shop** (biểu tượng cửa hàng), bạn đang ở nhóm quản trị nền tảng.
@@ -269,6 +269,7 @@ Nút **Discard** (bỏ) dùng khi muốn **hủy bản nháp** hiện tại và 
 - **Chờ hàng về**
 - **Đã về hàng**
 - **Đã thanh toán**
+- **Đã hoàn tiền**
 - **Đã hủy**
 
 **Cách dùng:**
@@ -386,7 +387,7 @@ vì **menu sidebar hiện không có mục “Danh mục”** — bạn nên **�
 3. **Sửa / Bật / Tắt / Xóa:** dùng các biểu tượng trên từng dòng (bút, công tắc, thùng rác).
 4. **Quyền tạo mới:**  
    - **Quản trị shop** tạo danh mục **thuộc shop** đang chọn.  
-   - **Nhân viên shop** thường **không** tạo mới loại danh mục shop qua nút này (hệ thống backend giới hạn); họ vẫn có thể **sửa / bật tắt / xóa** danh mục thuộc shop (theo quyền API).  
+   - **Nhân viên shop** có quyền xem; thao tác tạo / sửa / bật tắt / xóa bị backend chặn theo chính sách chỉ đọc.
    - **Quản trị nền tảng** có thể tạo danh mục **toàn cục** (dùng cho nhiều shop) — tùy cách triển khai dữ liệu.
 
 Luôn **chọn đúng shop** ở ô ShopSelector trước khi thao tác danh mục của shop.

@@ -17,13 +17,17 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 |----------|----------|-------|---------|
 | DATABASE_URL | Kết nối Database | Xem bên dưới | Bắt buộc |
 | DIRECT_URL | Kết nối trực tiếp DB cho Prisma CLI | Xem bên dưới | Bắt buộc với PostgreSQL + Prisma migrate/introspect |
-| JWT_SECRET | Secret ký access token | `super-secret` | Bắt buộc, đủ entropy |
+| NODE_ENV | Môi trường runtime | `development` / `production` | Production bật kiểm tra cookie/CORS và yêu cầu HTTPS cookie |
+| PORT | Cổng backend listen | `3000` | Mặc định `3000` |
+| HOST | Địa chỉ backend bind | `0.0.0.0` | Mặc định trong code là `0.0.0.0`; dùng `127.0.0.1` khi chỉ expose qua tunnel/proxy local |
+| JWT_SECRET | Secret ký access token | `change-me-to-random-32-char-jwt-secret` | Bắt buộc, đủ entropy và tối thiểu 32 ký tự |
 | JWT_ALLOW_AUTHORIZATION_BEARER | Cho phép đọc access JWT từ header `Authorization: Bearer` | `true` (mặc định) | Đặt `false` khi chỉ dùng web + cookie HttpOnly để thu hẹp kênh lộ token (XSS không đọc được cookie nhưng có thể đọc header nếu JS chèn được fetch tùy biến). |
 | JWT_EXPIRES_IN | TTL access token | `15m` | Chuỗi thời gian (ms, s, m, h...) |
 | REFRESH_TOKEN_EXPIRES_IN | TTL refresh token | `7d` | Dùng để tính `expires_at` |
 | UPLOAD_DIR | Thư mục lưu file local | `./uploads` | Khi `STORAGE_DRIVER=local` phải tồn tại/ghi được. Khi `STORAGE_DRIVER=r2`, thư mục không dùng cho đọc media (upload qua S3 API); vẫn có thể để mặc định cho dev. |
 | MAX_UPLOAD_MB | Giới hạn kích thước upload | `10` | Áp dụng cho ảnh thường và frame spinner |
-| ALLOWED_MIME | MIME type cho upload | `image/jpeg,image/png` | Server validate trước khi lưu |
+| MAX_SPINNER_FRAMES | Giới hạn số frame spinner ở backend | `48` | Backend upload guard; frontend có biến riêng `VITE_MAX_SPINNER_FRAMES` |
+| ALLOWED_MIME | MIME type cho upload | `image/jpeg,image/png,image/webp` | Server validate trước khi lưu |
 | BACKEND_URL | Base public URL của backend | `http://localhost:3000` | Dùng để ghép signed media URL (`/api/v1/media?...`); production nên đặt URL public của API. |
 | PUBLIC_BASE_URL | Base public URL cũ | `http://localhost:5173` | Legacy/doc compatibility; code signed media hiện đọc `BACKEND_URL`. |
 | FRONTEND_URL | Frontend origin cho CORS | `http://localhost:5173` | Phải khớp với origin frontend |
@@ -43,6 +47,25 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 | R2_PUBLIC_BASE_URL | (Tuỳ chọn) CDN/public base nếu không dùng presigned | — | Thường để trống; app ưu tiên presigned GET |
 | FACEBOOK_PAGE_ID | Facebook Page ID cho publish | `123456789` | Tùy chọn (bắt buộc cho FB publish) |
 | FACEBOOK_PAGE_ACCESS_TOKEN | Long-lived Page Access Token | `EAA...` | Tùy chọn (bắt buộc cho FB publish) |
+| FACEBOOK_GRAPH_API_VERSION | Version Graph API | `v21.0` | Tùy chọn; code có default |
+| OPENAI_API_KEY | OpenAI API key | `sk-...` | Tùy chọn; cần cho AI description, Facebook copy, AI import |
+| OPENAI_MODEL | Model OpenAI | `gpt-5.2` hoặc model triển khai chọn | Tùy chọn; code có default khi không set |
+| PINECONE_API_KEY | Pinecone API key | `...` | Tùy chọn; cần cho semantic/vector search |
+| PINECONE_INDEX | Pinecone index | `diecast360` | Tùy chọn; code có default |
+| THROTTLE_TTL | TTL rate limit global | `60000` | Tùy chọn; Nest Throttler đọc theo ms |
+| THROTTLE_LIMIT | Số request trong TTL | `100` | Tùy chọn; default code là `100` |
+
+## Frontend build-time env
+
+Các biến `VITE_*` được đọc lúc Vite start/build; đổi giá trị cần restart dev server hoặc build lại.
+
+| Variable | Mục đích | Ví dụ / mặc định | Ghi chú |
+|----------|----------|------------------|---------|
+| VITE_API_BASE_URL | Base URL API cho frontend | `auto`, rỗng hoặc `https://api.example.com/api/v1` | Rỗng/`auto` gọi same-origin `/api/v1`; local dev dùng proxy Vite, production tách domain phải dùng URL tuyệt đối |
+| VITE_ADMIN_SEMANTIC_SEARCH_ENABLED | Bật UI semantic search trong admin items | `false` | Chỉ bật khi backend/vector search đã cấu hình |
+| VITE_PUBLIC_PREORDER_SHOP_ID | Shop mặc định cho trang `/preorders` public | UUID shop | Hữu ích cho single-tenant deploy khi URL không có `?shop_id=` |
+| VITE_PUBLIC_CATALOG_SHOP_ID | Shop mặc định cho catalog `/` public | UUID hoặc slug shop | Production public catalog cần shop scope nếu khách không có JWT active shop |
+| VITE_MAX_SPINNER_FRAMES | Giới hạn frame spinner ở UI | `48` | Phải khớp hoặc nhỏ hơn `MAX_SPINNER_FRAMES` backend |
 
 ## Object storage (Cloudflare R2)
 
@@ -89,4 +112,3 @@ Lưu ý:
 > - `CORS_ALLOW_LAN` phải tắt trong production; chỉ set các origin thật qua `FRONTEND_URL` / `FRONTEND_URLS`.
 > - `FACEBOOK_PAGE_ACCESS_TOKEN` được gửi trong **request body** đến Graph API (không phải URL param) để tránh token bị ghi vào access log của server. Tuy nhiên reverse proxy (Nginx, Caddy...) mặc định không log request body — cần đảm bảo config log không bật `$request_body`. HTTPS ngăn body bị sniff trên đường truyền.
 > - Thiếu HTTPS trong production là lỗ hổng bảo mật nghiêm trọng.
-

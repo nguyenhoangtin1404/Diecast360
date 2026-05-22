@@ -9,7 +9,7 @@ npm run dev          # Vite dev server (http://localhost:5173)
 npm run build        # TypeScript compile + Vite production build
 npm run preview      # Preview production build locally
 npm run lint         # ESLint
-npm run test         # Vitest unit tests
+npm run test:unit    # Vitest unit tests
 npm run test:e2e     # Playwright E2E tests (xem bên dưới)
 ```
 
@@ -19,9 +19,11 @@ Tạo `frontend/.env` từ `frontend/.env.example`:
 
 | Biến | Mô tả | Mặc định |
 |------|-------|----------|
-| `VITE_API_BASE_URL` | Base URL của backend API | `http://localhost:3000/api/v1` |
+| `VITE_API_BASE_URL` | Base URL của backend API; rỗng/`auto` gọi same-origin `/api/v1` qua Vite proxy khi dev | `auto` hoặc `http://localhost:3000/api/v1` |
+| `VITE_ADMIN_SEMANTIC_SEARCH_ENABLED` | Bật UI semantic search trong admin items | `false` |
 | `VITE_MAX_SPINNER_FRAMES` | Số frame tối đa cho spinner 360° | `48` |
-| `VITE_PUBLIC_PREORDER_SHOP_ID` | Shop ID mặc định cho pre-order public (E2E) | — |
+| `VITE_PUBLIC_PREORDER_SHOP_ID` | Shop ID mặc định cho pre-order public / single-tenant deploy | — |
+| `VITE_PUBLIC_CATALOG_SHOP_ID` | Shop mặc định cho catalog public khi URL không có `?shop_id=` | — |
 
 ## E2E Testing (Playwright)
 
@@ -30,7 +32,7 @@ Tạo `frontend/.env` từ `frontend/.env.example`:
 npx playwright install chromium
 
 # Chạy tests
-npm run test:e2e                              # toàn bộ suite (35 tests)
+npm run test:e2e                              # toàn bộ suite (53 tests)
 npm run test:e2e -- tests/e2e/auth.spec.ts   # 1 file
 npm run test:e2e -- --ui                     # Playwright UI mode
 npm run test:e2e -- --headed                 # có browser head

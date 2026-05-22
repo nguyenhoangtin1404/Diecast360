@@ -31,6 +31,7 @@ FRONTEND_URL=http://localhost:5173
 | `FRONTEND_URL` | `http://localhost:5173` | Your domain | CORS origin |
 | `FRONTEND_URLS` | optional | Preview/admin domains | Danh sách origin bổ sung, tách bằng dấu phẩy |
 | `CORS_ALLOW_LAN` | `true` nếu test qua LAN | `false` | Chỉ dùng dev; production boot sẽ reject nếu bật |
+| `JWT_ALLOW_AUTHORIZATION_BEARER` | `true` | tùy policy | Đặt `false` nếu web chỉ dùng HttpOnly cookie và muốn tắt fallback `Authorization: Bearer` |
 
 ## Cookies được sử dụng
 
@@ -149,10 +150,12 @@ const cookieExtractor = (req: Request): string | null => {
   if (req && req.cookies && req.cookies.access_token) {
     return req.cookies.access_token;
   }
-  // Fallback to Authorization header
-  const authHeader = req?.headers?.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7);
+  // Optional fallback to Authorization header
+  if (allowAuthorizationBearer) {
+    const authHeader = req?.headers?.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      return authHeader.substring(7);
+    }
   }
   return null;
 };
@@ -165,7 +168,10 @@ import * as cookieParser from 'cookie-parser';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
-  const cookieSecret = process.env.COOKIE_SECRET || 'default-secret';
+  const cookieSecret = process.env.COOKIE_SECRET;
+  if (!cookieSecret || cookieSecret.trim().length < 32) {
+    throw new Error('COOKIE_SECRET must be set and at least 32 characters long');
+  }
   app.use(cookieParser(cookieSecret));
   
   // ... rest of config

@@ -6,7 +6,7 @@ Các script TypeScript trong thư mục này chạy bằng `ts-node` hoặc qua 
 
 Khi chuyển `STORAGE_DRIVER=r2`, object trên R2 phải dùng **cùng key** với đường dẫn tương đối trong DB (`images/...`, `spinner/...`, …).
 
-**Khuyến nghị:** dùng [rclone](https://rclone.org/) `sync` từ thư mục `UPLOAD_DIR` lên bucket — xem phần **Cutover runbook** trong [`docs/plans/cloudflare-r2-upload-migration.md`](../../docs/plans/cloudflare-r2-upload-migration.md).
+**Khuyến nghị:** dùng [rclone](https://rclone.org/) `sync` từ thư mục `UPLOAD_DIR` lên bucket. Cấu hình biến `STORAGE_DRIVER=r2` và `R2_*` theo [`docs/ENV.md`](../../docs/ENV.md); thứ tự cutover nằm trong [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md).
 
 **Gợi ý Node (outline, không bắt buộc):** có thể thêm script sau này dùng `@aws-sdk/client-s3` `ListObjectsV2` + đọc file local + `PutObject` theo từng key; trên dataset lớn ưu tiên `rclone` vì resume/checksum tích hợp.
 

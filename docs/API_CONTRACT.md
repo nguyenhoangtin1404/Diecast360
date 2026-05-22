@@ -16,22 +16,28 @@
 - CSRF: với cookie auth, mọi request thay đổi trạng thái (`POST`/`PATCH`/`DELETE`) cần header `X-CSRF-Token` khớp cookie đọc được `csrf_token`, trừ `POST /api/v1/auth/login`. Lấy/rotate token qua `GET /api/v1/auth/csrf`.
 - ID: UUID.
 - Upload: `multipart/form-data`, field file là `file` (ảnh thường) hoặc `frame` (ảnh spinner). Server dùng Sharp tạo thumbnail.
+- RBAC tenant: `shop_admin` có quyền đọc/ghi trong active shop; `shop_staff` hiện là read-only cho các HTTP method mutating (`POST`/`PATCH`/`DELETE`) trừ route nào được đánh dấu exception trong code.
 
 ## Data shape
-- `Item`: `{ id, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, status, quantity, attributes, is_public, fb_post_content, cover_image_url, fb_post_url?, fb_posted_at?, fb_posts_count?, created_at, updated_at, deleted_at? }`.
-- `attributes`: object phang `Record<string, string | number | boolean | null>`, toi da 50 key, key phai duoc trim va khong duoc dung cac ten du phong nhu `__proto__`, `constructor`, `prototype`.
+- `Item`: `{ id, shop_id?, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, status, quantity, attributes, notes?, is_public, fb_post_content, cover_image_url, fb_post_url?, fb_posted_at?, fb_posts_count?, created_at, updated_at, deleted_at? }`.
+- `attributes`: object phẳng `Record<string, string | number | boolean | null>`, tối đa 50 key, key phải được trim và không được dùng các tên dự phòng như `__proto__`, `constructor`, `prototype`.
 - `FacebookPost`: `{ id, item_id, post_url, content, posted_at, created_at }`.
-- `User`: `{ id, email, full_name, role, allowed_shop_ids: string[] }`.
-- `Shop`: `{ id, name, slug, is_active, created_at, updated_at, items_count?, members_count? }`.
+- `User`: `{ id, email, full_name, role, platform_role?, is_active?, allowed_shop_ids: string[], shop_roles?, allowed_shops?, active_shop_id? }`.
+- `Shop`: `{ id, name, slug, is_active, contact_json?, appearance_json?, loyalty_json?, created_at, updated_at, _count? }`.
 - `ItemImage`: `{ id, item_id, url, thumbnail_url, is_cover, display_order, created_at }`.
 - `SpinFrame`: `{ id, spin_set_id, frame_index, image_url, thumbnail_url, created_at }`.
 - `SpinSet`: `{ id, item_id, label, is_default, frames: SpinFrame[], created_at, updated_at }`.
+- `PreOrderStatus`: `PENDING_CONFIRMATION | WAITING_FOR_GOODS | ARRIVED | PAID | REFUNDED | CANCELLED`.
+- `PreOrder`: `{ id, shop_id, item_id, user_id?, member_id?, status, quantity, unit_price?, total_amount?, deposit_amount, paid_amount, expected_arrival_at?, expected_delivery_at?, cover_image_url?, note?, created_at, updated_at, cancelled_at?, completed_at? }`.
+- `Member`: `{ id, shop_id, full_name, email?, phone?, points_balance, tier_id?, tier?, created_at, updated_at }`.
+- `MembershipTier`: `{ id, shop_id, name, rank, min_points, created_at, updated_at }`.
+- `InventoryTransaction`: `{ id, shop_id, item_id, actor_user_id?, reversal_of_id?, type, quantity, delta, resulting_quantity, reason, note?, created_at }`.
 - Pagination: `{ page, page_size, total, total_pages }`.
 
 ## Health
 ### GET /api/v1/health
 - Public, không auth, không CSRF; dùng cho liveness + deploy probe.
-- Response 200: `data: { status: "healthy" }`.
+- Response 200: qua envelope chuẩn, `data` hiện chứa payload controller `{ ok: true, status: "healthy" }`.
 - Response 503 khi DB probe `SELECT 1` lỗi.
 
 ## Auth
@@ -65,53 +71,108 @@
 - CSRF: cần `X-CSRF-Token` khi dùng cookie auth.
 - Thay đổi `active_shop_id` trong session, server issue lại HTTP-only cookie mới.
 - Response 200: `data: { active_shop: { id, name, slug, is_active, role }, message?: string }`.
-- Errors: `VALIDATION (400)` nếu `shop_id` không phải UUID; `AUTH_FORBIDDEN (403)` nếu user không thuộc shop hoặc shop không active.
+- Errors: `VALIDATION_ERROR`/HTTP 400 nếu `shop_id` không phải UUID; `AUTH_FORBIDDEN (403)` nếu user không thuộc shop hoặc shop không active.
 
-## Shops (Super Admin)
+## Shops (Platform Super)
 ### GET /api/v1/admin/shops
-- Auth: Role `super_admin`.
+- Auth: `platform_role = platform_super`.
 - Response 200: envelope chuẩn `ok`, `message`; **`data` là trực tiếp `Shop[]`** (mảng shop, không bọc `{ shops: ... }`). Mỗi phần tử gồm trường shop (`id`, `name`, `slug`, `is_active`, `created_at`, `updated_at`) và **`_count`**: `{ items: number, user_roles: number }`.
-- Errors: `AUTH_FORBIDDEN (403)` nếu không phải super_admin.
+- Errors: `AUTH_FORBIDDEN (403)` nếu không phải platform super.
 
 ### GET /api/v1/admin/shops/:id
-- Auth: Role `super_admin`.
+- Auth: `platform_role = platform_super`.
 - Response 200: `data` là **một** `Shop` (cùng shape `_count` như trên).
 - Errors: `NOT_FOUND` nếu không tồn tại.
 
 ### POST /api/v1/admin/shops
-- Auth: Role `super_admin`.
+- Auth: `platform_role = platform_super`.
 - Body JSON: `{ "name": "string", "slug": "string (optional)" }`. Nếu bỏ qua `slug`, server tạo slug duy nhất từ `name` (chữ thường, dấu gạch ngang).
 - Response 201: `data` là **bản ghi `Shop`** vừa tạo (không bọc `{ shop: ... }`).
 
 ### PATCH /api/v1/admin/shops/:id
-- Auth: Role `super_admin`.
+- Auth: `platform_role = platform_super`.
 - Body JSON: `{ "name": "string (optional)", "is_active": "boolean (optional)" }`.
 - Response 200: `data` là **bản ghi `Shop`** sau cập nhật.
 
 ### PATCH /api/v1/admin/shops/:id/deactivate
-- Auth: Role `super_admin`.
+- Auth: `platform_role = platform_super`.
 - Response 200: `data` là **bản ghi `Shop`** với `is_active: false`.
 
 ### GET /api/v1/admin/shops/:id/members
-- Auth: Role `super_admin`.
+- Auth: `platform_role = platform_super`.
 - Query: `page` (default `1`), `page_size` (default `20`, max `100`).
 - Response 200: `data: { members, pagination }` với:
   - `members`: mảng bản ghi `user_shop_roles`: `{ user_id, shop_id, role, user: { id, email, full_name, role, is_active } }[]`
   - `pagination`: `{ page, page_size, total, total_pages }`
 
+### GET /api/v1/admin/shops/:id/items
+- Auth: `platform_role = platform_super`.
+- Query: `page`, `page_size`, `q`, `status`.
+- Response 200: `data: { items, pagination }` scoped theo shop.
+
+### GET /api/v1/admin/shops/:id/audit-logs
+- Auth: `platform_role = platform_super`.
+- Query: `page`, `page_size`, `action`.
+- Response 200: `data: { logs, pagination }`.
+
 ### POST /api/v1/admin/shops/:id/members
-- Auth: Role `super_admin`.
+- Auth: `platform_role = platform_super`.
 - Body JSON (option):
-  - Add existing user by id: `{ "user_id": "UUID" }`
+  - Add existing user by id: `{ "user_id": "UUID", "role": "shop_admin|shop_staff" }`
   - Add existing or create new user by email:
-    - `{ "email": "string", "password": "string (optional but required when user does not exist)", "full_name": "string (optional)" }`
+    - `{ "email": "string", "password": "string (optional but required when user does not exist)", "full_name": "string (optional)", "role": "shop_admin|shop_staff" }`
   - (Nếu thiếu cả `user_id` lẫn `email`, server trả lỗi validation.)
-- Behavior: server gán user vào shop với role cố định `shop_admin` (idempotent: dùng upsert theo cặp `(user_id, shop_id)`).
+- Behavior: server gán user vào shop với role đã chọn (default `shop_admin`) bằng upsert theo cặp `(user_id, shop_id)`.
 - Response 200: `data` là bản ghi `user_shop_roles` sau khi upsert (`user_id`, `shop_id`, `role`).
 - Errors: `NOT_FOUND (404)` nếu shop hoặc user không tồn tại; `VALIDATION_ERROR (422)` nếu body không hợp lệ.
 
+### POST /api/v1/admin/shops/:id/members/:userId/reset-password
+- Auth: `platform_role = platform_super`.
+- Body JSON: `{ "password": "string" }`.
+- Response 200: reset mật khẩu user trong shop và ghi audit log.
+
+### PATCH /api/v1/admin/shops/:id/members/:userId/active
+- Auth: `platform_role = platform_super`.
+- Body JSON: `{ "is_active": true|false }`.
+- Response 200: cập nhật trạng thái tài khoản và ghi audit log.
+
+## Shop settings (tenant)
+Các route dưới đây yêu cầu JWT đã gắn `active_shop_id` hợp lệ.
+
+### GET /api/v1/shop-settings
+- Auth: `shop_admin` hoặc `shop_staff`.
+- Response 200: `data` gồm shop hiện tại, `contact`, `appearance`, `loyalty`.
+
+### PATCH /api/v1/shop-settings
+- Auth: `shop_admin`.
+- Body JSON: `{ "contact": {...}, "appearance": {...}, "loyalty": {...} }` (field optional theo DTO).
+- Response 200: settings sau cập nhật.
+
+### POST /api/v1/shop-settings/branding-upload
+- Auth: `shop_admin`; throttled.
+- Content-Type: `multipart/form-data`; field `file`, body `kind=logo|favicon`.
+- Response 201: URL/path asset branding đã upload.
+
+## Categories
+### GET /api/v1/categories
+- Public optional JWT.
+- Query: `type=car_brand|model_brand`, `shop_id` optional, `is_active` optional.
+- Response 200: global categories + category theo shop explicit/JWT khi có context.
+
+### POST /api/v1/categories
+- Auth: `platform_role = platform_super`.
+- Tạo category global (`shop_id = null`).
+
+### POST /api/v1/categories/shop
+- Auth: `shop_admin` với active shop.
+- Tạo category scoped theo shop hiện tại.
+
+### GET/PATCH/PATCH toggle/DELETE /api/v1/categories/:id
+- `GET` public optional JWT.
+- `PATCH`, `PATCH :id/toggle`, `DELETE` cho platform super hoặc `shop_admin`; platform super thao tác global/shop, shop admin chỉ category trong tenant hiện tại.
+
 ## Items (admin)
-Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop_id`). Nếu user chưa gọi `POST /auth/switch-shop` cho shop hợp lệ, server trả **HTTP 400** với message hướng dẫn switch shop (không dùng 403 vì đây là thiếu context tenant, không phải từ chối quyền).
+Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop_id`). `shop_admin` ghi được; `shop_staff` chỉ đọc theo guard chung. Nếu user chưa gọi `POST /auth/switch-shop` cho shop hợp lệ, server trả **HTTP 400** với message hướng dẫn switch shop (không dùng 403 vì đây là thiếu context tenant, không phải từ chối quyền).
 
 ### GET /api/v1/items
 - Query: `page` (default 1), `page_size` (default 20), `status` (optional), `is_public` (optional), `q` (search theo tên), `car_brand` (optional), `model_brand` (optional), `condition` (optional), `fb_status=posted|not_posted` (optional).
@@ -122,6 +183,10 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
   - `fb_post_url`: link Facebook mới nhất của item hoặc `null`
   - `fb_posted_at`: thời điểm post Facebook mới nhất hoặc `null`
   - `fb_posts_count`: tổng số Facebook post đã lưu cho item
+
+### GET /api/v1/items/search
+- Query: `q` (optional). Nếu thiếu `q`, server fallback về list item tenant hiện tại.
+- Response 200: semantic/vector search nếu Pinecone được cấu hình; nếu không dùng fallback service hiện tại.
 
 ### POST /api/v1/items
 - Body JSON (snake_case):
@@ -140,8 +205,8 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
     "is_public": false
   }
   ```
-- `quantity` la integer `>= 0`. Neu `status = "da_ban"` server se ep `quantity = 0` bat ke payload gui len.
-- `attributes` la object phang; nested object/array khong hop le.
+- `quantity` là integer `>= 0`. Nếu `status = "da_ban"` server sẽ ép `quantity = 0` bất kể payload gửi lên.
+- `attributes` là object phẳng; nested object/array không hợp lệ.
 - Response 201: `data: { item }` (images/spin_sets rỗng).
 - Errors: `VALIDATION_ERROR (422)`.
 
@@ -416,13 +481,16 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 
 ## Public
 ### GET /api/v1/public/items
-- Query: `page`, `page_size`, `status` (optional), `q`, và các filter catalog khác như contract admin/public đã liệt kê.
+- Query: `page`, `page_size`, `status` (optional), `q`, `car_brand`, `model_brand`, `condition=new|old`, `sort_by=name|price|created_at`, `sort_order=asc|desc`.
 - **`shop_id` (optional):** giới hạn catalog theo một shop. Giá trị hợp lệ:
   - UUID của `Shop.id`, hoặc
   - Chuỗi **khớp chính xác** `Shop.slug` (phân biệt hoa thường).
 - Shop phải `is_active: true`. Slug/UUID không tồn tại hoặc shop không active → **`NOT_FOUND (404)`**, message ổn định (ví dụ shop không tìm thấy).
 - **Ưu tiên:** Nếu request có `shop_id` hợp lệ, server **bỏ qua** `active_shop_id` từ JWT khi lọc catalog (tránh lệch tenant khi admin đang switch shop trong cùng trình duyệt).
-- **Khi bỏ qua `shop_id`:** Hành vi như trước: nếu có JWT với `active_shop_id` thì lọc theo shop đó; nếu không (khách) thì trả **toàn bộ** item public trên deployment (aggregate). Single-tenant / dev có thể dùng biến frontend `VITE_PUBLIC_CATALOG_SHOP_ID` để luôn gửi `shop_id` (xem Phase 16 frontend).
+- **Khi bỏ qua `shop_id`:** Nếu có JWT với `active_shop_id` thì lọc theo shop đó. Nếu là khách anonymous:
+  - `NODE_ENV=production`: trả `PUBLIC_SHOP_REQUIRED (422)` để tránh aggregate toàn bộ shop.
+  - Non-production: vẫn có thể trả aggregate public để tiện dev/test.
+  Single-tenant deploy nên set `VITE_PUBLIC_CATALOG_SHOP_ID` để frontend luôn gửi shop scope.
 
 ### GET /api/v1/public/qr/:token
 - Public, không auth, không CSRF.
@@ -439,56 +507,110 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 - `spinner` lấy spin set default (nếu có). Nếu `null` → client dùng gallery ảnh thường.
 - Errors: `NOT_FOUND (404)` khi item không tồn tại, không public, đã xóa mềm, hoặc **không thuộc shop** đã chọn khi đang lọc theo shop.
 
-## Pre-orders (planned - Phase 9, MVP scope)
-Ghi chu: nhom endpoint nay la ke hoach de trien khai MVP pre-order, chua mac dinh la da ton tai trong codebase hien tai.
+### GET /api/v1/public/shops/:shopId/contact
+- Public optional JWT.
+- `shopId` là UUID hoặc slug shop active. Nếu không resolve được → `NOT_FOUND`.
+- Production áp dụng cùng rule scope như catalog; contact luôn shop-scoped, không có aggregate.
+- Response 200: `data: { shop: { id, name, slug }, contact, appearance }`.
 
-### POST /api/v1/pre-orders
-- Auth: admin.
-- Body JSON (draft): `{ "item_id": "uuid", "customer_name": "string", "customer_phone": "string", "quantity": 1, "unit_price": 0, "deposit_amount": 0, "expected_arrival_at": "ISO datetime (optional)", "note": "string (optional)" }`.
+## Preorders
+Các route admin yêu cầu JWT + `active_shop_id`; `shop_admin` ghi được, `shop_staff` chỉ đọc theo guard chung.
+
+### POST /api/v1/preorders
+- Body JSON: `{ "item_id": "uuid", "member_id": "uuid", "user_id?": "uuid", "quantity": 1, "unit_price?": 0, "deposit_amount?": 0, "paid_amount?": 0, "expected_arrival_at?": "ISO", "expected_delivery_at?": "ISO", "note?": "string", "cover_image_url?": "https://..." }`.
 - Response 201: `data: { pre_order }`.
 
-### GET /api/v1/pre-orders
-- Auth: admin.
-- Query: `status` (optional), `item_id` (optional), `page`, `page_size`.
+### PATCH /api/v1/preorders/:id
+- Body JSON: các field cho phép cập nhật từ create DTO, ngoại trừ status.
+- Không cho đổi member/item/amount khi đơn đã `PAID`, `REFUNDED`, hoặc `CANCELLED`.
+- Response 200: `data: { pre_order }`.
+
+### PATCH /api/v1/preorders/:id/status
+- Body JSON: `{ "status": "PENDING_CONFIRMATION|WAITING_FOR_GOODS|ARRIVED|PAID|REFUNDED|CANCELLED" }`.
+- State machine: `PENDING_CONFIRMATION → WAITING_FOR_GOODS|CANCELLED → ARRIVED|CANCELLED → PAID|CANCELLED → REFUNDED`; `REFUNDED` và `CANCELLED` terminal.
+- Khi `PAID`/`REFUNDED`, service cập nhật member points ledger theo loyalty settings nếu có member.
+
+### GET /api/v1/preorders/admin
+- Query: `status`, `item_id`, `page`, `page_size`.
 - Response 200: `data: { pre_orders, pagination }`.
 
-### PATCH /api/v1/pre-orders/:id/status
-- Auth: admin.
-- Body JSON: `{ "status": "draft|open|reserved|arrived|completed|cancelled" }`.
-- Response 200: `data: { pre_order }`.
-- Rule: chi cho phep transition hop le theo state machine.
+### GET /api/v1/preorders/admin/summary
+- Response 200: summary dashboard cho pre-order trong tenant hiện tại.
 
-### GET /api/v1/public/pre-orders
-- Auth: public.
-- Muc tieu MVP: tra ve danh sach pre-order dang mo de khach xem va gui yeu cau coc.
+### GET /api/v1/preorders/admin/campaigns/:itemId/participants
+- Query: `status`, `page`, `page_size`.
+- Response 200: participants/pre-orders theo campaign item.
 
-### GET /api/v1/public/my-orders
-- Auth: public (cookie/session khach hang hoac token thay the theo policy MVP).
-- Query: `page`, `page_size`, `status` (optional).
-- Response 200: `data: { orders, pagination }`.
-- `orders` can phuc vu UI `Don hang cua toi`: `id`, `status`, `item_name`, `item_cover_image_url`, `deposit_amount`, `remaining_amount`, `expected_arrival_at`, `updated_at`.
+### GET /api/v1/preorders/public
+- Public.
+- Query bắt buộc: `shop_id` (UUID). Optional: `status`, `item_id`, `page`, `page_size`.
+- Response 200: public cards cho pre-order của shop.
 
-### POST /api/v1/public/pre-orders/:id/deposit-requests
-- Auth: public.
-- Body JSON (draft): `{ "name": "string", "phone": "string", "quantity": 1, "note": "string (optional)" }`.
-- Response 201: `data: { request_id, status }`.
-- Ghi chu: payment gateway la phase tiep theo; MVP cho phep ghi nhan yeu cau coc truoc.
+### GET /api/v1/preorders/my-orders
+- Auth: JWT + active shop.
+- Query: `status`, `item_id`, `page`, `page_size`.
+- Response 200: đơn pre-order của user hiện tại trong tenant.
 
-### GET /api/v1/pre-orders/:id/management-summary
-- Auth: admin.
-- Response 200: `data: { pre_order, projected_revenue, deposited_total, participants_count, completion_ratio }`.
-- Muc tieu MVP: cap du lieu tong quan cho man hinh `Quan ly Pre-order`.
+## Inventory
+Các route yêu cầu JWT + active shop; `shop_admin` ghi được, `shop_staff` chỉ đọc theo guard chung.
 
-### GET /api/v1/pre-orders/:id/participants
-- Auth: admin.
-- Query: `page`, `page_size`, `status` (optional), `q` (optional).
-- Response 200: `data: { participants, pagination }`.
-- Muc tieu MVP: cap du lieu danh sach nguoi tham gia cho man hinh `Quan ly Pre-order`.
+### POST /api/v1/inventory/items/:itemId/transactions
+- Body JSON: `{ "type": "stock_in|stock_out|adjustment", "quantity": 1, "reason": "string", "note?": "string", "adjustment_delta?": 0, "allow_negative_stock?": false }`.
+- Response 201: transaction vừa tạo và quantity item sau cập nhật.
+
+### GET /api/v1/inventory/items/:itemId/transactions
+- Query: `page`, `page_size`, `type`.
+- Response 200: `data: { transactions, pagination }`.
+
+### GET /api/v1/inventory/items/:itemId/transactions/reconciliation
+- Response 200: reconciliation giữa item quantity hiện tại và ledger.
+
+### POST /api/v1/inventory/items/:itemId/transactions/:transactionId/reverse
+- Body JSON: `{ "reason": "string", "note?": "string" }`.
+- Response 201: transaction đảo chiều.
+
+## Reports
+Các route yêu cầu JWT + active shop; role `shop_admin` hoặc `shop_staff`.
+
+### GET /api/v1/reports/summary
+- Query: `range=7d|30d|90d`.
+- Response 200: `{ range, from, to, summary }`, gồm stock in/out/adjustment, pre-order created/paid, revenue, Facebook post count, current stock, active preorders.
+
+### GET /api/v1/reports/trends
+- Query: `range=7d|30d|90d`, `bucket=day|week`.
+- Response 200: `{ range, bucket, from, to, series }`.
+
+## Members
+Các route yêu cầu JWT + active shop; `shop_admin` ghi được, `shop_staff` chỉ đọc theo guard chung.
+
+### GET/POST /api/v1/members
+- `GET` query: `q`, `page`, `page_size`.
+- `POST` body: `{ "full_name": "string", "email?": "email", "phone?": "string" }`.
+
+### GET/PATCH/DELETE /api/v1/members/:id
+- `PATCH` body: field member optional (`full_name`, `email`, `phone`, `tier_id`).
+- `DELETE` xóa member trong tenant hiện tại.
+
+### GET /api/v1/members/:id/ledger
+- Query: `page`, `page_size`.
+- Response 200: `data: { ledger, pagination }`.
+
+### POST /api/v1/members/:id/points-adjustments
+- Body JSON: `{ "type": "earn|redeem|adjust", "points": 1, "reason": "string", "note?": "string" }`.
+- `earn`/`redeem` yêu cầu points dương; `adjust` cho phép số âm/dương nhưng không được `0`.
+
+### GET/POST/PATCH/DELETE /api/v1/members/tiers
+- `GET /tiers`: list tier.
+- `POST /tiers`: `{ "name": "string", "rank": 1, "min_points": 0 }`.
+- `PATCH /tiers/:tierId`: field optional.
+- `DELETE /tiers/:tierId`: xóa tier trong tenant.
 
 ## Validation chính
 - Email: định dạng email, bắt buộc, unique.
 - Password: bắt buộc ở login (server tự kiểm tra hash).
-- Item: `name` bắt buộc; `status` chỉ nhận 3 giá trị quy định; `scale` không được rỗng; `is_public` boolean; `quantity` là so nguyen `>= 0`; `attributes` phai la flat object hop le.
+- Item: `name` bắt buộc; `status` chỉ nhận 3 giá trị quy định; `scale` không được rỗng; `is_public` boolean; `quantity` là số nguyên `>= 0`; `attributes` phải là flat object hợp lệ.
+- Preorder: `quantity >= 1`; `member_id` bắt buộc khi tạo admin; `status` chỉ nhận `PreOrderStatus` và phải đi qua transition hợp lệ.
+- Member points: `earn`/`redeem` dùng points dương; `adjust` cho phép số âm/dương nhưng không được `0`.
 - Upload: chỉ nhận `ALLOWED_MIME`, kích thước ≤ `MAX_UPLOAD_MB`.
 - Spinner: `frame_index` phải trong khoảng 0..n và không trùng; order phải đủ tất cả `frame_ids` hiện có.
 
