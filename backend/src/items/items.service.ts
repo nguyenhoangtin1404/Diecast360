@@ -18,6 +18,9 @@ import type { ItemAttributesInput } from './dto/item-attributes.validator';
 import { CategoriesService } from '../categories/categories.service';
 import { normalizeCategoryBrandField } from '../common/utils/category-brand.utils';
 
+// Allowed status transitions. da_ban → con_hang permitted for re-stocking;
+// da_ban → preorder/giu_cho blocked (must re-stock first).
+// preorder → con_hang only (campaign ends, item arrives).
 const ALLOWED_STATUS_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
   con_hang: ['con_hang', 'giu_cho', 'da_ban', 'preorder'],
   giu_cho: ['giu_cho', 'con_hang', 'da_ban', 'preorder'],

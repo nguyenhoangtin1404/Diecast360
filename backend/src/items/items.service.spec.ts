@@ -1150,6 +1150,18 @@ describe('ItemsService', () => {
       expect(updateCall.data.quantity).not.toBe(0);
     });
 
+    it('should preserve quantity=0 when explicitly requested on preorder transition', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, quantity: 3 });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'preorder', quantity: 0 });
+
+      await service.update('item-123', { status: 'preorder', quantity: 0 }, TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: expect.objectContaining({ status: 'preorder', quantity: 0 }),
+      });
+    });
+
     it('should allow quantity updates freely on preorder items', async () => {
       prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder', quantity: 3 });
       prisma.item.update.mockResolvedValue({ ...mockItem, status: 'preorder', quantity: 10 });
