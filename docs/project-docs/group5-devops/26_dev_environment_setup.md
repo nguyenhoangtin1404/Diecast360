@@ -275,12 +275,12 @@ pnpm run dev:frontend
 
 Sau khi khởi động, xác nhận các điểm sau:
 
-- [ ] **Health endpoint**: `curl http://localhost:3000/api/v1/health` trả về `{"status":"ok"}`
+- [ ] **Health endpoint**: `curl http://localhost:3000/api/v1/health` trả về `{"ok":true,"data":{"ok":true,"status":"healthy"},"message":""}`
 - [ ] **Đăng nhập admin**: Truy cập http://localhost:5173/admin/login, đăng nhập thành công với tài khoản đã tạo
 - [ ] **API hoạt động**: Sau khi login, truy cập http://localhost:5173/admin/items — danh sách items load (có thể rỗng)
 - [ ] **Upload test**: Vào admin > thêm item > upload ảnh < 10MB, xác nhận ảnh hiển thị
-- [ ] **Prisma Studio**: `pnpm --filter ./backend prisma studio` mở http://localhost:5555, có thể duyệt bảng `User`, `Item`
-- [ ] **Database seed**: Bảng `Category` có dữ liệu sau `pnpm prisma db seed`
+- [ ] **Prisma Studio**: `pnpm --filter ./backend exec prisma studio` mở http://localhost:5555, có thể duyệt bảng `User`, `Item`
+- [ ] **Database seed**: Bảng `Category` có dữ liệu sau `pnpm --filter ./backend exec prisma db seed`
 
 ---
 

@@ -63,6 +63,21 @@ Staging là môi trường giống production nhất, dùng để kiểm tra tr�
 
 ```yaml
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: diecast360
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -90,6 +105,7 @@ services:
       - "127.0.0.1:8080:80"
 
 volumes:
+  pg_data:
   uploads_data:
 ```
 
@@ -862,7 +878,7 @@ npx prisma migrate dev --name rollback_add_xxx_column
 
 ### Checklist sau rollback
 
-- [ ] Health endpoint trả `{"status":"ok"}`
+- [ ] Health endpoint trả `{"ok":true,"data":{"ok":true,"status":"healthy"},"message":""}`
 - [ ] Đăng nhập admin hoạt động
 - [ ] Xem logs để confirm không còn error
 - [ ] Notify team về sự cố và nguyên nhân

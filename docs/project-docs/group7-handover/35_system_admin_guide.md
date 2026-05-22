@@ -198,7 +198,7 @@ pnpm install --frozen-lockfile
 pnpm build
 
 # 4. Chạy migration (nếu có)
-pnpm prisma migrate deploy
+pnpm exec prisma migrate deploy
 
 # 5. Reload (không downtime)
 pm2 reload diecast360-api
