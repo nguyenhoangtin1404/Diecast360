@@ -102,6 +102,6 @@ test.describe('Public item detail — preorder status badge', () => {
   test('shows Pre-order badge for a preorder item', async ({ page }) => {
     await page.goto(`/items/${PREORDER_ITEM_ID}?shop_id=shop-a`);
     await expect(page.getByText('Ferrari F40 Pre-order')).toBeVisible();
-    await expect(page.getByText('Pre-order')).toBeVisible();
+    await expect(page.getByText('Pre-order', { exact: true })).toBeVisible();
   });
 });

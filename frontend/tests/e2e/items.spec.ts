@@ -126,15 +126,15 @@ test.describe('Admin item detail — Pre-order campaign button', () => {
   test('shows Pre-order campaign button on existing item detail page', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/admin/items/item-1');
 
-    await expect(authenticatedPage.getByText(/Chiến dịch Pre-order/i)).toBeVisible();
+    await expect(authenticatedPage.getByRole('link', { name: /Chiến dịch Pre-order/i })).toBeVisible();
   });
 
   test('Pre-order campaign button points to correct create URL', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/admin/items/item-1');
 
-    const link = authenticatedPage.getByText(/Chiến dịch Pre-order/i);
+    const link = authenticatedPage.getByRole('link', { name: /Chiến dịch Pre-order/i });
     await expect(link).toBeVisible();
-    const href = await link.evaluate((el) => el.closest('a')?.getAttribute('href') ?? '');
+    const href = await link.getAttribute('href');
     expect(href).toContain('/admin/preorders/create');
     expect(href).toContain('item_id=item-1');
   });
@@ -147,12 +147,12 @@ test.describe('Admin item detail — Pre-order campaign button', () => {
     await authenticatedPage.goto('/admin/items/new');
 
     await expect(authenticatedPage.getByText(/Tạo sản phẩm mới/i)).toBeVisible();
-    await expect(authenticatedPage.getByText(/Chiến dịch Pre-order/i)).toHaveCount(0);
+    await expect(authenticatedPage.getByRole('link', { name: /Chiến dịch Pre-order/i })).toHaveCount(0);
   });
 
   test('status selector includes Pre-order option on item detail page', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/admin/items/item-1');
 
-    await expect(authenticatedPage.getByText('Pre-order')).toBeVisible();
+    await expect(authenticatedPage.getByRole('radio', { name: 'Pre-order' })).toBeVisible();
   });
 });
