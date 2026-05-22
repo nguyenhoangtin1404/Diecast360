@@ -78,3 +78,77 @@ test.describe('Admin items list smoke', () => {
     await expect(authenticatedPage.locator('table tbody tr')).toHaveCount(0);
   });
 });
+
+const itemDetailResponse = apiOk({
+  item: {
+    id: 'item-1',
+    name: 'Lamborghini Huracán 1:18',
+    description: '',
+    status: 'con_hang',
+    is_public: false,
+    condition: 'new',
+    price: 3_500_000,
+    original_price: null,
+    scale: '1:18',
+    brand: 'AUTOart',
+    quantity: 5,
+    attributes: {},
+    fb_post_content: '',
+  },
+  images: [],
+  spin_sets: [],
+  facebook_posts: [],
+});
+
+test.describe('Admin item detail — Pre-order campaign button', () => {
+  test.beforeEach(async ({ authenticatedPage }) => {
+    await authenticatedPage.route('**/api/v1/items/item-1*', (route: Route) =>
+      route.fulfill({ json: itemDetailResponse }),
+    );
+    await authenticatedPage.route('**/api/v1/categories*', (route: Route) =>
+      route.fulfill({ json: apiOk({ categories: [] }) }),
+    );
+    await authenticatedPage.route('**/api/v1/items/item-1/qr*', (route: Route) =>
+      route.fulfill({
+        json: apiOk({
+          token: 'tok123',
+          resolve_url: 'https://example.com/qr/tok123',
+          image_data_url: 'data:image/png;base64,MOCK',
+        }),
+      }),
+    );
+  });
+
+  test('shows Pre-order campaign button on existing item detail page', async ({ authenticatedPage }) => {
+    await authenticatedPage.goto('/admin/items/item-1');
+
+    await expect(authenticatedPage.getByText(/Chiến dịch Pre-order/i)).toBeVisible();
+  });
+
+  test('Pre-order campaign button points to correct create URL', async ({ authenticatedPage }) => {
+    await authenticatedPage.goto('/admin/items/item-1');
+
+    const link = authenticatedPage.getByText(/Chiến dịch Pre-order/i);
+    await expect(link).toBeVisible();
+    const href = await link.evaluate((el) => el.closest('a')?.getAttribute('href') ?? '');
+    expect(href).toContain('/admin/preorders/create');
+    expect(href).toContain('item_id=item-1');
+  });
+
+  test('Pre-order campaign button is not shown on new item form', async ({ authenticatedPage }) => {
+    await authenticatedPage.route('**/api/v1/categories*', (route: Route) =>
+      route.fulfill({ json: apiOk({ categories: [] }) }),
+    );
+
+    await authenticatedPage.goto('/admin/items/new');
+
+    await expect(authenticatedPage.getByText(/Tạo sản phẩm mới/i)).toBeVisible();
+    await expect(authenticatedPage.getByText(/Chiến dịch Pre-order/i)).toHaveCount(0);
+  });
+
+  test('status selector includes Pre-order option on item detail page', async ({ authenticatedPage }) => {
+    await authenticatedPage.goto('/admin/items/item-1');
+
+    await expect(authenticatedPage.getByText('Pre-order')).toBeVisible();
+  });
+});

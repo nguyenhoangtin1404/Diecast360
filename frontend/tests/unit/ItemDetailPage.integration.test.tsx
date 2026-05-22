@@ -210,3 +210,80 @@ describe('ItemDetailPage integration (real React Query)', () => {
     });
   });
 });
+
+describe('Pre-order campaign button', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  beforeEach(() => {
+    h.params = { id: '1' };
+    h.search = '';
+    h.mockNavigate.mockReset();
+    h.mockShowToast.mockReset();
+    h.apiClient.patch.mockReset();
+    h.apiClient.post.mockReset();
+    h.apiClient.get.mockImplementation(async (...args: unknown[]) => {
+      const urlStr = typeof args[0] === 'string' ? args[0] : '';
+      if (urlStr.startsWith('/items/')) {
+        return { data: createItemData() };
+      }
+      if (urlStr.startsWith('/categories?type=')) {
+        return { data: { categories: [] } };
+      }
+      return { data: {} };
+    });
+  });
+
+  it('renders the Pre-order campaign button for an existing item', async () => {
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ItemDetailPage />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Chiến dịch Pre-order/i)).toBeTruthy();
+    });
+  });
+
+  it('Pre-order campaign button links to /admin/preorders/create?item_id=1', async () => {
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ItemDetailPage />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      const btn = screen.getByText(/Chiến dịch Pre-order/i).closest('a');
+      expect(btn).toBeTruthy();
+      expect((btn as HTMLAnchorElement).href).toContain('/admin/preorders/create?item_id=1');
+    });
+  });
+
+  it('does not render the Pre-order campaign button for a new item', async () => {
+    h.params = { id: 'new' };
+    h.apiClient.get.mockImplementation(async (...args: unknown[]) => {
+      const urlStr = typeof args[0] === 'string' ? args[0] : '';
+      if (urlStr.startsWith('/categories?type=')) {
+        return { data: { categories: [] } };
+      }
+      return { data: {} };
+    });
+
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ItemDetailPage />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Tạo sản phẩm mới/i)).toBeTruthy();
+    });
+
+    expect(screen.queryByText(/Chiến dịch Pre-order/i)).toBeNull();
+  });
+});

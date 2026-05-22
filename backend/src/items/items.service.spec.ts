@@ -1064,6 +1064,66 @@ describe('ItemsService', () => {
         }),
       });
     });
+
+    it('should allow transition from da_ban to preorder', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'preorder', quantity: 0 });
+
+      const result = await service.update('item-123', { status: 'preorder' }, TEST_SHOP_ID);
+
+      expect(result.item.status).toBe('preorder');
+    });
+
+    it('should reject transition from preorder to da_ban', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder' });
+
+      await expect(
+        service.update('item-123', { status: 'da_ban' }, TEST_SHOP_ID),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.ITEM_STATUS_TRANSITION_INVALID,
+      });
+    });
+
+    it('should reject transition from preorder to giu_cho', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder' });
+
+      await expect(
+        service.update('item-123', { status: 'giu_cho' }, TEST_SHOP_ID),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.ITEM_STATUS_TRANSITION_INVALID,
+      });
+    });
+
+    it('should allow transition from giu_cho to preorder', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'giu_cho' });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'preorder' });
+
+      const result = await service.update('item-123', { status: 'preorder' }, TEST_SHOP_ID);
+
+      expect(result.item.status).toBe('preorder');
+    });
+
+    it('should not force quantity to zero when transitioning to preorder', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, quantity: 5 });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'preorder', quantity: 5 });
+
+      await service.update('item-123', { status: 'preorder' }, TEST_SHOP_ID);
+
+      const updateCall = prisma.item.update.mock.calls[0][0];
+      expect(updateCall.data.quantity).not.toBe(0);
+    });
+
+    it('should allow quantity updates freely on preorder items', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder', quantity: 3 });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'preorder', quantity: 10 });
+
+      await service.update('item-123', { quantity: 10 }, TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: expect.objectContaining({ quantity: 10 }),
+      });
+    });
   });
 
   // ============================================================
