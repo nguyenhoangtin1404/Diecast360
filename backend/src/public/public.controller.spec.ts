@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 import { PublicController } from './public.controller';
 import { PublicService } from './public.service';
 import { PublicShopResolverService } from './public-shop-resolver.service';
+import { QrService } from '../items/qr.service';
 import { QueryPublicItemsDto } from './dto/query-public-items.dto';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 
@@ -22,7 +23,7 @@ describe('PublicController', () => {
   const controller = new PublicController(
     publicService as unknown as PublicService,
     resolver as unknown as PublicShopResolverService,
-    qrService as never,
+    qrService as unknown as QrService,
   );
 
   const prevNodeEnv = process.env.NODE_ENV;

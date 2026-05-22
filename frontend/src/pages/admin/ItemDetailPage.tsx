@@ -514,18 +514,27 @@ export const ItemDetailPage = () => {
 
   // Lazy-load QR code when user enters step 5
   useEffect(() => {
-    if (currentStep !== 5 || !id || id === 'new' || qrData !== null || isLoadingQrRef.current) return;
+    if (currentStep !== 5 || !id || id === 'new' || qrData !== null) return;
+    const abort = new AbortController();
     isLoadingQrRef.current = true;
     setIsLoadingQr(true);
     setQrError(null);
     apiClient
-      .get(`/items/${id}/qr`)
+      .get(`/items/${id}/qr`, { signal: abort.signal })
       .then((res) => setQrData((res as unknown as { data: QrData }).data))
-      .catch(() => setQrError('Không thể tải mã QR. Vui lòng thử lại.'))
+      .catch((err: unknown) => {
+        if ((err as { name?: string })?.name === 'CanceledError') return;
+        setQrError('Không thể tải mã QR. Vui lòng thử lại.');
+      })
       .finally(() => {
+        if (abort.signal.aborted) return;
         isLoadingQrRef.current = false;
         setIsLoadingQr(false);
       });
+    return () => {
+      abort.abort();
+      isLoadingQrRef.current = false;
+    };
   }, [currentStep, id, qrData, qrRetryKey]);
 
   const extractItemIdFromResponse = (response: unknown): string | null => {
