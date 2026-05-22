@@ -981,6 +981,15 @@ describe('ItemsService', () => {
       expect(result.item.status).toBe('con_hang');
     });
 
+    it('should allow preorder → preorder self-transition (editing other fields does not break)', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder' });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'preorder', name: 'Updated name' });
+
+      const result = await service.update('item-123', { status: 'preorder', name: 'Updated name' }, TEST_SHOP_ID);
+
+      expect(result.item.status).toBe('preorder');
+    });
+
     it('should auto-set quantity to 1 when transitioning from da_ban to con_hang without explicit quantity', async () => {
       prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
       prisma.item.update.mockResolvedValue({ ...mockItem, status: 'con_hang', quantity: 1 });

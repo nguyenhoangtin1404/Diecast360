@@ -108,6 +108,10 @@ test.describe('Admin item detail — Pre-order campaign button', () => {
     await authenticatedPage.route('**/api/v1/categories*', (route: Route) =>
       route.fulfill({ json: apiOk({ categories: [] }) }),
     );
+    await authenticatedPage.route('**/api/v1/inventory/items/item-1/transactions*', (route: Route) =>
+      route.fulfill({ json: apiOk({ transactions: [], current_quantity: 5 }) }),
+    );
+    // LIFO: QR mock overrides the general items/item-1* mock for QR requests
     await authenticatedPage.route('**/api/v1/items/item-1/qr*', (route: Route) =>
       route.fulfill({
         json: apiOk({

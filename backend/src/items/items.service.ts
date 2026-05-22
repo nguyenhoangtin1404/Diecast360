@@ -20,12 +20,13 @@ import { normalizeCategoryBrandField } from '../common/utils/category-brand.util
 
 // Allowed status transitions. da_ban → con_hang permitted for re-stocking;
 // da_ban → preorder/giu_cho blocked (must re-stock first).
-// preorder → con_hang only (campaign ends, item arrives).
+// preorder → con_hang only (campaign ends, item arrives); self-transition required
+// so that other fields can be updated without changing status.
 const ALLOWED_STATUS_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
   con_hang: ['con_hang', 'giu_cho', 'da_ban', 'preorder'],
   giu_cho: ['giu_cho', 'con_hang', 'da_ban', 'preorder'],
   da_ban: ['da_ban', 'con_hang'],
-  preorder: ['con_hang'],
+  preorder: ['preorder', 'con_hang'],
 };
 
 function getInitialQuantityForStatus(status: ItemStatus): number {
