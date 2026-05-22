@@ -6,7 +6,7 @@ import {
   useCallback,
   type KeyboardEvent,
 } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient, uploadFile } from "../../api/client";
 import { ArrowLeft, Edit, Plus, X, Star, Sparkles } from "lucide-react";
@@ -1382,6 +1382,37 @@ export const ItemDetailPage = () => {
               <ArrowLeft size={18} />
               <span>Quay lại danh sách</span>
             </button>
+            {id !== "new" && (
+              <Link
+                to={`/admin/preorders/create?item_id=${encodeURIComponent(id)}`}
+                style={{
+                  padding: "8px 16px",
+                  border: "1px solid #ddd",
+                  borderRadius: "8px",
+                  background: "white",
+                  color: "#333",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  textDecoration: "none",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#f5f5f5";
+                  e.currentTarget.style.borderColor = "#f59e0b";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "white";
+                  e.currentTarget.style.borderColor = "#ddd";
+                }}
+              >
+                <span aria-hidden>⏳</span>
+                <span>Chiến dịch Pre-order</span>
+              </Link>
+            )}
           </div>
           <div
             className="item-detail-header-row"
