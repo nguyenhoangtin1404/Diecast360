@@ -23,6 +23,8 @@ const h = vi.hoisted(() => ({
 vi.mock('react-router-dom', () => ({
   useParams: () => h.params,
   useNavigate: () => h.mockNavigate,
+  Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode; [key: string]: unknown }) =>
+    React.createElement('a', { href: String(to), ...rest }, children),
   useSearchParams: () => {
     const [params, setParams] = React.useState(() => new URLSearchParams(h.search));
     const setSearchParams = React.useCallback(
