@@ -1,7 +1,9 @@
-import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
-import { Request } from 'express';
+import { Controller, Get, Param, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { Request, Response } from 'express';
 import { PublicService } from './public.service';
 import { PublicShopResolverService } from './public-shop-resolver.service';
+import { QrService } from '../items/qr.service';
 import { QueryPublicItemsDto } from './dto/query-public-items.dto';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
@@ -15,6 +17,7 @@ export class PublicController {
   constructor(
     private readonly publicService: PublicService,
     private readonly publicShopResolver: PublicShopResolverService,
+    private readonly qrService: QrService,
   ) {}
 
   /**
@@ -38,6 +41,18 @@ export class PublicController {
       ErrorCode.PUBLIC_SHOP_REQUIRED,
       'Public catalog requires shop_id (UUID or shop slug) or an authenticated session with an active shop.',
     );
+  }
+
+  @Get('qr/:token')
+  @Throttle({ default: { ttl: 60000, limit: 60 } })
+  async resolveQr(
+    @Param('token') token: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const frontendBaseUrl = process.env.FRONTEND_URL ?? `${req.protocol}://${req.get('host')}`;
+    const { redirect_url } = await this.qrService.resolveToken(token, frontendBaseUrl);
+    res.redirect(302, redirect_url);
   }
 
   @Get('shops/:shopId/contact')

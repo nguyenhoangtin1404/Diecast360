@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 import { PublicController } from './public.controller';
 import { PublicService } from './public.service';
 import { PublicShopResolverService } from './public-shop-resolver.service';
+import { QrService } from '../items/qr.service';
 import { QueryPublicItemsDto } from './dto/query-public-items.dto';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 
@@ -15,9 +16,14 @@ describe('PublicController', () => {
     resolveCanonicalShopId: jest.fn(),
   };
 
+  const qrService = {
+    resolveToken: jest.fn(),
+  };
+
   const controller = new PublicController(
     publicService as unknown as PublicService,
     resolver as unknown as PublicShopResolverService,
+    qrService as unknown as QrService,
   );
 
   const prevNodeEnv = process.env.NODE_ENV;
@@ -179,6 +185,90 @@ describe('PublicController', () => {
       } finally {
         process.env.NODE_ENV = prevEnv;
       }
+    });
+  });
+
+  describe('resolveQr', () => {
+    const REDIRECT_URL =
+      'https://app.example.com/items/item-1?shop_id=shop-1&source=qr&action=view';
+
+    function makeReqRes(protocol = 'https', host = 'app.example.com') {
+      return {
+        req: { protocol, get: jest.fn().mockReturnValue(host) } as never,
+        res: { redirect: jest.fn() } as unknown as import('express').Response,
+      };
+    }
+
+    it('calls resolveToken and redirects 302 to redirect_url', async () => {
+      qrService.resolveToken.mockResolvedValue({ redirect_url: REDIRECT_URL });
+      const { req, res } = makeReqRes();
+
+      await controller.resolveQr('abc123def456789a', req, res);
+
+      expect(qrService.resolveToken).toHaveBeenCalledWith(
+        'abc123def456789a',
+        expect.any(String),
+      );
+      expect(res.redirect).toHaveBeenCalledWith(302, REDIRECT_URL);
+    });
+
+    it('uses FRONTEND_URL env var when set', async () => {
+      const prev = process.env.FRONTEND_URL;
+      process.env.FRONTEND_URL = 'https://custom-frontend.example.com';
+      qrService.resolveToken.mockResolvedValue({ redirect_url: REDIRECT_URL });
+      const { req, res } = makeReqRes('http', 'localhost:3000');
+
+      await controller.resolveQr('abc123def456789a', req, res);
+
+      expect(qrService.resolveToken).toHaveBeenCalledWith(
+        'abc123def456789a',
+        'https://custom-frontend.example.com',
+      );
+      process.env.FRONTEND_URL = prev;
+    });
+
+    it('falls back to req.protocol + host when FRONTEND_URL is not set', async () => {
+      const prev = process.env.FRONTEND_URL;
+      delete process.env.FRONTEND_URL;
+      qrService.resolveToken.mockResolvedValue({ redirect_url: REDIRECT_URL });
+      const { req, res } = makeReqRes('http', 'localhost:3000');
+
+      await controller.resolveQr('abc123def456789a', req, res);
+
+      expect(qrService.resolveToken).toHaveBeenCalledWith(
+        'abc123def456789a',
+        'http://localhost:3000',
+      );
+      process.env.FRONTEND_URL = prev;
+    });
+
+    it('propagates AppException when token is invalid (no redirect)', async () => {
+      qrService.resolveToken.mockRejectedValue(
+        new AppException(ErrorCode.NOT_FOUND, 'Token not found'),
+      );
+      const { req, res } = makeReqRes();
+
+      let caught: unknown;
+      try {
+        await controller.resolveQr('badtoken', req, res);
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(AppException);
+      expect((caught as AppException).errorCode).toBe(ErrorCode.NOT_FOUND);
+      expect(res.redirect).not.toHaveBeenCalled();
+    });
+
+    it('uses 302 not 301 (prevents browser caching)', async () => {
+      qrService.resolveToken.mockResolvedValue({ redirect_url: REDIRECT_URL });
+      const { req, res } = makeReqRes();
+
+      await controller.resolveQr('abc123def456789a', req, res);
+
+      const [statusCode] = (res.redirect as jest.Mock).mock.calls[0] as [number, string];
+      expect(statusCode).toBe(302);
+      expect(statusCode).not.toBe(301);
     });
   });
 });

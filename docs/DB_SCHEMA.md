@@ -104,9 +104,10 @@ Primary key: `(user_id, shop_id)`.
 | `is_public` | boolean | default `false` |
 | `notes` | text? | Internal notes |
 | `fb_post_content` | text? | Caption/content lưu cho social selling |
+| `qr_token` | text? | NULL, UNIQUE; token 16-ký tự hex tạo lazily khi admin gọi `GET /items/:id/qr` lần đầu |
 | `created_at`, `updated_at`, `deleted_at` | datetime | soft delete bằng `deleted_at` |
 
-Indexes: `status`, `created_at`, `deleted_at`, `car_brand`, `model_brand`, `condition`, `shop_id`.
+Indexes: `status`, `created_at`, `deleted_at`, `car_brand`, `model_brand`, `condition`, `shop_id`, `qr_token` (UNIQUE).
 
 ### item_images
 
@@ -270,6 +271,15 @@ Index: `item_id`.
 | `scheduled_at`, `created_at`, `updated_at` | datetime | queue timestamps |
 
 Index: `scheduled_at`.
+
+## Ràng buộc bắt buộc
+
+- `(spin_set_id, frame_index)` UNIQUE
+- Spin set default: UNIQUE (item_id) WHERE is_default = true
+- Item soft delete: mọi query business phải filter `deleted_at IS NULL`
+- `items.quantity >= 0` enforced at DB level
+- `items.qr_token` UNIQUE (migration `20260520000000_add_qr_token_to_items`); lookup tại `GET /public/qr/:token`
+- Khi xóa ảnh/frames, đảm bảo cập nhật order/index liên tục và cover/default hợp lệ
 
 ## Nguyên tắc migration
 

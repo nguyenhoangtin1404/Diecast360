@@ -74,12 +74,12 @@ describe('navigateStepWithAutoSave', () => {
     expect(setCurrentStep).toHaveBeenCalledWith(2);
   });
 
-  it('clamps next step at 4', async () => {
+  it('clamps next step at 5', async () => {
     const saveCurrentItem = vi.fn().mockResolvedValue(true);
     const setCurrentStep = vi.fn();
 
     const result = await navigateStepWithAutoSave({
-      currentStep: 4 as ProductStep,
+      currentStep: 5 as ProductStep,
       direction: 'next',
       isBusy: false,
       saveCurrentItem,
@@ -87,7 +87,7 @@ describe('navigateStepWithAutoSave', () => {
     });
 
     expect(result).toBe(true);
-    expect(setCurrentStep).toHaveBeenCalledWith(4);
+    expect(setCurrentStep).toHaveBeenCalledWith(5);
   });
 
   it('clamps previous step at 1', async () => {

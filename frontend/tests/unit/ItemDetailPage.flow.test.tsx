@@ -232,9 +232,15 @@ describe('ItemDetailPage main flows', () => {
   });
 
   it('allows finishing and returns to list when media is complete', async () => {
+    h.apiClient.get.mockImplementation(async (url: unknown) => {
+      if (typeof url === 'string' && url.includes('/qr')) {
+        return { data: { token: 'tok', resolve_url: 'http://host/qr/tok', image_data_url: 'data:image/png;base64,abc' } };
+      }
+      return { data: h.mockItemResponse };
+    });
     render(<ItemDetailPage />);
     await waitForItemDetailHydrated();
-    fireEvent.click(screen.getAllByRole('button', { name: /AI gen nội dung FB/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /Mã QR/i })[0]);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Hoàn tất/i })).toBeTruthy();
     });

@@ -7,7 +7,7 @@
 
 ## Thực thể & trách nhiệm
 ### Item
-- Mẫu xe diecast thuộc một shop; thuộc tính chính: `id (uuid)`, `shop_id`, `name`, `description`, `scale` (mặc định "1:64"), `brand` (tùy chọn), `car_brand`, `model_brand`, `condition`, `price`, `original_price`, `status`, `quantity`, `attributes`, `notes`, `is_public`, `fb_post_content` (nội dung bài FB), `created_at`, `updated_at`, `deleted_at` (soft delete).
+- Mẫu xe diecast thuộc một shop; thuộc tính chính: `id (uuid)`, `shop_id`, `name`, `description`, `scale` (mặc định "1:64"), `brand` (tùy chọn), `car_brand`, `model_brand`, `condition`, `price`, `original_price`, `status`, `quantity`, `attributes`, `notes`, `is_public`, `fb_post_content` (nội dung bài FB), `qr_token` (token QR định danh; NULL cho đến khi admin tạo mã QR lần đầu), `created_at`, `updated_at`, `deleted_at` (soft delete).
 - Quan hệ: nhiều `ItemImage`, nhiều `SpinSet`; duy nhất 1 `SpinSet` được gắn cờ `is_default`.
 - Giá trị trạng thái: `con_hang`, `giu_cho`, `da_ban` (lưu ý khi hiển thị catalog/sao chép caption).
 - Ảnh cover lấy từ `ItemImage.is_cover = true`, fallback ảnh đầu tiên theo `display_order`.
@@ -61,6 +61,13 @@
 - Tier có `name`, `rank`, `min_points`; unique theo shop.
 - Points ledger ghi `earn`, `redeem`, `adjust`, `balance_after`, `reference_type/reference_id`. Pre-order paid/refund có thể tạo ledger theo `loyalty_json`.
 
+### QrToken
+- Token 16-ký tự hex (`crypto.randomBytes(8).toString('hex')`) dùng làm định danh duy nhất cho QR code của item.
+- Được tạo lazily: chỉ sinh ra khi admin lần đầu gọi `GET /api/v1/items/:id/qr`.
+- Token là **bất biến** sau khi đã được tạo — không thay đổi hay tái tạo, đảm bảo QR code in vật lý vẫn hoạt động lâu dài.
+- Khi quét QR code, backend redirect về `FRONTEND_URL/items/:item_id?shop_id=:shop_id&source=qr&action=view`.
+- Frontend hiển thị banner "Bạn đang xem sản phẩm qua mã QR" khi URL có `source=qr`.
+
 ## Quy tắc nghiệp vụ
 - Soft delete: item dùng `deleted_at`; dữ liệu đã xóa mềm không xuất hiện ở danh sách admin/public.
 - Spinner:
@@ -74,11 +81,17 @@
 - Social selling: UI cần cung cấp thao tác copy caption/link dựa trên dữ liệu item (không thay đổi dữ liệu gốc).
 - Pre-order: lifecycle phải đi qua state machine; không cập nhật trạng thái tùy ý.
 - Member points: mọi thay đổi điểm phải đi qua ledger để có audit trail.
+- QR code:
+  - Token chỉ được tạo nếu item thuộc về tenant đang request (TenantGuard enforcement).
+  - Nếu hai request đồng thời cùng tạo token, race condition được xử lý bằng `updateMany WHERE qr_token IS NULL`; người thua đọc lại token của người thắng từ DB.
+  - Item `is_public = false` vẫn cho phép tạo/hiển thị QR trong admin — banner cảnh báo được hiển thị để nhắc admin bật public trước khi in QR.
+  - QR resolve endpoint (`GET /api/v1/public/qr/:token`) không yêu cầu auth; redirect 302 về frontend với `source=qr`.
 
 ## Luồng chính
 - Admin
   - Tạo item → upload ảnh thường → đặt cover + reorder → tạo spin set → upload frame → reorder frame → đặt default spin set → bật `is_public` để xuất bản.
   - Quản lý trạng thái kho (con_hang/giu_cho/da_ban), xóa mềm item, inventory ledger, pre-order, member points, báo cáo, shop settings và phiên đăng nhập (access/refresh token).
+  - Tạo mã QR cho item: vào bước 5 wizard → backend sinh token (nếu chưa có) → hiển thị ảnh QR + link resolve + nút tải PNG + nút copy link.
 - Public
   - Xem danh sách item công khai, xem chi tiết item, pre-order cards, đơn của tôi và trang liên hệ theo shop.
   - Nếu item có spin set default → dùng Spinner360 với drag/touch/autoplay/preload thông minh; nếu không → hiển thị gallery ảnh thường.

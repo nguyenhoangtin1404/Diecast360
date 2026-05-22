@@ -4,13 +4,13 @@ export function buildStepUrlAfterCreate(itemId: string, step: ProductStep = 2): 
   return `/admin/items/${itemId}?step=${step}`;
 }
 
-/** Reads `?step=` for the admin item wizard (1–4). Invalid or missing → null (caller defaults to step 1). */
+/** Reads `?step=` for the admin item wizard (1–5). Invalid or missing → null (caller defaults to step 1). */
 export function parseProductStepFromSearchParams(searchParams: URLSearchParams): ProductStep | null {
   const raw = searchParams.get('step');
   if (raw === null || raw === '') return null;
   const n = Number(raw);
   if (!Number.isFinite(n)) return null;
-  if (n === 1 || n === 2 || n === 3 || n === 4) return n;
+  if (n === 1 || n === 2 || n === 3 || n === 4 || n === 5) return n;
   return null;
 }
 

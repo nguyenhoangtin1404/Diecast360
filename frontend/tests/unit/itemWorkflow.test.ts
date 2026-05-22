@@ -11,11 +11,12 @@ describe('itemWorkflow', () => {
     expect(buildStepUrlAfterCreate('abc123')).toBe('/admin/items/abc123?step=2');
   });
 
-  it('parses valid step query (1–4) and rejects invalid or missing', () => {
+  it('parses valid step query (1–5) and rejects invalid or missing', () => {
     expect(parseProductStepFromSearchParams(new URLSearchParams('step=3'))).toBe(3);
+    expect(parseProductStepFromSearchParams(new URLSearchParams('step=5'))).toBe(5);
     expect(parseProductStepFromSearchParams(new URLSearchParams(''))).toBeNull();
     expect(parseProductStepFromSearchParams(new URLSearchParams('step=0'))).toBeNull();
-    expect(parseProductStepFromSearchParams(new URLSearchParams('step=5'))).toBeNull();
+    expect(parseProductStepFromSearchParams(new URLSearchParams('step=6'))).toBeNull();
     expect(parseProductStepFromSearchParams(new URLSearchParams('step=banana'))).toBeNull();
   });
 

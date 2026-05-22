@@ -12,11 +12,13 @@ import {
   HttpStatus,
   Logger,
   Res,
+  Req,
   Header,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { ItemsService } from './items.service';
+import { QrService } from './qr.service';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { QueryItemsDto } from './dto/query-items.dto';
@@ -35,7 +37,10 @@ import { CurrentTenantId } from '../common/decorators/tenant.decorator';
 export class ItemsController {
   private readonly logger = new Logger(ItemsController.name);
 
-  constructor(private readonly itemsService: ItemsService) {}
+  constructor(
+    private readonly itemsService: ItemsService,
+    private readonly qrService: QrService,
+  ) {}
 
   @Post()
   @Throttle({ default: { ttl: 60000, limit: 10 } })
@@ -80,6 +85,19 @@ export class ItemsController {
       this.logger.error('CSV Export failed', (error as Error).stack);
       res.status(500).json({ ok: false, message: 'Export failed' });
     }
+  }
+
+  // NOTE: Must be declared before `@Get(':id')` so NestJS resolves
+  // the literal segment ":id/qr" before the dynamic ":id" catch-all.
+  @Get(':id/qr')
+  @Throttle({ default: { ttl: 60000, limit: 30 } })
+  async getQrCode(
+    @Param('id') id: string,
+    @CurrentTenantId() tenantId: string,
+    @Req() req: Request,
+  ) {
+    const gatewayBaseUrl = process.env.BACKEND_URL ?? `${req.protocol}://${req.get('host')}`;
+    return this.qrService.getQrCode(id, tenantId, gatewayBaseUrl);
   }
 
   @Get(':id')
