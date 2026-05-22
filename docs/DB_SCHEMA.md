@@ -15,7 +15,7 @@ Tài liệu này phản ánh `backend/prisma/schema.prisma` hiện tại. Runtim
 
 | Enum | Values |
 |------|--------|
-| `ItemStatus` | `con_hang`, `giu_cho`, `da_ban` |
+| `ItemStatus` | `con_hang`, `giu_cho`, `da_ban`, `preorder` |
 | `PlatformRole` | `platform_super` |
 | `ShopRole` | `shop_admin` (default), `shop_staff`; `super_admin` là giá trị legacy từ trước khi có RBAC đa cấp — không gán mới, chỉ tồn tại do backward-compat |
 | `ShopAuditAction` | `add_shop_admin`, `reset_member_password`, `set_member_active`, `update_shop`, `deactivate_shop`, `activate_shop`, `set_platform_role`, `set_shop_member_role` |
