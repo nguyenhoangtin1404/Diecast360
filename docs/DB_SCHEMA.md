@@ -77,6 +77,7 @@
 | updated_at | datetime | NOT NULL, auto update |
 | deleted_at | datetime | NULL (soft delete) |
 | fb_post_content | text | NULL (nội dung bài FB do AI hoặc user tạo) |
+| qr_token | text | NULL, UNIQUE (token 16-ký tự hex dùng làm định danh QR; được tạo lazily khi admin gọi GET /items/:id/qr lần đầu) |
 
 ### item_images
 | Column | Type | Constraints/Notes |
@@ -138,6 +139,9 @@
 | note | text | NULL |
 | created_at | datetime | NOT NULL, default now() |
 | updated_at | datetime | NOT NULL, auto update |
+
+## Index đề xuất (items – bổ sung)
+- `items(qr_token)` – UNIQUE index (created by migration); dùng cho lookup tại QR resolve endpoint
 
 ## Ràng buộc bắt buộc
 - `(spin_set_id, frame_index)` UNIQUE

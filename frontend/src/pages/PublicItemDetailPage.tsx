@@ -1,16 +1,16 @@
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
-import { ROUTES } from '../config/routes';
-import { apiClient } from '../api/client';
-import { usePublicShopContext } from '../hooks/usePublicShopContext';
-import { Spinner360 } from '../components/Spinner360/Spinner360';
-import { Gallery } from '../components/Gallery';
-import { ItemCard } from '../components/catalog/ItemCard';
-import { ArrowLeft } from 'lucide-react';
-import type { RelatedItem } from '../types/item.types';
-import { useIsMobile } from '../hooks/useIsMobile';
-import { useViewportWidth } from '../hooks/useViewportWidth';
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { ROUTES } from "../config/routes";
+import { apiClient } from "../api/client";
+import { usePublicShopContext } from "../hooks/usePublicShopContext";
+import { Spinner360 } from "../components/Spinner360/Spinner360";
+import { Gallery } from "../components/Gallery";
+import { ItemCard } from "../components/catalog/ItemCard";
+import { ArrowLeft } from "lucide-react";
+import type { RelatedItem } from "../types/item.types";
+import { useIsMobile } from "../hooks/useIsMobile";
+import { useViewportWidth } from "../hooks/useViewportWidth";
 
 interface SpinFrame {
   id: string;
@@ -34,17 +34,19 @@ export const PublicItemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { effectiveShopId, shopContextReady, publicApiShopReady } = usePublicShopContext();
+  const { effectiveShopId, shopContextReady, publicApiShopReady } =
+    usePublicShopContext();
   const isMobile = useIsMobile();
   const viewportWidth = useViewportWidth();
 
   const shopQuery = useMemo(
-    () => (effectiveShopId ? `?shop_id=${encodeURIComponent(effectiveShopId)}` : ''),
+    () =>
+      effectiveShopId ? `?shop_id=${encodeURIComponent(effectiveShopId)}` : "",
     [effectiveShopId],
   );
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['public-item', id, effectiveShopId],
+    queryKey: ["public-item", id, effectiveShopId],
     queryFn: async () => {
       const path =
         effectiveShopId.length > 0
@@ -61,18 +63,22 @@ export const PublicItemDetailPage = () => {
   const images = useMemo(() => (imagesData || []) as ItemImage[], [imagesData]);
   const spinnerFrames = useMemo(
     () =>
-      (spinner?.frames || [])
-        .filter((frame: SpinFrame) => Boolean(frame?.image_url)),
+      (spinner?.frames || []).filter((frame: SpinFrame) =>
+        Boolean(frame?.image_url),
+      ),
     [spinner],
   );
 
-  if (isLoading) return <div style={{ padding: '40px', textAlign: 'center' }}>Đang tải...</div>;
-  if (error) {
-    console.error('Error loading item:', error);
+  if (isLoading)
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
+      <div style={{ padding: "40px", textAlign: "center" }}>Đang tải...</div>
+    );
+  if (error) {
+    console.error("Error loading item:", error);
+    return (
+      <div style={{ padding: "40px", textAlign: "center" }}>
         <h2>Không tìm thấy sản phẩm</h2>
-        <p style={{ color: '#666', marginTop: '8px' }}>
+        <p style={{ color: "#666", marginTop: "8px" }}>
           Sản phẩm không tồn tại hoặc không được công khai.
         </p>
       </div>
@@ -81,9 +87,9 @@ export const PublicItemDetailPage = () => {
 
   if (!item) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
+      <div style={{ padding: "40px", textAlign: "center" }}>
         <h2>Không tìm thấy sản phẩm</h2>
-        <p style={{ color: '#666', marginTop: '8px' }}>
+        <p style={{ color: "#666", marginTop: "8px" }}>
           Sản phẩm không tồn tại hoặc không được công khai.
         </p>
       </div>
@@ -91,65 +97,72 @@ export const PublicItemDetailPage = () => {
   }
 
   const hasSpinner = spinnerFrames.length > 0;
-  const pagePadding = isMobile ? '20px 12px 32px' : '40px 20px';
-  const panelPadding = isMobile ? '18px' : '24px';
+  const pagePadding = isMobile ? "20px 12px 32px" : "40px 20px";
+  const panelPadding = isMobile ? "18px" : "24px";
   const mobileSpinnerSize = Math.max(
     MOBILE_SPINNER_MIN_SIZE,
-    Math.min(MOBILE_SPINNER_MAX_SIZE, viewportWidth - MOBILE_SPINNER_HORIZONTAL_PADDING),
+    Math.min(
+      MOBILE_SPINNER_MAX_SIZE,
+      viewportWidth - MOBILE_SPINNER_HORIZONTAL_PADDING,
+    ),
   );
 
-  const isFromQr = searchParams.get('source') === 'qr';
+  const isFromQr = searchParams.get("source") === "qr";
 
   return (
-    <div style={{ padding: pagePadding, maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: pagePadding, maxWidth: "1200px", margin: "0 auto" }}>
       {isFromQr && (
-        <div style={{
-          marginBottom: '16px',
-          padding: '10px 16px',
-          background: '#eff6ff',
-          border: '1px solid #bfdbfe',
-          borderRadius: '8px',
-          fontSize: '13px',
-          color: '#1e40af',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-        }}>
+        <div
+          style={{
+            marginBottom: "16px",
+            padding: "10px 16px",
+            background: "#eff6ff",
+            border: "1px solid #bfdbfe",
+            borderRadius: "8px",
+            fontSize: "13px",
+            color: "#1e40af",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
           <span>📷</span>
           <span>Bạn đang xem sản phẩm qua mã QR</span>
         </div>
       )}
       {/* Back Button */}
-      <div style={{ marginBottom: '24px' }}>
+      <div style={{ marginBottom: "24px" }}>
         <button
           onClick={() => {
             const catalogSearch = searchParams.toString();
-            navigate(catalogSearch ? `${ROUTES.home}?${catalogSearch}` : ROUTES.home);
+            navigate(
+              catalogSearch ? `${ROUTES.home}?${catalogSearch}` : ROUTES.home,
+            );
           }}
           style={{
-            padding: isMobile ? '12px 16px' : '10px 20px',
-            border: '1px solid #ddd',
-            borderRadius: '8px',
-            background: 'white',
-            color: '#333',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '14px',
-            fontWeight: '500',
-            transition: 'all 0.2s',
-            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+            padding: isMobile ? "12px 16px" : "10px 20px",
+            border: "1px solid #ddd",
+            borderRadius: "8px",
+            background: "white",
+            color: "#333",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            fontSize: "14px",
+            fontWeight: "500",
+            transition: "all 0.2s",
+            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#f5f5f5';
-            e.currentTarget.style.borderColor = '#007bff';
-            e.currentTarget.style.transform = 'translateX(-2px)';
+            e.currentTarget.style.background = "#f5f5f5";
+            e.currentTarget.style.borderColor = "#007bff";
+            e.currentTarget.style.transform = "translateX(-2px)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'white';
-            e.currentTarget.style.borderColor = '#ddd';
-            e.currentTarget.style.transform = 'translateX(0)';
+            e.currentTarget.style.background = "white";
+            e.currentTarget.style.borderColor = "#ddd";
+            e.currentTarget.style.transform = "translateX(0)";
           }}
         >
           <ArrowLeft size={18} />
@@ -158,119 +171,276 @@ export const PublicItemDetailPage = () => {
       </div>
 
       {/* Header Section */}
-      <div style={{ marginBottom: isMobile ? '28px' : '40px' }}>
-        <h1 style={{ 
-          fontSize: isMobile ? '28px' : '36px', 
-          fontWeight: '700', 
-          color: '#1a1a1a', 
-          margin: '0 0 16px 0',
-          lineHeight: '1.2',
-          letterSpacing: '-0.5px',
-        }}>
+      <div style={{ marginBottom: isMobile ? "28px" : "40px" }}>
+        <h1
+          style={{
+            fontSize: isMobile ? "28px" : "36px",
+            fontWeight: "700",
+            color: "#1a1a1a",
+            margin: "0 0 16px 0",
+            lineHeight: "1.2",
+            letterSpacing: "-0.5px",
+          }}
+        >
           {item.name}
         </h1>
-        
+
         {item.description && (
-          <p style={{ 
-            fontSize: isMobile ? '16px' : '18px', 
-            color: '#666', 
-            lineHeight: '1.8',
-            margin: '0 0 24px 0',
-          }}>
+          <p
+            style={{
+              fontSize: isMobile ? "16px" : "18px",
+              color: "#666",
+              lineHeight: "1.8",
+              margin: "0 0 24px 0",
+            }}
+          >
             {item.description}
           </p>
         )}
       </div>
 
       {/* Main Content Grid */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)', 
-        gap: isMobile ? '20px' : '40px',
-        marginBottom: isMobile ? '28px' : '40px',
-      }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile
+            ? "1fr"
+            : "minmax(0, 1fr) minmax(0, 1fr)",
+          gap: isMobile ? "20px" : "40px",
+          marginBottom: isMobile ? "28px" : "40px",
+        }}
+      >
         {/* Left Column - Product Info */}
         <div>
-          <div style={{
-            backgroundColor: '#fff',
-            padding: panelPadding,
-            borderRadius: '16px',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-            marginBottom: '24px',
-          }}>
-            <h2 style={{
-              fontSize: '20px',
-              fontWeight: '600',
-              color: '#1a1a1a',
-              margin: '0 0 20px 0',
-              paddingBottom: '12px',
-              borderBottom: '2px solid #f0f0f0',
-            }}>
+          <div
+            style={{
+              backgroundColor: "#fff",
+              padding: panelPadding,
+              borderRadius: "16px",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+              marginBottom: "24px",
+            }}
+          >
+            <h2
+              style={{
+                fontSize: "20px",
+                fontWeight: "600",
+                color: "#1a1a1a",
+                margin: "0 0 20px 0",
+                paddingBottom: "12px",
+                borderBottom: "2px solid #f0f0f0",
+              }}
+            >
               Thông tin sản phẩm
             </h2>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+            >
               {/* Status */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '15px', color: '#666', fontWeight: '500' }}>Trạng thái:</span>
-                <span style={{
-                  padding: '6px 12px',
-                  backgroundColor: item.status === 'con_hang' ? '#d4edda' : item.status === 'giu_cho' ? '#fff3cd' : '#f8d7da',
-                  color: item.status === 'con_hang' ? '#155724' : item.status === 'giu_cho' ? '#856404' : '#721c24',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                }}>
-                  {item.status === 'con_hang' ? 'Còn hàng' : item.status === 'giu_cho' ? 'Giữ chỗ' : 'Đã bán'}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: isMobile ? "flex-start" : "center",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span
+                  style={{ fontSize: "15px", color: "#666", fontWeight: "500" }}
+                >
+                  Trạng thái:
+                </span>
+                <span
+                  style={{
+                    padding: "6px 12px",
+                    backgroundColor:
+                      item.status === "con_hang"
+                        ? "#d4edda"
+                        : item.status === "giu_cho"
+                          ? "#fff3cd"
+                          : "#f8d7da",
+                    color:
+                      item.status === "con_hang"
+                        ? "#155724"
+                        : item.status === "giu_cho"
+                          ? "#856404"
+                          : "#721c24",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  {item.status === "con_hang"
+                    ? "Còn hàng"
+                    : item.status === "giu_cho"
+                      ? "Giữ chỗ"
+                      : "Đã bán"}
                 </span>
               </div>
 
               {/* Car Brand */}
               {item.car_brand && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '15px', color: '#666', fontWeight: '500' }}>Hãng xe:</span>
-                  <span style={{ fontSize: '15px', color: '#1a1a1a', fontWeight: '600' }}>{item.car_brand}</span>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: isMobile ? "flex-start" : "center",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "15px",
+                      color: "#666",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Hãng xe:
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "15px",
+                      color: "#1a1a1a",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {item.car_brand}
+                  </span>
                 </div>
               )}
 
               {/* Model Brand */}
               {item.model_brand && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '15px', color: '#666', fontWeight: '500' }}>Hãng mô hình:</span>
-                  <span style={{ fontSize: '15px', color: '#1a1a1a', fontWeight: '600' }}>{item.model_brand}</span>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: isMobile ? "flex-start" : "center",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "15px",
+                      color: "#666",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Hãng mô hình:
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "15px",
+                      color: "#1a1a1a",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {item.model_brand}
+                  </span>
                 </div>
               )}
 
               {/* Condition */}
               {item.condition && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '15px', color: '#666', fontWeight: '500' }}>Tình trạng:</span>
-                  <span style={{
-                    padding: '6px 12px',
-                    backgroundColor: item.condition === 'new' ? '#e7f3ff' : '#fff4e6',
-                    color: item.condition === 'new' ? '#0066cc' : '#cc6600',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                  }}>
-                    {item.condition === 'new' ? 'Mới' : 'Cũ'}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: isMobile ? "flex-start" : "center",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "15px",
+                      color: "#666",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Tình trạng:
+                  </span>
+                  <span
+                    style={{
+                      padding: "6px 12px",
+                      backgroundColor:
+                        item.condition === "new" ? "#e7f3ff" : "#fff4e6",
+                      color: item.condition === "new" ? "#0066cc" : "#cc6600",
+                      borderRadius: "6px",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {item.condition === "new" ? "Mới" : "Cũ"}
                   </span>
                 </div>
               )}
 
               {/* Scale */}
               {item.scale && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '15px', color: '#666', fontWeight: '500' }}>Tỷ lệ:</span>
-                  <span style={{ fontSize: '15px', color: '#1a1a1a', fontWeight: '600' }}>{item.scale}</span>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: isMobile ? "flex-start" : "center",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "15px",
+                      color: "#666",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Tỷ lệ:
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "15px",
+                      color: "#1a1a1a",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {item.scale}
+                  </span>
                 </div>
               )}
 
               {/* Brand */}
               {item.brand && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '15px', color: '#666', fontWeight: '500' }}>Thương hiệu:</span>
-                  <span style={{ fontSize: '15px', color: '#1a1a1a', fontWeight: '600' }}>{item.brand}</span>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: isMobile ? "flex-start" : "center",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "15px",
+                      color: "#666",
+                      fontWeight: "500",
+                    }}
+                  >
+                    Thương hiệu:
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "15px",
+                      color: "#1a1a1a",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {item.brand}
+                  </span>
                 </div>
               )}
             </div>
@@ -278,61 +448,99 @@ export const PublicItemDetailPage = () => {
 
           {/* Price Section */}
           {(item.price != null || item.original_price != null) && (
-            <div style={{
-              backgroundColor: '#fff',
-              padding: panelPadding,
-              borderRadius: '16px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-            }}>
-              <h2 style={{
-                fontSize: '20px',
-                fontWeight: '600',
-                color: '#1a1a1a',
-                margin: '0 0 20px 0',
-                paddingBottom: '12px',
-                borderBottom: '2px solid #f0f0f0',
-              }}>
+            <div
+              style={{
+                backgroundColor: "#fff",
+                padding: panelPadding,
+                borderRadius: "16px",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "600",
+                  color: "#1a1a1a",
+                  margin: "0 0 20px 0",
+                  paddingBottom: "12px",
+                  borderBottom: "2px solid #f0f0f0",
+                }}
+              >
                 Giá
               </h2>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "12px",
+                }}
+              >
                 {item.original_price != null && (
                   <div>
-                    <div style={{ fontSize: '14px', color: '#999', marginBottom: '4px' }}>Giá gốc:</div>
-                    <div style={{ 
-                      fontSize: '20px', 
-                      color: '#999', 
-                      textDecoration: 'line-through',
-                      fontWeight: '500',
-                    }}>
-                      {item.original_price.toLocaleString('vi-VN')} đ
+                    <div
+                      style={{
+                        fontSize: "14px",
+                        color: "#999",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      Giá gốc:
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "20px",
+                        color: "#999",
+                        textDecoration: "line-through",
+                        fontWeight: "500",
+                      }}
+                    >
+                      {item.original_price.toLocaleString("vi-VN")} đ
                     </div>
                   </div>
                 )}
                 {item.price != null && (
                   <div>
-                    <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>Giá bán:</div>
-                    <div style={{ 
-                      fontSize: isMobile ? '28px' : '32px', 
-                      color: '#007bff', 
-                      fontWeight: '700',
-                    }}>
-                      {item.price.toLocaleString('vi-VN')} đ
+                    <div
+                      style={{
+                        fontSize: "14px",
+                        color: "#666",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      Giá bán:
                     </div>
-                    {item.original_price != null && item.original_price > item.price && (
-                      <div style={{
-                        marginTop: '8px',
-                        padding: '6px 12px',
-                        backgroundColor: '#d4edda',
-                        color: '#155724',
-                        borderRadius: '6px',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        display: 'inline-block',
-                      }}>
-                        Giảm {((1 - item.price / item.original_price) * 100).toFixed(0)}%
-                      </div>
-                    )}
+                    <div
+                      style={{
+                        fontSize: isMobile ? "28px" : "32px",
+                        color: "#007bff",
+                        fontWeight: "700",
+                      }}
+                    >
+                      {item.price.toLocaleString("vi-VN")} đ
+                    </div>
+                    {item.original_price != null &&
+                      item.original_price > item.price && (
+                        <div
+                          style={{
+                            marginTop: "8px",
+                            padding: "6px 12px",
+                            backgroundColor: "#d4edda",
+                            color: "#155724",
+                            borderRadius: "6px",
+                            fontSize: "14px",
+                            fontWeight: "600",
+                            display: "inline-block",
+                          }}
+                        >
+                          Giảm{" "}
+                          {(
+                            (1 - item.price / item.original_price) *
+                            100
+                          ).toFixed(0)}
+                          %
+                        </div>
+                      )}
                   </div>
                 )}
               </div>
@@ -343,29 +551,35 @@ export const PublicItemDetailPage = () => {
         {/* Right Column - Images/Spinner */}
         <div>
           {hasSpinner ? (
-            <div style={{
-              backgroundColor: '#fff',
-              padding: panelPadding,
-              borderRadius: '16px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-            }}>
-              <h2 style={{ 
-                fontSize: '20px', 
-                fontWeight: '600', 
-                marginBottom: '20px',
-                color: '#1a1a1a',
-                paddingBottom: '12px',
-                borderBottom: '2px solid #f0f0f0',
-              }}>
+            <div
+              style={{
+                backgroundColor: "#fff",
+                padding: panelPadding,
+                borderRadius: "16px",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "600",
+                  marginBottom: "20px",
+                  color: "#1a1a1a",
+                  paddingBottom: "12px",
+                  borderBottom: "2px solid #f0f0f0",
+                }}
+              >
                 360° View
               </h2>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'center',
-                padding: isMobile ? '12px' : '20px',
-                backgroundColor: '#f9f9f9',
-                borderRadius: '12px',
-              }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  padding: isMobile ? "12px" : "20px",
+                  backgroundColor: "#f9f9f9",
+                  borderRadius: "12px",
+                }}
+              >
                 <Spinner360
                   frames={spinnerFrames.map((f: SpinFrame) => ({
                     id: f.id,
@@ -380,80 +594,97 @@ export const PublicItemDetailPage = () => {
               </div>
             </div>
           ) : images && images.length > 0 ? (
-            <div style={{
-              backgroundColor: '#fff',
-              padding: panelPadding,
-              borderRadius: '16px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-            }}>
-              <h2 style={{ 
-                fontSize: '20px', 
-                fontWeight: '600', 
-                marginBottom: '20px',
-                color: '#1a1a1a',
-                paddingBottom: '12px',
-                borderBottom: '2px solid #f0f0f0',
-              }}>
+            <div
+              style={{
+                backgroundColor: "#fff",
+                padding: panelPadding,
+                borderRadius: "16px",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "600",
+                  marginBottom: "20px",
+                  color: "#1a1a1a",
+                  paddingBottom: "12px",
+                  borderBottom: "2px solid #f0f0f0",
+                }}
+              >
                 Hình ảnh
               </h2>
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(2, 1fr)', 
-                gap: '12px' 
-              }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(2, 1fr)",
+                  gap: "12px",
+                }}
+              >
                 {images.slice(0, 4).map((img) => (
-                  <div key={img.id} style={{
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                    aspectRatio: '1',
-                  }}>
+                  <div
+                    key={img.id}
+                    style={{
+                      borderRadius: "12px",
+                      overflow: "hidden",
+                      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                      aspectRatio: "1",
+                    }}
+                  >
                     <img
                       src={img.url}
                       alt={item.name}
-                      style={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        objectFit: 'cover',
-                        display: 'block',
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
                       }}
                     />
                   </div>
                 ))}
               </div>
               {images.length > 4 && (
-                <div style={{
-                  marginTop: '12px',
-                  textAlign: 'center',
-                  fontSize: '14px',
-                  color: '#666',
-                }}>
+                <div
+                  style={{
+                    marginTop: "12px",
+                    textAlign: "center",
+                    fontSize: "14px",
+                    color: "#666",
+                  }}
+                >
                   +{images.length - 4} hình ảnh khác
                 </div>
               )}
             </div>
-              ) : null}
+          ) : null}
           {!hasSpinner && images.length === 0 && (
             <div
               style={{
-                backgroundColor: '#fff',
+                backgroundColor: "#fff",
                 padding: panelPadding,
-                borderRadius: '16px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                border: '1px solid #f1f5f9',
+                borderRadius: "16px",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                border: "1px solid #f1f5f9",
               }}
             >
               <h2
                 style={{
-                  fontSize: '20px',
-                  fontWeight: '600',
-                  marginBottom: '12px',
-                  color: '#1a1a1a',
+                  fontSize: "20px",
+                  fontWeight: "600",
+                  marginBottom: "12px",
+                  color: "#1a1a1a",
                 }}
               >
                 Hình ảnh sản phẩm
               </h2>
-              <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.6' }}>
+              <p
+                style={{
+                  color: "#64748b",
+                  fontSize: "14px",
+                  lineHeight: "1.6",
+                }}
+              >
                 Sản phẩm hiện chưa có ảnh hiển thị. Vui lòng quay lại sau.
               </p>
             </div>
@@ -500,42 +731,59 @@ const RelatedItemsSection = ({
   const shouldQueryModel = Boolean(currentItemId && modelBrand);
 
   // Query 1: Items with same Car Brand
-  const { data: carData, isLoading: carLoading, isFetched: carFetched } = useQuery({
-    queryKey: ['related-items-car', currentItemId, carBrand, effectiveShopId],
+  const {
+    data: carData,
+    isLoading: carLoading,
+    isFetched: carFetched,
+  } = useQuery({
+    queryKey: ["related-items-car", currentItemId, carBrand, effectiveShopId],
     queryFn: async () => {
       if (!carBrand) return { items: [], pagination: { total: 0 } };
 
       const params = new URLSearchParams({
-        page_size: '6',
-        sort_by: 'created_at',
-        sort_order: 'desc',
+        page_size: "6",
+        sort_by: "created_at",
+        sort_order: "desc",
         car_brand: carBrand,
       });
       if (effectiveShopId) {
-        params.set('shop_id', effectiveShopId);
+        params.set("shop_id", effectiveShopId);
       }
-      const response = await apiClient.get(`/public/items?${params.toString()}`);
+      const response = await apiClient.get(
+        `/public/items?${params.toString()}`,
+      );
       return response.data;
     },
     enabled: shopContextReady && publicApiShopReady && shouldQueryCar,
   });
 
   // Query 2: Items with same Model Brand
-  const { data: modelData, isLoading: modelLoading, isFetched: modelFetched } = useQuery({
-    queryKey: ['related-items-model', currentItemId, modelBrand, effectiveShopId],
+  const {
+    data: modelData,
+    isLoading: modelLoading,
+    isFetched: modelFetched,
+  } = useQuery({
+    queryKey: [
+      "related-items-model",
+      currentItemId,
+      modelBrand,
+      effectiveShopId,
+    ],
     queryFn: async () => {
       if (!modelBrand) return { items: [], pagination: { total: 0 } };
 
       const params = new URLSearchParams({
-        page_size: '6',
-        sort_by: 'created_at',
-        sort_order: 'desc',
+        page_size: "6",
+        sort_by: "created_at",
+        sort_order: "desc",
         model_brand: modelBrand,
       });
       if (effectiveShopId) {
-        params.set('shop_id', effectiveShopId);
+        params.set("shop_id", effectiveShopId);
       }
-      const response = await apiClient.get(`/public/items?${params.toString()}`);
+      const response = await apiClient.get(
+        `/public/items?${params.toString()}`,
+      );
       return response.data;
     },
     enabled: shopContextReady && publicApiShopReady && shouldQueryModel,
@@ -563,17 +811,19 @@ const RelatedItemsSection = ({
 
   // Query 3: Fallback to recent items
   const { data: recentData, isLoading: recentLoading } = useQuery({
-    queryKey: ['related-items-recent', currentItemId, effectiveShopId],
+    queryKey: ["related-items-recent", currentItemId, effectiveShopId],
     queryFn: async () => {
       const params = new URLSearchParams({
-        page_size: '6',
-        sort_by: 'created_at',
-        sort_order: 'desc',
+        page_size: "6",
+        sort_by: "created_at",
+        sort_order: "desc",
       });
       if (effectiveShopId) {
-        params.set('shop_id', effectiveShopId);
+        params.set("shop_id", effectiveShopId);
       }
-      const response = await apiClient.get(`/public/items?${params.toString()}`);
+      const response = await apiClient.get(
+        `/public/items?${params.toString()}`,
+      );
       return response.data;
     },
     enabled:
@@ -595,7 +845,7 @@ const RelatedItemsSection = ({
     const uniqueItems = new Map();
 
     const addItems = (items: RelatedItem[]) => {
-      items.forEach(item => {
+      items.forEach((item) => {
         if (item.id !== currentItemId && !uniqueItems.has(item.id)) {
           uniqueItems.set(item.id, item);
         }
@@ -604,7 +854,7 @@ const RelatedItemsSection = ({
 
     addItems(carItems);
     addItems(modelItems);
-    
+
     // Only add recent if we still need more items
     if (uniqueItems.size < 5) {
       addItems(recentItems);
@@ -613,31 +863,48 @@ const RelatedItemsSection = ({
     return Array.from(uniqueItems.values()).slice(0, 5);
   }, [carData, modelData, recentData, currentItemId]);
 
-  const isLoading = (carLoading && !carData) || (modelLoading && !modelData) || (recentLoading && !recentData);
-  
+  const isLoading =
+    (carLoading && !carData) ||
+    (modelLoading && !modelData) ||
+    (recentLoading && !recentData);
+
   if (isLoading) return null;
   if (finalItems.length === 0) return null;
 
   return (
-    <div style={{ marginTop: isMobile ? '40px' : '60px', borderTop: '1px solid #eee', paddingTop: isMobile ? '24px' : '40px' }}>
-      <h2 style={{ 
-        fontSize: isMobile ? '22px' : '24px', 
-        fontWeight: '700', 
-        color: '#1a1a1a', 
-        marginBottom: '24px',
-      }}>
+    <div
+      style={{
+        marginTop: isMobile ? "40px" : "60px",
+        borderTop: "1px solid #eee",
+        paddingTop: isMobile ? "24px" : "40px",
+      }}
+    >
+      <h2
+        style={{
+          fontSize: isMobile ? "22px" : "24px",
+          fontWeight: "700",
+          color: "#1a1a1a",
+          marginBottom: "24px",
+        }}
+      >
         Sản phẩm liên quan
       </h2>
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? '160px' : '200px'}, 1fr))`, 
-        gap: isMobile ? '14px' : '20px' 
-      }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(auto-fill, minmax(${isMobile ? "160px" : "200px"}, 1fr))`,
+          gap: isMobile ? "14px" : "20px",
+        }}
+      >
         {finalItems.map((item: RelatedItem, index: number) => (
-          <ItemCard key={item.id} item={item} index={index} shopSearch={shopSearch} />
+          <ItemCard
+            key={item.id}
+            item={item}
+            index={index}
+            shopSearch={shopSearch}
+          />
         ))}
       </div>
     </div>
   );
 };
-
