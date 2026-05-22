@@ -981,19 +981,6 @@ describe('ItemsService', () => {
       expect(result.item.status).toBe('con_hang');
     });
 
-    it('should reject invalid status transition from da_ban to con_hang', async () => {
-      prisma.item.findFirst.mockResolvedValue({
-        ...mockItem,
-        status: 'da_ban',
-      });
-
-      await expect(
-        service.update('item-123', { status: 'con_hang' }, TEST_SHOP_ID),
-      ).rejects.toMatchObject({
-        errorCode: ErrorCode.ITEM_STATUS_TRANSITION_INVALID,
-      });
-    });
-
     it('should force quantity to zero when marking an item as sold', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       prisma.item.update.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
@@ -1065,11 +1052,30 @@ describe('ItemsService', () => {
       });
     });
 
-    it('should reject transition from da_ban to preorder (da_ban is terminal)', async () => {
+    it('should allow transition from da_ban to con_hang (re-stocked from another seller)', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'con_hang', quantity: 1 });
+
+      const result = await service.update('item-123', { status: 'con_hang', quantity: 1 }, TEST_SHOP_ID);
+
+      expect(result.item.status).toBe('con_hang');
+    });
+
+    it('should reject transition from da_ban to preorder', async () => {
       prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
 
       await expect(
         service.update('item-123', { status: 'preorder' }, TEST_SHOP_ID),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.ITEM_STATUS_TRANSITION_INVALID,
+      });
+    });
+
+    it('should reject transition from da_ban to giu_cho', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
+
+      await expect(
+        service.update('item-123', { status: 'giu_cho' }, TEST_SHOP_ID),
       ).rejects.toMatchObject({
         errorCode: ErrorCode.ITEM_STATUS_TRANSITION_INVALID,
       });
