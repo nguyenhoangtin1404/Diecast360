@@ -1382,7 +1382,7 @@ export const ItemDetailPage = () => {
               <ArrowLeft size={18} />
               <span>Quay lại danh sách</span>
             </button>
-            {id !== "new" && (
+            {id && id !== "new" && (
               <Link
                 to={`/admin/preorders/create?item_id=${encodeURIComponent(id)}`}
                 style={{
