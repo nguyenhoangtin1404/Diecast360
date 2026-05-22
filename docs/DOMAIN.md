@@ -77,7 +77,7 @@
 - Ảnh thường:
   - Upload nhiều ảnh; có thể đổi cover và sắp xếp thứ tự.
   - Xóa ảnh phải cập nhật cover nếu ảnh cover bị xóa (chọn ảnh đầu tiên còn lại).
-- Public catalog: chỉ hiển thị item `is_public = true` và chưa bị soft delete; trạng thái hiển thị nguyên giá trị (`con_hang/giu_cho/da_ban`). Production yêu cầu `shop_id` hoặc JWT có active shop để tránh aggregate nhiều shop.
+- Public catalog: chỉ hiển thị item `is_public = true` và chưa bị soft delete; trạng thái hiển thị nguyên giá trị (`con_hang/giu_cho/da_ban/preorder`). Production yêu cầu `shop_id` hoặc JWT có active shop để tránh aggregate nhiều shop.
 - Social selling: UI cần cung cấp thao tác copy caption/link dựa trên dữ liệu item (không thay đổi dữ liệu gốc).
 - Pre-order: lifecycle phải đi qua state machine; không cập nhật trạng thái tùy ý.
 - Item status transition rules: `con_hang`/`giu_cho` → `preorder` (được phép); `da_ban` → `con_hang` (được phép, dùng khi nhập lại hàng từ seller khác); `da_ban` → `preorder`/`giu_cho` không được phép; `preorder` → `con_hang` (chỉ được chuyển về `con_hang`). Quantity không bị ép về 0 khi chuyển sang `preorder` (khác với `da_ban`). Inventory transactions được phép trên item `preorder`.

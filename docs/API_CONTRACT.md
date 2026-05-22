@@ -19,7 +19,8 @@
 - RBAC tenant: `shop_admin` có quyền đọc/ghi trong active shop; `shop_staff` hiện là read-only cho các HTTP method mutating (`POST`/`PATCH`/`DELETE`) trừ route nào được đánh dấu exception trong code.
 
 ## Data shape
-- `Item`: `{ id, shop_id?, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, status, quantity, attributes, notes?, is_public, fb_post_content, cover_image_url, fb_post_url?, fb_posted_at?, fb_posts_count?, created_at, updated_at, deleted_at? }`.
+- `ItemStatus`: `"con_hang" | "giu_cho" | "da_ban" | "preorder"`. Transition rules: `con_hang`/`giu_cho` → any; `da_ban` → `con_hang` only (re-stock); `preorder` → `con_hang` only. `da_ban → preorder` và `da_ban → giu_cho` bị chặn.
+- `Item`: `{ id, shop_id?, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, status: ItemStatus, quantity, attributes, notes?, is_public, fb_post_content, cover_image_url, fb_post_url?, fb_posted_at?, fb_posts_count?, created_at, updated_at, deleted_at? }`.
 - `attributes`: object phẳng `Record<string, string | number | boolean | null>`, tối đa 50 key, key phải được trim và không được dùng các tên dự phòng như `__proto__`, `constructor`, `prototype`.
 - `FacebookPost`: `{ id, item_id, post_url, content, posted_at, created_at }`.
 - `User`: `{ id, email, full_name, role, platform_role?, is_active?, allowed_shop_ids: string[], shop_roles?, allowed_shops?, active_shop_id? }`.
@@ -205,7 +206,7 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
     "is_public": false
   }
   ```
-- `quantity` là integer `>= 0`. Nếu `status = "da_ban"` server sẽ ép `quantity = 0` bất kể payload gửi lên.
+- `quantity` là integer `>= 0`. Nếu `status = "da_ban"` server sẽ ép `quantity = 0` bất kể payload gửi lên. Nếu `status = "preorder"` quantity giữ nguyên giá trị yêu cầu (không ép về 0).
 - `attributes` là object phẳng; nested object/array không hợp lệ.
 - Response 201: `data: { item }` (images/spin_sets rỗng).
 - Errors: `VALIDATION_ERROR (422)`.
@@ -225,9 +226,11 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 
 ### PATCH /api/v1/items/:id
 - Body JSON: các field cho phép cập nhật `name/description/scale/brand/car_brand/model_brand/condition/price/original_price/status/quantity/attributes/is_public/fb_post_content`.
-- Invariant: item `da_ban` luôn có `quantity = 0` trong mọi response (GET/PATCH); client không thể giữ stock > 0 khi đã bán.
+- Invariant: item `da_ban` luôn có `quantity = 0`; client không thể giữ stock > 0 khi đã bán.
 - Khi PATCH chuyển hoặc đặt `status = "da_ban"`, server ghi `quantity = 0` (bỏ qua `quantity` khác 0 trong body nếu có).
 - Khi item đã `da_ban` và body **không** gửi `quantity`, server có thể **không** cập nhật cột `quantity` trong DB (vẫn 0); nếu body có `quantity`, server vẫn ép về `0` trước khi lưu.
+- Khi PATCH chuyển `status` từ `da_ban` sang `con_hang` mà body **không** gửi `quantity`, server tự động set `quantity = 1`.
+- Transition không hợp lệ (ví dụ `da_ban → preorder`) trả về `ITEM_STATUS_TRANSITION_INVALID (422)`.
 - Response 200: `data: { item }`.
 - Errors: `VALIDATION_ERROR (422)`, `NOT_FOUND (404)`.
 

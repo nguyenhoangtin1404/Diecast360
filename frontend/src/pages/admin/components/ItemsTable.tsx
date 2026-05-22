@@ -7,6 +7,7 @@ import {
   X,
   Package,
   Clock,
+  Timer,
   CheckCircle2,
   Copy,
   Share2,
@@ -60,7 +61,7 @@ export const ItemsTable = ({
   const renderStatusIcon = (status: ItemStatus) => {
     if (status === 'con_hang') return <Package size={18} color="#28a745" />;
     if (status === 'giu_cho') return <Clock size={18} color="#ffc107" />;
-    if (status === 'preorder') return <Clock size={18} color="#0d6efd" />;
+    if (status === 'preorder') return <Timer size={18} color="#0d6efd" />;
     return <CheckCircle2 size={18} color="#6c757d" />;
   };
 

@@ -587,6 +587,8 @@ Condition: ${item.condition || ''}`;
       updateData.quantity = resolveQuantityForStatus(nextStatus, updateDto.quantity);
     } else if (updateDto.status === 'da_ban' && existingItem.status !== 'da_ban') {
       updateData.quantity = 0;
+    } else if (nextStatus !== 'da_ban' && existingItem.status === 'da_ban') {
+      updateData.quantity = 1;
     }
     if (updateDto.attributes !== undefined) {
       updateData.attributes = toItemAttributesJson(updateDto.attributes);
