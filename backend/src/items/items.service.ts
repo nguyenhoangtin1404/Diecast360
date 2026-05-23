@@ -659,7 +659,12 @@ Condition: ${item.condition || ''}`;
     // Sync with vector store
     this.syncVectorStore(item);
 
-    return { item, preorders_arrived_count: preordersArrivedCount, preorders_auto_cancelled_count: preordersAutoCancelledCount, preorders_with_deposit_count: preordersWithDepositCount };
+    return {
+      item,
+      preorders_arrived_count: preordersArrivedCount,
+      preorders_auto_cancelled_count: preordersAutoCancelledCount,
+      preorders_with_deposit_count: preordersWithDepositCount,
+    };
   }
 
   async remove(id: string, tenantId: string) {

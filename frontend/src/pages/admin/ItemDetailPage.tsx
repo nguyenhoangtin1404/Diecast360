@@ -673,6 +673,7 @@ export const ItemDetailPage = () => {
       const itemId = id === "new" ? extractItemIdFromResponse(response) : id;
       if (itemId) {
         queryClient.invalidateQueries({ queryKey: ["item", itemId] });
+        queryClient.invalidateQueries({ queryKey: ["preorder-campaign", itemId] });
       }
       if (id === "new" && !itemId) {
         showToast("Không thể tạo sản phẩm. Vui lòng thử lại.");

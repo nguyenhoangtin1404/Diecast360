@@ -287,3 +287,120 @@ describe('Pre-order campaign button', () => {
     expect(screen.queryByText(/Chiến dịch Pre-order/i)).toBeNull();
   });
 });
+
+describe('Pre-order auto-trigger toasts', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  beforeEach(() => {
+    h.params = { id: '1' };
+    h.search = '';
+    h.mockNavigate.mockReset();
+    h.mockShowToast.mockReset();
+    h.apiClient.patch.mockReset();
+    h.apiClient.post.mockReset();
+    h.apiClient.get.mockImplementation(async (...args: unknown[]) => {
+      const urlStr = typeof args[0] === 'string' ? args[0] : '';
+      if (urlStr.startsWith('/items/')) {
+        return { data: createItemData() };
+      }
+      if (urlStr.startsWith('/categories?type=')) {
+        return { data: { categories: [] } };
+      }
+      return { data: {} };
+    });
+  });
+
+  it('shows "hàng về" toast when preorders_arrived_count > 0', async () => {
+    h.apiClient.patch.mockResolvedValueOnce({
+      ok: true,
+      data: { item: { id: '1' }, preorders_arrived_count: 3 },
+    });
+
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ItemDetailPage />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect((screen.getAllByRole('textbox')[0] as HTMLInputElement).value).toBe('Ferrari F40');
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Hình ảnh/i })[0]);
+
+    await waitFor(() => {
+      expect(h.mockShowToast).toHaveBeenCalledWith(
+        'Đã tự động chuyển 3 đơn pre-order sang "Hàng về"',
+      );
+    });
+  });
+
+  it('shows cancel summary toast when auto-cancelled and deposit counts are present', async () => {
+    h.apiClient.patch.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        item: { id: '1' },
+        preorders_auto_cancelled_count: 2,
+        preorders_with_deposit_count: 1,
+      },
+    });
+
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ItemDetailPage />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect((screen.getAllByRole('textbox')[0] as HTMLInputElement).value).toBe('Ferrari F40');
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Hình ảnh/i })[0]);
+
+    await waitFor(() => {
+      expect(h.mockShowToast).toHaveBeenCalledWith(
+        'Pre-order: tự động hủy 2 đơn chưa cọc · 1 đơn đã cọc cần hủy thủ công.',
+      );
+    });
+  });
+
+  it('does not show preorder toast when all counts are zero', async () => {
+    h.apiClient.patch.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        item: { id: '1' },
+        preorders_arrived_count: 0,
+        preorders_auto_cancelled_count: 0,
+        preorders_with_deposit_count: 0,
+      },
+    });
+
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ItemDetailPage />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect((screen.getAllByRole('textbox')[0] as HTMLInputElement).value).toBe('Ferrari F40');
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Hình ảnh/i })[0]);
+
+    await waitFor(() => {
+      expect(h.apiClient.patch).toHaveBeenCalled();
+    });
+
+    expect(h.mockShowToast).not.toHaveBeenCalledWith(
+      expect.stringContaining('Đã tự động chuyển'),
+    );
+    expect(h.mockShowToast).not.toHaveBeenCalledWith(
+      expect.stringContaining('Pre-order:'),
+    );
+  });
+});
