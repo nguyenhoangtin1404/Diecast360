@@ -1246,7 +1246,7 @@ describe('ItemsService', () => {
             item_id: 'item-123',
             shop_id: TEST_SHOP_ID,
             status: { in: ['PENDING_CONFIRMATION', 'WAITING_FOR_GOODS'] },
-            paid_amount: { lte: 0 },
+            paid_amount: { equals: 0 },
           }),
           data: expect.objectContaining({ status: 'CANCELLED' }),
         }),

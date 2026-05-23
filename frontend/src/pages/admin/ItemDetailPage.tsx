@@ -763,7 +763,7 @@ export const ItemDetailPage = () => {
       }
 
       // Show preorder auto-trigger feedback
-      const respData = (response as ApiResponse<UpdateItemResponse>)?.data;
+      const respData = (response as unknown as ApiResponse<UpdateItemResponse>)?.data;
       const arrivedCount = respData?.preorders_arrived_count ?? 0;
       const pendingCount = respData?.preorders_pending_count ?? 0;
       const autoCancelledCount = respData?.preorders_auto_cancelled_count ?? 0;
