@@ -484,7 +484,7 @@ export const ItemDetailPage = () => {
     queryKey: ["preorder-campaign", id],
     queryFn: async () => {
       const response = (await apiClient.get(
-        `/preorders?item_id=${encodeURIComponent(id!)}&page_size=200`,
+        `/preorders/admin?item_id=${encodeURIComponent(id!)}&page_size=200`,
       )) as ApiResponse<{ preorders: { status: string }[]; total: number }>;
       return response.data;
     },

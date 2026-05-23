@@ -585,7 +585,12 @@ Condition: ${item.condition || ''}`;
     if (updateDto.original_price !== undefined) updateData.original_price = updateDto.original_price ?? null;
     if (updateDto.status !== undefined) updateData.status = updateDto.status;
     if (updateDto.quantity !== undefined) {
-      updateData.quantity = resolveQuantityForStatus(nextStatus, updateDto.quantity);
+      const resolved = resolveQuantityForStatus(nextStatus, updateDto.quantity);
+      // da_ban → con_hang must always result in quantity ≥ 1 (re-stocking invariant).
+      updateData.quantity =
+        existingItem.status === 'da_ban' && nextStatus === 'con_hang' && resolved <= 0
+          ? 1
+          : resolved;
     } else if (updateDto.status === 'da_ban' && existingItem.status !== 'da_ban') {
       updateData.quantity = 0;
     } else if (existingItem.status === 'da_ban' && nextStatus === 'con_hang') {

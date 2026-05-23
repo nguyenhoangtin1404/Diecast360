@@ -1025,6 +1025,21 @@ describe('ItemsService', () => {
       });
     });
 
+    it('should clamp explicit quantity=0 to 1 when transitioning from da_ban to con_hang', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'con_hang', quantity: 1 });
+
+      await service.update('item-123', { status: 'con_hang', quantity: 0 }, TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: expect.objectContaining({
+          status: 'con_hang',
+          quantity: 1,
+        }),
+      });
+    });
+
     it('should force quantity to zero when marking an item as sold', async () => {
       prisma.item.findFirst.mockResolvedValue(mockItem);
       prisma.item.update.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
