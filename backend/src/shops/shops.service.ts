@@ -22,7 +22,7 @@ import { parseShopLoyaltyJson } from './shop-loyalty-json.util';
 import { UploadSupportService } from '../common/upload/upload-support.service';
 import { verifySignedMediaParams } from '../common/media/signed-media.util';
 import { resolveMediaSigningSecret } from '../common/media/media-signing-secret';
-import { v4 as uuidv4 } from 'uuid';
+import { v7 as uuidv7 } from 'uuid';
 import * as sharp from 'sharp';
 
 const SHOP_BRANDING_MIME_ALLOWLIST = ['image/jpeg', 'image/png', 'image/webp'] as const;
@@ -498,7 +498,7 @@ export class ShopsService {
       payloadBuffer = await this.normalizeFavicon(file.buffer);
       ext = '.png';
     }
-    const filename = `${tenantId}_${kind}_${uuidv4()}${ext}`;
+    const filename = `${tenantId}_${kind}_${uuidv7()}${ext}`;
     const relativePath = await this.storage.saveFile(payloadBuffer, filename, 'shop-branding');
     const publicUrl = await this.storage.getFileUrl(relativePath);
 

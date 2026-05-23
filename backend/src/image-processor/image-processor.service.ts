@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as path from 'path';
 import * as sharp from 'sharp';
-import { v4 as uuidv4 } from 'uuid';
+import { v7 as uuidv7 } from 'uuid';
 
 export class WatermarkProcessingError extends Error {
   constructor(message: string, public readonly cause?: Error) {
@@ -92,7 +92,7 @@ export class ImageProcessorService {
     const ext = originalName
       ? path.extname(originalName) || '.jpg'
       : '.jpg';
-    return `${uuidv4()}${ext}`;
+    return `${uuidv7()}${ext}`;
   }
 
   validateImage(buffer: Buffer): boolean {

@@ -65,7 +65,7 @@ enum MemberPointsMutationType {
 }
 
 model Shop {
-  id         String         @id @default(uuid())
+  id         String         @id @default(uuid(7))
   name       String
   slug       String         @unique
   is_active  Boolean        @default(true)
@@ -106,7 +106,7 @@ model UserShopRole {
 }
 
 model User {
-  id            String         @id @default(uuid())
+  id            String         @id @default(uuid(7))
   email         String         @unique
   password_hash String
   full_name     String?
@@ -127,7 +127,7 @@ model User {
 }
 
 model ShopAuditLog {
-  id            String          @id @default(uuid())
+  id            String          @id @default(uuid(7))
   shop_id       String
   actor_user_id String?
   action        ShopAuditAction
@@ -145,7 +145,7 @@ model ShopAuditLog {
 }
 
 model RefreshToken {
-  id         String    @id @default(uuid())
+  id         String    @id @default(uuid(7))
   user_id    String
   token_hash String    @unique
   expires_at DateTime
@@ -159,7 +159,7 @@ model RefreshToken {
 }
 
 model Item {
-  id             String      @id @default(uuid())
+  id             String      @id @default(uuid(7))
   name           String
   description    String?
   scale          String      @default("1:64")
@@ -202,7 +202,7 @@ model Item {
 }
 
 model InventoryTransaction {
-  id                String                   @id @default(uuid())
+  id                String                   @id @default(uuid(7))
   shop_id           String
   item_id           String
   actor_user_id     String?
@@ -228,7 +228,7 @@ model InventoryTransaction {
 }
 
 model PreOrder {
-  id                   String         @id @default(uuid())
+  id                   String         @id @default(uuid(7))
   shop_id              String
   item_id              String
   user_id              String?
@@ -262,7 +262,7 @@ model PreOrder {
 }
 
 model MembershipTier {
-  id         String   @id @default(uuid())
+  id         String   @id @default(uuid(7))
   shop_id    String
   name       String
   rank       Int
@@ -280,7 +280,7 @@ model MembershipTier {
 }
 
 model Member {
-  id             String   @id @default(uuid())
+  id             String   @id @default(uuid(7))
   shop_id        String
   full_name      String
   email          String?
@@ -304,7 +304,7 @@ model Member {
 }
 
 model MemberPointsLedger {
-  id            String                   @id @default(uuid())
+  id            String                   @id @default(uuid(7))
   member_id     String
   shop_id       String
   actor_user_id String?
@@ -330,7 +330,7 @@ model MemberPointsLedger {
 }
 
 model FacebookPost {
-  id         String   @id @default(uuid())
+  id         String   @id @default(uuid(7))
   item_id    String
   post_url   String
   content    String?
@@ -344,7 +344,7 @@ model FacebookPost {
 }
 
 model ItemImage {
-  id             String   @id @default(uuid())
+  id             String   @id @default(uuid(7))
   item_id        String
   file_path      String
   thumbnail_path String?
@@ -360,7 +360,7 @@ model ItemImage {
 }
 
 model SpinSet {
-  id         String       @id @default(uuid())
+  id         String       @id @default(uuid(7))
   item_id    String
   label      String?
   is_default Boolean      @default(false)
@@ -376,7 +376,7 @@ model SpinSet {
 }
 
 model SpinFrame {
-  id             String   @id @default(uuid())
+  id             String   @id @default(uuid(7))
   spin_set_id    String
   frame_index    Int
   file_path      String
@@ -392,7 +392,7 @@ model SpinFrame {
 }
 
 model Category {
-  id            String   @id @default(uuid())
+  id            String   @id @default(uuid(7))
   /** Global seed rows use null; per-shop rows set to shop id (AI import, shop admin). */
   shop_id       String?
   name          String
@@ -412,7 +412,7 @@ model Category {
 }
 
 model AiItemDraft {
-  id              String   @id @default(uuid())
+  id              String   @id @default(uuid(7))
   images_json     String   // JSON string of image paths
   extracted_text  String?
   ai_json         String   // JSON string of structured item data
