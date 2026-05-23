@@ -770,16 +770,16 @@ export const ItemDetailPage = () => {
       const withDepositCount = respData?.preorders_with_deposit_count ?? 0;
 
       if (arrivedCount > 0) {
-        showToast(`Đã tự động chuyển ${arrivedCount} đơn pre-order sang "Hàng về".`);
+        showToast(`Đã tự động chuyển ${arrivedCount} đơn pre-order sang "Hàng về"`);
       }
       if (pendingCount > 0) {
         showToast(`Còn ${pendingCount} đơn chờ xác nhận cần xử lý thủ công.`);
       }
-      if (autoCancelledCount > 0) {
-        showToast(`Đã hủy ${autoCancelledCount} đơn pre-order chưa cọc.`);
-      }
-      if (withDepositCount > 0) {
-        showToast(`${withDepositCount} đơn đã cọc đang chờ xử lý hoàn tiền.`);
+      if (autoCancelledCount > 0 || withDepositCount > 0) {
+        const parts: string[] = [];
+        if (autoCancelledCount > 0) parts.push(`tự động hủy ${autoCancelledCount} đơn chưa cọc`);
+        if (withDepositCount > 0) parts.push(`${withDepositCount} đơn đã cọc cần hủy thủ công`);
+        showToast(`Pre-order: ${parts.join(' · ')}.`);
       }
 
       if (id === "new" && variables?.navigateAfterCreate) {
