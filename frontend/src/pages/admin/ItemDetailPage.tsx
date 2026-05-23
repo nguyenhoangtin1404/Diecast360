@@ -1599,6 +1599,7 @@ export const ItemDetailPage = () => {
                   Hủy bỏ
                 </button>
                 <button
+                  disabled={saveMutation.isPending}
                   onClick={() => {
                     setConfirmDaBanOpen(false);
                     void saveCurrentItem(false, true);
@@ -1609,9 +1610,10 @@ export const ItemDetailPage = () => {
                     borderRadius: "8px",
                     background: "#dc3545",
                     color: "white",
-                    cursor: "pointer",
+                    cursor: saveMutation.isPending ? "not-allowed" : "pointer",
                     fontSize: "14px",
                     fontWeight: 600,
+                    opacity: saveMutation.isPending ? 0.6 : 1,
                   }}
                 >
                   Xác nhận chuyển Đã bán
