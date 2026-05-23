@@ -231,10 +231,9 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 - Khi item đã `da_ban` và body **không** gửi `quantity`, server có thể **không** cập nhật cột `quantity` trong DB (vẫn 0); nếu body có `quantity`, server vẫn ép về `0` trước khi lưu.
 - Khi PATCH chuyển `status` từ `da_ban` sang `con_hang` mà body **không** gửi `quantity`, server tự động set `quantity = 1`.
 - Khi PATCH chuyển `status` từ `preorder` sang `con_hang`, server tự động cập nhật tất cả đơn pre-order của item đang ở `WAITING_FOR_GOODS` sang `ARRIVED` (trong cùng transaction).
-- Khi PATCH chuyển `status` từ `preorder` sang `da_ban` (nhà cung cấp hủy), server ép `quantity = 0`. Không auto-cancel các đơn pre-order (admin xử lý thủ công từng đơn).
+- Khi PATCH chuyển `status` từ `preorder` sang `da_ban` (nhà cung cấp hủy): server ép `quantity = 0`, tự động hủy các đơn có `paid_amount = 0` (chưa thu cọc) sang `CANCELLED`. Các đơn đã có cọc (`paid_amount > 0`) giữ nguyên để admin xử lý thủ công.
 - Transition không hợp lệ (ví dụ `da_ban → preorder`) trả về `ITEM_STATUS_TRANSITION_INVALID (422)`.
-- Response 200: `data: { item }`.
-- Errors: `VALIDATION_ERROR (422)`, `NOT_FOUND (404)`.
+- Response 200: `data: { item, preorders_arrived_count: number, preorders_auto_cancelled_count: number, preorders_with_deposit_count: number }`. Các count field luôn có giá trị (0 nếu không có auto-trigger).
 
 ### POST /api/v1/items/:id/facebook-posts
 - Body JSON: `{ "post_url": "https://facebook.com/...", "content": "string (optional)" }`.

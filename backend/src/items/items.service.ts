@@ -613,6 +613,10 @@ Condition: ${item.condition || ''}`;
       );
     }
 
+    let preordersArrivedCount = 0;
+    let preordersAutoCancelledCount = 0;
+    let preordersWithDepositCount = 0;
+
     const item = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.item.update({
         where: { id },
@@ -620,9 +624,32 @@ Condition: ${item.condition || ''}`;
       });
 
       if (existingItem.status === 'preorder' && nextStatus === 'con_hang') {
-        await tx.preOrder.updateMany({
+        const result = await tx.preOrder.updateMany({
           where: { item_id: id, shop_id: shopId, status: PreOrderStatus.WAITING_FOR_GOODS },
           data: { status: PreOrderStatus.ARRIVED },
+        });
+        preordersArrivedCount = result.count;
+      }
+
+      if (existingItem.status === 'preorder' && nextStatus === 'da_ban') {
+        const cancelled = await tx.preOrder.updateMany({
+          where: {
+            item_id: id,
+            shop_id: shopId,
+            status: { in: [PreOrderStatus.PENDING_CONFIRMATION, PreOrderStatus.WAITING_FOR_GOODS] },
+            paid_amount: { lte: 0 },
+          },
+          data: { status: PreOrderStatus.CANCELLED, cancelled_at: new Date() },
+        });
+        preordersAutoCancelledCount = cancelled.count;
+
+        preordersWithDepositCount = await tx.preOrder.count({
+          where: {
+            item_id: id,
+            shop_id: shopId,
+            status: { in: [PreOrderStatus.PENDING_CONFIRMATION, PreOrderStatus.WAITING_FOR_GOODS] },
+            paid_amount: { gt: 0 },
+          },
         });
       }
 
@@ -632,7 +659,7 @@ Condition: ${item.condition || ''}`;
     // Sync with vector store
     this.syncVectorStore(item);
 
-    return { item };
+    return { item, preorders_arrived_count: preordersArrivedCount, preorders_auto_cancelled_count: preordersAutoCancelledCount, preorders_with_deposit_count: preordersWithDepositCount };
   }
 
   async remove(id: string, tenantId: string) {

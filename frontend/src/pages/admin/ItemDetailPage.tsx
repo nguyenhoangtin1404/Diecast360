@@ -479,6 +479,30 @@ export const ItemDetailPage = () => {
     enabled: Boolean(activeShopId),
   });
 
+  // Campaign summary: active preorders for this item (fetch only for existing items)
+  const { data: campaignData } = useQuery({
+    queryKey: ["preorder-campaign", id],
+    queryFn: async () => {
+      const response = (await apiClient.get(
+        `/preorders?item_id=${encodeURIComponent(id!)}&page_size=200`,
+      )) as ApiResponse<{ preorders: { status: string }[]; total: number }>;
+      return response.data;
+    },
+    enabled: Boolean(id && id !== "new"),
+    staleTime: 30_000,
+  });
+
+  const campaignCounts = useMemo(() => {
+    const orders = campaignData?.preorders ?? [];
+    return {
+      pending: orders.filter((o) => o.status === "PENDING_CONFIRMATION").length,
+      waiting: orders.filter((o) => o.status === "WAITING_FOR_GOODS").length,
+      arrived: orders.filter((o) => o.status === "ARRIVED").length,
+    };
+  }, [campaignData]);
+
+  const hasCampaignOrders = campaignCounts.pending + campaignCounts.waiting + campaignCounts.arrived > 0;
+
   // Derive active-only lists for dropdowns (in-memory filter, no extra API call)
   const activeCarBrands = useMemo(
     () => (carBrandsData?.categories || []).filter((c) => c.is_active),
@@ -726,6 +750,22 @@ export const ItemDetailPage = () => {
             }
           }, 300);
         }, 3000);
+      }
+
+      // Show preorder auto-trigger feedback
+      const respData = (response as { data?: Record<string, number> })?.data;
+      const arrivedCount = respData?.preorders_arrived_count ?? 0;
+      const autoCancelledCount = respData?.preorders_auto_cancelled_count ?? 0;
+      const withDepositCount = respData?.preorders_with_deposit_count ?? 0;
+
+      if (arrivedCount > 0) {
+        showToast(`Đã tự động chuyển ${arrivedCount} đơn pre-order sang "Hàng về"`);
+      }
+      if (autoCancelledCount > 0 || withDepositCount > 0) {
+        const parts: string[] = [];
+        if (autoCancelledCount > 0) parts.push(`tự động hủy ${autoCancelledCount} đơn chưa cọc`);
+        if (withDepositCount > 0) parts.push(`${withDepositCount} đơn đã cọc cần hủy thủ công`);
+        showToast(`Pre-order: ${parts.join(" · ")}.`);
       }
 
       if (id === "new" && variables?.navigateAfterCreate) {
@@ -2012,6 +2052,38 @@ export const ItemDetailPage = () => {
               mobile={isMobile}
               fullWidthOnMobile
             />
+            {hasCampaignOrders && (
+              <div
+                style={{
+                  marginTop: "8px",
+                  padding: "8px 12px",
+                  background: "#f0f7ff",
+                  border: "1px solid #b6d4fe",
+                  borderRadius: "6px",
+                  fontSize: "13px",
+                  color: "#084298",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "8px",
+                }}
+              >
+                <span>
+                  📋 Chiến dịch:{" "}
+                  {campaignCounts.pending > 0 && <strong>{campaignCounts.pending} chờ xác nhận</strong>}
+                  {campaignCounts.pending > 0 && campaignCounts.waiting > 0 && " · "}
+                  {campaignCounts.waiting > 0 && <strong>{campaignCounts.waiting} chờ hàng</strong>}
+                  {(campaignCounts.pending > 0 || campaignCounts.waiting > 0) && campaignCounts.arrived > 0 && " · "}
+                  {campaignCounts.arrived > 0 && <strong>{campaignCounts.arrived} hàng về</strong>}
+                </span>
+                <Link
+                  to={`/admin/preorders?item_id=${encodeURIComponent(id!)}`}
+                  style={{ color: "#0d6efd", textDecoration: "none", whiteSpace: "nowrap", fontWeight: 500 }}
+                >
+                  Quản lý →
+                </Link>
+              </div>
+            )}
           </div>
           <div style={{ marginBottom: "16px" }}>
             <label
