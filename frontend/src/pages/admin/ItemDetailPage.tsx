@@ -6,7 +6,7 @@ import {
   useCallback,
   type KeyboardEvent,
 } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient, uploadFile } from "../../api/client";
 import { ArrowLeft, Edit, Plus, X, Star, Sparkles } from "lucide-react";
@@ -16,6 +16,7 @@ import { InventoryTimeline } from "../../components/admin/InventoryTimeline";
 import type { CategoryItem, ApiResponse } from "../../types/category";
 import { showToast } from "../../utils/toast";
 import type { FacebookPost } from "../../types/item.types";
+import type { ItemStatus } from "../../constants/item";
 import {
   jumpToStepWithAutoSave,
   navigateStepWithAutoSave,
@@ -176,10 +177,27 @@ interface SpinSet {
   updated_at: string;
 }
 
+interface CampaignSummary {
+  pending: number;
+  waiting: number;
+  arrived: number;
+  total: number;
+  cancelable: number;
+  with_deposit: number;
+}
+
+interface UpdateItemResponse {
+  item: Record<string, unknown>;
+  preorders_arrived_count?: number;
+  preorders_pending_count?: number;
+  preorders_auto_cancelled_count?: number;
+  preorders_with_deposit_count?: number;
+}
+
 interface ItemData {
   name: string;
   description?: string;
-  status?: "con_hang" | "giu_cho" | "da_ban";
+  status?: ItemStatus;
   is_public?: boolean;
   car_brand?: string;
   model_brand?: string;
@@ -415,6 +433,7 @@ export const ItemDetailPage = () => {
   const isLoadingQrRef = useRef(false);
   const [qrError, setQrError] = useState<string | null>(null);
   const [qrRetryKey, setQrRetryKey] = useState(0);
+  const [confirmDaBanOpen, setConfirmDaBanOpen] = useState(false);
 
   const socialSellingRef = useRef<HTMLDivElement>(null);
   const stepNavInFlightRef = useRef(false);
@@ -477,6 +496,21 @@ export const ItemDetailPage = () => {
     },
     enabled: Boolean(activeShopId),
   });
+
+  const { data: campaignSummary } = useQuery({
+    queryKey: ["preorder-campaign-summary", id],
+    queryFn: async () => {
+      const res = (await apiClient.get(
+        `/preorders/admin/campaigns/${encodeURIComponent(id!)}/summary`,
+      )) as ApiResponse<CampaignSummary>;
+      return res.data;
+    },
+    enabled: Boolean(id && id !== "new" && data?.item?.status === "preorder"),
+    staleTime: 30_000,
+  });
+
+  const hasCampaignOrders =
+    data?.item?.status === "preorder" && (campaignSummary?.total ?? 0) > 0;
 
   // Derive active-only lists for dropdowns (in-memory filter, no extra API call)
   const activeCarBrands = useMemo(
@@ -648,6 +682,7 @@ export const ItemDetailPage = () => {
       const itemId = id === "new" ? extractItemIdFromResponse(response) : id;
       if (itemId) {
         queryClient.invalidateQueries({ queryKey: ["item", itemId] });
+        queryClient.invalidateQueries({ queryKey: ["preorder-campaign-summary", itemId] });
       }
       if (id === "new" && !itemId) {
         showToast("Không thể tạo sản phẩm. Vui lòng thử lại.");
@@ -727,6 +762,26 @@ export const ItemDetailPage = () => {
         }, 3000);
       }
 
+      // Show preorder auto-trigger feedback
+      const respData = (response as unknown as ApiResponse<UpdateItemResponse>)?.data;
+      const arrivedCount = respData?.preorders_arrived_count ?? 0;
+      const pendingCount = respData?.preorders_pending_count ?? 0;
+      const autoCancelledCount = respData?.preorders_auto_cancelled_count ?? 0;
+      const withDepositCount = respData?.preorders_with_deposit_count ?? 0;
+
+      if (arrivedCount > 0) {
+        showToast(`Đã tự động chuyển ${arrivedCount} đơn pre-order sang "Hàng về"`);
+      }
+      if (pendingCount > 0) {
+        showToast(`Còn ${pendingCount} đơn chờ xác nhận cần xử lý thủ công.`);
+      }
+      if (autoCancelledCount > 0 || withDepositCount > 0) {
+        const parts: string[] = [];
+        if (autoCancelledCount > 0) parts.push(`tự động hủy ${autoCancelledCount} đơn chưa cọc`);
+        if (withDepositCount > 0) parts.push(`${withDepositCount} đơn đã cọc cần hủy thủ công`);
+        showToast(`Pre-order: ${parts.join(' · ')}.`);
+      }
+
       if (id === "new" && variables?.navigateAfterCreate) {
         setTimeout(() => {
           navigate(`/admin/items/${itemId}`);
@@ -739,7 +794,7 @@ export const ItemDetailPage = () => {
     const itemData: ItemData = {
       name,
       description,
-      status: status as "con_hang" | "giu_cho" | "da_ban",
+      status: status as ItemStatus,
       is_public: isPublic,
     };
 
@@ -797,12 +852,21 @@ export const ItemDetailPage = () => {
     return true;
   };
 
-  const saveCurrentItem = async (silent = false): Promise<boolean> => {
+  const saveCurrentItem = async (silent = false, skipDaBanConfirm = false): Promise<boolean> => {
     if (!name.trim()) {
       showToast("Vui lòng nhập tên sản phẩm trước khi chuyển bước.");
       return false;
     }
     if (!validateInventoryBeforeSave()) {
+      return false;
+    }
+    if (
+      !skipDaBanConfirm &&
+      data?.item?.status === "preorder" &&
+      status === "da_ban" &&
+      (campaignSummary?.total ?? 0) > 0
+    ) {
+      setConfirmDaBanOpen(true);
       return false;
     }
     try {
@@ -1382,6 +1446,37 @@ export const ItemDetailPage = () => {
               <ArrowLeft size={18} />
               <span>Quay lại danh sách</span>
             </button>
+            {id && id !== "new" && (
+              <Link
+                to={`/admin/preorders/create?item_id=${encodeURIComponent(id)}`}
+                style={{
+                  padding: "8px 16px",
+                  border: "1px solid #ddd",
+                  borderRadius: "8px",
+                  background: "white",
+                  color: "#333",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  textDecoration: "none",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#f5f5f5";
+                  e.currentTarget.style.borderColor = "#f59e0b";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "white";
+                  e.currentTarget.style.borderColor = "#ddd";
+                }}
+              >
+                <span aria-hidden>⏳</span>
+                <span>Chiến dịch Pre-order</span>
+              </Link>
+            )}
           </div>
           <div
             className="item-detail-header-row"
@@ -1439,6 +1534,94 @@ export const ItemDetailPage = () => {
             </div>
           </div>
         </div>
+        {confirmDaBanOpen && campaignSummary && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.45)",
+              zIndex: 9999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              style={{
+                background: "white",
+                borderRadius: "12px",
+                padding: "24px",
+                maxWidth: "440px",
+                width: "90%",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+              }}
+            >
+              <h3 style={{ margin: "0 0 12px", fontSize: "17px", fontWeight: 700 }}>
+                Xác nhận chuyển sang "Đã bán"
+              </h3>
+              <p style={{ margin: "0 0 12px", fontSize: "14px", color: "#444" }}>
+                Hành động này sẽ:
+              </p>
+              <ul style={{ margin: "0 0 16px", paddingLeft: "20px", fontSize: "14px", lineHeight: "1.8" }}>
+                {campaignSummary.cancelable > 0 && (
+                  <li>
+                    Tự động hủy{" "}
+                    <strong>{campaignSummary.cancelable} đơn chưa cọc</strong>
+                  </li>
+                )}
+                {campaignSummary.with_deposit > 0 && (
+                  <li>
+                    <strong style={{ color: "#dc3545" }}>
+                      {campaignSummary.with_deposit} đơn đã cọc
+                    </strong>{" "}
+                    — cần liên hệ hoàn tiền thủ công
+                  </li>
+                )}
+                {campaignSummary.arrived > 0 && (
+                  <li>{campaignSummary.arrived} đơn "Hàng về" giữ nguyên</li>
+                )}
+              </ul>
+              <p style={{ margin: "0 0 20px", fontSize: "13px", color: "#888" }}>
+                Hành động này <strong>không thể hoàn tác</strong>. Tiếp tục?
+              </p>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                <button
+                  onClick={() => setConfirmDaBanOpen(false)}
+                  style={{
+                    padding: "8px 18px",
+                    border: "1px solid #ddd",
+                    borderRadius: "8px",
+                    background: "white",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                  }}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  disabled={saveMutation.isPending}
+                  onClick={() => {
+                    setConfirmDaBanOpen(false);
+                    void saveCurrentItem(false, true);
+                  }}
+                  style={{
+                    padding: "8px 18px",
+                    border: "none",
+                    borderRadius: "8px",
+                    background: "#dc3545",
+                    color: "white",
+                    cursor: saveMutation.isPending ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    opacity: saveMutation.isPending ? 0.6 : 1,
+                  }}
+                >
+                  Xác nhận chuyển Đã bán
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="product-stepper">
           {PRODUCT_STEPS.map((step) => {
             const disabled = isNewItem && step.id > 1;
@@ -1973,12 +2156,58 @@ export const ItemDetailPage = () => {
                 { value: "con_hang", label: "Còn hàng", minWidth: "70px" },
                 { value: "giu_cho", label: "Giữ chỗ", minWidth: "70px" },
                 { value: "da_ban", label: "Đã bán", minWidth: "70px" },
+                { value: "preorder", label: "Pre-order", minWidth: "70px" },
               ]}
-              value={status as "con_hang" | "giu_cho" | "da_ban"}
+              value={status as ItemStatus}
               onChange={(next) => setStatus(next)}
               mobile={isMobile}
               fullWidthOnMobile
             />
+            {hasCampaignOrders && campaignSummary && (
+              <div
+                style={{
+                  marginTop: "8px",
+                  padding: "8px 12px",
+                  background: "#f0f7ff",
+                  border: "1px solid #b6d4fe",
+                  borderRadius: "6px",
+                  fontSize: "13px",
+                  color: "#084298",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span style={{ marginRight: "4px" }}>📋 Chiến dịch:</span>
+                {campaignSummary.pending > 0 && (
+                  <Link
+                    to={`/admin/preorders?item_id=${encodeURIComponent(id!)}&status=PENDING_CONFIRMATION`}
+                    style={{ color: "#084298", fontWeight: 600, textDecoration: "none" }}
+                  >
+                    {campaignSummary.pending} chờ xác nhận
+                  </Link>
+                )}
+                {campaignSummary.pending > 0 && campaignSummary.waiting > 0 && <span> · </span>}
+                {campaignSummary.waiting > 0 && (
+                  <Link
+                    to={`/admin/preorders?item_id=${encodeURIComponent(id!)}&status=WAITING_FOR_GOODS`}
+                    style={{ color: "#084298", fontWeight: 600, textDecoration: "none" }}
+                  >
+                    {campaignSummary.waiting} chờ hàng
+                  </Link>
+                )}
+                {(campaignSummary.pending > 0 || campaignSummary.waiting > 0) && campaignSummary.arrived > 0 && <span> · </span>}
+                {campaignSummary.arrived > 0 && (
+                  <Link
+                    to={`/admin/preorders?item_id=${encodeURIComponent(id!)}&status=ARRIVED`}
+                    style={{ color: "#084298", fontWeight: 600, textDecoration: "none" }}
+                  >
+                    {campaignSummary.arrived} hàng về
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
           <div style={{ marginBottom: "16px" }}>
             <label

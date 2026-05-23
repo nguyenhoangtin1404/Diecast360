@@ -212,7 +212,7 @@ Cấu trúc bài viết:
       itemData.push(`Tình trạng: ${conditionText}`);
     }
     if (item.status) {
-      const statusText = item.status === 'con_hang' ? 'Còn hàng' : item.status === 'giu_cho' ? 'Giữ chỗ' : 'Đã bán';
+      const statusText = item.status === 'con_hang' ? 'Còn hàng' : item.status === 'giu_cho' ? 'Giữ chỗ' : item.status === 'preorder' ? 'Pre-order' : 'Đã bán';
       itemData.push(`Trạng thái: ${statusText}`);
     }
     if (item.price != null) {

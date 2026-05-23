@@ -17,7 +17,7 @@ export class QueryItemsDto {
   page_size?: number = 20;
 
   @IsOptional()
-  @IsIn(['con_hang', 'giu_cho', 'da_ban'])
+  @IsIn(['con_hang', 'giu_cho', 'da_ban', 'preorder'])
   status?: ItemStatus;
 
   @IsOptional()

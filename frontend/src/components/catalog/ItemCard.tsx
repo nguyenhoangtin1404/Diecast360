@@ -18,7 +18,7 @@ interface ItemCardProps {
 
 export const ItemCard = ({ item, index = 0, shopSearch = '' }: ItemCardProps) => {
   const statusText =
-    item.status === 'con_hang' ? 'Còn hàng' : item.status === 'giu_cho' ? 'Giữ chỗ' : 'Đã bán';
+    item.status === 'con_hang' ? 'Còn hàng' : item.status === 'giu_cho' ? 'Giữ chỗ' : item.status === 'preorder' ? 'Pre-order' : 'Đã bán';
 
   const conditionText = item.condition === 'new' ? 'Mới' : item.condition === 'old' ? 'Cũ' : null;
 

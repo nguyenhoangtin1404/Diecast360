@@ -72,6 +72,16 @@ export class PreordersController {
     return this.preordersService.getAdminSummary(tenantId);
   }
 
+  @Get('admin/campaigns/:itemId/summary')
+  @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+  @Roles(ShopRole.shop_admin, ShopRole.shop_staff)
+  getCampaignItemSummary(
+    @Param('itemId') itemId: string,
+    @CurrentTenantId() tenantId: string,
+  ) {
+    return this.preordersService.getCampaignItemSummary(itemId, tenantId);
+  }
+
   @Get('admin/campaigns/:itemId/participants')
   @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
   @Roles(ShopRole.shop_admin, ShopRole.shop_staff)

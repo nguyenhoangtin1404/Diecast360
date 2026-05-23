@@ -9,7 +9,7 @@
 ### Item
 - Mẫu xe diecast thuộc một shop; thuộc tính chính: `id (uuid)`, `shop_id`, `name`, `description`, `scale` (mặc định "1:64"), `brand` (tùy chọn), `car_brand`, `model_brand`, `condition`, `price`, `original_price`, `status`, `quantity`, `attributes`, `notes`, `is_public`, `fb_post_content` (nội dung bài FB), `qr_token` (token QR định danh; NULL cho đến khi admin tạo mã QR lần đầu), `created_at`, `updated_at`, `deleted_at` (soft delete).
 - Quan hệ: nhiều `ItemImage`, nhiều `SpinSet`; duy nhất 1 `SpinSet` được gắn cờ `is_default`.
-- Giá trị trạng thái: `con_hang`, `giu_cho`, `da_ban` (lưu ý khi hiển thị catalog/sao chép caption).
+- Giá trị trạng thái: `con_hang`, `giu_cho`, `da_ban`, `preorder` (item đang trong giai đoạn pre-order, chưa về hàng; hiển thị trên trang `/preorders` công khai) (lưu ý khi hiển thị catalog/sao chép caption).
 - Ảnh cover lấy từ `ItemImage.is_cover = true`, fallback ảnh đầu tiên theo `display_order`.
 
 ### ItemImage
@@ -77,9 +77,14 @@
 - Ảnh thường:
   - Upload nhiều ảnh; có thể đổi cover và sắp xếp thứ tự.
   - Xóa ảnh phải cập nhật cover nếu ảnh cover bị xóa (chọn ảnh đầu tiên còn lại).
-- Public catalog: chỉ hiển thị item `is_public = true` và chưa bị soft delete; trạng thái hiển thị nguyên giá trị (`con_hang/giu_cho/da_ban`). Production yêu cầu `shop_id` hoặc JWT có active shop để tránh aggregate nhiều shop.
+- Public catalog: chỉ hiển thị item `is_public = true` và chưa bị soft delete; trạng thái hiển thị nguyên giá trị (`con_hang/giu_cho/da_ban/preorder`). Production yêu cầu `shop_id` hoặc JWT có active shop để tránh aggregate nhiều shop.
 - Social selling: UI cần cung cấp thao tác copy caption/link dựa trên dữ liệu item (không thay đổi dữ liệu gốc).
 - Pre-order: lifecycle phải đi qua state machine; không cập nhật trạng thái tùy ý.
+- Item status transition rules: `con_hang`/`giu_cho` → `preorder`/`da_ban`/nhau (được phép); `da_ban` → `con_hang` (nhập lại hàng, server tự set quantity=1 nếu không gửi); `da_ban` → `preorder`/`giu_cho` không được phép; `preorder` → `con_hang` (hàng về, tự động cập nhật các đơn `WAITING_FOR_GOODS → ARRIVED`); `preorder` → `da_ban` (nhà cung cấp hủy mẫu, đặt quantity=0). Quantity không bị ép về 0 khi chuyển sang `preorder`. Inventory transactions được phép trên item `preorder`.
+- Item status transition decisions:
+  - `PENDING_CONFIRMATION` khi `preorder → con_hang`: **không** tự động advance. Lý do: đơn chưa được shop xác nhận nên admin phải xem xét thủ công. Response trả `preorders_pending_count` để UI cảnh báo.
+  - Đơn đã cọc (`paid_amount > 0`) khi `preorder → da_ban`: **không** tự động hủy. Lý do: đã thu tiền khách, phải liên hệ hoàn tiền thủ công. Nếu sau đó admin làm `da_ban → con_hang`, các đơn này giữ nguyên trạng thái.
+  - `giu_cho → preorder`: được phép. Admin có thể mở campaign cho item đang reserved. Không có guard tự động — admin tự kiểm tra holds trước khi chuyển.
 - Member points: mọi thay đổi điểm phải đi qua ledger để có audit trail.
 - QR code:
   - Token chỉ được tạo nếu item thuộc về tenant đang request (TenantGuard enforcement).

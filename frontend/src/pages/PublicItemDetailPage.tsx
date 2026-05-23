@@ -260,13 +260,17 @@ export const PublicItemDetailPage = () => {
                         ? "#d4edda"
                         : item.status === "giu_cho"
                           ? "#fff3cd"
-                          : "#f8d7da",
+                          : item.status === "preorder"
+                            ? "#cfe2ff"
+                            : "#f8d7da",
                     color:
                       item.status === "con_hang"
                         ? "#155724"
                         : item.status === "giu_cho"
                           ? "#856404"
-                          : "#721c24",
+                          : item.status === "preorder"
+                            ? "#084298"
+                            : "#721c24",
                     borderRadius: "6px",
                     fontSize: "14px",
                     fontWeight: "600",
@@ -276,7 +280,9 @@ export const PublicItemDetailPage = () => {
                     ? "Còn hàng"
                     : item.status === "giu_cho"
                       ? "Giữ chỗ"
-                      : "Đã bán"}
+                      : item.status === "preorder"
+                        ? "Pre-order"
+                        : "Đã bán"}
                 </span>
               </div>
 
