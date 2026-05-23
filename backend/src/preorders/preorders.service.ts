@@ -637,4 +637,52 @@ export class PreordersService {
       },
     };
   }
+
+  async getCampaignItemSummary(itemId: string, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
+
+    const activeStatuses = [
+      PreOrderStatus.PENDING_CONFIRMATION,
+      PreOrderStatus.WAITING_FOR_GOODS,
+      PreOrderStatus.ARRIVED,
+    ] as const;
+
+    const [grouped, cancelableCount, withDepositCount] = await Promise.all([
+      this.prisma.preOrder.groupBy({
+        by: ['status'],
+        where: { shop_id: shopId, item_id: itemId, status: { in: [...activeStatuses] } },
+        _count: { _all: true },
+      }),
+      this.prisma.preOrder.count({
+        where: {
+          shop_id: shopId,
+          item_id: itemId,
+          status: { in: [PreOrderStatus.PENDING_CONFIRMATION, PreOrderStatus.WAITING_FOR_GOODS] },
+          paid_amount: { equals: 0 },
+        },
+      }),
+      this.prisma.preOrder.count({
+        where: {
+          shop_id: shopId,
+          item_id: itemId,
+          status: { in: [PreOrderStatus.PENDING_CONFIRMATION, PreOrderStatus.WAITING_FOR_GOODS] },
+          paid_amount: { gt: 0 },
+        },
+      }),
+    ]);
+
+    const counts = { pending: 0, waiting: 0, arrived: 0 };
+    for (const row of grouped) {
+      if (row.status === PreOrderStatus.PENDING_CONFIRMATION) counts.pending = row._count._all;
+      if (row.status === PreOrderStatus.WAITING_FOR_GOODS) counts.waiting = row._count._all;
+      if (row.status === PreOrderStatus.ARRIVED) counts.arrived = row._count._all;
+    }
+
+    return {
+      ...counts,
+      total: counts.pending + counts.waiting + counts.arrived,
+      cancelable: cancelableCount,
+      with_deposit: withDepositCount,
+    };
+  }
 }

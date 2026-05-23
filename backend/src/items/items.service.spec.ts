@@ -1266,6 +1266,61 @@ describe('ItemsService', () => {
       expect(result.preorders_auto_cancelled_count).toBe(2);
       expect(result.preorders_with_deposit_count).toBe(1);
     });
+
+    it('should propagate error if preOrder.updateMany throws inside transaction on preorder → con_hang', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder' });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'con_hang', quantity: 1 });
+      prisma.preOrder.updateMany.mockRejectedValue(new Error('DB connection lost'));
+
+      await expect(
+        service.update('item-123', { status: 'con_hang' }, TEST_SHOP_ID),
+      ).rejects.toThrow('DB connection lost');
+    });
+
+    it('should use equals:0 filter — not lte — when auto-cancelling on preorder → da_ban', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder', quantity: 5 });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
+      prisma.preOrder.updateMany.mockResolvedValue({ count: 1 });
+      prisma.preOrder.count.mockResolvedValue(0);
+
+      await service.update('item-123', { status: 'da_ban' }, TEST_SHOP_ID);
+
+      expect(prisma.preOrder.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ paid_amount: { equals: 0 } }),
+        }),
+      );
+    });
+
+    it('should cancel PENDING_CONFIRMATION-only orders on preorder → da_ban', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder', quantity: 5 });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
+      prisma.preOrder.updateMany.mockResolvedValue({ count: 1 });
+      prisma.preOrder.count.mockResolvedValue(0);
+
+      const result = await service.update('item-123', { status: 'da_ban' }, TEST_SHOP_ID);
+
+      expect(prisma.preOrder.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: { in: ['PENDING_CONFIRMATION', 'WAITING_FOR_GOODS'] },
+          }),
+        }),
+      );
+      expect(result.preorders_auto_cancelled_count).toBe(1);
+    });
+
+    it('should return preorders_arrived_count=0 and preorders_pending_count=0 when no active preorders on preorder → con_hang', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder', quantity: 0 });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'con_hang', quantity: 1 });
+      prisma.preOrder.updateMany.mockResolvedValue({ count: 0 });
+      prisma.preOrder.count.mockResolvedValue(0);
+
+      const result = await service.update('item-123', { status: 'con_hang' }, TEST_SHOP_ID);
+
+      expect(result.preorders_arrived_count).toBe(0);
+      expect(result.preorders_pending_count).toBe(0);
+    });
   });
 
   // ============================================================

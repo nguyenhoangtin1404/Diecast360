@@ -619,6 +619,7 @@ Condition: ${item.condition || ''}`;
     }
 
     let preordersArrivedCount = 0;
+    let preordersPendingCount = 0;
     let preordersAutoCancelledCount = 0;
     let preordersWithDepositCount = 0;
 
@@ -634,6 +635,10 @@ Condition: ${item.condition || ''}`;
           data: { status: PreOrderStatus.ARRIVED },
         });
         preordersArrivedCount = result.count;
+
+        preordersPendingCount = await tx.preOrder.count({
+          where: { item_id: id, shop_id: shopId, status: PreOrderStatus.PENDING_CONFIRMATION },
+        });
       }
 
       if (existingItem.status === 'preorder' && nextStatus === 'da_ban') {
@@ -642,7 +647,7 @@ Condition: ${item.condition || ''}`;
             item_id: id,
             shop_id: shopId,
             status: { in: [PreOrderStatus.PENDING_CONFIRMATION, PreOrderStatus.WAITING_FOR_GOODS] },
-            paid_amount: { lte: 0 },
+            paid_amount: { equals: 0 },
           },
           data: { status: PreOrderStatus.CANCELLED, cancelled_at: new Date() },
         });
@@ -667,6 +672,7 @@ Condition: ${item.condition || ''}`;
     return {
       item,
       preorders_arrived_count: preordersArrivedCount,
+      preorders_pending_count: preordersPendingCount,
       preorders_auto_cancelled_count: preordersAutoCancelledCount,
       preorders_with_deposit_count: preordersWithDepositCount,
     };

@@ -404,3 +404,201 @@ describe('Pre-order auto-trigger toasts', () => {
     );
   });
 });
+
+function createPreorderItemData() {
+  return {
+    item: {
+      id: '1',
+      name: 'Ferrari F40',
+      description: '',
+      status: 'preorder',
+      is_public: false,
+      condition: 'new',
+      scale: '1:64',
+      brand: 'MiniGT',
+      price: 1000000,
+      original_price: 1200000,
+    },
+    images: [],
+    spin_sets: [],
+    facebook_posts: [],
+  };
+}
+
+function mockGetWithSummary(summary: {
+  pending: number; waiting: number; arrived: number;
+  total: number; cancelable: number; with_deposit: number;
+}) {
+  h.apiClient.get.mockImplementation(async (...args: unknown[]) => {
+    const urlStr = typeof args[0] === 'string' ? args[0] : '';
+    if (urlStr.includes('/campaigns/') && urlStr.includes('/summary')) {
+      return { data: summary };
+    }
+    if (urlStr.startsWith('/items/')) {
+      return { data: createPreorderItemData() };
+    }
+    if (urlStr.startsWith('/categories?type=')) {
+      return { data: { categories: [] } };
+    }
+    return { data: {} };
+  });
+}
+
+describe('Campaign widget', () => {
+  afterEach(() => { cleanup(); });
+
+  beforeEach(() => {
+    h.params = { id: '1' };
+    h.search = '';
+    h.mockNavigate.mockReset();
+    h.mockShowToast.mockReset();
+    h.apiClient.patch.mockReset();
+    h.apiClient.post.mockReset();
+  });
+
+  it('renders campaign widget with correct counts when item is preorder', async () => {
+    mockGetWithSummary({ pending: 2, waiting: 1, arrived: 0, total: 3, cancelable: 1, with_deposit: 1 });
+
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ItemDetailPage />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/2 chờ xác nhận/i)).toBeTruthy();
+      expect(screen.getByText(/1 chờ hàng/i)).toBeTruthy();
+    });
+  });
+
+  it('does not render campaign widget when all counts are zero', async () => {
+    mockGetWithSummary({ pending: 0, waiting: 0, arrived: 0, total: 0, cancelable: 0, with_deposit: 0 });
+
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ItemDetailPage />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect((screen.getAllByRole('textbox')[0] as HTMLInputElement).value).toBe('Ferrari F40');
+    });
+
+    expect(screen.queryByText(/📋 Chiến dịch/)).toBeNull();
+  });
+
+  it('campaign widget count links point to filtered preorders URL', async () => {
+    mockGetWithSummary({ pending: 2, waiting: 0, arrived: 0, total: 2, cancelable: 2, with_deposit: 0 });
+
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ItemDetailPage />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      const link = screen.getByText(/2 chờ xác nhận/i).closest('a');
+      expect(link).toBeTruthy();
+      expect((link as HTMLAnchorElement).href).toContain('status=PENDING_CONFIRMATION');
+      expect((link as HTMLAnchorElement).href).toContain('item_id=1');
+    });
+  });
+});
+
+describe('Confirmation modal — preorder → da_ban', () => {
+  afterEach(() => { cleanup(); });
+
+  beforeEach(() => {
+    h.params = { id: '1' };
+    h.search = '';
+    h.mockNavigate.mockReset();
+    h.mockShowToast.mockReset();
+    h.apiClient.patch.mockReset();
+    h.apiClient.post.mockReset();
+    mockGetWithSummary({ pending: 1, waiting: 1, arrived: 0, total: 2, cancelable: 2, with_deposit: 0 });
+  });
+
+  it('shows confirmation modal when transitioning preorder → da_ban with active orders', async () => {
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ItemDetailPage />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: 'Pre-order' })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Đã bán' }));
+    fireEvent.click(screen.getAllByRole('button', { name: /Hình ảnh/i })[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Xác nhận chuyển sang "Đã bán"/i)).toBeTruthy();
+    });
+
+    expect(h.apiClient.patch).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call patch when modal is dismissed', async () => {
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ItemDetailPage />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: 'Pre-order' })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Đã bán' }));
+    fireEvent.click(screen.getAllByRole('button', { name: /Hình ảnh/i })[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Hủy bỏ/i)).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByText(/Hủy bỏ/i));
+
+    expect(h.apiClient.patch).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Xác nhận chuyển sang "Đã bán"/i)).toBeNull();
+  });
+
+  it('calls patch after confirming modal', async () => {
+    h.apiClient.patch.mockResolvedValueOnce({
+      ok: true,
+      data: { item: { id: '1' }, preorders_auto_cancelled_count: 2, preorders_with_deposit_count: 0 },
+    });
+
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ItemDetailPage />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: 'Pre-order' })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Đã bán' }));
+    fireEvent.click(screen.getAllByRole('button', { name: /Hình ảnh/i })[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Xác nhận chuyển Đã bán/i)).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByText(/Xác nhận chuyển Đã bán/i));
+
+    await waitFor(() => {
+      expect(h.apiClient.patch).toHaveBeenCalledWith(
+        '/items/1',
+        expect.objectContaining({ status: 'da_ban' }),
+      );
+    });
+  });
+});

@@ -81,6 +81,10 @@
 - Social selling: UI cần cung cấp thao tác copy caption/link dựa trên dữ liệu item (không thay đổi dữ liệu gốc).
 - Pre-order: lifecycle phải đi qua state machine; không cập nhật trạng thái tùy ý.
 - Item status transition rules: `con_hang`/`giu_cho` → `preorder`/`da_ban`/nhau (được phép); `da_ban` → `con_hang` (nhập lại hàng, server tự set quantity=1 nếu không gửi); `da_ban` → `preorder`/`giu_cho` không được phép; `preorder` → `con_hang` (hàng về, tự động cập nhật các đơn `WAITING_FOR_GOODS → ARRIVED`); `preorder` → `da_ban` (nhà cung cấp hủy mẫu, đặt quantity=0). Quantity không bị ép về 0 khi chuyển sang `preorder`. Inventory transactions được phép trên item `preorder`.
+- Item status transition decisions:
+  - `PENDING_CONFIRMATION` khi `preorder → con_hang`: **không** tự động advance. Lý do: đơn chưa được shop xác nhận nên admin phải xem xét thủ công. Response trả `preorders_pending_count` để UI cảnh báo.
+  - Đơn đã cọc (`paid_amount > 0`) khi `preorder → da_ban`: **không** tự động hủy. Lý do: đã thu tiền khách, phải liên hệ hoàn tiền thủ công. Nếu sau đó admin làm `da_ban → con_hang`, các đơn này giữ nguyên trạng thái.
+  - `giu_cho → preorder`: được phép. Admin có thể mở campaign cho item đang reserved. Không có guard tự động — admin tự kiểm tra holds trước khi chuyển.
 - Member points: mọi thay đổi điểm phải đi qua ledger để có audit trail.
 - QR code:
   - Token chỉ được tạo nếu item thuộc về tenant đang request (TenantGuard enforcement).
