@@ -15,7 +15,7 @@ import { CategoryQuickManage } from "../../components/admin/CategoryQuickManage"
 import { InventoryTimeline } from "../../components/admin/InventoryTimeline";
 import type { CategoryItem, ApiResponse } from "../../types/category";
 import { showToast } from "../../utils/toast";
-import type { FacebookPost } from "../../types/item.types";
+import type { FacebookPost, ItemStatus } from "../../types/item.types";
 import {
   jumpToStepWithAutoSave,
   navigateStepWithAutoSave,
@@ -179,7 +179,7 @@ interface SpinSet {
 interface ItemData {
   name: string;
   description?: string;
-  status?: "con_hang" | "giu_cho" | "da_ban" | "preorder";
+  status?: ItemStatus;
   is_public?: boolean;
   car_brand?: string;
   model_brand?: string;
@@ -739,7 +739,7 @@ export const ItemDetailPage = () => {
     const itemData: ItemData = {
       name,
       description,
-      status: status as "con_hang" | "giu_cho" | "da_ban" | "preorder",
+      status: status as ItemStatus,
       is_public: isPublic,
     };
 
@@ -2006,7 +2006,7 @@ export const ItemDetailPage = () => {
                 { value: "da_ban", label: "Đã bán", minWidth: "70px" },
                 { value: "preorder", label: "Pre-order", minWidth: "70px" },
               ]}
-              value={status as "con_hang" | "giu_cho" | "da_ban" | "preorder"}
+              value={status as ItemStatus}
               onChange={(next) => setStatus(next)}
               mobile={isMobile}
               fullWidthOnMobile

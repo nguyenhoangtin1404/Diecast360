@@ -15,6 +15,7 @@ describe('ItemsService', () => {
   let service: ItemsService;
   let prisma: {
     item: Record<string, jest.Mock>;
+    preOrder: Record<string, jest.Mock>;
     category: Record<string, jest.Mock>;
     aiItemDraft: Record<string, jest.Mock>;
     itemImage: Record<string, jest.Mock>;
@@ -91,6 +92,9 @@ describe('ItemsService', () => {
         findFirst: jest.fn(),
         findMany: jest.fn(),
         count: jest.fn(),
+      },
+      preOrder: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       category: {
         findFirst: jest.fn(),
@@ -1120,16 +1124,6 @@ describe('ItemsService', () => {
       });
     });
 
-    it('should reject transition from preorder to da_ban', async () => {
-      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder' });
-
-      await expect(
-        service.update('item-123', { status: 'da_ban' }, TEST_SHOP_ID),
-      ).rejects.toMatchObject({
-        errorCode: ErrorCode.ITEM_STATUS_TRANSITION_INVALID,
-      });
-    });
-
     it('should reject transition from preorder to giu_cho', async () => {
       prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder' });
 
@@ -1181,6 +1175,41 @@ describe('ItemsService', () => {
         where: { id: 'item-123' },
         data: expect.objectContaining({ quantity: 10 }),
       });
+    });
+
+    it('should allow transition from preorder to da_ban (supplier cancelled)', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder', quantity: 5 });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'da_ban', quantity: 0 });
+
+      const result = await service.update('item-123', { status: 'da_ban' }, TEST_SHOP_ID);
+
+      expect(result.item.status).toBe('da_ban');
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: expect.objectContaining({ status: 'da_ban', quantity: 0 }),
+      });
+    });
+
+    it('should trigger WAITING_FOR_GOODS → ARRIVED on preorder items when transitioning to con_hang', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder', quantity: 0 });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'con_hang', quantity: 1 });
+      prisma.preOrder.updateMany.mockResolvedValue({ count: 2 });
+
+      await service.update('item-123', { status: 'con_hang' }, TEST_SHOP_ID);
+
+      expect(prisma.preOrder.updateMany).toHaveBeenCalledWith({
+        where: { item_id: 'item-123', shop_id: TEST_SHOP_ID, status: 'WAITING_FOR_GOODS' },
+        data: { status: 'ARRIVED' },
+      });
+    });
+
+    it('should not trigger preorder updateMany when transitioning between other statuses', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'giu_cho' });
+
+      await service.update('item-123', { status: 'giu_cho' }, TEST_SHOP_ID);
+
+      expect(prisma.preOrder.updateMany).not.toHaveBeenCalled();
     });
   });
 

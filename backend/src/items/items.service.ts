@@ -1,5 +1,5 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { Prisma, ItemStatus } from '../generated/prisma/client';
+import { Prisma, ItemStatus, PreOrderStatus } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { IStorageService } from '../storage/storage.interface';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
@@ -18,15 +18,12 @@ import type { ItemAttributesInput } from './dto/item-attributes.validator';
 import { CategoriesService } from '../categories/categories.service';
 import { normalizeCategoryBrandField } from '../common/utils/category-brand.utils';
 
-// Allowed status transitions. da_ban → con_hang permitted for re-stocking;
-// da_ban → preorder/giu_cho blocked (must re-stock first).
-// preorder → con_hang only (campaign ends, item arrives); self-transition required
-// so that other fields can be updated without changing status.
+// Self-transitions included so other fields can be edited without changing status.
 const ALLOWED_STATUS_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
   con_hang: ['con_hang', 'giu_cho', 'da_ban', 'preorder'],
   giu_cho: ['giu_cho', 'con_hang', 'da_ban', 'preorder'],
   da_ban: ['da_ban', 'con_hang'],
-  preorder: ['preorder', 'con_hang'],
+  preorder: ['preorder', 'con_hang', 'da_ban'],
 };
 
 function getInitialQuantityForStatus(status: ItemStatus): number {
@@ -591,7 +588,7 @@ Condition: ${item.condition || ''}`;
       updateData.quantity = resolveQuantityForStatus(nextStatus, updateDto.quantity);
     } else if (updateDto.status === 'da_ban' && existingItem.status !== 'da_ban') {
       updateData.quantity = 0;
-    } else if (nextStatus !== 'da_ban' && existingItem.status === 'da_ban') {
+    } else if (existingItem.status === 'da_ban' && nextStatus === 'con_hang') {
       updateData.quantity = 1;
     }
     if (updateDto.attributes !== undefined) {
@@ -616,9 +613,20 @@ Condition: ${item.condition || ''}`;
       );
     }
 
-    const item = await this.prisma.item.update({
-      where: { id },
-      data: updateData,
+    const item = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.item.update({
+        where: { id },
+        data: updateData,
+      });
+
+      if (existingItem.status === 'preorder' && nextStatus === 'con_hang') {
+        await tx.preOrder.updateMany({
+          where: { item_id: id, shop_id: shopId, status: PreOrderStatus.WAITING_FOR_GOODS },
+          data: { status: PreOrderStatus.ARRIVED },
+        });
+      }
+
+      return updated;
     });
 
     // Sync with vector store

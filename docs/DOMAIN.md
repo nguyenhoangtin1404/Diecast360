@@ -80,7 +80,7 @@
 - Public catalog: chỉ hiển thị item `is_public = true` và chưa bị soft delete; trạng thái hiển thị nguyên giá trị (`con_hang/giu_cho/da_ban/preorder`). Production yêu cầu `shop_id` hoặc JWT có active shop để tránh aggregate nhiều shop.
 - Social selling: UI cần cung cấp thao tác copy caption/link dựa trên dữ liệu item (không thay đổi dữ liệu gốc).
 - Pre-order: lifecycle phải đi qua state machine; không cập nhật trạng thái tùy ý.
-- Item status transition rules: `con_hang`/`giu_cho` → `preorder` (được phép); `da_ban` → `con_hang` (được phép, dùng khi nhập lại hàng từ seller khác); `da_ban` → `preorder`/`giu_cho` không được phép; `preorder` → `con_hang` (chỉ được chuyển về `con_hang`). Quantity không bị ép về 0 khi chuyển sang `preorder` (khác với `da_ban`). Inventory transactions được phép trên item `preorder`.
+- Item status transition rules: `con_hang`/`giu_cho` → `preorder`/`da_ban`/nhau (được phép); `da_ban` → `con_hang` (nhập lại hàng, server tự set quantity=1 nếu không gửi); `da_ban` → `preorder`/`giu_cho` không được phép; `preorder` → `con_hang` (hàng về, tự động cập nhật các đơn `WAITING_FOR_GOODS → ARRIVED`); `preorder` → `da_ban` (nhà cung cấp hủy mẫu, đặt quantity=0). Quantity không bị ép về 0 khi chuyển sang `preorder`. Inventory transactions được phép trên item `preorder`.
 - Member points: mọi thay đổi điểm phải đi qua ledger để có audit trail.
 - QR code:
   - Token chỉ được tạo nếu item thuộc về tenant đang request (TenantGuard enforcement).
