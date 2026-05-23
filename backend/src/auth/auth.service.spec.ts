@@ -121,13 +121,13 @@ describe('AuthService', () => {
       id: 'rt-1',
       token_hash: 'hash-value',
       expires_at: new Date(Date.now() + 86400000), // tomorrow
-      revoked_at: null,
+      revoked_at: new Date(), // already revoked by updateMany
       user: mockUser,
     };
 
     it('should rotate tokens and return new access + refresh tokens', async () => {
+      prisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
       prisma.refreshToken.findUnique.mockResolvedValue(mockRefreshTokenRecord);
-      prisma.refreshToken.update.mockResolvedValue({});
       prisma.refreshToken.create.mockResolvedValue({});
       prisma.userShopRole.findFirst.mockResolvedValue({ shop_id: 'shop-default' });
 
@@ -135,44 +135,39 @@ describe('AuthService', () => {
 
       expect(result.access_token).toBeDefined();
       expect(result.refresh_token).toBeDefined();
-      // Old token should be revoked
-      expect(prisma.refreshToken.update).toHaveBeenCalledWith({
-        where: { id: 'rt-1' },
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: {
+          token_hash: expect.any(String),
+          revoked_at: null,
+          expires_at: { gt: expect.any(Date) },
+        },
         data: { revoked_at: expect.any(Date) },
       });
     });
 
-    it('should throw if refresh token not found', async () => {
-      prisma.refreshToken.findUnique.mockResolvedValue(null);
+    it('should throw if refresh token not found or already revoked or expired', async () => {
+      prisma.refreshToken.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(
         service.refreshFromCookie('invalid-token'),
       ).rejects.toThrow(AppException);
     });
 
-    it('should throw if refresh token is expired', async () => {
-      prisma.refreshToken.findUnique.mockResolvedValue({
-        ...mockRefreshTokenRecord,
-        expires_at: new Date(Date.now() - 86400000), // yesterday
-      });
+    it('should throw if second concurrent request races with the same token', async () => {
+      // First request wins (count=1); second request loses (count=0) — atomic guarantee
+      prisma.refreshToken.updateMany
+        .mockResolvedValueOnce({ count: 1 })  // first caller wins
+        .mockResolvedValueOnce({ count: 0 }); // second caller rejected
+      prisma.refreshToken.findUnique.mockResolvedValue(mockRefreshTokenRecord);
+      prisma.refreshToken.create.mockResolvedValue({});
+      prisma.userShopRole.findFirst.mockResolvedValue({ shop_id: 'shop-default' });
 
-      await expect(
-        service.refreshFromCookie('expired-token'),
-      ).rejects.toThrow(AppException);
-    });
-
-    it('should throw if refresh token is revoked', async () => {
-      prisma.refreshToken.findUnique.mockResolvedValue({
-        ...mockRefreshTokenRecord,
-        revoked_at: new Date(),
-      });
-
-      await expect(
-        service.refreshFromCookie('revoked-token'),
-      ).rejects.toThrow(AppException);
+      await expect(service.refreshFromCookie('token-A')).resolves.toBeDefined();
+      await expect(service.refreshFromCookie('token-A')).rejects.toThrow(AppException);
     });
 
     it('should throw if user is inactive', async () => {
+      prisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
       prisma.refreshToken.findUnique.mockResolvedValue({
         ...mockRefreshTokenRecord,
         user: { ...mockUser, is_active: false },

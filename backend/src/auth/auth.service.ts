@@ -66,29 +66,27 @@ export class AuthService {
    */
   async refreshFromCookie(refreshToken: string, priorAccessToken?: string | null) {
     const tokenHash = this.hashToken(refreshToken);
-    
+
+    // Atomic revocation: only one concurrent request with the same token can win.
+    // updateMany with revoked_at: null ensures a second concurrent call gets count=0
+    // and is rejected, preventing token rotation bypass via race condition.
+    const revoked = await this.prisma.refreshToken.updateMany({
+      where: { token_hash: tokenHash, revoked_at: null, expires_at: { gt: new Date() } },
+      data: { revoked_at: new Date() },
+    });
+
+    if (revoked.count === 0) {
+      throw new AppException(ErrorCode.AUTH_TOKEN_EXPIRED, 'Invalid or expired refresh token');
+    }
+
     const refreshTokenRecord = await this.prisma.refreshToken.findUnique({
       where: { token_hash: tokenHash },
       include: { user: true },
     });
 
-    if (!refreshTokenRecord) {
-      throw new AppException(ErrorCode.AUTH_TOKEN_EXPIRED, 'Invalid refresh token');
-    }
-
-    if (refreshTokenRecord.revoked_at || refreshTokenRecord.expires_at < new Date()) {
-      throw new AppException(ErrorCode.AUTH_TOKEN_EXPIRED, 'Refresh token expired');
-    }
-
-    if (!refreshTokenRecord.user.is_active) {
+    if (!refreshTokenRecord || !refreshTokenRecord.user.is_active) {
       throw new AppException(ErrorCode.AUTH_FORBIDDEN, 'User is inactive');
     }
-
-    // Revoke old token (token rotation for security)
-    await this.prisma.refreshToken.update({
-      where: { id: refreshTokenRecord.id },
-      data: { revoked_at: new Date() },
-    });
 
     const userId = refreshTokenRecord.user.id;
     let shopId = this.parseActiveShopFromAccessJwt(priorAccessToken);
