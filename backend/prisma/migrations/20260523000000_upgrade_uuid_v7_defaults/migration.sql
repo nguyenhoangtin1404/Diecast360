@@ -1,0 +1,4 @@
+-- UUID v4 → v7: no SQL changes required.
+-- Prisma generates UUIDs at the application layer (client-side), not via a
+-- database DEFAULT expression. Changing uuid() to uuid(7) in schema.prisma
+-- only affects the Prisma Client generator — existing rows are unaffected.
