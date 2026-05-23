@@ -15,7 +15,8 @@ import { CategoryQuickManage } from "../../components/admin/CategoryQuickManage"
 import { InventoryTimeline } from "../../components/admin/InventoryTimeline";
 import type { CategoryItem, ApiResponse } from "../../types/category";
 import { showToast } from "../../utils/toast";
-import type { FacebookPost, ItemStatus } from "../../types/item.types";
+import type { FacebookPost } from "../../types/item.types";
+import type { ItemStatus } from "../../constants/item";
 import {
   jumpToStepWithAutoSave,
   navigateStepWithAutoSave,
