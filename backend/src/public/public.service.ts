@@ -145,6 +145,14 @@ export class PublicService {
       where.condition = queryDto.condition;
     }
 
+    if (queryDto.preorder_open === true) {
+      where.status = 'preorder';
+      where.OR = [
+        { preorder_closes_at: null },
+        { preorder_closes_at: { gt: new Date() } },
+      ];
+    }
+
     // Build deterministic orderBy (stable pagination when values tie)
     const sortBy: 'name' | 'price' | 'created_at' = queryDto.sort_by ?? 'created_at';
     const sortOrder: Prisma.SortOrder = queryDto.sort_order ?? 'desc';
@@ -212,6 +220,7 @@ export class PublicService {
             ? await this.storage.getFileUrl(coverImage.file_path)
             : null,
           has_spinner: Boolean(defaultSpinSet && defaultSpinSet.frames.length > 0),
+          preorder_closes_at: item.preorder_closes_at ?? null,
           created_at: item.created_at,
           updated_at: item.updated_at,
         };

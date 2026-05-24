@@ -209,6 +209,7 @@ interface ItemData {
   original_price?: number;
   quantity?: number;
   attributes?: Record<string, string | number | boolean | null>;
+  preorder_closes_at?: string | null;
 }
 
 interface ItemResponse {
@@ -397,6 +398,8 @@ export const ItemDetailPage = () => {
   const [attributeRows, setAttributeRows] = useState<AttributeRow[]>(() => [
     { id: newAttributeRowId(), key: "", value: "" },
   ]);
+  const [preorderClosesAt, setPreorderClosesAt] = useState<string>("");
+  const [preorderDays, setPreorderDays] = useState<string>("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [lastImageUploadFailed, setLastImageUploadFailed] = useState(false);
@@ -550,6 +553,17 @@ export const ItemDetailPage = () => {
         setScale(item.scale || "1:64");
         setBrand(item.brand || "");
         setFbPostContent(item.fb_post_content || "");
+        const closesAt = (item as { preorder_closes_at?: string | null }).preorder_closes_at;
+        if (closesAt) {
+          // datetime-local expects "YYYY-MM-DDTHH:mm"
+          setPreorderClosesAt(closesAt.slice(0, 16));
+          const diffMs = new Date(closesAt).getTime() - Date.now();
+          const diffDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+          setPreorderDays(String(diffDays));
+        } else {
+          setPreorderClosesAt("");
+          setPreorderDays("");
+        }
         const q = (item as { quantity?: unknown }).quantity;
         setQuantity(
           typeof q === "number" && Number.isFinite(q)
@@ -832,6 +846,14 @@ export const ItemDetailPage = () => {
     const attrs = buildAttributesPayload(attributeRows);
     if (attrs.ok) {
       itemData.attributes = attrs.value;
+    }
+
+    if (status === "preorder") {
+      itemData.preorder_closes_at = preorderClosesAt
+        ? new Date(preorderClosesAt).toISOString()
+        : null;
+    } else {
+      itemData.preorder_closes_at = null;
     }
 
     return itemData;
@@ -2210,6 +2232,158 @@ export const ItemDetailPage = () => {
               </div>
             )}
           </div>
+
+          {/* Preorder Window — only shown when status = preorder */}
+          {status === "preorder" && (
+            <div
+              style={{
+                marginBottom: "16px",
+                padding: "16px",
+                border: "1px solid #b6d4fe",
+                borderRadius: "10px",
+                background: "#f0f7ff",
+              }}
+            >
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "10px",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  color: "#084298",
+                }}
+              >
+                ⏳ Thời hạn đặt hàng pre-order
+              </label>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "140px 1fr",
+                  gap: "12px",
+                  alignItems: "end",
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "5px",
+                      fontSize: "13px",
+                      fontWeight: "500",
+                      color: "#1e3a5f",
+                    }}
+                  >
+                    Số ngày
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={preorderDays}
+                    onChange={(e) => {
+                      const days = e.target.value;
+                      setPreorderDays(days);
+                      const n = parseInt(days, 10);
+                      if (!isNaN(n) && n > 0) {
+                        const d = new Date();
+                        d.setDate(d.getDate() + n);
+                        d.setHours(23, 59, 0, 0);
+                        setPreorderClosesAt(d.toISOString().slice(0, 16));
+                      } else if (days === "") {
+                        setPreorderClosesAt("");
+                      }
+                    }}
+                    placeholder="VD: 14"
+                    style={{
+                      width: "100%",
+                      padding: "9px 10px",
+                      border: "1px solid #93c5fd",
+                      borderRadius: "8px",
+                      fontSize: "14px",
+                      outline: "none",
+                      background: "#fff",
+                      color: "#1a1a1a",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "#007bff";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "#93c5fd";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                  />
+                </div>
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "5px",
+                      fontSize: "13px",
+                      fontWeight: "500",
+                      color: "#1e3a5f",
+                    }}
+                  >
+                    Ngày / giờ đóng đặt hàng
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={preorderClosesAt}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPreorderClosesAt(val);
+                      if (val) {
+                        const diffMs = new Date(val).getTime() - Date.now();
+                        const diffDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+                        setPreorderDays(String(diffDays));
+                      } else {
+                        setPreorderDays("");
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "9px 10px",
+                      border: "1px solid #93c5fd",
+                      borderRadius: "8px",
+                      fontSize: "14px",
+                      outline: "none",
+                      background: "#fff",
+                      color: "#1a1a1a",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "#007bff";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "#93c5fd";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                  />
+                </div>
+              </div>
+              {preorderClosesAt && (
+                <button
+                  type="button"
+                  onClick={() => { setPreorderClosesAt(""); setPreorderDays(""); }}
+                  style={{
+                    marginTop: "8px",
+                    fontSize: "12px",
+                    color: "#6b7280",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                    textDecoration: "underline",
+                  }}
+                >
+                  Xóa thời hạn (mở vô thời hạn)
+                </button>
+              )}
+              <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "8px", marginBottom: 0 }}>
+                Để trống = pre-order mở không giới hạn thời gian.
+              </p>
+            </div>
+          )}
+
           <div style={{ marginBottom: "16px" }}>
             <label
               style={{

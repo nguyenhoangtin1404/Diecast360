@@ -24,6 +24,9 @@ export interface BaseItem {
   quantity?: number;
   /** Optional key-value metadata */
   attributes?: ItemAttributesPayload;
+  /** ISO-8601 datetime when the preorder window closes; null = open indefinitely */
+  preorder_closes_at?: string | null;
+  created_at?: string;
 }
 
 /**

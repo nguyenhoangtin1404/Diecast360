@@ -10,6 +10,7 @@ import {
   IsInt,
   ValidateIf,
   MaxLength,
+  IsISO8601,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ItemStatus } from '../../generated/prisma/client';
@@ -91,5 +92,9 @@ export class UpdateItemDto {
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
   fb_post_content?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  preorder_closes_at?: string | null;
 }
 

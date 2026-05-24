@@ -10,6 +10,7 @@ export interface CatalogUrlState {
   carBrand: string | null;
   modelBrand: string | null;
   condition: 'new' | 'old' | null;
+  preorderOpen: boolean;
   sortBy: CatalogSortBy;
   sortOrder: CatalogSortOrder;
 }
@@ -60,6 +61,7 @@ export const parseCatalogUrlState = (searchParams: URLSearchParams): CatalogUrlS
     carBrand: toNullable(searchParams.get('car_brand')),
     modelBrand: toNullable(searchParams.get('model_brand')),
     condition: parseCondition(searchParams.get('condition')),
+    preorderOpen: searchParams.get('preorder_open') === 'true',
     sortBy: parseSortBy(searchParams.get('sort_by')),
     sortOrder: parseSortOrder(searchParams.get('sort_order')),
   };
@@ -87,6 +89,10 @@ export const buildCatalogSearchParams = (state: CatalogUrlState): URLSearchParam
 
   if (state.condition) {
     params.set('condition', state.condition);
+  }
+
+  if (state.preorderOpen) {
+    params.set('preorder_open', 'true');
   }
 
   if (state.sortBy !== DEFAULT_SORT_BY) {

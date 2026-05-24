@@ -179,6 +179,7 @@ model Item {
   deleted_at     DateTime?
   notes          String?
   fb_post_content String?
+  preorder_closes_at DateTime?
   // Multi-tenant: shop_id is nullable for backward-compatible migration.
   // All new items must have a shop_id. Migration sets existing items to default shop.
   shop_id        String?
@@ -199,6 +200,7 @@ model Item {
   @@index([model_brand])
   @@index([condition])
   @@index([shop_id])
+  @@index([status, preorder_closes_at])
 }
 
 model InventoryTransaction {

@@ -16,12 +16,13 @@ import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 export const ItemsPage = () => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [preorderOpenFilter, setPreorderOpenFilter] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const queryClient = useQueryClient();
   const debouncedSearch = useDebounce(search, 500);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['items', page, debouncedSearch],
+    queryKey: ['items', page, debouncedSearch, preorderOpenFilter],
     queryFn: async () => {
       if (debouncedSearch && API_CONFIG.ADMIN_SEMANTIC_SEARCH_ENABLED) {
         const params = new URLSearchParams({ q: debouncedSearch });
@@ -36,6 +37,10 @@ export const ItemsPage = () => {
 
       if (debouncedSearch) {
         params.set('q', debouncedSearch);
+      }
+
+      if (preorderOpenFilter) {
+        params.set('preorder_open', 'true');
       }
 
       const response = await apiClient.get(`/items?${params.toString()}`) as ApiResponse<ItemsResponse>;
@@ -126,6 +131,26 @@ export const ItemsPage = () => {
           setPage(1);
         }}
       />
+
+      {/* Quick filter: preorder open */}
+      <div className="mb-4 flex flex-wrap gap-2 px-1">
+        <button
+          type="button"
+          onClick={() => {
+            setPreorderOpenFilter((prev) => !prev);
+            setPage(1);
+          }}
+          className={[
+            'inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2',
+            preorderOpenFilter
+              ? 'border-transparent bg-gradient-to-r from-shop to-shopAccent text-white shadow-corporate-btn'
+              : 'border-slate-200 bg-white text-slate-700 shadow-sm hover:border-shop/25 hover:bg-shop/5 hover:text-shop',
+          ].join(' ')}
+        >
+          <span>⏳</span>
+          Pre-order đang mở
+        </button>
+      </div>
 
       {/* Table */}
       <ItemsTable

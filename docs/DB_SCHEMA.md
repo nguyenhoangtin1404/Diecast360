@@ -104,10 +104,11 @@ Primary key: `(user_id, shop_id)`.
 | `is_public` | boolean | default `false` |
 | `notes` | text? | Internal notes |
 | `fb_post_content` | text? | Caption/content lưu cho social selling |
+| `preorder_closes_at` | datetime? | Nullable; thời điểm đóng nhận đặt pre-order. `NULL` = mở vô thời hạn. Service tự xóa khi `status` rời `preorder`. |
 | `qr_token` | text? | NULL, UNIQUE; token 16-ký tự hex tạo lazily khi admin gọi `GET /items/:id/qr` lần đầu |
 | `created_at`, `updated_at`, `deleted_at` | datetime | soft delete bằng `deleted_at` |
 
-Indexes: `status`, `created_at`, `deleted_at`, `car_brand`, `model_brand`, `condition`, `shop_id`, `qr_token` (UNIQUE).
+Indexes: `status`, `created_at`, `deleted_at`, `car_brand`, `model_brand`, `condition`, `shop_id`, `qr_token` (UNIQUE), `(status, preorder_closes_at)` (dùng cho filter `preorder_open`).
 
 ### item_images
 

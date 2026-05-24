@@ -251,6 +251,14 @@ Condition: ${item.condition || ''}`;
       where.facebook_posts = { none: {} };
     }
 
+    if (queryDto.preorder_open === true) {
+      where.status = 'preorder';
+      where.OR = [
+        { preorder_closes_at: null },
+        { preorder_closes_at: { gt: new Date() } },
+      ];
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.item.findMany({
         where,
@@ -452,6 +460,9 @@ Condition: ${item.condition || ''}`;
           attributes: toItemAttributesJson(createDto.attributes ?? {}),
           is_public: createDto.is_public || false,
           shop_id: shopId,
+          preorder_closes_at: initialStatus === 'preorder' && createDto.preorder_closes_at
+            ? new Date(createDto.preorder_closes_at)
+            : null,
         },
       });
 
@@ -601,6 +612,15 @@ Condition: ${item.condition || ''}`;
     }
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
     if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
+
+    // preorder_closes_at: set when explicitly provided; clear when status leaves preorder
+    if (updateDto.preorder_closes_at !== undefined) {
+      updateData.preorder_closes_at = updateDto.preorder_closes_at
+        ? new Date(updateDto.preorder_closes_at)
+        : null;
+    } else if (nextStatus !== 'preorder' && existingItem.status === 'preorder') {
+      updateData.preorder_closes_at = null;
+    }
 
     if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
       const nextCarBrand =
