@@ -26,12 +26,10 @@ interface ItemsTableProps {
   items: AdminItem[];
   onDelete: (id: string, name: string) => void;
   onTogglePublic: (id: string, isPublic: boolean) => void;
-  onClosePreorder: (id: string) => void;
-  onReopenPreorder: (id: string) => void;
+  onClosePreorder: (id: string) => Promise<void>;
+  onReopenPreorder: (id: string) => Promise<void>;
   isDeletePending: boolean;
   isTogglePublicPending: boolean;
-  isClosePreorderPending: boolean;
-  isReopenPreorderPending: boolean;
 }
 
 export const ItemsTable = ({
@@ -42,12 +40,34 @@ export const ItemsTable = ({
   onReopenPreorder,
   isDeletePending,
   isTogglePublicPending,
-  isClosePreorderPending,
-  isReopenPreorderPending,
 }: ItemsTableProps) => {
   const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [printingQrId, setPrintingQrId] = useState<string | null>(null);
+  const [closingPreorderId, setClosingPreorderId] = useState<string | null>(null);
+  const [reopeningPreorderId, setReopeningPreorderId] = useState<string | null>(null);
+
+  const handleClosePreorder = async (id: string) => {
+    setClosingPreorderId(id);
+    try {
+      await onClosePreorder(id);
+    } finally {
+      setClosingPreorderId(null);
+    }
+  };
+
+  const handleReopenPreorder = async (id: string) => {
+    const ok = window.confirm(
+      'Preorder sẽ được mở lại không có thời hạn.\nNhớ vào trang chỉnh sửa sản phẩm để đặt deadline mới.\n\nXác nhận mở lại?',
+    );
+    if (!ok) return;
+    setReopeningPreorderId(id);
+    try {
+      await onReopenPreorder(id);
+    } finally {
+      setReopeningPreorderId(null);
+    }
+  };
 
   const handlePrintQr = async (item: AdminItem) => {
     // Open the popup synchronously within the click gesture — before any await —
@@ -277,11 +297,11 @@ export const ItemsTable = ({
                   </button>
                   {isPreorderOpen(item) && (
                     <button
-                      onClick={() => onClosePreorder(item.id)}
+                      onClick={() => handleClosePreorder(item.id)}
                       title="Đóng preorder"
-                      disabled={isClosePreorderPending}
+                      disabled={closingPreorderId === item.id}
                       className={styles.iconButton}
-                      style={{ color: '#dc3545', opacity: isClosePreorderPending ? 0.5 : 1 }}
+                      style={{ color: '#dc3545', opacity: closingPreorderId === item.id ? 0.5 : 1 }}
                       aria-label={`Đóng preorder ${item.name}`}
                     >
                       <X size={18} />
@@ -289,11 +309,11 @@ export const ItemsTable = ({
                   )}
                   {isPreorderClosed(item) && (
                     <button
-                      onClick={() => onReopenPreorder(item.id)}
+                      onClick={() => handleReopenPreorder(item.id)}
                       title="Mở lại preorder"
-                      disabled={isReopenPreorderPending}
+                      disabled={reopeningPreorderId === item.id}
                       className={styles.iconButton}
-                      style={{ color: '#0d6efd', opacity: isReopenPreorderPending ? 0.5 : 1 }}
+                      style={{ color: '#0d6efd', opacity: reopeningPreorderId === item.id ? 0.5 : 1 }}
                       aria-label={`Mở lại preorder ${item.name}`}
                     >
                       <AlarmClock size={18} />

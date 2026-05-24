@@ -214,6 +214,7 @@ export class PublicService {
           condition: item.condition || null,
           price: toNumber(item.price),
           original_price: toNumber(item.original_price),
+          preorder_price: toNumber(item.preorder_price),
           status: item.status,
           is_public: item.is_public,
           cover_image_url: coverImage

@@ -111,6 +111,7 @@ export class ItemsController {
   // NOTE: Declared before `@Patch(':id')` — literal segments must come first.
   @Patch(':id/close-preorder')
   @HttpCode(HttpStatus.OK)
+  @Roles(ShopRole.shop_admin)
   closePreorder(
     @Param('id') id: string,
     @CurrentTenantId() tenantId: string,
@@ -120,6 +121,7 @@ export class ItemsController {
 
   @Patch(':id/reopen-preorder')
   @HttpCode(HttpStatus.OK)
+  @Roles(ShopRole.shop_admin)
   reopenPreorder(
     @Param('id') id: string,
     @CurrentTenantId() tenantId: string,

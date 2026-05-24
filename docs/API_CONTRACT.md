@@ -236,14 +236,14 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 - Response 200: `data: { item, preorders_arrived_count: number, preorders_pending_count: number, preorders_auto_cancelled_count: number, preorders_with_deposit_count: number }`. Các count field luôn có giá trị (0 nếu không có auto-trigger). `preorders_pending_count` là số đơn `PENDING_CONFIRMATION` còn lại sau khi `preorder → con_hang` (không bị auto-advance, cần xử lý thủ công).
 
 ### PATCH /api/v1/items/:id/close-preorder
-- Auth: JWT + active shop (shop_admin).
-- Đóng sớm cửa sổ preorder bằng cách set `preorder_closes_at = NOW()`.
+- Auth: JWT + active shop (**shop_admin only** — shop_staff bị từ chối 403).
+- Đóng sớm cửa sổ preorder bằng cách set `preorder_closes_at = NOW()`. Thao tác atomic (transaction).
 - Lỗi `VALIDATION_ERROR (422)` nếu item không phải `status = "preorder"` hoặc preorder đã đóng rồi.
 - Response 200: `data: { item }`.
 
 ### PATCH /api/v1/items/:id/reopen-preorder
-- Auth: JWT + active shop (shop_admin).
-- Mở lại preorder đã đóng bằng cách xóa `preorder_closes_at` (open-ended). Admin có thể đặt lại deadline qua PATCH thông thường.
+- Auth: JWT + active shop (**shop_admin only** — shop_staff bị từ chối 403).
+- Mở lại preorder đã đóng bằng cách xóa `preorder_closes_at` (open-ended). Admin có thể đặt lại deadline qua PATCH thông thường. Thao tác atomic (transaction).
 - Lỗi `VALIDATION_ERROR (422)` nếu item không phải `status = "preorder"` hoặc preorder chưa đóng.
 - Response 200: `data: { item }`.
 
@@ -507,7 +507,7 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 ## Public
 ### GET /api/v1/public/items
 - Query: `page`, `page_size`, `status` (optional), `q`, `car_brand`, `model_brand`, `condition=new|old`, `preorder_open=true` (optional — xem mô tả tương tự `GET /items`), `sort_by=name|price|created_at`, `sort_order=asc|desc`.
-- Response item shape gồm thêm `preorder_closes_at` (ISO-8601 hoặc `null`).
+- Response item shape gồm thêm `preorder_closes_at` (ISO-8601 hoặc `null`) và `preorder_price` (number hoặc `null`).
 - **`shop_id` (optional):** giới hạn catalog theo một shop. Giá trị hợp lệ:
   - UUID của `Shop.id`, hoặc
   - Chuỗi **khớp chính xác** `Shop.slug` (phân biệt hoa thường).

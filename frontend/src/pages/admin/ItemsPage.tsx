@@ -108,7 +108,7 @@ export const ItemsPage = () => {
     }
   };
 
-  const handleClosePreorder = async (id: string) => {
+  const handleClosePreorder = async (id: string): Promise<void> => {
     try {
       await closePreorderMutation.mutateAsync(id);
     } catch (error) {
@@ -117,7 +117,7 @@ export const ItemsPage = () => {
     }
   };
 
-  const handleReopenPreorder = async (id: string) => {
+  const handleReopenPreorder = async (id: string): Promise<void> => {
     try {
       await reopenPreorderMutation.mutateAsync(id);
     } catch (error) {
@@ -197,8 +197,6 @@ export const ItemsPage = () => {
         onReopenPreorder={handleReopenPreorder}
         isDeletePending={deleteMutation.isPending}
         isTogglePublicPending={togglePublicMutation.isPending}
-        isClosePreorderPending={closePreorderMutation.isPending}
-        isReopenPreorderPending={reopenPreorderMutation.isPending}
       />
 
       {/* Pagination */}

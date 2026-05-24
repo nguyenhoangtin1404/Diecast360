@@ -706,45 +706,42 @@ Condition: ${item.condition || ''}`;
 
   async closePreorder(id: string, tenantId: string) {
     const shopId = this.requireActiveShopId(tenantId);
-    const item = await this.prisma.item.findFirst({
-      where: { id, deleted_at: null, shop_id: shopId },
-    });
-    if (!item) {
-      throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
-    }
-    if (item.status !== 'preorder') {
-      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Item is not a preorder item');
-    }
     const now = new Date();
-    if (item.preorder_closes_at && item.preorder_closes_at <= now) {
-      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Preorder is already closed');
-    }
-    const updated = await this.prisma.item.update({
-      where: { id },
-      data: { preorder_closes_at: now },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const item = await tx.item.findFirst({
+        where: { id, deleted_at: null, shop_id: shopId },
+      });
+      if (!item) {
+        throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
+      }
+      if (item.status !== 'preorder') {
+        throw new AppException(ErrorCode.VALIDATION_ERROR, 'Item is not a preorder item');
+      }
+      if (item.preorder_closes_at && item.preorder_closes_at <= now) {
+        throw new AppException(ErrorCode.VALIDATION_ERROR, 'Preorder is already closed');
+      }
+      return tx.item.update({ where: { id }, data: { preorder_closes_at: now } });
     });
     return { item: updated };
   }
 
   async reopenPreorder(id: string, tenantId: string) {
     const shopId = this.requireActiveShopId(tenantId);
-    const item = await this.prisma.item.findFirst({
-      where: { id, deleted_at: null, shop_id: shopId },
-    });
-    if (!item) {
-      throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
-    }
-    if (item.status !== 'preorder') {
-      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Item is not a preorder item');
-    }
     const now = new Date();
-    if (!item.preorder_closes_at || item.preorder_closes_at > now) {
-      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Preorder is not closed yet');
-    }
-    // Reopen by clearing closes_at (open-ended); admin can set a new date via edit
-    const updated = await this.prisma.item.update({
-      where: { id },
-      data: { preorder_closes_at: null },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const item = await tx.item.findFirst({
+        where: { id, deleted_at: null, shop_id: shopId },
+      });
+      if (!item) {
+        throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
+      }
+      if (item.status !== 'preorder') {
+        throw new AppException(ErrorCode.VALIDATION_ERROR, 'Item is not a preorder item');
+      }
+      if (!item.preorder_closes_at || item.preorder_closes_at > now) {
+        throw new AppException(ErrorCode.VALIDATION_ERROR, 'Preorder is not closed yet');
+      }
+      return tx.item.update({ where: { id }, data: { preorder_closes_at: null } });
     });
     return { item: updated };
   }

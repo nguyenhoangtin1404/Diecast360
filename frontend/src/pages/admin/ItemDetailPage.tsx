@@ -216,6 +216,8 @@ interface ItemData {
 interface ItemResponse {
   item: {
     id: string;
+    preorder_closes_at?: string | null;
+    preorder_price?: number | null;
     [key: string]: unknown;
   };
 }
@@ -555,7 +557,7 @@ export const ItemDetailPage = () => {
         setScale(item.scale || "1:64");
         setBrand(item.brand || "");
         setFbPostContent(item.fb_post_content || "");
-        const closesAt = (item as { preorder_closes_at?: string | null }).preorder_closes_at;
+        const closesAt = item.preorder_closes_at;
         if (closesAt) {
           // datetime-local expects "YYYY-MM-DDTHH:mm"
           setPreorderClosesAt(closesAt.slice(0, 16));
@@ -566,8 +568,7 @@ export const ItemDetailPage = () => {
           setPreorderClosesAt("");
           setPreorderDays("");
         }
-        const pprice = (item as { preorder_price?: number | null }).preorder_price;
-        setPreorderPrice(pprice != null ? String(pprice) : "");
+        setPreorderPrice(item.preorder_price != null ? String(item.preorder_price) : "");
         const q = (item as { quantity?: unknown }).quantity;
         setQuantity(
           typeof q === "number" && Number.isFinite(q)
