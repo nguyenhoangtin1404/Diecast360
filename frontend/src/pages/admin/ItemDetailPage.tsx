@@ -15,6 +15,7 @@ import { CategoryQuickManage } from "../../components/admin/CategoryQuickManage"
 import { InventoryTimeline } from "../../components/admin/InventoryTimeline";
 import type { CategoryItem, ApiResponse } from "../../types/category";
 import { showToast } from "../../utils/toast";
+import { printQrCode } from "../../utils/printQr";
 import type { FacebookPost } from "../../types/item.types";
 import type { ItemStatus } from "../../constants/item";
 import {
@@ -4109,6 +4110,28 @@ export const ItemDetailPage = () => {
                 >
                   ⬇ Tải PNG
                 </a>
+                <button
+                  type="button"
+                  onClick={() =>
+                    printQrCode(
+                      qrData.image_data_url,
+                      data?.item?.name ?? "",
+                      qrData.resolve_url,
+                    )
+                  }
+                  style={{
+                    padding: "9px 16px",
+                    background: "#059669",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontWeight: "500",
+                    cursor: "pointer",
+                  }}
+                >
+                  🖨 In QR
+                </button>
               </div>
 
               {!data?.item?.is_public && (
