@@ -7,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { SwitchShopDto } from './dto/switch-shop.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ConfigService } from '@nestjs/config';
+import { CaptchaService } from '../common/captcha/captcha.service';
 
 // Cookie configuration interface
 interface CookieOptions {
@@ -22,6 +23,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly captchaService: CaptchaService,
   ) {}
 
   /**
@@ -88,8 +90,10 @@ export class AuthController {
   @Throttle({ default: { ttl: 60000, limit: 8 } })
   async login(
     @Body() loginDto: LoginDto,
+    @Request() req,
     @Res({ passthrough: true }) res: Response,
   ) {
+    await this.captchaService.verify(loginDto.captcha_token, req.ip);
     const result = await this.authService.login(loginDto);
     
     // Set access_token cookie (15 minutes)

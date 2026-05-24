@@ -5,6 +5,12 @@ import { useAuth } from '../../hooks/useAuth';
 import { Mail, Lock, LogIn, AlertCircle, Box, Loader2, Shield } from 'lucide-react';
 import type { ApiErrorResponse } from '../../types/item.types';
 import { ROUTES } from '../../config/routes';
+import {
+  TurnstileWidget,
+  useRecaptchaV3,
+  CAPTCHA_ENABLED,
+  CAPTCHA_PROVIDER,
+} from '../../components/CaptchaWidget';
 
 const defaultLoginError = 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
 
@@ -29,23 +35,45 @@ export const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { execute: executeRecaptcha } = useRecaptchaV3();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
+    let token: string | undefined = captchaToken ?? undefined;
+
+    if (CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'google') {
+      try {
+        token = await executeRecaptcha();
+      } catch {
+        setError('Xác minh CAPTCHA thất bại. Vui lòng thử lại.');
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
-      await login(email, password);
+      await login(email, password, token);
       navigate(ROUTES.admin.reports);
     } catch (err) {
       setError(getLoginErrorMessage(err));
+      if (CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'cloudflare') {
+        setCaptchaToken(null);
+        setCaptchaResetKey((k) => k + 1);
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  const submitDisabled =
+    loading || (CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'cloudflare' && !captchaToken);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#F8FAFC] px-4 py-12 sm:px-6">
@@ -142,9 +170,18 @@ export const LoginPage = () => {
                 </div>
               </div>
 
+              {CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'cloudflare' && (
+                <TurnstileWidget
+                  onToken={(t) => setCaptchaToken(t)}
+                  onExpire={() => setCaptchaToken(null)}
+                  onError={() => setCaptchaToken(null)}
+                  resetKey={captchaResetKey}
+                />
+              )}
+
               <button
                 type="submit"
-                disabled={loading}
+                disabled={submitDisabled}
                 className="group flex w-full min-h-[48px] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-shop to-shopAccent py-3 text-sm font-bold text-white shadow-corporate-btn transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-corporate-card-hover disabled:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-500 disabled:shadow-none"
               >
                 {loading ? (
