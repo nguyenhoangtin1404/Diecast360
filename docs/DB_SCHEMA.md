@@ -105,7 +105,7 @@ Primary key: `(user_id, shop_id)`.
 | `notes` | text? | Internal notes |
 | `fb_post_content` | text? | Caption/content lưu cho social selling |
 | `preorder_closes_at` | datetime? | Nullable; thời điểm đóng nhận đặt pre-order. `NULL` = mở vô thời hạn. Service tự xóa khi `status` rời `preorder`. |
-| `preorder_price` | decimal(18,0)? | Nullable; giá áp dụng trong thời gian cửa sổ preorder còn mở. `NULL` = dùng `price` thông thường. Service tự xóa khi `status` rời `preorder`. |
+| `preorder_price` | decimal(18,0)? | Nullable; giá áp dụng trong thời gian cửa sổ preorder còn mở. `NULL` = dùng `price` thông thường. **Không tự xóa khi đổi status** — luôn lưu để admin theo dõi; catalog quyết định hiển thị. |
 | `qr_token` | text? | NULL, UNIQUE; token 16-ký tự hex tạo lazily khi admin gọi `GET /items/:id/qr` lần đầu |
 | `created_at`, `updated_at`, `deleted_at` | datetime | soft delete bằng `deleted_at` |
 

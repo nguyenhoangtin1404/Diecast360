@@ -856,16 +856,17 @@ export const ItemDetailPage = () => {
       itemData.preorder_closes_at = preorderClosesAt
         ? new Date(preorderClosesAt).toISOString()
         : null;
-      if (preorderPrice) {
-        const ppNum = parseFloat(preorderPrice);
-        if (!isNaN(ppNum) && ppNum >= 0) {
-          itemData.preorder_price = ppNum;
-        }
-      } else {
-        itemData.preorder_price = null;
-      }
     } else {
       itemData.preorder_closes_at = null;
+    }
+
+    // preorder_price persists in DB regardless of status (admin can track it)
+    if (preorderPrice) {
+      const ppNum = parseFloat(preorderPrice);
+      if (!isNaN(ppNum) && ppNum >= 0) {
+        itemData.preorder_price = ppNum;
+      }
+    } else {
       itemData.preorder_price = null;
     }
 
@@ -2005,7 +2006,7 @@ export const ItemDetailPage = () => {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
               gap: "16px",
               marginBottom: "16px",
             }}
@@ -2113,6 +2114,59 @@ export const ItemDetailPage = () => {
                   }
                 }}
               />
+            </div>
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "6px",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: "#333",
+                }}
+              >
+                Giá pre-order
+              </label>
+              <input
+                type="text"
+                value={preorderPrice ? formatNumber(preorderPrice) : ""}
+                onChange={(e) => {
+                  const parsed = parseNumber(e.target.value);
+                  if (parsed === "" || /^\d*\.?\d*$/.test(parsed)) {
+                    setPreorderPrice(parsed);
+                  }
+                }}
+                placeholder="Để trống nếu không có"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  border: "1px solid #ddd",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  outline: "none",
+                  transition: "all 0.2s",
+                  color: "#1a1a1a",
+                  backgroundColor: "#fff",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "#007bff";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "#ddd";
+                  e.currentTarget.style.boxShadow = "none";
+                  const parsed = parseNumber(e.target.value);
+                  if (
+                    parsed === "" ||
+                    (!isNaN(parseFloat(parsed)) && parseFloat(parsed) >= 0)
+                  ) {
+                    setPreorderPrice(parsed);
+                  }
+                }}
+              />
+              <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px", marginBottom: 0 }}>
+                Hiển thị ở catalog khi pre-order đang mở
+              </p>
             </div>
           </div>
           <div
@@ -2268,48 +2322,6 @@ export const ItemDetailPage = () => {
               >
                 ⏳ Thời hạn đặt hàng pre-order
               </label>
-              <div style={{ marginBottom: "12px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "5px",
-                    fontSize: "13px",
-                    fontWeight: "500",
-                    color: "#1e3a5f",
-                  }}
-                >
-                  Giá pre-order (VNĐ)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  value={preorderPrice}
-                  onChange={(e) => setPreorderPrice(e.target.value)}
-                  placeholder="Để trống nếu dùng giá hiện hành"
-                  style={{
-                    width: "100%",
-                    padding: "9px 10px",
-                    border: "1px solid #93c5fd",
-                    borderRadius: "8px",
-                    fontSize: "14px",
-                    outline: "none",
-                    background: "#fff",
-                    color: "#1a1a1a",
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "#007bff";
-                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "#93c5fd";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                />
-                <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px", marginBottom: 0 }}>
-                  Áp dụng trong thời gian mở pre-order. Sau khi đóng, giá sẽ về giá hiện hành.
-                </p>
-              </div>
               <div
                 style={{
                   display: "grid",

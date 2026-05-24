@@ -463,9 +463,7 @@ Condition: ${item.condition || ''}`;
           preorder_closes_at: initialStatus === 'preorder' && createDto.preorder_closes_at
             ? new Date(createDto.preorder_closes_at)
             : null,
-          preorder_price: initialStatus === 'preorder' && createDto.preorder_price != null
-            ? createDto.preorder_price
-            : null,
+          preorder_price: createDto.preorder_price != null ? createDto.preorder_price : null,
         },
       });
 
@@ -625,11 +623,9 @@ Condition: ${item.condition || ''}`;
       updateData.preorder_closes_at = null;
     }
 
-    // preorder_price: only relevant when status is preorder; clear when leaving preorder
+    // preorder_price: persist as-is regardless of status; catalog decides when to show it
     if (updateDto.preorder_price !== undefined) {
-      updateData.preorder_price = nextStatus === 'preorder' ? (updateDto.preorder_price ?? null) : null;
-    } else if (nextStatus !== 'preorder' && existingItem.status === 'preorder') {
-      updateData.preorder_price = null;
+      updateData.preorder_price = updateDto.preorder_price ?? null;
     }
 
     if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
