@@ -879,6 +879,7 @@ export const ItemDetailPage = () => {
       itemData.preorder_price = null;
     }
 
+
     return itemData;
   };
 

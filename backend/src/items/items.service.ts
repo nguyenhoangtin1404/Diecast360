@@ -641,6 +641,7 @@ Condition: ${item.condition || ''}`;
       updateData.preorder_price = updateDto.preorder_price ?? null;
     }
 
+
     if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
       const nextCarBrand =
         updateDto.car_brand !== undefined
