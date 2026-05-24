@@ -12,12 +12,15 @@ import {
   Copy,
   Share2,
   ExternalLink,
+  Printer,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { ITEM_STATUS_LABELS, type ItemStatus } from '../../../constants/item';
 import type { AdminItem } from '../../../types/item.types';
 import styles from '../ItemsPage.module.css';
+import { apiClient } from '../../../api/client';
+import { openPrintWindow, fillPrintWindow } from '../../../utils/printQr';
 
 interface ItemsTableProps {
   items: AdminItem[];
@@ -36,6 +39,29 @@ export const ItemsTable = ({
 }: ItemsTableProps) => {
   const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [printingQrId, setPrintingQrId] = useState<string | null>(null);
+
+  const handlePrintQr = async (item: AdminItem) => {
+    // Open the popup synchronously within the click gesture — before any await —
+    // because browsers block window.open called after an async boundary.
+    const printWindow = openPrintWindow();
+    if (!printWindow) {
+      alert('Vui lòng cho phép cửa sổ pop-up để in QR.');
+      return;
+    }
+    setPrintingQrId(item.id);
+    try {
+      const res = (await apiClient.get(`/items/${item.id}/qr`)) as {
+        data: { image_data_url: string; resolve_url: string };
+      };
+      fillPrintWindow(printWindow, res.data.image_data_url, item.name, res.data.resolve_url);
+    } catch {
+      printWindow.close();
+      alert('Không thể tải mã QR. Vui lòng thử lại.');
+    } finally {
+      setPrintingQrId(null);
+    }
+  };
 
   const handleCopy = async (item: AdminItem) => {
     if (!item.fb_post_content) {
@@ -218,6 +244,16 @@ export const ItemsTable = ({
                     aria-label={`Sửa ${item.name}`}
                   >
                     <Pencil size={18} />
+                  </button>
+                  <button
+                    onClick={() => handlePrintQr(item)}
+                    title="In QR"
+                    disabled={printingQrId === item.id}
+                    className={styles.iconButton}
+                    style={{ opacity: printingQrId === item.id ? 0.5 : 1 }}
+                    aria-label={`In QR ${item.name}`}
+                  >
+                    <Printer size={18} />
                   </button>
                   <button
                     onClick={() => onDelete(item.id, item.name)}
