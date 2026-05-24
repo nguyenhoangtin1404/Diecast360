@@ -463,6 +463,9 @@ Condition: ${item.condition || ''}`;
           preorder_closes_at: initialStatus === 'preorder' && createDto.preorder_closes_at
             ? new Date(createDto.preorder_closes_at)
             : null,
+          preorder_price: initialStatus === 'preorder' && createDto.preorder_price != null
+            ? createDto.preorder_price
+            : null,
         },
       });
 
@@ -622,6 +625,13 @@ Condition: ${item.condition || ''}`;
       updateData.preorder_closes_at = null;
     }
 
+    // preorder_price: only relevant when status is preorder; clear when leaving preorder
+    if (updateDto.preorder_price !== undefined) {
+      updateData.preorder_price = nextStatus === 'preorder' ? (updateDto.preorder_price ?? null) : null;
+    } else if (nextStatus !== 'preorder' && existingItem.status === 'preorder') {
+      updateData.preorder_price = null;
+    }
+
     if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
       const nextCarBrand =
         updateDto.car_brand !== undefined
@@ -696,6 +706,51 @@ Condition: ${item.condition || ''}`;
       preorders_auto_cancelled_count: preordersAutoCancelledCount,
       preorders_with_deposit_count: preordersWithDepositCount,
     };
+  }
+
+  async closePreorder(id: string, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
+    const item = await this.prisma.item.findFirst({
+      where: { id, deleted_at: null, shop_id: shopId },
+    });
+    if (!item) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
+    }
+    if (item.status !== 'preorder') {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Item is not a preorder item');
+    }
+    const now = new Date();
+    if (item.preorder_closes_at && item.preorder_closes_at <= now) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Preorder is already closed');
+    }
+    const updated = await this.prisma.item.update({
+      where: { id },
+      data: { preorder_closes_at: now },
+    });
+    return { item: updated };
+  }
+
+  async reopenPreorder(id: string, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
+    const item = await this.prisma.item.findFirst({
+      where: { id, deleted_at: null, shop_id: shopId },
+    });
+    if (!item) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
+    }
+    if (item.status !== 'preorder') {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Item is not a preorder item');
+    }
+    const now = new Date();
+    if (!item.preorder_closes_at || item.preorder_closes_at > now) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'Preorder is not closed yet');
+    }
+    // Reopen by clearing closes_at (open-ended); admin can set a new date via edit
+    const updated = await this.prisma.item.update({
+      where: { id },
+      data: { preorder_closes_at: null },
+    });
+    return { item: updated };
   }
 
   async remove(id: string, tenantId: string) {

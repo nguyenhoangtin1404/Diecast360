@@ -66,6 +66,24 @@ export const ItemsPage = () => {
     },
   });
 
+  const closePreorderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiClient.patch(`/items/${id}/close-preorder`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+    },
+  });
+
+  const reopenPreorderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiClient.patch(`/items/${id}/reopen-preorder`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+    },
+  });
+
   const handleDelete = (id: string, name: string) => {
     setDeleteConfirm({ id, name });
   };
@@ -87,6 +105,24 @@ export const ItemsPage = () => {
     } catch (error) {
       console.error('Error toggling public:', error);
       alert('Có lỗi khi thay đổi trạng thái công khai');
+    }
+  };
+
+  const handleClosePreorder = async (id: string) => {
+    try {
+      await closePreorderMutation.mutateAsync(id);
+    } catch (error) {
+      console.error('Error closing preorder:', error);
+      alert('Có lỗi khi đóng preorder');
+    }
+  };
+
+  const handleReopenPreorder = async (id: string) => {
+    try {
+      await reopenPreorderMutation.mutateAsync(id);
+    } catch (error) {
+      console.error('Error reopening preorder:', error);
+      alert('Có lỗi khi mở lại preorder');
     }
   };
 
@@ -157,8 +193,12 @@ export const ItemsPage = () => {
         items={data?.items || []}
         onDelete={handleDelete}
         onTogglePublic={handleTogglePublic}
+        onClosePreorder={handleClosePreorder}
+        onReopenPreorder={handleReopenPreorder}
         isDeletePending={deleteMutation.isPending}
         isTogglePublicPending={togglePublicMutation.isPending}
+        isClosePreorderPending={closePreorderMutation.isPending}
+        isReopenPreorderPending={reopenPreorderMutation.isPending}
       />
 
       {/* Pagination */}

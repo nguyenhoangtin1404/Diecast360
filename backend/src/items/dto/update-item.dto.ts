@@ -96,5 +96,11 @@ export class UpdateItemDto {
   @IsOptional()
   @IsISO8601()
   preorder_closes_at?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  preorder_price?: number;
 }
 

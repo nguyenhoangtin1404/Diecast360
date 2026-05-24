@@ -210,6 +210,7 @@ interface ItemData {
   quantity?: number;
   attributes?: Record<string, string | number | boolean | null>;
   preorder_closes_at?: string | null;
+  preorder_price?: number | null;
 }
 
 interface ItemResponse {
@@ -400,6 +401,7 @@ export const ItemDetailPage = () => {
   ]);
   const [preorderClosesAt, setPreorderClosesAt] = useState<string>("");
   const [preorderDays, setPreorderDays] = useState<string>("");
+  const [preorderPrice, setPreorderPrice] = useState<string>("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [lastImageUploadFailed, setLastImageUploadFailed] = useState(false);
@@ -564,6 +566,8 @@ export const ItemDetailPage = () => {
           setPreorderClosesAt("");
           setPreorderDays("");
         }
+        const pprice = (item as { preorder_price?: number | null }).preorder_price;
+        setPreorderPrice(pprice != null ? String(pprice) : "");
         const q = (item as { quantity?: unknown }).quantity;
         setQuantity(
           typeof q === "number" && Number.isFinite(q)
@@ -852,8 +856,17 @@ export const ItemDetailPage = () => {
       itemData.preorder_closes_at = preorderClosesAt
         ? new Date(preorderClosesAt).toISOString()
         : null;
+      if (preorderPrice) {
+        const ppNum = parseFloat(preorderPrice);
+        if (!isNaN(ppNum) && ppNum >= 0) {
+          itemData.preorder_price = ppNum;
+        }
+      } else {
+        itemData.preorder_price = null;
+      }
     } else {
       itemData.preorder_closes_at = null;
+      itemData.preorder_price = null;
     }
 
     return itemData;
@@ -2255,6 +2268,48 @@ export const ItemDetailPage = () => {
               >
                 ⏳ Thời hạn đặt hàng pre-order
               </label>
+              <div style={{ marginBottom: "12px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "5px",
+                    fontSize: "13px",
+                    fontWeight: "500",
+                    color: "#1e3a5f",
+                  }}
+                >
+                  Giá pre-order (VNĐ)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={preorderPrice}
+                  onChange={(e) => setPreorderPrice(e.target.value)}
+                  placeholder="Để trống nếu dùng giá hiện hành"
+                  style={{
+                    width: "100%",
+                    padding: "9px 10px",
+                    border: "1px solid #93c5fd",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    outline: "none",
+                    background: "#fff",
+                    color: "#1a1a1a",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "#007bff";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0,123,255,0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "#93c5fd";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                />
+                <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px", marginBottom: 0 }}>
+                  Áp dụng trong thời gian mở pre-order. Sau khi đóng, giá sẽ về giá hiện hành.
+                </p>
+              </div>
               <div
                 style={{
                   display: "grid",

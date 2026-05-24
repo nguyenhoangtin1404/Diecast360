@@ -180,6 +180,7 @@ model Item {
   notes          String?
   fb_post_content String?
   preorder_closes_at DateTime?
+  preorder_price     Decimal?    @db.Decimal(18,0)
   // Multi-tenant: shop_id is nullable for backward-compatible migration.
   // All new items must have a shop_id. Migration sets existing items to default shop.
   shop_id        String?
