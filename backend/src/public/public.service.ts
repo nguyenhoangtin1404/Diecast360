@@ -89,7 +89,14 @@ export class PublicService {
   }
 
   private buildCountCacheKey(where: Prisma.ItemWhereInput): string {
-    return JSON.stringify(where);
+    // Truncate Date objects to minute precision so the key is stable within the
+    // cache TTL window (prevents a new cache miss on every millisecond tick).
+    return JSON.stringify(where, (_, value) => {
+      if (value instanceof Date) {
+        return new Date(Math.floor(value.getTime() / 60_000) * 60_000).toISOString();
+      }
+      return value;
+    });
   }
 
   private async getCachedTotal(where: Prisma.ItemWhereInput): Promise<number> {
@@ -163,8 +170,19 @@ export class PublicService {
       primaryOrderBy = { name: sortOrder };
       orderBy = [primaryOrderBy, { created_at: 'desc' }, { id: 'desc' }];
     } else if (sortBy === 'price') {
-      primaryOrderBy = { price: sortOrder };
-      orderBy = [primaryOrderBy, { created_at: 'desc' }, { id: 'desc' }];
+      if (queryDto.preorder_open === true) {
+        // When browsing open preorders the displayed price is preorder_price,
+        // so sort by that first (items without preorder_price fall back to price).
+        orderBy = [
+          { preorder_price: { sort: sortOrder, nulls: 'last' } },
+          { price: sortOrder },
+          { created_at: 'desc' },
+          { id: 'desc' },
+        ];
+      } else {
+        primaryOrderBy = { price: sortOrder };
+        orderBy = [primaryOrderBy, { created_at: 'desc' }, { id: 'desc' }];
+      }
     } else {
       primaryOrderBy = { created_at: sortOrder };
       orderBy = [primaryOrderBy, { id: sortOrder }];

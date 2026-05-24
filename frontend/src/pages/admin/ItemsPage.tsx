@@ -24,7 +24,7 @@ export const ItemsPage = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['items', page, debouncedSearch, preorderOpenFilter],
     queryFn: async () => {
-      if (debouncedSearch && API_CONFIG.ADMIN_SEMANTIC_SEARCH_ENABLED) {
+      if (debouncedSearch && API_CONFIG.ADMIN_SEMANTIC_SEARCH_ENABLED && !preorderOpenFilter) {
         const params = new URLSearchParams({ q: debouncedSearch });
         const response = await apiClient.get(`/items/search?${params.toString()}`) as ApiResponse<ItemsResponse>;
         return response.data;

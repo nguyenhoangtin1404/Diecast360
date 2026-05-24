@@ -34,6 +34,15 @@ import { useIsMobile } from "../../hooks/useIsMobile";
 import { useOptionalActiveShopId } from "../../hooks/useOptionalActiveShopId";
 import segmentedStyles from "./itemDetailSegmented.module.css";
 
+// Converts a UTC Date/string to the "YYYY-MM-DDTHH:mm" string that
+// datetime-local inputs require (local wall-clock time, not UTC).
+function toLocalDatetimeInput(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
+}
+
 // Helper functions for number formatting
 const formatNumber = (value: string): string => {
   if (!value || value === "") return "";
@@ -559,8 +568,7 @@ export const ItemDetailPage = () => {
         setFbPostContent(item.fb_post_content || "");
         const closesAt = item.preorder_closes_at;
         if (closesAt) {
-          // datetime-local expects "YYYY-MM-DDTHH:mm"
-          setPreorderClosesAt(closesAt.slice(0, 16));
+          setPreorderClosesAt(toLocalDatetimeInput(closesAt));
           const diffMs = new Date(closesAt).getTime() - Date.now();
           const diffDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
           setPreorderDays(String(diffDays));
@@ -2355,7 +2363,7 @@ export const ItemDetailPage = () => {
                         const d = new Date();
                         d.setDate(d.getDate() + n);
                         d.setHours(23, 59, 0, 0);
-                        setPreorderClosesAt(d.toISOString().slice(0, 16));
+                        setPreorderClosesAt(toLocalDatetimeInput(d));
                       } else if (days === "") {
                         setPreorderClosesAt("");
                       }
