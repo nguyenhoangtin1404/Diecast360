@@ -30,7 +30,7 @@ interface CaptchaWidgetProps {
 
 export const CaptchaWidget = ({ onToken, onExpire, onError, resetKey }: CaptchaWidgetProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const widgetIdRef = useRef<string | undefined>();
+  const widgetIdRef = useRef<string | undefined>(undefined);
 
   const renderWidget = useCallback(() => {
     if (!containerRef.current || !window.turnstile || !CAPTCHA_SITE_KEY) return;
