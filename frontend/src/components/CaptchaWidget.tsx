@@ -1,4 +1,5 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { CAPTCHA_PROVIDER, CAPTCHA_SITE_KEY } from '../config/captcha';
 
 declare global {
   interface Window {
@@ -16,34 +17,26 @@ declare global {
       reset: (widgetId: string) => void;
       remove: (widgetId: string) => void;
     };
-    grecaptcha?: {
-      ready: (cb: () => void) => void;
-      execute: (siteKey: string, options: { action: string }) => Promise<string>;
-    };
     onTurnstileLoad?: () => void;
   }
 }
 
-const SITE_KEY = import.meta.env.VITE_CAPTCHA_SITE_KEY as string | undefined;
-export const CAPTCHA_PROVIDER = (import.meta.env.VITE_CAPTCHA_PROVIDER as string | undefined) || 'cloudflare';
-export const CAPTCHA_ENABLED = !!SITE_KEY;
-
-interface TurnstileWidgetProps {
+interface CaptchaWidgetProps {
   onToken: (token: string) => void;
   onExpire: () => void;
   onError?: () => void;
   resetKey?: number;
 }
 
-export const TurnstileWidget = ({ onToken, onExpire, onError, resetKey }: TurnstileWidgetProps) => {
+export const CaptchaWidget = ({ onToken, onExpire, onError, resetKey }: CaptchaWidgetProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | undefined>();
 
   const renderWidget = useCallback(() => {
-    if (!containerRef.current || !window.turnstile || !SITE_KEY) return;
+    if (!containerRef.current || !window.turnstile || !CAPTCHA_SITE_KEY) return;
     if (widgetIdRef.current !== undefined) return;
     widgetIdRef.current = window.turnstile.render(containerRef.current, {
-      sitekey: SITE_KEY,
+      sitekey: CAPTCHA_SITE_KEY,
       callback: onToken,
       'expired-callback': onExpire,
       'error-callback': onError,
@@ -52,7 +45,7 @@ export const TurnstileWidget = ({ onToken, onExpire, onError, resetKey }: Turnst
   }, [onToken, onExpire, onError]);
 
   useEffect(() => {
-    if (!SITE_KEY) return;
+    if (!CAPTCHA_SITE_KEY) return;
 
     if (window.turnstile) {
       renderWidget();
@@ -84,34 +77,6 @@ export const TurnstileWidget = ({ onToken, onExpire, onError, resetKey }: Turnst
     }
   }, [resetKey]);
 
-  if (!SITE_KEY || CAPTCHA_PROVIDER !== 'cloudflare') return null;
+  if (!CAPTCHA_SITE_KEY || CAPTCHA_PROVIDER !== 'cloudflare') return null;
   return <div ref={containerRef} className="flex justify-center" />;
-};
-
-export const useRecaptchaV3 = () => {
-  useEffect(() => {
-    if (!SITE_KEY || CAPTCHA_PROVIDER !== 'google') return;
-    if (document.getElementById('recaptcha-script')) return;
-    const script = document.createElement('script');
-    script.id = 'recaptcha-script';
-    script.src = `https://www.google.com/recaptcha/api.js?render=${SITE_KEY}`;
-    script.async = true;
-    document.head.appendChild(script);
-  }, []);
-
-  const execute = useCallback(async (): Promise<string | undefined> => {
-    if (!SITE_KEY || CAPTCHA_PROVIDER !== 'google') return undefined;
-    return new Promise((resolve, reject) => {
-      window.grecaptcha?.ready(async () => {
-        try {
-          const token = await window.grecaptcha!.execute(SITE_KEY, { action: 'login' });
-          resolve(token);
-        } catch (err) {
-          reject(err);
-        }
-      });
-    });
-  }, []);
-
-  return { execute };
 };

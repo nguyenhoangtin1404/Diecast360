@@ -5,12 +5,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { Mail, Lock, LogIn, AlertCircle, Box, Loader2, Shield } from 'lucide-react';
 import type { ApiErrorResponse } from '../../types/item.types';
 import { ROUTES } from '../../config/routes';
-import {
-  TurnstileWidget,
-  useRecaptchaV3,
-  CAPTCHA_ENABLED,
-  CAPTCHA_PROVIDER,
-} from '../../components/CaptchaWidget';
+import { CaptchaWidget } from '../../components/CaptchaWidget';
+import { useRecaptchaV3 } from '../../hooks/useRecaptchaV3';
+import { CAPTCHA_ENABLED, CAPTCHA_PROVIDER } from '../../config/captcha';
 
 const defaultLoginError = 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
 
@@ -171,7 +168,7 @@ export const LoginPage = () => {
               </div>
 
               {CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'cloudflare' && (
-                <TurnstileWidget
+                <CaptchaWidget
                   onToken={(t) => setCaptchaToken(t)}
                   onExpire={() => setCaptchaToken(null)}
                   onError={() => setCaptchaToken(null)}
