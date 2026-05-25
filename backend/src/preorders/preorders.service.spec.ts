@@ -80,6 +80,8 @@ describe('PreordersService', () => {
           brand: 'Mini GT',
           car_brand: 'Nissan',
           model_brand: 'Skyline',
+          preorder_closes_at: null,
+          created_at: new Date('2026-01-01T00:00:00.000Z'),
           item_images: [{ file_path: 'images/cover.jpg' }],
         },
       },
