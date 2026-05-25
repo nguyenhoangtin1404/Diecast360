@@ -62,6 +62,17 @@ export const PreOrderManagementPage = () => {
     void queryClient.invalidateQueries({ queryKey: ['admin-preorder-participants'] });
   });
 
+  const campaignItem = campaignPreorders[0]?.item;
+  const campaignCountdown =
+    campaignItem?.preorder_closes_at ? (
+      <div style={{ marginBottom: '12px' }}>
+        <PreorderCountdown
+          opensAt={campaignItem.created_at}
+          closesAt={campaignItem.preorder_closes_at}
+        />
+      </div>
+    ) : null;
+
   return (
     <div className={styles.container}>
       <div className={styles.card}>
@@ -117,20 +128,7 @@ export const PreOrderManagementPage = () => {
       <div className={styles.gridTwo}>
         <div className={styles.card}>
           <h2>Tổng quan campaign</h2>
-          {(() => {
-            const campaignItem = campaignPreorders[0]?.item;
-            if (campaignItem?.preorder_closes_at) {
-              return (
-                <div style={{ marginBottom: '12px' }}>
-                  <PreorderCountdown
-                    opensAt={campaignItem.created_at}
-                    closesAt={campaignItem.preorder_closes_at}
-                  />
-                </div>
-              );
-            }
-            return null;
-          })()}
+          {campaignCountdown}
           <p data-testid="admin-campaign-summary">
             Số đơn đang mở (campaign đã chọn): {campaignPreorders.length}
           </p>

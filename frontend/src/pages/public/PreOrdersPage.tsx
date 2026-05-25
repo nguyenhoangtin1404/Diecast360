@@ -79,6 +79,9 @@ export const PreOrdersPage = () => {
               <span className={styles.price}>{card.display_price.toLocaleString('vi-VN')} VND</span>
               {card.preorder_closes_at && (
                 <div style={{ marginBottom: '8px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--ct-muted)', display: 'block', marginBottom: '4px' }}>
+                    Hạn đặt hàng
+                  </span>
                   <PreorderCountdown
                     opensAt={card.item_created_at}
                     closesAt={card.preorder_closes_at}

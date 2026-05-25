@@ -50,6 +50,8 @@ export const PreorderCountdown = ({ opensAt, closesAt, compact = false }: Preord
   if (!closesAt) return null;
 
   const closesAtMs = new Date(closesAt).getTime();
+  if (isNaN(closesAtMs)) return null;
+
   const diffMs = closesAtMs - now;
 
   if (diffMs <= 0) {
@@ -71,8 +73,9 @@ export const PreorderCountdown = ({ opensAt, closesAt, compact = false }: Preord
     );
   }
 
-  // When opensAt is unavailable, fillPct = 0 (bar starts empty — remaining unknown)
-  const opensAtMs = opensAt ? new Date(opensAt).getTime() : null;
+  // When opensAt is unavailable or invalid, fillPct = 0 (bar starts empty — remaining unknown)
+  const parsedOpensAt = opensAt ? new Date(opensAt).getTime() : NaN;
+  const opensAtMs = !isNaN(parsedOpensAt) ? parsedOpensAt : null;
   const totalMs = opensAtMs !== null ? closesAtMs - opensAtMs : 0;
   const elapsedMs = opensAtMs !== null ? now - opensAtMs : 0;
   const fillPct = totalMs > 0 ? Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100)) : 0;
