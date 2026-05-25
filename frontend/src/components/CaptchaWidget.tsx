@@ -24,11 +24,15 @@ declare global {
 interface CaptchaWidgetProps {
   onToken: (token: string) => void;
   onExpire: () => void;
+  /** Called when the widget itself reports an error (token validation, network). */
   onError?: () => void;
+  /** Called when the Turnstile script fails to load (blocked by ad-blocker, CSP, network). */
+  onLoadError?: () => void;
+  /** Increment to trigger a widget reset. 0 = initial state (no reset). */
   resetKey?: number;
 }
 
-export const CaptchaWidget = ({ onToken, onExpire, onError, resetKey }: CaptchaWidgetProps) => {
+export const CaptchaWidget = ({ onToken, onExpire, onError, onLoadError, resetKey }: CaptchaWidgetProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | undefined>(undefined);
 
@@ -58,6 +62,8 @@ export const CaptchaWidget = ({ onToken, onExpire, onError, resetKey }: CaptchaW
           'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit';
         script.async = true;
         script.defer = true;
+        // Fix: notify caller when the CF script itself fails to load
+        script.onerror = () => onLoadError?.();
         document.head.appendChild(script);
       }
     }
@@ -68,10 +74,11 @@ export const CaptchaWidget = ({ onToken, onExpire, onError, resetKey }: CaptchaW
         widgetIdRef.current = undefined;
       }
     };
-  }, [renderWidget]);
+  }, [renderWidget, onLoadError]);
 
   useEffect(() => {
-    if (!resetKey) return;
+    // Fix #7: use explicit zero-check — 0 means initial state (no reset needed)
+    if (!resetKey || resetKey <= 0) return;
     if (widgetIdRef.current !== undefined && window.turnstile) {
       window.turnstile.reset(widgetIdRef.current);
     }

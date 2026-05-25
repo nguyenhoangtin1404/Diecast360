@@ -27,6 +27,9 @@ function getLoginErrorMessage(err: unknown): string {
   return defaultLoginError;
 }
 
+const isTurnstile = CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'cloudflare';
+const isRecaptcha = CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'google';
+
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,6 +37,9 @@ export const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  // Fix: track widget load failure so user sees an actionable message instead of
+  // a silently disabled button when Turnstile is blocked by an ad-blocker or CSP.
+  const [captchaLoadError, setCaptchaLoadError] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const { execute: executeRecaptcha } = useRecaptchaV3();
@@ -45,11 +51,11 @@ export const LoginPage = () => {
 
     let token: string | undefined = captchaToken ?? undefined;
 
-    if (CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'google') {
+    if (isRecaptcha) {
       try {
         token = await executeRecaptcha();
       } catch {
-        setError('Xác minh CAPTCHA thất bại. Vui lòng thử lại.');
+        setError('Xác minh CAPTCHA thất bại. Vui lòng tải lại trang.');
         setLoading(false);
         return;
       }
@@ -60,7 +66,7 @@ export const LoginPage = () => {
       navigate(ROUTES.admin.reports);
     } catch (err) {
       setError(getLoginErrorMessage(err));
-      if (CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'cloudflare') {
+      if (isTurnstile) {
         setCaptchaToken(null);
         setCaptchaResetKey((k) => k + 1);
       }
@@ -69,8 +75,14 @@ export const LoginPage = () => {
     }
   };
 
-  const submitDisabled =
-    loading || (CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'cloudflare' && !captchaToken);
+  const handleCaptchaError = () => {
+    setCaptchaToken(null);
+    setCaptchaLoadError(true);
+  };
+
+  // Button is disabled while loading, or while waiting for Turnstile token
+  // (but NOT when the widget itself failed to load — user deserves a clear error, not a frozen UI)
+  const submitDisabled = loading || (isTurnstile && !captchaToken && !captchaLoadError);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#F8FAFC] px-4 py-12 sm:px-6">
@@ -167,13 +179,29 @@ export const LoginPage = () => {
                 </div>
               </div>
 
-              {CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'cloudflare' && (
-                <CaptchaWidget
-                  onToken={(t) => setCaptchaToken(t)}
-                  onExpire={() => setCaptchaToken(null)}
-                  onError={() => setCaptchaToken(null)}
-                  resetKey={captchaResetKey}
-                />
+              {isTurnstile && (
+                <>
+                  <CaptchaWidget
+                    onToken={(t) => { setCaptchaToken(t); setCaptchaLoadError(false); }}
+                    onExpire={() => setCaptchaToken(null)}
+                    onError={handleCaptchaError}
+                    onLoadError={handleCaptchaError}
+                    resetKey={captchaResetKey}
+                  />
+                  {captchaLoadError && (
+                    <p className="text-center text-xs text-amber-700">
+                      Không tải được CAPTCHA.{' '}
+                      <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                        className="underline hover:no-underline"
+                      >
+                        Tải lại trang
+                      </button>{' '}
+                      để thử lại.
+                    </p>
+                  )}
+                </>
               )}
 
               <button
