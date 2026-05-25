@@ -21,6 +21,7 @@ import type { AdminItem } from '../../../types/item.types';
 import styles from '../ItemsPage.module.css';
 import { apiClient } from '../../../api/client';
 import { openPrintWindow, fillPrintWindow } from '../../../utils/printQr';
+import { PreorderCountdown } from '../../../components/preorder/PreorderCountdown';
 
 interface ItemsTableProps {
   items: AdminItem[];
@@ -178,6 +179,15 @@ export const ItemsTable = ({
                   {renderStatusIcon(item.status)}
                   <span>{ITEM_STATUS_LABELS[item.status].text}</span>
                 </div>
+                {isPreorderOpen(item) && item.preorder_closes_at && (
+                  <div style={{ marginTop: '4px' }}>
+                    <PreorderCountdown
+                      opensAt={item.created_at}
+                      closesAt={item.preorder_closes_at}
+                      compact
+                    />
+                  </div>
+                )}
                 {isPreorderClosed(item) && (
                   <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '2px' }}>Đã đóng đợt</div>
                 )}

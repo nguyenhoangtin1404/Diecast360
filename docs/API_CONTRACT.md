@@ -558,7 +558,7 @@ Các route admin yêu cầu JWT + `active_shop_id`; `shop_admin` ghi được, `
 
 ### GET /api/v1/preorders/admin
 - Query: `status`, `item_id`, `page`, `page_size`.
-- Response 200: `data: { pre_orders, pagination }`.
+- Response 200: `data: { pre_orders, pagination }`. Nested `item` object includes `name`, `preorder_closes_at` (ISO-8601 | null), `created_at` (ISO-8601).
 
 ### GET /api/v1/preorders/admin/summary
 - Response 200: summary dashboard cho pre-order trong tenant hiện tại.
@@ -570,12 +570,12 @@ Các route admin yêu cầu JWT + `active_shop_id`; `shop_admin` ghi được, `
 ### GET /api/v1/preorders/public
 - Public.
 - Query bắt buộc: `shop_id` (UUID). Optional: `status`, `item_id`, `page`, `page_size`.
-- Response 200: public cards cho pre-order của shop.
+- Response 200: public cards cho pre-order của shop. Card shape: `{ id, status, quantity, display_price, deposit_amount, countdown_target (ISO-8601 | null), preorder_closes_at (ISO-8601 | null), item_created_at (ISO-8601), title, short_specs, cover_image_url }`. `preorder_closes_at` và `item_created_at` dùng để render progress bar countdown trên frontend.
 
 ### GET /api/v1/preorders/my-orders
 - Auth: JWT + active shop.
 - Query: `status`, `item_id`, `page`, `page_size`.
-- Response 200: đơn pre-order của user hiện tại trong tenant.
+- Response 200: đơn pre-order của user hiện tại trong tenant. Card shape giống `GET /preorders/public` (có `preorder_closes_at`, `item_created_at`).
 
 ## Inventory
 Các route yêu cầu JWT + active shop; `shop_admin` ghi được, `shop_staff` chỉ đọc theo guard chung.

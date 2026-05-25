@@ -169,6 +169,8 @@ export class PreordersService {
       brand: string | null;
       car_brand: string | null;
       model_brand: string | null;
+      preorder_closes_at: Date | null;
+      created_at: Date;
       item_images: Array<{ file_path: string }>;
     };
   }) {
@@ -179,6 +181,8 @@ export class PreordersService {
       display_price: toNumber(data.total_amount) ?? toNumber(data.unit_price) ?? 0,
       deposit_amount: toNumber(data.deposit_amount) ?? 0,
       countdown_target: data.expected_arrival_at ?? data.expected_delivery_at,
+      preorder_closes_at: data.item.preorder_closes_at?.toISOString() ?? null,
+      item_created_at: data.item.created_at.toISOString(),
       title: data.item.name,
       short_specs: [data.item.scale, data.item.brand, data.item.car_brand, data.item.model_brand]
         .filter(Boolean)
@@ -463,7 +467,7 @@ export class PreordersService {
         take: pageSize,
         orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
         include: {
-          item: { select: { name: true } },
+          item: { select: { name: true, preorder_closes_at: true, created_at: true } },
           user: { select: { id: true, full_name: true, email: true } },
           member: { select: { id: true, full_name: true, phone: true } },
         },
@@ -522,6 +526,8 @@ export class PreordersService {
             brand: true,
             car_brand: true,
             model_brand: true,
+            preorder_closes_at: true,
+            created_at: true,
             item_images: { where: { is_cover: true }, take: 1, select: { file_path: true } },
           },
         },
@@ -559,6 +565,8 @@ export class PreordersService {
               brand: true,
               car_brand: true,
               model_brand: true,
+              preorder_closes_at: true,
+              created_at: true,
               item_images: { where: { is_cover: true }, take: 1, select: { file_path: true } },
             },
           },

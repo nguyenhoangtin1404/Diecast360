@@ -7,6 +7,7 @@ import { PREORDER_STATUS_LABELS } from '../../constants/preorder';
 import { safeHttpUrlForAttribute } from '../../utils/safeHttpUrl';
 import { sanitizeShopIdQueryParam } from '../../utils/sanitizeShopId';
 import { PublicBlobPageShell } from '../../components/PublicBlobPageShell';
+import { PreorderCountdown } from '../../components/preorder/PreorderCountdown';
 import styles from './preorders/preordersPublic.module.css';
 
 const formatCountdown = (target: string | null) => {
@@ -76,6 +77,14 @@ export const PreOrdersPage = () => {
               <span>{card.short_specs}</span>
               <span data-testid="public-preorder-countdown">{formatCountdown(card.countdown_target)}</span>
               <span className={styles.price}>{card.display_price.toLocaleString('vi-VN')} VND</span>
+              {card.preorder_closes_at && (
+                <div style={{ marginBottom: '8px' }}>
+                  <PreorderCountdown
+                    opensAt={card.item_created_at}
+                    closesAt={card.preorder_closes_at}
+                  />
+                </div>
+              )}
               <button className={styles.cta} type="button" data-testid="public-preorder-cta">
                 Đặt hàng ngay
               </button>

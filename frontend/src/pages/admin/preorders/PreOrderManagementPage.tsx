@@ -5,6 +5,7 @@ import { fetchAdminPreorders, fetchCampaignParticipants } from '../../../api/pre
 import { PREORDER_STATUS_LABELS } from '../../../constants/preorder';
 import { usePreorderTransition } from '../../../hooks/usePreorderTransition';
 import { PREORDER_TRANSITIONS } from './status';
+import { PreorderCountdown } from '../../../components/preorder/PreorderCountdown';
 import styles from './preordersAdmin.module.css';
 
 const PAGE_SIZE = 50;
@@ -116,6 +117,20 @@ export const PreOrderManagementPage = () => {
       <div className={styles.gridTwo}>
         <div className={styles.card}>
           <h2>Tổng quan campaign</h2>
+          {(() => {
+            const campaignItem = campaignPreorders[0]?.item;
+            if (campaignItem?.preorder_closes_at) {
+              return (
+                <div style={{ marginBottom: '12px' }}>
+                  <PreorderCountdown
+                    opensAt={campaignItem.created_at}
+                    closesAt={campaignItem.preorder_closes_at}
+                  />
+                </div>
+              );
+            }
+            return null;
+          })()}
           <p data-testid="admin-campaign-summary">
             Số đơn đang mở (campaign đã chọn): {campaignPreorders.length}
           </p>
