@@ -50,6 +50,8 @@
 - Body JSON: `{ "email": "string", "password": "string" }`.
 - CSRF: exempt để bootstrap phiên đăng nhập.
 - Response 200: set cookie HttpOnly `access_token`, HttpOnly `refresh_token` (path `/api/v1/auth`) và cookie đọc được `csrf_token`; `data: { user, message }`. Token không trả trong body.
+- Response header: `X-Trace-Id` — UUIDv7 định danh request này; có mặt trên cả response thành công lẫn thất bại. Timestamp có thể suy ra từ giá trị này (48-bit ms prefix).
+- Mọi lần gọi endpoint này đều ghi một bản ghi vào `login_audit_logs` với `trace_id`, `email`, `ip_address`, `user_agent`, `status` (success/failed) và `failure_reason` nếu thất bại.
 - Errors: `AUTH_INVALID_CREDENTIALS (401)`, `VALIDATION_ERROR (422)`.
 
 ### POST /api/v1/auth/refresh
