@@ -291,6 +291,7 @@ Condition: ${item.condition || ''}`;
         ...item,
         price: toNumber(item.price),
         original_price: toNumber(item.original_price),
+        preorder_price: toNumber(item.preorder_price),
         cover_image_url: item.item_images[0]
           ? await this.getImageUrl(item.item_images[0].file_path)
           : null,
@@ -390,6 +391,7 @@ Condition: ${item.condition || ''}`;
         ...itemData,
         price: priceValue != null ? (typeof (priceValue as { toNumber?: () => number }).toNumber === 'function' ? (priceValue as { toNumber: () => number }).toNumber() : Number(priceValue)) : null,
         original_price: originalPriceValue != null ? (typeof (originalPriceValue as { toNumber?: () => number }).toNumber === 'function' ? (originalPriceValue as { toNumber: () => number }).toNumber() : Number(originalPriceValue)) : null,
+        preorder_price: toNumber(itemData.preorder_price),
       },
       images,
       spin_sets,
