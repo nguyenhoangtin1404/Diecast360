@@ -5,6 +5,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginAuditService } from './login-audit.service';
+import { AppException } from '../common/exceptions/http-exception.filter';
 import { LoginDto } from './dto/login.dto';
 import { SwitchShopDto } from './dto/switch-shop.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -98,7 +99,7 @@ export class AuthController {
     res.setHeader('X-Trace-Id', traceId);
 
     const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.ip;
-    const userAgent = req.headers['user-agent'] as string | undefined;
+    const userAgent = (req.headers['user-agent'] as string | undefined)?.slice(0, 512);
 
     let result: Awaited<ReturnType<typeof this.authService.login>>;
     try {
@@ -110,7 +111,7 @@ export class AuthController {
         ip_address: ip,
         user_agent: userAgent,
         status: 'failed',
-        failure_reason: 'invalid_credentials',
+        failure_reason: e instanceof AppException ? 'invalid_credentials' : 'internal_error',
       });
       throw e;
     }

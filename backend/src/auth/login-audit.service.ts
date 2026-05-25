@@ -21,6 +21,6 @@ export class LoginAuditService {
   record(data: LoginAuditRecord): void {
     this.prisma.loginAuditLog
       .create({ data })
-      .catch((err) => this.logger.error('login_audit.write_failed', err?.message));
+      .catch((err) => this.logger.error('login_audit.write_failed', err?.stack));
   }
 }
