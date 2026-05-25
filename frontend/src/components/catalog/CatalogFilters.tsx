@@ -9,9 +9,11 @@ interface CatalogFiltersProps {
   carBrand: string | null;
   modelBrand: string | null;
   condition: 'new' | 'old' | null;
+  preorderOpen: boolean;
   onCarBrandChange: (brand: string | null) => void;
   onModelBrandChange: (brand: string | null) => void;
   onConditionChange: (condition: 'new' | 'old' | null) => void;
+  onPreorderOpenChange: (value: boolean) => void;
 }
 
 const chipBase =
@@ -32,9 +34,11 @@ export const CatalogFilters = ({
   carBrand,
   modelBrand,
   condition,
+  preorderOpen,
   onCarBrandChange,
   onModelBrandChange,
   onConditionChange,
+  onPreorderOpenChange,
 }: CatalogFiltersProps) => {
   const {
     data: categoriesData,
@@ -145,6 +149,19 @@ export const CatalogFilters = ({
             className={cn(chipBase, condition === 'old' ? chipActive : chipInactive)}
           >
             Cũ
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <h3 className={sectionTitleClass}>Pre-order</h3>
+        <div className={scrollRowClass}>
+          <button
+            type="button"
+            onClick={() => onPreorderOpenChange(!preorderOpen)}
+            className={cn(chipBase, preorderOpen ? chipActive : chipInactive)}
+          >
+            Đang mở đặt hàng
           </button>
         </div>
       </div>

@@ -108,6 +108,27 @@ export class ItemsController {
     return this.itemsService.findOne(id, tenantId);
   }
 
+  // NOTE: Declared before `@Patch(':id')` — literal segments must come first.
+  @Patch(':id/close-preorder')
+  @HttpCode(HttpStatus.OK)
+  @Roles(ShopRole.shop_admin)
+  closePreorder(
+    @Param('id') id: string,
+    @CurrentTenantId() tenantId: string,
+  ) {
+    return this.itemsService.closePreorder(id, tenantId);
+  }
+
+  @Patch(':id/reopen-preorder')
+  @HttpCode(HttpStatus.OK)
+  @Roles(ShopRole.shop_admin)
+  reopenPreorder(
+    @Param('id') id: string,
+    @CurrentTenantId() tenantId: string,
+  ) {
+    return this.itemsService.reopenPreorder(id, tenantId);
+  }
+
   @Patch(':id')
   update(
     @Param('id') id: string,

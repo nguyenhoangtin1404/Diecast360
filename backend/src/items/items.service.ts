@@ -251,6 +251,14 @@ Condition: ${item.condition || ''}`;
       where.facebook_posts = { none: {} };
     }
 
+    if (queryDto.preorder_open === true) {
+      where.status = 'preorder';
+      where.OR = [
+        { preorder_closes_at: null },
+        { preorder_closes_at: { gt: new Date() } },
+      ];
+    }
+
     const [items, total] = await Promise.all([
       this.prisma.item.findMany({
         where,
@@ -283,6 +291,7 @@ Condition: ${item.condition || ''}`;
         ...item,
         price: toNumber(item.price),
         original_price: toNumber(item.original_price),
+        preorder_price: toNumber(item.preorder_price),
         cover_image_url: item.item_images[0]
           ? await this.getImageUrl(item.item_images[0].file_path)
           : null,
@@ -382,6 +391,7 @@ Condition: ${item.condition || ''}`;
         ...itemData,
         price: priceValue != null ? (typeof (priceValue as { toNumber?: () => number }).toNumber === 'function' ? (priceValue as { toNumber: () => number }).toNumber() : Number(priceValue)) : null,
         original_price: originalPriceValue != null ? (typeof (originalPriceValue as { toNumber?: () => number }).toNumber === 'function' ? (originalPriceValue as { toNumber: () => number }).toNumber() : Number(originalPriceValue)) : null,
+        preorder_price: toNumber(itemData.preorder_price),
       },
       images,
       spin_sets,
@@ -452,6 +462,10 @@ Condition: ${item.condition || ''}`;
           attributes: toItemAttributesJson(createDto.attributes ?? {}),
           is_public: createDto.is_public || false,
           shop_id: shopId,
+          preorder_closes_at: initialStatus === 'preorder' && createDto.preorder_closes_at
+            ? new Date(createDto.preorder_closes_at)
+            : null,
+          preorder_price: createDto.preorder_price != null ? createDto.preorder_price : null,
         },
       });
 
@@ -602,6 +616,20 @@ Condition: ${item.condition || ''}`;
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
     if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
 
+    // preorder_closes_at: set when explicitly provided; clear when status leaves preorder
+    if (updateDto.preorder_closes_at !== undefined) {
+      updateData.preorder_closes_at = updateDto.preorder_closes_at
+        ? new Date(updateDto.preorder_closes_at)
+        : null;
+    } else if (nextStatus !== 'preorder' && existingItem.status === 'preorder') {
+      updateData.preorder_closes_at = null;
+    }
+
+    // preorder_price: persist as-is regardless of status; catalog decides when to show it
+    if (updateDto.preorder_price !== undefined) {
+      updateData.preorder_price = updateDto.preorder_price ?? null;
+    }
+
     if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
       const nextCarBrand =
         updateDto.car_brand !== undefined
@@ -676,6 +704,48 @@ Condition: ${item.condition || ''}`;
       preorders_auto_cancelled_count: preordersAutoCancelledCount,
       preorders_with_deposit_count: preordersWithDepositCount,
     };
+  }
+
+  async closePreorder(id: string, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
+    const now = new Date();
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const item = await tx.item.findFirst({
+        where: { id, deleted_at: null, shop_id: shopId },
+      });
+      if (!item) {
+        throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
+      }
+      if (item.status !== 'preorder') {
+        throw new AppException(ErrorCode.VALIDATION_ERROR, 'Item is not a preorder item');
+      }
+      if (item.preorder_closes_at && item.preorder_closes_at <= now) {
+        throw new AppException(ErrorCode.VALIDATION_ERROR, 'Preorder is already closed');
+      }
+      return tx.item.update({ where: { id }, data: { preorder_closes_at: now } });
+    });
+    return { item: updated };
+  }
+
+  async reopenPreorder(id: string, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
+    const now = new Date();
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const item = await tx.item.findFirst({
+        where: { id, deleted_at: null, shop_id: shopId },
+      });
+      if (!item) {
+        throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
+      }
+      if (item.status !== 'preorder') {
+        throw new AppException(ErrorCode.VALIDATION_ERROR, 'Item is not a preorder item');
+      }
+      if (!item.preorder_closes_at || item.preorder_closes_at > now) {
+        throw new AppException(ErrorCode.VALIDATION_ERROR, 'Preorder is not closed yet');
+      }
+      return tx.item.update({ where: { id }, data: { preorder_closes_at: null } });
+    });
+    return { item: updated };
   }
 
   async remove(id: string, tenantId: string) {

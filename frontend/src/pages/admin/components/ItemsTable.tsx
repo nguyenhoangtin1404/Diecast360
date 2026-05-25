@@ -26,6 +26,8 @@ interface ItemsTableProps {
   items: AdminItem[];
   onDelete: (id: string, name: string) => void;
   onTogglePublic: (id: string, isPublic: boolean) => void;
+  onClosePreorder: (id: string) => Promise<void>;
+  onReopenPreorder: (id: string) => Promise<void>;
   isDeletePending: boolean;
   isTogglePublicPending: boolean;
 }
@@ -34,12 +36,38 @@ export const ItemsTable = ({
   items,
   onDelete,
   onTogglePublic,
+  onClosePreorder,
+  onReopenPreorder,
   isDeletePending,
   isTogglePublicPending,
 }: ItemsTableProps) => {
   const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [printingQrId, setPrintingQrId] = useState<string | null>(null);
+  const [closingPreorderId, setClosingPreorderId] = useState<string | null>(null);
+  const [reopeningPreorderId, setReopeningPreorderId] = useState<string | null>(null);
+
+  const handleClosePreorder = async (id: string) => {
+    setClosingPreorderId(id);
+    try {
+      await onClosePreorder(id);
+    } finally {
+      setClosingPreorderId(null);
+    }
+  };
+
+  const handleReopenPreorder = async (id: string) => {
+    const ok = window.confirm(
+      'Preorder sẽ được mở lại không có thời hạn.\nNhớ vào trang chỉnh sửa sản phẩm để đặt deadline mới.\n\nXác nhận mở lại?',
+    );
+    if (!ok) return;
+    setReopeningPreorderId(id);
+    try {
+      await onReopenPreorder(id);
+    } finally {
+      setReopeningPreorderId(null);
+    }
+  };
 
   const handlePrintQr = async (item: AdminItem) => {
     // Open the popup synchronously within the click gesture — before any await —
@@ -95,6 +123,15 @@ export const ItemsTable = ({
     price ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price) : '-'
   );
 
+  const isPreorderOpen = (item: AdminItem) =>
+    item.status === 'preorder' &&
+    (!item.preorder_closes_at || new Date(item.preorder_closes_at) > new Date());
+
+  const isPreorderClosed = (item: AdminItem) =>
+    item.status === 'preorder' &&
+    !!item.preorder_closes_at &&
+    new Date(item.preorder_closes_at) <= new Date();
+
   return (
     <div className={styles.tableWrapper}>
       <table className={styles.table}>
@@ -141,6 +178,9 @@ export const ItemsTable = ({
                   {renderStatusIcon(item.status)}
                   <span>{ITEM_STATUS_LABELS[item.status].text}</span>
                 </div>
+                {isPreorderClosed(item) && (
+                  <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '2px' }}>Đã đóng đợt</div>
+                )}
               </td>
               <td className={`${styles.td} ${styles.tdCenter}`}>
                 <span className={styles.mobileFieldLabel}>SL</span>
@@ -255,6 +295,30 @@ export const ItemsTable = ({
                   >
                     <Printer size={18} />
                   </button>
+                  {isPreorderOpen(item) && (
+                    <button
+                      onClick={() => handleClosePreorder(item.id)}
+                      title="Đóng preorder"
+                      disabled={closingPreorderId === item.id}
+                      className={styles.iconButton}
+                      style={{ color: '#dc3545', opacity: closingPreorderId === item.id ? 0.5 : 1 }}
+                      aria-label={`Đóng preorder ${item.name}`}
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                  {isPreorderClosed(item) && (
+                    <button
+                      onClick={() => handleReopenPreorder(item.id)}
+                      title="Mở lại preorder"
+                      disabled={reopeningPreorderId === item.id}
+                      className={styles.iconButton}
+                      style={{ color: '#0d6efd', opacity: reopeningPreorderId === item.id ? 0.5 : 1 }}
+                      aria-label={`Mở lại preorder ${item.name}`}
+                    >
+                      <AlarmClock size={18} />
+                    </button>
+                  )}
                   <button
                     onClick={() => onDelete(item.id, item.name)}
                     title="Xóa"

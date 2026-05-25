@@ -9,6 +9,8 @@ interface ItemCardProps {
     has_spinner?: boolean;
     price?: number | null;
     original_price?: number | null;
+    preorder_price?: number | null;
+    preorder_closes_at?: string | null;
     condition?: string | null;
   };
   index?: number;
@@ -34,8 +36,16 @@ export const ItemCard = ({ item, index = 0, shopSearch = '' }: ItemCardProps) =>
     return Math.round(((original - current) / original) * 100);
   };
 
-  const hasDiscount = item.original_price && item.price && item.original_price > item.price;
-  const discountPercent = hasDiscount ? calculateDiscount(item.original_price!, item.price!) : 0;
+  const isPreorderOpen =
+    item.status === 'preorder' &&
+    item.preorder_price != null &&
+    (!item.preorder_closes_at || new Date(item.preorder_closes_at) > new Date());
+
+  // During an open preorder window, show preorder_price as the active price
+  const displayPrice = isPreorderOpen ? item.preorder_price! : item.price;
+
+  const hasDiscount = item.original_price && displayPrice && item.original_price > displayPrice;
+  const discountPercent = hasDiscount ? calculateDiscount(item.original_price!, displayPrice!) : 0;
 
   return (
     <Link
@@ -71,7 +81,7 @@ export const ItemCard = ({ item, index = 0, shopSearch = '' }: ItemCardProps) =>
               </span>
             )}
           </div>
-          {item.price != null && (
+          {displayPrice != null && (
             <div className="mt-2">
               {hasDiscount && item.original_price && (
                 <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -86,7 +96,7 @@ export const ItemCard = ({ item, index = 0, shopSearch = '' }: ItemCardProps) =>
                 </div>
               )}
               <div className="text-lg font-extrabold tracking-tight text-slate-900">
-                {formatPrice(item.price)}
+                {formatPrice(displayPrice)}
               </div>
             </div>
           )}

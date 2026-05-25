@@ -110,6 +110,7 @@ describe('PublicCatalogPage URL sync', () => {
       'Toyota',
       null,
       'old',
+      false,
       'name',
       'asc',
     ]);

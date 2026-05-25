@@ -20,7 +20,7 @@
 
 ## Data shape
 - `ItemStatus`: `"con_hang" | "giu_cho" | "da_ban" | "preorder"`. Transition rules: `con_hang`/`giu_cho` → any; `da_ban` → `con_hang` only (re-stock, tự set quantity=1); `da_ban → preorder`/`giu_cho` bị chặn; `preorder` → `con_hang` (hàng về, tự trigger cập nhật đơn `WAITING_FOR_GOODS→ARRIVED`) hoặc `preorder` → `da_ban` (nhà cung cấp hủy, quantity=0).
-- `Item`: `{ id, shop_id?, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, status: ItemStatus, quantity, attributes, notes?, is_public, fb_post_content, cover_image_url, fb_post_url?, fb_posted_at?, fb_posts_count?, created_at, updated_at, deleted_at? }`.
+- `Item`: `{ id, shop_id?, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, preorder_price?, status: ItemStatus, quantity, attributes, notes?, is_public, fb_post_content, preorder_closes_at?, cover_image_url, fb_post_url?, fb_posted_at?, fb_posts_count?, created_at, updated_at, deleted_at? }`. `preorder_closes_at` — ISO-8601 hoặc `null`; chỉ có ý nghĩa khi `status = "preorder"`. `preorder_price` — giá áp dụng khi preorder đang mở; `null` hoặc thiếu = dùng `price` thông thường. Luôn được lưu trong DB bất kể status (không tự xóa khi item đổi status); catalog quyết định hiển thị giá nào.
 - `attributes`: object phẳng `Record<string, string | number | boolean | null>`, tối đa 50 key, key phải được trim và không được dùng các tên dự phòng như `__proto__`, `constructor`, `prototype`.
 - `FacebookPost`: `{ id, item_id, post_url, content, posted_at, created_at }`.
 - `User`: `{ id, email, full_name, role, platform_role?, is_active?, allowed_shop_ids: string[], shop_roles?, allowed_shops?, active_shop_id? }`.
@@ -176,7 +176,7 @@ Các route dưới đây yêu cầu JWT đã gắn `active_shop_id` hợp lệ.
 Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop_id`). `shop_admin` ghi được; `shop_staff` chỉ đọc theo guard chung. Nếu user chưa gọi `POST /auth/switch-shop` cho shop hợp lệ, server trả **HTTP 400** với message hướng dẫn switch shop (không dùng 403 vì đây là thiếu context tenant, không phải từ chối quyền).
 
 ### GET /api/v1/items
-- Query: `page` (default 1), `page_size` (default 20), `status` (optional), `is_public` (optional), `q` (search theo tên), `car_brand` (optional), `model_brand` (optional), `condition` (optional), `fb_status=posted|not_posted` (optional).
+- Query: `page` (default 1), `page_size` (default 20), `status` (optional), `is_public` (optional), `q` (search theo tên), `car_brand` (optional), `model_brand` (optional), `condition` (optional), `fb_status=posted|not_posted` (optional), `preorder_open=true` (optional — lọc chỉ item `status=preorder` có cửa sổ đặt hàng còn mở, tức `preorder_closes_at IS NULL OR preorder_closes_at > NOW()`).
 - Response 200: `data: { items: Item[], pagination }`.
 - Admin item list trả thêm:
   - `cover_image_url`
@@ -225,7 +225,7 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 - Errors: `NOT_FOUND (404)` khi item không thuộc tenant, `INTERNAL_SERVER_ERROR (500)` khi không thể tạo token unique sau 3 lần thử.
 
 ### PATCH /api/v1/items/:id
-- Body JSON: các field cho phép cập nhật `name/description/scale/brand/car_brand/model_brand/condition/price/original_price/status/quantity/attributes/is_public/fb_post_content`.
+- Body JSON: các field cho phép cập nhật `name/description/scale/brand/car_brand/model_brand/condition/price/original_price/preorder_price/status/quantity/attributes/is_public/fb_post_content/preorder_closes_at`. `preorder_closes_at` nhận ISO-8601 string hoặc `null`; khi `status` rời `preorder` service tự xóa trường này bất kể payload. `preorder_price` — giá preorder; **luôn được lưu trong DB** bất kể status (admin theo dõi được); catalog hiển thị giá này khi preorder đang mở, ngược lại dùng `price`.
 - Invariant: item `da_ban` luôn có `quantity = 0`; client không thể giữ stock > 0 khi đã bán.
 - Khi PATCH chuyển hoặc đặt `status = "da_ban"`, server ghi `quantity = 0` (bỏ qua `quantity` khác 0 trong body nếu có).
 - Khi item đã `da_ban` và body **không** gửi `quantity`, server có thể **không** cập nhật cột `quantity` trong DB (vẫn 0); nếu body có `quantity`, server vẫn ép về `0` trước khi lưu.
@@ -234,6 +234,18 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 - Khi PATCH chuyển `status` từ `preorder` sang `da_ban` (nhà cung cấp hủy): server ép `quantity = 0`, tự động hủy các đơn có `paid_amount = 0` (chưa thu cọc) sang `CANCELLED`. Các đơn đã có cọc (`paid_amount > 0`) giữ nguyên để admin xử lý thủ công.
 - Transition không hợp lệ (ví dụ `da_ban → preorder`) trả về `ITEM_STATUS_TRANSITION_INVALID (422)`.
 - Response 200: `data: { item, preorders_arrived_count: number, preorders_pending_count: number, preorders_auto_cancelled_count: number, preorders_with_deposit_count: number }`. Các count field luôn có giá trị (0 nếu không có auto-trigger). `preorders_pending_count` là số đơn `PENDING_CONFIRMATION` còn lại sau khi `preorder → con_hang` (không bị auto-advance, cần xử lý thủ công).
+
+### PATCH /api/v1/items/:id/close-preorder
+- Auth: JWT + active shop (**shop_admin only** — shop_staff bị từ chối 403).
+- Đóng sớm cửa sổ preorder bằng cách set `preorder_closes_at = NOW()`. Thao tác atomic (transaction).
+- Lỗi `VALIDATION_ERROR (422)` nếu item không phải `status = "preorder"` hoặc preorder đã đóng rồi.
+- Response 200: `data: { item }`.
+
+### PATCH /api/v1/items/:id/reopen-preorder
+- Auth: JWT + active shop (**shop_admin only** — shop_staff bị từ chối 403).
+- Mở lại preorder đã đóng bằng cách xóa `preorder_closes_at` (open-ended). Admin có thể đặt lại deadline qua PATCH thông thường. Thao tác atomic (transaction).
+- Lỗi `VALIDATION_ERROR (422)` nếu item không phải `status = "preorder"` hoặc preorder chưa đóng.
+- Response 200: `data: { item }`.
 
 ### GET /api/v1/preorders/admin/campaigns/:itemId/summary
 - Auth: JWT + active shop (shop_admin hoặc shop_staff).
@@ -494,7 +506,8 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 
 ## Public
 ### GET /api/v1/public/items
-- Query: `page`, `page_size`, `status` (optional), `q`, `car_brand`, `model_brand`, `condition=new|old`, `sort_by=name|price|created_at`, `sort_order=asc|desc`.
+- Query: `page`, `page_size`, `status` (optional), `q`, `car_brand`, `model_brand`, `condition=new|old`, `preorder_open=true` (optional — xem mô tả tương tự `GET /items`), `sort_by=name|price|created_at`, `sort_order=asc|desc`.
+- Response item shape gồm thêm `preorder_closes_at` (ISO-8601 hoặc `null`) và `preorder_price` (number hoặc `null`).
 - **`shop_id` (optional):** giới hạn catalog theo một shop. Giá trị hợp lệ:
   - UUID của `Shop.id`, hoặc
   - Chuỗi **khớp chính xác** `Shop.slug` (phân biệt hoa thường).
