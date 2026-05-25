@@ -32,7 +32,7 @@ import { PrismaModule } from '../common/prisma/prisma.module';
   ],
   controllers: [AuthController],
   providers: [AuthService, LoginAuditService, JwtStrategy],
-  exports: [AuthService],
+  exports: [AuthService, LoginAuditService],
 })
 export class AuthModule {}
 
