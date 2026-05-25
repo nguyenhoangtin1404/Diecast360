@@ -93,7 +93,8 @@ export class CaptchaService {
       throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA service is temporarily unavailable');
     }
 
-    const minScore = parseFloat(this.configService.get<string>('CAPTCHA_MIN_SCORE') ?? '0.5');
+    const rawScore = parseFloat(this.configService.get<string>('CAPTCHA_MIN_SCORE') ?? '0.5');
+    const minScore = isNaN(rawScore) ? 0.5 : rawScore;
 
     // Treat absent score as 0: some token types (v2, action mismatch) omit it entirely.
     if (!data.success || (data.score ?? 0) < minScore) {

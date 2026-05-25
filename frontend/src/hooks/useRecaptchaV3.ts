@@ -24,8 +24,6 @@ export const useRecaptchaV3 = () => {
   const execute = useCallback(async (): Promise<string | undefined> => {
     if (!CAPTCHA_ENABLED || CAPTCHA_PROVIDER !== 'google') return undefined;
 
-    // Fix #6: reject immediately if grecaptcha script didn't load instead of
-    // hanging forever via a no-op optional-chain on window.grecaptcha?.ready()
     if (!window.grecaptcha) {
       throw new Error('reCAPTCHA script not loaded. Please refresh the page.');
     }

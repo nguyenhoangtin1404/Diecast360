@@ -62,7 +62,6 @@ export const CaptchaWidget = ({ onToken, onExpire, onError, onLoadError, resetKe
           'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit';
         script.async = true;
         script.defer = true;
-        // Fix: notify caller when the CF script itself fails to load
         script.onerror = () => onLoadError?.();
         document.head.appendChild(script);
       }
@@ -77,7 +76,6 @@ export const CaptchaWidget = ({ onToken, onExpire, onError, onLoadError, resetKe
   }, [renderWidget, onLoadError]);
 
   useEffect(() => {
-    // Fix #7: use explicit zero-check — 0 means initial state (no reset needed)
     if (!resetKey || resetKey <= 0) return;
     if (widgetIdRef.current !== undefined && window.turnstile) {
       window.turnstile.reset(widgetIdRef.current);
