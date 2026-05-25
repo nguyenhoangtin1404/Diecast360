@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { useAuth } from '../../hooks/useAuth';
-import { Mail, Lock, LogIn, AlertCircle, Box, Loader2, Shield } from 'lucide-react';
+import { Mail, Lock, LogIn, AlertCircle, Box, Loader2, Shield, RefreshCw } from 'lucide-react';
 import type { ApiErrorResponse } from '../../types/item.types';
 import { ROUTES } from '../../config/routes';
 import { CaptchaWidget } from '../../components/CaptchaWidget';
@@ -30,6 +30,8 @@ function getLoginErrorMessage(err: unknown): string {
 const isTurnstile = CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'cloudflare';
 const isRecaptcha = CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'google';
 
+type CaptchaStatus = 'idle' | 'ready' | 'widget-error' | 'load-error';
+
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,9 +39,7 @@ export const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
-  // Fix: track widget load failure so user sees an actionable message instead of
-  // a silently disabled button when Turnstile is blocked by an ad-blocker or CSP.
-  const [captchaLoadError, setCaptchaLoadError] = useState(false);
+  const [captchaStatus, setCaptchaStatus] = useState<CaptchaStatus>('idle');
   const { login } = useAuth();
   const navigate = useNavigate();
   const { execute: executeRecaptcha } = useRecaptchaV3();
@@ -68,6 +68,7 @@ export const LoginPage = () => {
       setError(getLoginErrorMessage(err));
       if (isTurnstile) {
         setCaptchaToken(null);
+        setCaptchaStatus('idle');
         setCaptchaResetKey((k) => k + 1);
       }
     } finally {
@@ -75,14 +76,21 @@ export const LoginPage = () => {
     }
   };
 
-  const handleCaptchaError = () => {
+  // Transient widget error (network timeout, rate limit from CF) — auto-retry
+  const handleWidgetError = () => {
     setCaptchaToken(null);
-    setCaptchaLoadError(true);
+    setCaptchaStatus('widget-error');
+    setCaptchaResetKey((k) => k + 1);
   };
 
-  // Button is disabled while loading, or while waiting for Turnstile token
-  // (but NOT when the widget itself failed to load — user deserves a clear error, not a frozen UI)
-  const submitDisabled = loading || (isTurnstile && !captchaToken && !captchaLoadError);
+  // Script failed to load (ad-blocker, CSP, network) — requires page reload
+  const handleLoadError = () => {
+    setCaptchaToken(null);
+    setCaptchaStatus('load-error');
+  };
+
+  // Disable while loading OR while waiting for Turnstile token (covers all error states)
+  const submitDisabled = loading || (isTurnstile && !captchaToken);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#F8FAFC] px-4 py-12 sm:px-6">
@@ -182,23 +190,30 @@ export const LoginPage = () => {
               {isTurnstile && (
                 <>
                   <CaptchaWidget
-                    onToken={(t) => { setCaptchaToken(t); setCaptchaLoadError(false); }}
-                    onExpire={() => setCaptchaToken(null)}
-                    onError={handleCaptchaError}
-                    onLoadError={handleCaptchaError}
+                    onToken={(t) => { setCaptchaToken(t); setCaptchaStatus('ready'); }}
+                    onExpire={() => { setCaptchaToken(null); setCaptchaStatus('idle'); }}
+                    onError={handleWidgetError}
+                    onLoadError={handleLoadError}
                     resetKey={captchaResetKey}
                   />
-                  {captchaLoadError && (
+
+                  {captchaStatus === 'widget-error' && (
                     <p className="text-center text-xs text-amber-700">
+                      CAPTCHA gặp lỗi, đang thử lại…
+                    </p>
+                  )}
+
+                  {captchaStatus === 'load-error' && (
+                    <p className="flex items-center justify-center gap-1.5 text-center text-xs text-amber-700">
                       Không tải được CAPTCHA.{' '}
                       <button
                         type="button"
                         onClick={() => window.location.reload()}
-                        className="underline hover:no-underline"
+                        className="inline-flex items-center gap-1 underline hover:no-underline"
                       >
+                        <RefreshCw className="h-3 w-3" strokeWidth={2} aria-hidden />
                         Tải lại trang
-                      </button>{' '}
-                      để thử lại.
+                      </button>
                     </p>
                   )}
                 </>

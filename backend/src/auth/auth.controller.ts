@@ -1,5 +1,5 @@
 import { Controller, Post, Get, Body, UseGuards, Request, Res, HttpCode, HttpStatus } from '@nestjs/common';
-import { Response } from 'express';
+import { Request as ExpressRequest, Response } from 'express';
 import * as crypto from 'crypto';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -90,7 +90,7 @@ export class AuthController {
   @Throttle({ default: { ttl: 60000, limit: 8 } })
   async login(
     @Body() loginDto: LoginDto,
-    @Request() req,
+    @Request() req: ExpressRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
     await this.captchaService.verify(loginDto.captcha_token, req.ip);

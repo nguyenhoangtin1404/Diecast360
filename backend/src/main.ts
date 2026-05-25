@@ -66,8 +66,8 @@ async function bootstrap() {
   validateRuntimeSecurityConfig();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Fix #5: trust one proxy hop so req.ip reflects the real client IP
-  // (needed behind Nginx/Cloudflare for CAPTCHA remoteip validation)
+  // Trust one proxy hop (Nginx, Cloudflare) so req.ip reflects the real
+  // client address for rate limiting, CAPTCHA remoteip, and access logs.
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
   app.use(helmet(buildHelmetOptions()));
