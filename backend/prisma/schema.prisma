@@ -423,7 +423,7 @@ model LoginAuditLog {
   shop_id        String?
   ip_address     String?
   user_agent     String?
-  status         String   // 'success' | 'failed' | 'rate_limited'
+  status         String   // 'success' | 'failed'
   failure_reason String?
   created_at     DateTime @default(now())
 

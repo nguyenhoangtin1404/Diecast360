@@ -4,6 +4,7 @@ import {
   ArgumentsHost,
   HttpStatus,
   Optional,
+  Logger,
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { Request, Response } from 'express';
@@ -13,16 +14,23 @@ import { LoginAuditService } from '../../auth/login-audit.service';
 
 @Catch(ThrottlerException)
 export class ThrottlerExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ThrottlerExceptionFilter.name);
+
   constructor(
     @Optional() private readonly loginAuditService?: LoginAuditService,
-  ) {}
+  ) {
+    if (!loginAuditService) {
+      this.logger.warn('LoginAuditService not injected — throttled login attempts will not be audited');
+    }
+  }
 
   catch(_exception: ThrottlerException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
 
-    const isLoginEndpoint = request.path === '/api/v1/auth/login';
+    // endsWith handles both standard prefix and reverse-proxy path stripping
+    const isLoginEndpoint = request.path.endsWith('/auth/login');
     if (isLoginEndpoint && this.loginAuditService) {
       const traceId = uuidv7();
       response.setHeader('X-Trace-Id', traceId);

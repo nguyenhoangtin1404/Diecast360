@@ -5,7 +5,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginAuditService } from './login-audit.service';
-import { AppException } from '../common/exceptions/http-exception.filter';
+import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { LoginDto } from './dto/login.dto';
 import { SwitchShopDto } from './dto/switch-shop.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -111,7 +111,9 @@ export class AuthController {
         ip_address: ip,
         user_agent: userAgent,
         status: 'failed',
-        failure_reason: e instanceof AppException ? 'invalid_credentials' : 'internal_error',
+        failure_reason: (e instanceof AppException && e.errorCode === ErrorCode.AUTH_INVALID_CREDENTIALS)
+          ? 'invalid_credentials'
+          : 'internal_error',
       });
       throw e;
     }
