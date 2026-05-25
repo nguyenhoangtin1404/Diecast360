@@ -12,6 +12,7 @@ export type Member = {
   full_name: string;
   email: string | null;
   phone: string | null;
+  address: string | null;
   points_balance: number;
   tier_id: string | null;
   tier?: MemberTier | null;

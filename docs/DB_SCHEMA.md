@@ -214,7 +214,7 @@ Unique: `(shop_id, name)`, `(shop_id, rank)`. Index: `(shop_id, rank)`.
 | `id` | uuid | PK |
 | `shop_id` | uuid | FK `shops(id)` ON DELETE CASCADE |
 | `full_name` | string | NOT NULL |
-| `email`, `phone` | string? | Unique theo shop khi có giá trị |
+| `email`, `phone`, `address` | string? | `email`/`phone` unique theo shop khi có giá trị |
 | `points_balance` | int | default `0` |
 | `tier_id` | uuid? | FK `membership_tiers(id)` ON DELETE SET NULL |
 | `created_at`, `updated_at` | datetime | timestamps |

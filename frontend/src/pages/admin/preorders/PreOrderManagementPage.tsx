@@ -6,6 +6,7 @@ import { PREORDER_STATUS_LABELS } from '../../../constants/preorder';
 import { usePreorderTransition } from '../../../hooks/usePreorderTransition';
 import { PREORDER_TRANSITIONS } from './status';
 import { PreorderCountdown } from '../../../components/preorder/PreorderCountdown';
+import { PreorderReceiptActions } from '../../../components/preorders/PreorderReceiptActions';
 import styles from './preordersAdmin.module.css';
 
 const PAGE_SIZE = 50;
@@ -223,6 +224,12 @@ export const PreOrderManagementPage = () => {
             </strong>
             <span>Số lượng: {participant.quantity}</span>
             <span>Trạng thái: {PREORDER_STATUS_LABELS[participant.status]}</span>
+            <PreorderReceiptActions
+              preorderId={participant.preorder_id}
+              className={styles.controls}
+              buttonClassName={styles.button}
+              compact
+            />
             <div className={styles.controls}>
               {(PREORDER_TRANSITIONS[participant.status] ?? []).map((status) => (
                 <button

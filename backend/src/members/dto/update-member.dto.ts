@@ -15,4 +15,9 @@ export class UpdateMemberDto {
   @IsString()
   @MaxLength(30)
   phone?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  address?: string | null;
 }

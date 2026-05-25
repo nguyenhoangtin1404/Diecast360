@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createPreorder } from '../../../api/preorders';
+import { PreorderReceiptActions } from '../../../components/preorders/PreorderReceiptActions';
 import { fetchMembers } from '../../../api/members';
 import { isOptionalHttpOrHttpsUrl } from '../../../utils/safeHttpUrl';
 import styles from './preordersAdmin.module.css';
@@ -63,7 +64,7 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
   const [form, setForm] = useState(() => emptyForm(initialItemId));
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const postSuccessNavigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [createdPreorderId, setCreatedPreorderId] = useState<string | null>(null);
 
   const [memberSearch, setMemberSearch] = useState('');
 
@@ -77,26 +78,12 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
       }),
   });
 
-  useEffect(() => {
-    return () => {
-      if (postSuccessNavigateTimeoutRef.current !== undefined) {
-        clearTimeout(postSuccessNavigateTimeoutRef.current);
-      }
-    };
-  }, []);
-
   const createMutation = useMutation({
     mutationFn: createPreorder,
-    onSuccess: () => {
-      setSuccess('Đã tạo pre-order thành công.');
+    onSuccess: (preorder) => {
+      setCreatedPreorderId(preorder.id);
+      setSuccess('Đã tạo pre-order thành công. Bạn có thể in phiếu hoặc tạo ảnh chia sẻ bên dưới.');
       setError(null);
-      if (postSuccessNavigateTimeoutRef.current !== undefined) {
-        clearTimeout(postSuccessNavigateTimeoutRef.current);
-      }
-      postSuccessNavigateTimeoutRef.current = setTimeout(() => {
-        postSuccessNavigateTimeoutRef.current = undefined;
-        navigate('/admin/preorders');
-      }, 1200);
     },
     onError: () => {
       setError('Tạo pre-order thất bại. Vui lòng kiểm tra lại.');
@@ -344,6 +331,22 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
         </button>
         {error && <p className={styles.error}>{error}</p>}
         {success && <p className={styles.success}>{success}</p>}
+        {createdPreorderId && (
+          <div className={styles.card}>
+            <PreorderReceiptActions
+              preorderId={createdPreorderId}
+              buttonClassName={styles.button}
+            />
+            <button
+              type="button"
+              className={styles.button}
+              style={{ marginTop: '12px' }}
+              onClick={() => navigate('/admin/preorders')}
+            >
+              Về danh sách pre-order
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );

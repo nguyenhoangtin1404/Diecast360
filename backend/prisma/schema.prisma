@@ -291,6 +291,7 @@ model Member {
   full_name      String
   email          String?
   phone          String?
+  address        String?
   points_balance Int      @default(0)
   tier_id        String?
   created_at     DateTime @default(now())

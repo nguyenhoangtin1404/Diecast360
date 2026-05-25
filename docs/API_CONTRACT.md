@@ -30,7 +30,7 @@
 - `SpinSet`: `{ id, item_id, label, is_default, frames: SpinFrame[], created_at, updated_at }`.
 - `PreOrderStatus`: `PENDING_CONFIRMATION | WAITING_FOR_GOODS | ARRIVED | PAID | REFUNDED | CANCELLED`.
 - `PreOrder`: `{ id, shop_id, item_id, user_id?, member_id?, status, quantity, unit_price?, total_amount?, deposit_amount, paid_amount, expected_arrival_at?, expected_delivery_at?, cover_image_url?, note?, created_at, updated_at, cancelled_at?, completed_at? }`.
-- `Member`: `{ id, shop_id, full_name, email?, phone?, points_balance, tier_id?, tier?, created_at, updated_at }`.
+- `Member`: `{ id, shop_id, full_name, email?, phone?, address?, points_balance, tier_id?, tier?, created_at, updated_at }`.
 - `MembershipTier`: `{ id, shop_id, name, rank, min_points, created_at, updated_at }`.
 - `InventoryTransaction`: `{ id, shop_id, item_id, actor_user_id?, reversal_of_id?, type, quantity, delta, resulting_quantity, reason, note?, created_at }`.
 - Pagination: `{ page, page_size, total, total_pages }`.
@@ -577,6 +577,11 @@ Các route admin yêu cầu JWT + `active_shop_id`; `shop_admin` ghi được, `
 - Query: `status`, `item_id`, `page`, `page_size`.
 - Response 200: đơn pre-order của user hiện tại trong tenant. Card shape giống `GET /preorders/public` (có `preorder_closes_at`, `preorder_opens_at`).
 
+### GET /api/v1/preorders/:id/receipt
+- Auth: JWT + active shop.
+- Quyền: `shop_admin` / `shop_staff` xem mọi đơn trong tenant; user thường chỉ xem đơn có `user_id` trùng JWT.
+- Response 200: `data: { shop: { name, phone_label?, phone_tel?, address?, logo_url? }, preorder: { id, status, quantity, unit_price, total_amount, deposit_amount, paid_amount, remaining_amount, discount_amount, note, created_at, item, member?, user? } }` — dùng cho in phiếu nhiệt và xuất ảnh PNG.
+
 ## Inventory
 Các route yêu cầu JWT + active shop; `shop_admin` ghi được, `shop_staff` chỉ đọc theo guard chung.
 
@@ -611,10 +616,10 @@ Các route yêu cầu JWT + active shop; `shop_admin` ghi được, `shop_staff`
 
 ### GET/POST /api/v1/members
 - `GET` query: `q`, `page`, `page_size`.
-- `POST` body: `{ "full_name": "string", "email?": "email", "phone?": "string" }`.
+- `POST` body: `{ "full_name": "string", "email?": "email", "phone?": "string", "address?": "string" }`.
 
 ### GET/PATCH/DELETE /api/v1/members/:id
-- `PATCH` body: field member optional (`full_name`, `email`, `phone`, `tier_id`).
+- `PATCH` body: field member optional (`full_name`, `email`, `phone`, `address`, `tier_id`).
 - `DELETE` xóa member trong tenant hiện tại.
 
 ### GET /api/v1/members/:id/ledger
