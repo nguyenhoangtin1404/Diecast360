@@ -92,6 +92,8 @@ describe('PreordersService', () => {
       expect.objectContaining({
         status: PreOrderStatus.WAITING_FOR_GOODS,
         countdown_target: expect.any(Date),
+        preorder_closes_at: null,
+        item_created_at: '2026-01-01T00:00:00.000Z',
         display_price: 200,
         short_specs: expect.stringContaining('1:64'),
         cover_image_url: 'http://localhost/images/cover.jpg',

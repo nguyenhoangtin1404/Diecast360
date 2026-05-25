@@ -20,7 +20,8 @@ function formatRemaining(diffMs: number, compact: boolean): string {
 
   if (compact) {
     if (days > 0) return `Còn ${days}d`;
-    return `Còn ${totalHours}h`;
+    if (totalHours > 0) return `Còn ${totalHours}h`;
+    return `Còn ${minutes}m`;
   }
   if (diffMs < 86_400_000) {
     return `Còn ${totalHours}h ${minutes}m`;
@@ -31,10 +32,20 @@ function formatRemaining(diffMs: number, compact: boolean): string {
 export const PreorderCountdown = ({ opensAt, closesAt, compact = false }: PreorderCountdownProps) => {
   const [now, setNow] = useState(() => Date.now());
 
+  // Regular 60-second tick
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  // Precise transition to "Đã đóng" when window closes within the next hour
+  useEffect(() => {
+    if (!closesAt) return;
+    const msUntilClose = new Date(closesAt).getTime() - Date.now();
+    if (msUntilClose <= 0 || msUntilClose > 3_600_000) return;
+    const id = setTimeout(() => setNow(Date.now()), msUntilClose + 100);
+    return () => clearTimeout(id);
+  }, [closesAt]);
 
   if (!closesAt) return null;
 
@@ -60,9 +71,10 @@ export const PreorderCountdown = ({ opensAt, closesAt, compact = false }: Preord
     );
   }
 
-  const opensAtMs = opensAt ? new Date(opensAt).getTime() : closesAtMs - diffMs;
-  const totalMs = closesAtMs - opensAtMs;
-  const elapsedMs = now - opensAtMs;
+  // When opensAt is unavailable, fillPct = 0 (bar starts empty — remaining unknown)
+  const opensAtMs = opensAt ? new Date(opensAt).getTime() : null;
+  const totalMs = opensAtMs !== null ? closesAtMs - opensAtMs : 0;
+  const elapsedMs = opensAtMs !== null ? now - opensAtMs : 0;
   const fillPct = totalMs > 0 ? Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100)) : 0;
   const remainingPct = 100 - fillPct;
   const barColor = getBarColor(remainingPct);

@@ -12,7 +12,7 @@ interface ItemCardProps {
     original_price?: number | null;
     preorder_price?: number | null;
     preorder_closes_at?: string | null;
-    created_at?: string | null;
+    created_at?: string;
     condition?: string | null;
   };
   index?: number;
