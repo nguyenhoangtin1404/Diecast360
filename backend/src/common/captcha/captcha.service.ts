@@ -11,6 +11,7 @@ interface TurnstileResponse {
 interface RecaptchaResponse {
   success: boolean;
   score?: number;
+  action?: string;
   'error-codes'?: string[];
 }
 
@@ -61,9 +62,15 @@ export class CaptchaService {
       const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
         method: 'POST',
         body,
+        signal: AbortSignal.timeout(5000),
       });
+      if (!res.ok) {
+        this.logger.error(`Cloudflare Turnstile siteverify returned HTTP ${res.status}`);
+        throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA service is temporarily unavailable');
+      }
       data = (await res.json()) as TurnstileResponse;
     } catch (err) {
+      if (err instanceof AppException) throw err;
       this.logger.error('Cloudflare Turnstile siteverify unreachable', err instanceof Error ? err.message : String(err));
       throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA service is temporarily unavailable');
     }
@@ -86,11 +93,22 @@ export class CaptchaService {
       const res = await fetch('https://www.google.com/recaptcha/api/siteverify', {
         method: 'POST',
         body,
+        signal: AbortSignal.timeout(5000),
       });
+      if (!res.ok) {
+        this.logger.error(`Google reCAPTCHA siteverify returned HTTP ${res.status}`);
+        throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA service is temporarily unavailable');
+      }
       data = (await res.json()) as RecaptchaResponse;
     } catch (err) {
+      if (err instanceof AppException) throw err;
       this.logger.error('Google reCAPTCHA siteverify unreachable', err instanceof Error ? err.message : String(err));
       throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA service is temporarily unavailable');
+    }
+
+    // Reject tokens minted for a different action — prevents cross-action token reuse.
+    if (data.action && data.action !== 'login') {
+      throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA verification failed');
     }
 
     const rawScore = parseFloat(this.configService.get<string>('CAPTCHA_MIN_SCORE') ?? '0.5');

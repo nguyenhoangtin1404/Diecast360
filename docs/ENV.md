@@ -20,6 +20,7 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 | NODE_ENV | Môi trường runtime | `development` / `production` | Production bật kiểm tra cookie/CORS và yêu cầu HTTPS cookie |
 | PORT | Cổng backend listen | `3000` | Mặc định `3000` |
 | HOST | Địa chỉ backend bind | `0.0.0.0` | Mặc định trong code là `0.0.0.0`; dùng `127.0.0.1` khi chỉ expose qua tunnel/proxy local |
+| TRUST_PROXY | Số hop proxy tin cậy trước app | `1` | `1` = Nginx/Cloudflare đơn hop; `2` = CDN+LB; `0` = không proxy (dev direct). Ảnh hưởng `req.ip` dùng cho rate limit và CAPTCHA `remoteip`. Sai số hop có thể cho phép client giả mạo IP qua `X-Forwarded-For`. |
 | JWT_SECRET | Secret ký access token | `change-me-to-random-32-char-jwt-secret` | Bắt buộc, đủ entropy và tối thiểu 32 ký tự |
 | JWT_ALLOW_AUTHORIZATION_BEARER | Cho phép đọc access JWT từ header `Authorization: Bearer` | `true` (mặc định) | Đặt `false` khi chỉ dùng web + cookie HttpOnly để thu hẹp kênh lộ token (XSS không đọc được cookie nhưng có thể đọc header nếu JS chèn được fetch tùy biến). |
 | JWT_EXPIRES_IN | TTL access token | `15m` | Chuỗi thời gian (ms, s, m, h...) |

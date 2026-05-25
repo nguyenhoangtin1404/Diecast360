@@ -66,9 +66,12 @@ async function bootstrap() {
   validateRuntimeSecurityConfig();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Trust one proxy hop (Nginx, Cloudflare) so req.ip reflects the real
-  // client address for rate limiting, CAPTCHA remoteip, and access logs.
-  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  // Number of trusted proxy hops before the app (e.g. 1 = Nginx/Cloudflare, 2 = CDN+LB).
+  // Configurable via TRUST_PROXY so multi-layer production topologies can set the correct
+  // hop count without a code change. Affects req.ip used for rate limiting and CAPTCHA remoteip.
+  const rawTrustProxy = (process.env.TRUST_PROXY ?? '1').trim();
+  const trustProxy = /^\d+$/.test(rawTrustProxy) ? parseInt(rawTrustProxy, 10) : rawTrustProxy;
+  app.getHttpAdapter().getInstance().set('trust proxy', trustProxy);
 
   app.use(helmet(buildHelmetOptions()));
 
