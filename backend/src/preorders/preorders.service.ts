@@ -482,6 +482,13 @@ export class PreordersService {
         total_amount: toNumber(row.total_amount),
         deposit_amount: toNumber(row.deposit_amount),
         paid_amount: toNumber(row.paid_amount),
+        item: row.item
+          ? {
+              ...row.item,
+              preorder_closes_at: row.item.preorder_closes_at?.toISOString() ?? null,
+              created_at: row.item.created_at.toISOString(),
+            }
+          : row.item,
       })),
       pagination: {
         page,
