@@ -75,6 +75,7 @@ Lợi ích: không cần mở cổng inbound trên router, không phụ thuộc 
 - **pnpm**: `corepack enable` và version khớp trường `packageManager` ở `package.json` gốc (xem `.github/workflows/deploy-backend.yml` hoặc `AGENTS.md`).
 - **Chỉ chạy backend trên Pi**; database để trên Neon để tránh Postgres + Nest tranh RAM.
 - **`UPLOAD_DIR` / thư mục uploads:** Cần khi `STORAGE_DRIVER=local` (đủ dung lượng, có thể USB). Khi `STORAGE_DRIVER=r2`, có thể **không** cần volume lớn trên Pi cho media; vẫn cần bucket R2 + biến `R2_*` — xem [`ENV.md`](ENV.md) mục Object storage và mục cutover trong tài liệu này.
+  - **⚠️ `UPLOAD_DIR` phải nằm ngoài `DEPLOY_REMOTE_PATH`** (mặc định `/opt/diecast360-backend`). Workflow Pi dùng `rsync --delete` để đồng bộ bundle: bất kỳ thứ gì trong deploy root mà không nằm trong bundle (trừ `.env` và `uploads` đã được exclude) sẽ bị xoá ở mỗi deploy. Khuyến nghị `/var/lib/diecast360/uploads` (`sudo mkdir -p` + `sudo chown` cho user chạy systemd).
 - Giới hạn `MAX_UPLOAD_MB` hợp lý — xử lý ảnh (Sharp) có thể tốn RAM khi upload đồng thời.
 - Nếu deploy thủ công, cài dependency, build, migrate rồi restart:
 
