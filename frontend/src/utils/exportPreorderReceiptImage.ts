@@ -34,6 +34,28 @@ const rasterizeBody = async (body: HTMLElement): Promise<Blob> => {
   return response.blob();
 };
 
+/**
+ * Fetch logo từ URL ngoài và chuyển sang data URL (base64) để tránh canvas bị
+ * CORS taint khi rasterize bằng html-to-image.
+ * Trả về null nếu fetch thất bại (logo sẽ bị bỏ qua thay vì crash).
+ */
+const fetchLogoDataUrl = async (logoUrl: string | undefined): Promise<string | undefined> => {
+  if (!logoUrl) return undefined;
+  try {
+    const res = await fetch(logoUrl, { mode: 'cors', credentials: 'omit' });
+    if (!res.ok) return undefined;
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return undefined;
+  }
+};
+
 export const downloadPreorderReceiptPng = (blob: Blob, preorderId: string): void => {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -58,7 +80,9 @@ export const sharePreorderReceiptPng = async (blob: Blob, preorderId: string): P
 export const exportPreorderReceiptImage = async (
   data: PreorderReceiptPayload,
 ): Promise<Blob> => {
-  const html = buildPreorderReceiptHtml(data, 'share');
+  // Fetch logo trước → data URL để tránh canvas bị CORS taint
+  const logoDataUrl = await fetchLogoDataUrl(data.shop.logo_url ?? undefined);
+  const html = buildPreorderReceiptHtml(data, 'share', { logoDataUrl });
   const iframe = mountOffscreenReceipt(html);
   try {
     const body = iframe.contentDocument?.body;

@@ -1,12 +1,15 @@
 const UNITS = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
-const SCALES = ['', 'nghìn', 'triệu', 'tỷ'];
+// Mỗi phần tử tương ứng với bội số 10^(3*index):
+// index 0 = đơn vị, 1 = nghìn, 2 = triệu, 3 = tỷ,
+// 4 = nghìn tỷ, 5 = triệu tỷ, 6 = tỷ tỷ (đủ cho số tiền thực tế tối đa)
+const SCALES = ['', 'nghìn', 'triệu', 'tỷ', 'nghìn tỷ', 'triệu tỷ', 'tỷ tỷ'];
 
 const readTwoDigits = (n: number, fullTen: boolean): string => {
   if (n < 10) {
     return UNITS[n];
   }
   if (n < 20) {
-    return n === 10 ? 'mười' : `mười ${UNITS[n % 10]}`;
+    return n === 10 ? 'mười' : `mười ${n % 10 === 5 ? 'lăm' : UNITS[n % 10]}`;
   }
   const tens = Math.floor(n / 10);
   const ones = n % 10;

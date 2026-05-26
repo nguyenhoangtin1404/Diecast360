@@ -38,18 +38,34 @@ const lineItem = (label: string, value: string): string =>
 
 const optionalBlock = (html: string): string => (html.trim() ? html : '');
 
+/** Hiển thị số tiền hoặc "—" nếu giá trị chưa xác định (null). */
+const formatNullableVnd = (n: number | null | undefined): string =>
+  n != null ? formatVndLine(n) : '—';
+
 export type ReceiptRenderMode = 'thermal' | 'share';
+
+export interface BuildReceiptOptions {
+  /**
+   * Data URL (base64) của logo đã fetch sẵn — dùng cho share/export mode để
+   * tránh canvas bị taint do CORS. Nếu không truyền, dùng `shop.logo_url` trực tiếp.
+   */
+  logoDataUrl?: string;
+}
 
 export const buildPreorderReceiptHtml = (
   data: PreorderReceiptPayload,
   mode: ReceiptRenderMode,
+  options: BuildReceiptOptions = {},
 ): string => {
   const { shop, preorder } = data;
-  const subtotal =
+  // Giữ nguyên null khi cả total_amount lẫn unit_price đều chưa có — không ép về 0
+  const subtotal: number | null =
     preorder.total_amount ??
-    (preorder.unit_price != null ? preorder.unit_price * preorder.quantity : 0);
-  const totalAmount = preorder.total_amount ?? subtotal;
-  const remaining = preorder.remaining_amount ?? Math.max(0, totalAmount - preorder.paid_amount);
+    (preorder.unit_price != null ? preorder.unit_price * preorder.quantity : null);
+  const totalAmount: number | null = subtotal;
+  const remaining: number | null =
+    preorder.remaining_amount ??
+    (totalAmount != null ? Math.max(0, totalAmount - preorder.paid_amount) : null);
 
   const customerName =
     preorder.member?.full_name?.trim() ||
@@ -58,13 +74,15 @@ export const buildPreorderReceiptHtml = (
     '';
 
   const headerParts: string[] = [];
-  if (shop.logo_url) {
-    const safeLogoUrl = sanitizeLogoUrl(shop.logo_url);
-    if (safeLogoUrl) {
-      headerParts.push(
-        `<img class="logo" src="${escapeHtml(safeLogoUrl)}" alt="" crossorigin="anonymous" />`,
-      );
-    }
+  // Ưu tiên dùng logoDataUrl (data URL đã fetch — không bị CORS taint khi rasterize);
+  // fallback về logo_url gốc kèm crossorigin cho thermal print.
+  const resolvedLogoSrc: string | null =
+    options.logoDataUrl ?? (shop.logo_url ? sanitizeLogoUrl(shop.logo_url) : null);
+  if (resolvedLogoSrc) {
+    const corsAttr = options.logoDataUrl ? '' : ' crossorigin="anonymous"';
+    headerParts.push(
+      `<img class="logo" src="${escapeHtml(resolvedLogoSrc)}" alt=""${corsAttr} />`,
+    );
   }
   if (shop.name) {
     headerParts.push(`<div class="shop-name">${escapeHtml(shop.name)}</div>`);
@@ -93,8 +111,9 @@ export const buildPreorderReceiptHtml = (
       ? '<div class="cancelled">ĐÃ HỦY</div>'
       : '';
 
-  const unitPrice = preorder.unit_price ?? (preorder.quantity > 0 ? subtotal / preorder.quantity : 0);
-  const lineTotal = unitPrice * preorder.quantity;
+  const unitPrice: number | null =
+    preorder.unit_price ?? (subtotal != null && preorder.quantity > 0 ? subtotal / preorder.quantity : null);
+  const lineTotal: number | null = unitPrice != null ? unitPrice * preorder.quantity : null;
 
   const widthStyle =
     mode === 'thermal'
@@ -177,21 +196,21 @@ export const buildPreorderReceiptHtml = (
     <tbody>
       <tr>
         <td class="name">${escapeHtml(preorder.item.name)}</td>
-        <td class="num">${escapeHtml(formatVndLine(unitPrice))}</td>
+        <td class="num">${escapeHtml(formatNullableVnd(unitPrice))}</td>
         <td class="num">${preorder.quantity}</td>
-        <td class="num">${escapeHtml(formatVndLine(lineTotal))}</td>
+        <td class="num">${escapeHtml(formatNullableVnd(lineTotal))}</td>
       </tr>
     </tbody>
   </table>
   <div class="totals">
-    ${lineItem('Cộng tiền hàng', formatVndLine(subtotal))}
+    ${lineItem('Cộng tiền hàng', formatNullableVnd(subtotal))}
     ${lineItem('Chiết khấu', formatVndLine(preorder.discount_amount))}
-    <div class="line strong"><span class="label">Tổng cộng</span><span class="value">${escapeHtml(formatVndLine(totalAmount))}</span></div>
+    <div class="line strong"><span class="label">Tổng cộng</span><span class="value">${escapeHtml(formatNullableVnd(totalAmount))}</span></div>
     ${lineItem('Đặt cọc', formatVndLine(preorder.deposit_amount))}
     ${lineItem('Đã thu', formatVndLine(preorder.paid_amount))}
-    ${lineItem('Còn lại', formatVndLine(remaining))}
+    ${lineItem('Còn lại', formatNullableVnd(remaining))}
   </div>
-  <div class="words">${escapeHtml(formatVndAmountInWords(totalAmount))}</div>
+  <div class="words">${escapeHtml(totalAmount != null ? formatVndAmountInWords(totalAmount) : '')}</div>
 </body>
 </html>`;
 };
