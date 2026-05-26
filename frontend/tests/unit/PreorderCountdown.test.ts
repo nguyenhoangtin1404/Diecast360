@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   computeCountdownMetrics,
   formatRemaining,
-  getBarColor,
+  getPreorderBarTone,
   getRemainingPctFromDiff,
 } from '../../src/components/preorder/PreorderCountdown.utils';
 
@@ -21,10 +21,16 @@ describe('PreorderCountdown helpers', () => {
     expect(formatRemaining(diffMs, false)).toBe('Còn 2 ngày 3 giờ');
   });
 
-  it('maps bar colour to remaining percentage thresholds', () => {
-    expect(getBarColor(60)).toBe('var(--ct-primary)');
-    expect(getBarColor(40)).toBe('#f59e0b');
-    expect(getBarColor(10)).toBe('#dc3545');
+  it('avoids “0 phút” when under one minute remains', () => {
+    const diffMs = 30_000;
+    expect(formatRemaining(diffMs, false)).toBe('Còn 0 giờ 1 phút');
+    expect(formatRemaining(diffMs, true)).toBe('Còn 1m');
+  });
+
+  it('maps bar tone to remaining percentage thresholds', () => {
+    expect(getPreorderBarTone(60)).toBe('safe');
+    expect(getPreorderBarTone(40)).toBe('warn');
+    expect(getPreorderBarTone(10)).toBe('critical');
   });
 
   it('computes fill and remaining percentages from opensAt and closesAt', () => {
@@ -39,14 +45,15 @@ describe('PreorderCountdown helpers', () => {
     );
   });
 
-  it('falls back to absolute time colour when opensAt is missing', () => {
+  it('uses heuristic urgency fill when opensAt is missing', () => {
     const now = new Date('2026-05-10T12:00:00.000Z').getTime();
     const metrics = computeCountdownMetrics(now, null, closesAt);
+    const remaining = getRemainingPctFromDiff(metrics!.diffMs);
     expect(metrics).toEqual(
       expect.objectContaining({
         hasValidWindow: false,
-        fillPct: 0,
-        remainingPct: getRemainingPctFromDiff(metrics!.diffMs),
+        remainingPct: remaining,
+        fillPct: 100 - remaining,
       }),
     );
   });
@@ -58,5 +65,9 @@ describe('PreorderCountdown helpers', () => {
       closesAt,
     );
     expect(metrics?.isExpired).toBe(true);
+  });
+
+  it('returns null when closesAt is not a finite date', () => {
+    expect(computeCountdownMetrics(Date.now(), opensAt, 'not-a-date')).toBeNull();
   });
 });

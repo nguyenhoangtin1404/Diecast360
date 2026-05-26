@@ -180,12 +180,8 @@ export const ItemsTable = ({
                   <span>{ITEM_STATUS_LABELS[item.status].text}</span>
                 </div>
                 {isPreorderOpen(item) && item.preorder_closes_at && (
-                  <div style={{ marginTop: '4px' }}>
-                    <PreorderCountdown
-                      opensAt={item.created_at}
-                      closesAt={item.preorder_closes_at}
-                      compact
-                    />
+                  <div className="mt-1">
+                    <PreorderCountdown closesAt={item.preorder_closes_at} compact />
                   </div>
                 )}
                 {isPreorderClosed(item) && (

@@ -104,11 +104,10 @@ export const ItemCard = ({ item, index = 0, shopSearch = '' }: ItemCardProps) =>
           )}
           {isPreorderOpen && item.preorder_closes_at && (
             <div className="mt-2">
-              <PreorderCountdown
-                opensAt={item.created_at}
-                closesAt={item.preorder_closes_at}
-                compact
-              />
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Hạn đặt cọc
+              </p>
+              <PreorderCountdown closesAt={item.preorder_closes_at} compact />
             </div>
           )}
         </div>

@@ -57,21 +57,35 @@ export const PreOrderManagementPage = () => {
   const campaignPreorders = (data?.preorders ?? []).filter((order) => order.item_id === effectiveCampaignId);
   const projectedRevenue = campaignPreorders.reduce((sum, order) => sum + (order.total_amount ?? 0), 0);
 
+  /** Earliest preorder close among rows for this item — avoids misleading deadline when SKUs differ. */
+  const campaignPreorderDeadline = useMemo(() => {
+    const rows = (data?.preorders ?? []).filter((order) => order.item_id === effectiveCampaignId);
+    let best: string | null = null;
+    let bestMs = Infinity;
+    for (const o of rows) {
+      const raw = o.item?.preorder_closes_at;
+      if (!raw) continue;
+      const ms = new Date(raw).getTime();
+      if (!Number.isFinite(ms)) continue;
+      if (ms < bestMs) {
+        bestMs = ms;
+        best = raw;
+      }
+    }
+    return best;
+  }, [data?.preorders, effectiveCampaignId]);
+
   const { transitionMutation, transitionError } = usePreorderTransition(() => {
     void queryClient.invalidateQueries({ queryKey: ['admin-preorder-manage'] });
     void queryClient.invalidateQueries({ queryKey: ['admin-preorder-participants'] });
   });
 
-  const campaignItem = campaignPreorders[0]?.item;
-  const campaignCountdown =
-    campaignItem?.preorder_closes_at ? (
-      <div style={{ marginBottom: '12px' }}>
-        <PreorderCountdown
-          opensAt={campaignItem.created_at}
-          closesAt={campaignItem.preorder_closes_at}
-        />
-      </div>
-    ) : null;
+  const campaignCountdown = campaignPreorderDeadline ? (
+    <div className={styles.countdownOverview}>
+      <span className={styles.countdownOverviewLabel}>Hạn nhận đặt cọc (sớm nhất trong đợt)</span>
+      <PreorderCountdown closesAt={campaignPreorderDeadline} />
+    </div>
+  ) : null;
 
   return (
     <div className={styles.container}>

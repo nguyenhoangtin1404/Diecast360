@@ -75,17 +75,17 @@ export const PreOrdersPage = () => {
               </span>
               <strong>{card.title}</strong>
               <span>{card.short_specs}</span>
-              <span data-testid="public-preorder-countdown">{formatCountdown(card.countdown_target)}</span>
+              <div className={styles.deliveryHint}>
+                <span className={styles.deliveryHintLabel}>Dự kiến giao hàng</span>
+                <span className={styles.deliveryHintValue} data-testid="public-preorder-countdown">
+                  {formatCountdown(card.countdown_target)}
+                </span>
+              </div>
               <span className={styles.price}>{card.display_price.toLocaleString('vi-VN')} VND</span>
               {card.preorder_closes_at && (
-                <div style={{ marginBottom: '8px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--ct-muted)', display: 'block', marginBottom: '4px' }}>
-                    Hạn đặt hàng
-                  </span>
-                  <PreorderCountdown
-                    opensAt={card.item_created_at}
-                    closesAt={card.preorder_closes_at}
-                  />
+                <div className={styles.depositWindow}>
+                  <span className={styles.depositWindowLabel}>Hạn nhận đặt cọc</span>
+                  <PreorderCountdown closesAt={card.preorder_closes_at} />
                 </div>
               )}
               <button className={styles.cta} type="button" data-testid="public-preorder-cta">

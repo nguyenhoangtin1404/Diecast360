@@ -570,7 +570,7 @@ Các route admin yêu cầu JWT + `active_shop_id`; `shop_admin` ghi được, `
 ### GET /api/v1/preorders/public
 - Public.
 - Query bắt buộc: `shop_id` (UUID). Optional: `status`, `item_id`, `page`, `page_size`.
-- Response 200: public cards cho pre-order của shop. Card shape: `{ id, status, quantity, display_price, deposit_amount, countdown_target (ISO-8601 | null), preorder_closes_at (ISO-8601 | null), item_created_at (ISO-8601), title, short_specs, cover_image_url }`. `preorder_closes_at` và `item_created_at` dùng để render progress bar countdown trên frontend.
+- Response 200: public cards cho pre-order của shop. Card shape: `{ id, status, quantity, display_price, deposit_amount, countdown_target (ISO-8601 | null), preorder_closes_at (ISO-8601 | null), item_created_at (ISO-8601), title, short_specs, cover_image_url }`. `countdown_target` là mốc giao hàng dự kiến (copy UI). Thanh “hạn đặt cọc” trên frontend chỉ dựa vào `preorder_closes_at` (không dùng `item_created_at` làm mốc mở cửa sổ vì có thể gây hiểu nhầm khi item đổi trạng thái sau này).
 
 ### GET /api/v1/preorders/my-orders
 - Auth: JWT + active shop.
