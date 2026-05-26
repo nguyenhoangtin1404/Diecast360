@@ -66,6 +66,90 @@ jobs:
           retention-days: 7
 
   # ============================================
+  # Backend smoke (boot + DB + /api/v1/health)
+  # ============================================
+  health-check:
+    name: Backend Health Check
+    needs: backend
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: diecast360_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - '5432:5432'
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/diecast360_test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/diecast360_test
+
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/diecast360_test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/diecast360_test
+
+      - name: Ensure uploads directory
+        run: mkdir -p uploads
+
+      - name: Start API in background
+        run: node dist/main.js &
+        env:
+          NODE_ENV: development
+          PORT: '3000'
+          HOST: '127.0.0.1'
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/diecast360_test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/diecast360_test
+          JWT_SECRET: ci-jwt-secret-32-chars-minimum-required
+          COOKIE_SECRET: ci-cookie-secret-32-chars-min-length
+          UPLOAD_DIR: ./uploads
+
+      - name: Wait for API ready
+        run: |
+          for i in $(seq 1 20); do
+            if curl -sf http://127.0.0.1:3000/api/v1/health; then
+              exit 0
+            fi
+            if [ "$i" -eq 20 ]; then
+              echo "API did not become healthy in time"
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Health check response
+        run: curl -sf http://127.0.0.1:3000/api/v1/health | jq -e '.ok == true'
+
+  # ============================================
   # Frontend Job
   # ============================================
   frontend:
@@ -165,13 +249,13 @@ jobs:
   # ============================================
   ci-success:
     name: CI Success
-    needs: [backend, frontend]
+    needs: [backend, frontend, health-check]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: ✅ Check all jobs passed
         run: |
-          if [[ "${{ needs.backend.result }}" != "success" ]] || [[ "${{ needs.frontend.result }}" != "success" ]]; then
+          if [[ "${{ needs.backend.result }}" != "success" ]] || [[ "${{ needs.frontend.result }}" != "success" ]] || [[ "${{ needs.health-check.result }}" != "success" ]]; then
             echo "❌ One or more jobs failed"
             exit 1
           fi

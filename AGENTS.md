@@ -25,6 +25,21 @@ Diecast360 is a pnpm monorepo (`backend/` + `frontend/`) for a diecast model car
 - Frontend lint (`pnpm --filter ./frontend lint`) currently has pre-existing lint errors in the codebase — these are not regressions.
 - Node.js version must satisfy `>=20.19.0 <21 || >=22.12.0` (env ships v22.22.2 via nvm at `/home/ubuntu/.nvm`).
 
+### Continuous Integration (GitHub Actions)
+
+Workflows under `.github/workflows/`:
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `ci.yml` | `push` / `pull_request` to `main`, `develop` | Backend (lint, build, Jest), frontend (lint, typecheck, build, Vitest, Playwright), **backend health-check** (Postgres service, migrate, boot API, `GET /api/v1/health`), optional high-severity `npm audit`, and an aggregate **`CI Success`** job for branch protection. |
+| `gitleaks.yml` | same branches | Secret scanning on full git history (`fetch-depth: 0`). |
+| `commitlint.yml` | `pull_request` only | Enforces [Conventional Commits](https://www.conventionalcommits.org/) using root `.commitlintrc.json` (types include `feat`, `fix`, `docs`, `ci`, …). |
+| `deploy-backend.yml` | deploy | Production deploy plus systemd health retry (separate from CI smoke). |
+
+**Branch protection:** require the **`CI Success`** check (and any other required jobs your repo policy lists). Commitlint and Gitleaks are separate workflow names in the GitHub checks list—add them as required checks if you want PRs blocked on commit message format and leak scans.
+
+**Local commit messages:** match the same types as in `.commitlintrc.json` (e.g. `feat:`, `fix:`, `ci:`) so PRs pass Commitlint.
+
 ### Lint / Test / Build commands
 
 See `docs/DEV.md` for full reference. Quick summary:
