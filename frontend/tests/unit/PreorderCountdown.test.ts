@@ -4,7 +4,7 @@ import {
   formatRemaining,
   getBarColor,
   getRemainingPctFromDiff,
-} from '../../src/components/preorder/PreorderCountdown';
+} from '../../src/components/preorder/PreorderCountdown.utils';
 
 describe('PreorderCountdown helpers', () => {
   const opensAt = '2026-05-01T00:00:00.000Z';
