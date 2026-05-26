@@ -10,6 +10,21 @@ const escapeHtml = (str: string): string =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
+/** Whitelist logo_url: chỉ cho phép https: hoặc relative path (bắt đầu bằng /). */
+const sanitizeLogoUrl = (url: string): string | null => {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed, window.location.href);
+    if (parsed.protocol === 'https:') return trimmed;
+  } catch {
+    // relative URL hoặc URL không hợp lệ
+  }
+  // Cho phép relative path nội bộ
+  if (trimmed.startsWith('/')) return trimmed;
+  return null;
+};
+
 const formatReceiptDate = (iso: string): string => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) {
@@ -44,9 +59,12 @@ export const buildPreorderReceiptHtml = (
 
   const headerParts: string[] = [];
   if (shop.logo_url) {
-    headerParts.push(
-      `<img class="logo" src="${escapeHtml(shop.logo_url)}" alt="" crossorigin="anonymous" />`,
-    );
+    const safeLogoUrl = sanitizeLogoUrl(shop.logo_url);
+    if (safeLogoUrl) {
+      headerParts.push(
+        `<img class="logo" src="${escapeHtml(safeLogoUrl)}" alt="" crossorigin="anonymous" />`,
+      );
+    }
   }
   if (shop.name) {
     headerParts.push(`<div class="shop-name">${escapeHtml(shop.name)}</div>`);
