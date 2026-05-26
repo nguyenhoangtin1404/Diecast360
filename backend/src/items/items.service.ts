@@ -465,6 +465,7 @@ Condition: ${item.condition || ''}`;
           preorder_closes_at: initialStatus === 'preorder' && createDto.preorder_closes_at
             ? new Date(createDto.preorder_closes_at)
             : null,
+          preorder_opens_at: initialStatus === 'preorder' ? new Date() : null,
           preorder_price: createDto.preorder_price != null ? createDto.preorder_price : null,
         },
       });
@@ -625,6 +626,16 @@ Condition: ${item.condition || ''}`;
       updateData.preorder_closes_at = null;
     }
 
+    // preorder_opens_at lifecycle is driven solely by status transitions and must run
+    // independently of `preorder_closes_at` being present in the payload. Admin editor
+    // sends `preorder_closes_at: null` when leaving preorder, which previously skipped
+    // the clear branch above and left a stale `preorder_opens_at` in DB.
+    if (nextStatus === 'preorder' && existingItem.status !== 'preorder') {
+      updateData.preorder_opens_at = existingItem.created_at;
+    } else if (nextStatus !== 'preorder' && existingItem.status === 'preorder') {
+      updateData.preorder_opens_at = null;
+    }
+
     // preorder_price: persist as-is regardless of status; catalog decides when to show it
     if (updateDto.preorder_price !== undefined) {
       updateData.preorder_price = updateDto.preorder_price ?? null;
@@ -743,7 +754,10 @@ Condition: ${item.condition || ''}`;
       if (!item.preorder_closes_at || item.preorder_closes_at > now) {
         throw new AppException(ErrorCode.VALIDATION_ERROR, 'Preorder is not closed yet');
       }
-      return tx.item.update({ where: { id }, data: { preorder_closes_at: null } });
+      return tx.item.update({
+        where: { id },
+        data: { preorder_closes_at: null, preorder_opens_at: now },
+      });
     });
     return { item: updated };
   }

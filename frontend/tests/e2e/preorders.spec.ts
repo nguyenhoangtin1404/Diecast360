@@ -116,6 +116,7 @@ const publicCardsResponse = {
         deposit_amount: 500000,
         countdown_target: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
         preorder_closes_at: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+        preorder_opens_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
         title: 'LBWK Nissan GTR',
         short_specs: '1:64 | Mini GT',
         cover_image_url: 'https://images.example/gtr.jpg',
