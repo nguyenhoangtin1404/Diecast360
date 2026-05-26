@@ -624,11 +624,16 @@ Condition: ${item.condition || ''}`;
         : null;
     } else if (nextStatus !== 'preorder' && existingItem.status === 'preorder') {
       updateData.preorder_closes_at = null;
-      updateData.preorder_opens_at = null;
     }
 
+    // preorder_opens_at lifecycle is driven solely by status transitions and must run
+    // independently of `preorder_closes_at` being present in the payload. Admin editor
+    // sends `preorder_closes_at: null` when leaving preorder, which previously skipped
+    // the clear branch above and left a stale `preorder_opens_at` in DB.
     if (nextStatus === 'preorder' && existingItem.status !== 'preorder') {
       updateData.preorder_opens_at = existingItem.created_at;
+    } else if (nextStatus !== 'preorder' && existingItem.status === 'preorder') {
+      updateData.preorder_opens_at = null;
     }
 
     // preorder_price: persist as-is regardless of status; catalog decides when to show it

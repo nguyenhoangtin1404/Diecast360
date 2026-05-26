@@ -1003,6 +1003,34 @@ describe('ItemsService', () => {
       expect(result.item.status).toBe('con_hang');
     });
 
+    it('should clear preorder_opens_at when leaving preorder even if payload sends preorder_closes_at: null', async () => {
+      // Reproduces Codex P2: admin editor sends `preorder_closes_at: null` for non-preorder
+      // statuses, which previously skipped the opens_at clear branch and left stale data.
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        status: 'preorder',
+        preorder_opens_at: new Date('2025-06-01T00:00:00.000Z'),
+        preorder_closes_at: new Date('2025-07-01T00:00:00.000Z'),
+      });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'con_hang' });
+
+      await service.update(
+        'item-123',
+        { status: 'con_hang', preorder_closes_at: null },
+        TEST_SHOP_ID,
+      );
+
+      expect(prisma.item.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'con_hang',
+            preorder_closes_at: null,
+            preorder_opens_at: null,
+          }),
+        }),
+      );
+    });
+
     it('should allow preorder → preorder self-transition (editing other fields does not break)', async () => {
       prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder' });
       prisma.item.update.mockResolvedValue({ ...mockItem, status: 'preorder', name: 'Updated name' });
