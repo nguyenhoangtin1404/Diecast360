@@ -152,6 +152,8 @@ Không gộp deploy changes với CI hygiene / dependency bumps / lockfile clean
 
 **Data loss response:** Nghi mất dữ liệu trên production → `systemctl stop diecast360-api` **TRƯỚC** khi điều tra (bảo toàn ext4 inode cho recovery). Quy trình: [`docs/RUNBOOKS/data-loss-incident.md`](docs/RUNBOOKS/data-loss-incident.md).
 
+**Pi single-point-of-failure:** production chạy trên 1 Raspberry Pi với 1 SSD/SD card. Đã có 2 sự cố trong 2026 mất sạch `UPLOAD_DIR`: 1 do hardware (SSD chết, ~4h downtime), 1 do software (rsync wipe). Cùng root cause vận hành: **không có backup tự động**. Cho tới khi backup chạy + test restore quarterly thành công (xem [`docs/RUNBOOKS/backup.md`](docs/RUNBOOKS/backup.md)), mọi feature đẩy thêm dữ liệu vào `UPLOAD_DIR` đều **tăng giá trị** thứ có thể mất lần tới. Cân nhắc: cutover sang R2 ([`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §8) để loại Pi disk khỏi data path.
+
 ---
 
 **These guidelines are working if:** diffs are minimal, questions come before implementation, rewrites due to overcomplication are rare, and every changed line traces to the stated requirement.

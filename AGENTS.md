@@ -21,6 +21,7 @@ Pinned tooling: **`packageManager`** và **`engines`** trong `package.json` gố
 
 - **COOKIE_SECRET** must be at least 32 characters in `backend/.env` or the app will throw at startup.
 - **Production data layout:** `UPLOAD_DIR` (và mọi state khác như backup, log riêng, sqlite) **phải nằm ngoài** `DEPLOY_REMOTE_PATH` (mặc định `/opt/diecast360-backend`). Workflow Pi dùng `rsync --delete` để đồng bộ bundle: mọi thứ trong deploy root không thuộc bundle (trừ exclude) sẽ bị xoá khi deploy. Default đã chuyển sang `/var/lib/diecast360/uploads`. Postmortem chi tiết: [`docs/POSTMORTEMS/2026-05-26-uploads-wiped.md`](docs/POSTMORTEMS/2026-05-26-uploads-wiped.md).
+- **Pi single-point-of-failure + no backup:** đã có 2 sự cố mất sạch `UPLOAD_DIR` trong 2026 (hardware SSD chết + software rsync wipe). Backup tự động chưa được setup tại thời điểm các incident xảy ra. Trước khi đẩy code làm tăng giá trị state trên Pi (feature upload mới, cache lớn, …), kiểm tra [`docs/RUNBOOKS/backup.md`](docs/RUNBOOKS/backup.md) đã được implement chưa.
 - **Object storage (Cloudflare R2):** optional `STORAGE_DRIVER=r2` and `R2_*` variables — see [`docs/ENV.md`](docs/ENV.md) section **Object storage (Cloudflare R2)** and cutover notes in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 - **`onlyBuiltDependencies`** cho native deps (`sharp`, `bcrypt`, `prisma`, …) được khai báo trong [`pnpm-workspace.yaml`](pnpm-workspace.yaml).
 - After `pnpm install`, the backend `postinstall` runs `prisma generate` automatically.

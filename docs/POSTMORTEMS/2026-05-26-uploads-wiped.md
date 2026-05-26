@@ -8,6 +8,8 @@
 
 Sau khi PR #250 (`ci: pnpm-first pipelines, gated Pi deploy, and hygiene workflows`) merge, `deploy-backend.yml` chuyển sang `rsync -a --delete --exclude='.env'` ở mức **gốc** của `DEPLOY_REMOTE_PATH` (`/opt/diecast360-backend`). Vì `backend/.env.production.example` mặc định đặt `UPLOAD_DIR="/opt/diecast360-backend/uploads"` — **nằm trong** thư mục đó — bundle từ `pnpm deploy --prod --legacy` (không có `uploads/`) khiến rsync `--delete` xoá toàn bộ media người dùng trên mỗi lần backend deploy. 9 deploy chạy trước khi phát hiện. Database vẫn còn metadata + `file_path`, nhưng file ảnh/spinner/branding biến mất → public catalog 404 mọi signed media URL.
 
+> **Recurrence note:** Đây là lần **thứ hai** trong 2026 mất sạch `UPLOAD_DIR` vì không có backup. Lần trước: [`2026-pi-ssd-failure.md`](2026-pi-ssd-failure.md) (hardware fail). Cùng root cause vận hành (no automated backup) — 2 đường khác nhau cùng dẫn tới mất data. Action item "backup tự động + test restore" còn open từ sự cố SSD trước đó là **contributing factor lớn nhất** của thiệt hại lần này.
+
 ## Impact
 
 - **Data lost:** mọi file dưới `UPLOAD_DIR` tại thời điểm deploy đầu tiên sau PR #250 (item images, thumbnails, 360° spinner frames, shop branding logo + favicon, drafts AI image import).
@@ -92,6 +94,7 @@ Quy trình theo `docs/RUNBOOKS/data-loss-incident.md`:
 
 - PR #250 (gây): https://github.com/nguyenhoangtin1404/Diecast360/pull/250
 - PR #280 (vá): https://github.com/nguyenhoangtin1404/Diecast360/pull/280
+- Postmortem trước (cùng pattern data loss): [`2026-pi-ssd-failure.md`](2026-pi-ssd-failure.md)
 - Runbook: [`docs/RUNBOOKS/data-loss-incident.md`](../RUNBOOKS/data-loss-incident.md)
 - Backup strategy: [`docs/RUNBOOKS/backup.md`](../RUNBOOKS/backup.md)
 - Invariants: [`CLAUDE.md`](../../CLAUDE.md) §5, [`AGENTS.md`](../../AGENTS.md) §Key gotchas
