@@ -9,6 +9,16 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { SwitchShopDto } from './dto/switch-shop.dto';
+import { CaptchaService } from '../common/security/captcha.service';
+import { LoginAuditService } from '../common/security/login-audit.service';
+import { LoginSecurityService } from '../common/security/login-security.service';
+import { SecurityAlertService } from '../common/security/security-alert.service';
+
+export interface LoginRequestContext {
+  traceId: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -17,27 +27,81 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private readonly captcha: CaptchaService,
+    private readonly loginAudit: LoginAuditService,
+    private readonly loginSecurity: LoginSecurityService,
+    private readonly securityAlerts: SecurityAlertService,
   ) {}
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto, ctx: LoginRequestContext) {
+    const email = this.loginSecurity.normalizeEmail(loginDto.email);
+
+    await this.captcha.assertValid(loginDto.captcha_token, ctx.ipAddress);
+    this.loginSecurity.assertEmailRateLimit(email);
+
     const user = await this.prisma.user.findUnique({
-      where: { email: loginDto.email },
+      where: { email },
     });
 
     if (!user || !user.is_active) {
-      this.logger.warn(`auth.login_failed reason=user_missing_or_inactive email=${loginDto.email}`);
+      this.logger.warn(`auth.login_failed reason=user_missing_or_inactive email=${email}`);
+      this.loginAudit.record({
+        traceId: ctx.traceId,
+        email,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+        status: 'failed',
+        failureReason: 'invalid_credentials',
+      });
+      this.securityAlerts.recordLoginFailed(email);
       throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials');
     }
 
+    await this.loginSecurity.assertAccountNotLocked(user);
+
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.password_hash);
     if (!isPasswordValid) {
-      this.logger.warn(`auth.login_failed reason=bad_password email=${loginDto.email}`);
+      this.logger.warn(`auth.login_failed reason=bad_password email=${email}`);
+      const { locked } = await this.loginSecurity.recordFailedLogin(user.id);
+      this.loginAudit.record({
+        traceId: ctx.traceId,
+        email,
+        userId: user.id,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+        status: 'failed',
+        failureReason: locked ? 'account_locked' : 'invalid_credentials',
+      });
+      this.securityAlerts.recordLoginFailed(email);
+      if (locked) {
+        this.securityAlerts.recordAccountLocked(email);
+        const lockMs = Number(process.env.AUTH_LOCKOUT_DURATION_MS || 1_800_000);
+        throw new AppException(
+          ErrorCode.AUTH_ACCOUNT_LOCKED,
+          'Account temporarily locked due to too many failed login attempts. Please try again later.',
+          [],
+          undefined,
+          Math.ceil(lockMs / 1000),
+        );
+      }
       throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials');
     }
+
+    await this.loginSecurity.recordSuccessfulLogin(user.id);
 
     const defaultShopId = await this.resolveDefaultShopIdForUser(user.id);
     const accessToken = this.generateAccessToken(user.id, defaultShopId);
     const refreshToken = await this.generateRefreshToken(user.id);
+
+    this.loginAudit.record({
+      traceId: ctx.traceId,
+      email,
+      userId: user.id,
+      shopId: defaultShopId ?? null,
+      ipAddress: ctx.ipAddress,
+      userAgent: ctx.userAgent,
+      status: 'success',
+    });
 
     return {
       access_token: accessToken,

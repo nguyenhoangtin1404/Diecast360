@@ -2,6 +2,8 @@ export enum ErrorCode {
   AUTH_INVALID_CREDENTIALS = 'AUTH_INVALID_CREDENTIALS',
   AUTH_TOKEN_EXPIRED = 'AUTH_TOKEN_EXPIRED',
   AUTH_FORBIDDEN = 'AUTH_FORBIDDEN',
+  AUTH_ACCOUNT_LOCKED = 'AUTH_ACCOUNT_LOCKED',
+  CAPTCHA_FAILED = 'CAPTCHA_FAILED',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   NOT_FOUND = 'NOT_FOUND',
   /** Public catalog/detail requires shop scope (e.g. ?shop_id=) when unauthenticated in production. */
@@ -25,6 +27,8 @@ export const HTTP_STATUS_MAP: Record<ErrorCode, number> = {
   [ErrorCode.AUTH_INVALID_CREDENTIALS]: 401,
   [ErrorCode.AUTH_TOKEN_EXPIRED]: 401,
   [ErrorCode.AUTH_FORBIDDEN]: 403,
+  [ErrorCode.AUTH_ACCOUNT_LOCKED]: 403,
+  [ErrorCode.CAPTCHA_FAILED]: 422,
   [ErrorCode.VALIDATION_ERROR]: 422,
   [ErrorCode.NOT_FOUND]: 404,
   [ErrorCode.PUBLIC_SHOP_REQUIRED]: 422,

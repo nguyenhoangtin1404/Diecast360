@@ -105,6 +105,11 @@ model UserShopRole {
   @@index([user_id])
 }
 
+enum LoginAuditStatus {
+  success
+  failed
+}
+
 model User {
   id            String         @id @default(uuid(7))
   email         String         @unique
@@ -113,18 +118,41 @@ model User {
   role          String         @default("admin")
   platform_role PlatformRole?
   is_active     Boolean        @default(true)
+  failed_login_count Int       @default(0)
+  locked_until  DateTime?
   created_at    DateTime       @default(now())
   updated_at    DateTime       @updatedAt
 
   refresh_tokens RefreshToken[]
   shop_roles     UserShopRole[]
   audit_logs     ShopAuditLog[] @relation("ShopAuditActor")
+  login_audit_logs LoginAuditLog[]
   pre_orders     PreOrder[]
   inventory_transactions InventoryTransaction[]
   member_points_ledger MemberPointsLedger[]
   login_audit_logs LoginAuditLog[]
 
   @@map("users")
+}
+
+model LoginAuditLog {
+  id             String           @id @default(uuid(7))
+  trace_id       String           @unique
+  user_id        String?
+  email          String
+  shop_id        String?
+  ip_address     String?
+  user_agent     String?
+  status         LoginAuditStatus
+  failure_reason String?
+  created_at     DateTime         @default(now())
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([email, created_at(sort: Desc)])
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([status, created_at(sort: Desc)])
+  @@map("login_audit_logs")
 }
 
 model ShopAuditLog {

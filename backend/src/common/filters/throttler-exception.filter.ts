@@ -17,6 +17,8 @@ import {
   extractUserAgent,
   isLoginEndpoint,
 } from '../../auth/login-audit.helpers';
+import { SecurityAlertService } from '../security/security-alert.service';
+import { pathWithoutQuery } from '../middleware/csrf.middleware';
 
 @Catch(ThrottlerException)
 export class ThrottlerExceptionFilter implements ExceptionFilter {
@@ -24,6 +26,7 @@ export class ThrottlerExceptionFilter implements ExceptionFilter {
 
   constructor(
     @Optional() private readonly loginAuditService?: LoginAuditService,
+    @Optional() private readonly securityAlerts?: SecurityAlertService,
   ) {
     if (!loginAuditService) {
       this.logger.warn('LoginAuditService not injected — throttled login attempts will not be audited');
@@ -34,6 +37,8 @@ export class ThrottlerExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
+
+    this.securityAlerts?.recordRateLimit(pathWithoutQuery(request.originalUrl || request.url || ''));
 
     if (isLoginEndpoint(request.path) && this.loginAuditService) {
       const traceId = createLoginTraceId();

@@ -11,6 +11,8 @@
 | AUTH_INVALID_CREDENTIALS | 401 | Sai email/password khi login. |
 | AUTH_TOKEN_EXPIRED | 401 | Access/refresh token hết hạn. |
 | AUTH_FORBIDDEN | 403 | Token bị revoke hoặc user bị khóa. |
+| AUTH_ACCOUNT_LOCKED | 403 | Quá nhiều lần đăng nhập sai; tài khoản khóa tạm. Response có header `Retry-After` (giây). |
+| CAPTCHA_FAILED | 422 | CAPTCHA bật nhưng thiếu token hoặc xác minh thất bại. |
 | VALIDATION_ERROR | 422 | Input sai định dạng/thiếu field. `details` chứa danh sách field lỗi. |
 | NOT_FOUND | 404 | Không tìm thấy resource (item/image/spin_set/frame/user). |
 | PUBLIC_SHOP_REQUIRED | 422 | Production public catalog/detail/contact thiếu shop scope (`shop_id` hoặc JWT active shop). |

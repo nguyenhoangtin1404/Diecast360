@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Body, UseGuards, UseInterceptors, Request, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import { Request as ExpressRequest, Response } from 'express';
 import * as crypto from 'crypto';
+import { v7 as uuidv7 } from 'uuid';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginAuditService } from './login-audit.service';
@@ -68,6 +69,17 @@ export class AuthController {
     return token;
   }
 
+  private resolveClientIp(req: ExpressRequest): string | undefined {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.length > 0) {
+      return forwarded.split(',')[0]?.trim();
+    }
+    if (Array.isArray(forwarded) && forwarded[0]) {
+      return forwarded[0].split(',')[0]?.trim();
+    }
+    return req.ip;
+  }
+
   private clearCsrfCookie(res: Response): void {
     res.clearCookie('csrf_token', {
       path: '/',
@@ -118,6 +130,7 @@ export class AuthController {
       user_agent: userAgent,
       status: 'success',
     });
+
 
     // Set access_token cookie (15 minutes)
     const accessTokenMaxAge = 15 * 60 * 1000;
