@@ -14,7 +14,6 @@ export interface PreOrderCard {
   deposit_amount: number;
   countdown_target: string | null;
   preorder_closes_at?: string | null;
-  item_created_at?: string;
   title: string;
   short_specs: string;
   cover_image_url: string | null;
