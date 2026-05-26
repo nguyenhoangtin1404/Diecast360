@@ -89,8 +89,9 @@ export const exportPreorderReceiptImage = async (
     if (!body) {
       throw new Error('Không thể render phiếu.');
     }
+    // Hai nhịp rAF để font/logo kịp layout trước khi rasterize (máy chậm).
     await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => resolve());
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
     return await rasterizeBody(body);
   } finally {

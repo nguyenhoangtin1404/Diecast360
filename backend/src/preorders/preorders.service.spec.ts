@@ -481,6 +481,15 @@ describe('PreordersService', () => {
       expect(result.preorder.id).toBe(preorderId);
     });
 
+    it('200 — shop_admin được phép xem phiếu đơn bất kỳ trong shop', async () => {
+      prisma.userShopRole.findUnique.mockResolvedValue({ role: ShopRole.shop_admin });
+      const result = await service.getReceipt(preorderId, tenantId, {
+        userId: 'admin-user-id',
+        platformRole: null,
+      });
+      expect(result.preorder.id).toBe(preorderId);
+    });
+
     it('200 — platform_super được phép xem mọi phiếu', async () => {
       const result = await service.getReceipt(preorderId, tenantId, {
         userId: superUserId,
@@ -513,6 +522,16 @@ describe('PreordersService', () => {
       prisma.preOrder.findFirst.mockResolvedValue(null);
       await expect(
         service.getReceipt('nonexistent-id', tenantId, {
+          userId: ownerUserId,
+          platformRole: null,
+        }),
+      ).rejects.toBeInstanceOf(AppException);
+    });
+
+    it('404 — shop không tồn tại', async () => {
+      prisma.shop.findFirst.mockResolvedValue(null);
+      await expect(
+        service.getReceipt(preorderId, tenantId, {
           userId: ownerUserId,
           platformRole: null,
         }),

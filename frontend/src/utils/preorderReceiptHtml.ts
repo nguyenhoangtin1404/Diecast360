@@ -10,18 +10,18 @@ const escapeHtml = (str: string): string =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
-/** Whitelist logo_url: chỉ cho phép https: hoặc relative path (bắt đầu bằng /). */
-const sanitizeLogoUrl = (url: string): string | null => {
+/** Whitelist logo_url: chỉ cho phép https: hoặc relative path (bắt đầu bằng /, không //). */
+export const sanitizeLogoUrl = (url: string): string | null => {
   const trimmed = url.trim();
-  if (!trimmed) return null;
+  if (!trimmed || trimmed.startsWith('//')) return null;
   try {
     const parsed = new URL(trimmed, window.location.href);
     if (parsed.protocol === 'https:') return trimmed;
   } catch {
     // relative URL hoặc URL không hợp lệ
   }
-  // Cho phép relative path nội bộ
-  if (trimmed.startsWith('/')) return trimmed;
+  // Cho phép relative path nội bộ (không protocol-relative)
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) return trimmed;
   return null;
 };
 
@@ -209,6 +209,7 @@ export const buildPreorderReceiptHtml = (
     ${lineItem('Đặt cọc', formatVndLine(preorder.deposit_amount))}
     ${lineItem('Đã thu', formatVndLine(preorder.paid_amount))}
     ${lineItem('Còn lại', formatNullableVnd(remaining))}
+    ${preorder.note?.trim() ? lineItem('Ghi chú', preorder.note.trim()) : ''}
   </div>
   <div class="words">${escapeHtml(totalAmount != null ? formatVndAmountInWords(totalAmount) : '')}</div>
 </body>
