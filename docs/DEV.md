@@ -2,6 +2,8 @@
 
 Tài liệu này bổ sung [`README.md`](../README.md): nhiều luồng chạy dev, cổng dịch vụ, Prisma, test và xử lý sự cố thường gặp. Biến môi trường đầy đủ: [`docs/ENV.md`](ENV.md). Triển khai production (Vercel/Pages, Pi, Neon): [`docs/DEPLOYMENT.md`](DEPLOYMENT.md).
 
+**CI và lockfile:** toàn repo dùng **`pnpm`** và **`pnpm-lock.yaml`** ở thư mục gốc; không duy trì `package-lock.json` trong `backend/` hay `frontend/`. Trên máy local: `pnpm install` (hoặc `pnpm install --frozen-lockfile` khi cần khớp lock chính xác).
+
 ## Chọn luồng dev
 
 | Luồng | Khi nào dùng | Postgres | Backend / Frontend chạy ở đâu |

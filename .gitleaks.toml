@@ -1,0 +1,16 @@
+# Diecast360 — Gitleaks configuration
+#
+# Extends the upstream default ruleset and adds a small allowlist for
+# CI smoke-test placeholders that are intentionally committed.
+#
+# Reference: https://github.com/gitleaks/gitleaks#configuration
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow obvious non-secret placeholders used by CI smoke tests"
+regexes = [
+  '''ci-jwt-secret-at-least-32-characters-long''',
+  '''ci-cookie-secret-at-least-32-characters-long''',
+]

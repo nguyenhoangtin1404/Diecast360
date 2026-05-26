@@ -1,0 +1,40 @@
+name: PR Title Lint
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [main, develop]
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+  statuses: write
+
+jobs:
+  pr-title:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            chore
+            revert
+            ci
+            build
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            Subject must not start with an uppercase letter (match Conventional Commit style).

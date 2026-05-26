@@ -23,112 +23,219 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./backend
+        working-directory: .
 
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v5
 
-      - name: 📦 Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      - name: 📚 Install dependencies
-        run: npm ci
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: 🔧 Generate Prisma Client
-        run: npx prisma generate
+      - name: Generate Prisma Client
+        run: pnpm --filter ./backend exec prisma generate
         env:
           DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/diecast360'
           DIRECT_URL: 'postgresql://postgres:postgres@localhost:5432/diecast360'
 
-      - name: 🔍 Lint
-        run: npm run lint
+      - name: Lint
+        run: pnpm --filter ./backend run lint
 
-      - name: 🏗️ Build
-        run: npm run build
+      - name: Build
+        run: pnpm --filter ./backend run build
 
-      - name: 🧪 Run backend unit tests
-        run: npx jest --runInBand
+      - name: Run backend unit tests
+        run: pnpm --filter ./backend exec jest --runInBand
         env:
           DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/diecast360'
           DIRECT_URL: 'postgresql://postgres:postgres@localhost:5432/diecast360'
 
-      - name: 📊 Upload build artifacts
-        uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/main'
+      - name: Upload backend dist artifact
+        uses: actions/upload-artifact@v6
         with:
-          name: backend-build
+          name: backend-dist
           path: backend/dist
           retention-days: 7
+          if-no-files-found: error
+
+  # ============================================
+  # Backend smoke (boot + DB + /api/v1/health)
+  # ============================================
+  health-check:
+    name: Backend Health Check
+    needs: backend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: .
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: diecast360_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - '5432:5432'
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install backend workspace deps
+        run: pnpm install --frozen-lockfile --filter ./backend...
+
+      - name: Download backend dist
+        uses: actions/download-artifact@v7
+        with:
+          name: backend-dist
+          path: backend/dist
+
+      - name: Ensure uploads directory
+        working-directory: backend
+        run: mkdir -p uploads
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/diecast360_test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/diecast360_test
+        run: pnpm --filter ./backend exec prisma migrate deploy
+
+      - name: Start API in background
+        working-directory: backend
+        env:
+          NODE_ENV: production
+          PORT: '3000'
+          HOST: '127.0.0.1'
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/diecast360_test
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/diecast360_test
+          JWT_SECRET: ci-jwt-secret-at-least-32-characters-long
+          COOKIE_SECRET: ci-cookie-secret-at-least-32-characters-long
+          COOKIE_SECURE: 'true'
+          FRONTEND_URL: http://localhost:5173
+          UPLOAD_DIR: ./uploads
+        run: |
+          node dist/main.js > server.log 2>&1 &
+          echo $! > server.pid
+
+      - name: Wait for /api/v1/health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3000/api/v1/health > /tmp/health.json; then
+              echo "Health OK after ${i} attempts"
+              jq -e '.ok == true and (.data.ok == true or .data.status == "healthy")' /tmp/health.json
+              exit 0
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Health check failed"
+              cat backend/server.log || true
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Stop server
+        if: always()
+        working-directory: backend
+        run: kill "$(cat server.pid)" 2>/dev/null || true
 
   # ============================================
   # Frontend Job
   # ============================================
   frontend:
-    # Branch protection: require this job (includes lint, typecheck, unit tests, Playwright E2E).
     name: Frontend
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./frontend
+        working-directory: .
 
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v5
 
-      - name: 📦 Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      - name: 📚 Install dependencies
-        run: npm ci
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: 🔍 Lint
-        run: npm run lint
+      - name: Lint
+        run: pnpm --filter ./frontend run lint
 
-      - name: 🔬 Type Check
-        run: npx tsc --noEmit
+      - name: Type Check
+        run: pnpm --filter ./frontend exec tsc --noEmit
 
-      - name: 🏗️ Build
-        run: npm run build
+      - name: Build
+        run: pnpm --filter ./frontend run build
 
-      - name: 🧪 Run unit tests
-        run: npm run test:unit
+      - name: Run unit tests
+        run: pnpm --filter ./frontend run test:unit
 
-      - name: ♻️ Cache Playwright browsers
+      - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('frontend/package-lock.json') }}
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml', 'frontend/package.json') }}
           restore-keys: |
             ${{ runner.os }}-playwright-
 
-      # Always run `playwright install` so browser revision matches @playwright/test after npm ci.
-      # Cache hit alone can leave a stale ~/.cache/ms-playwright and break launch (missing headless shell).
-      - name: 📥 Install Playwright Chromium
-        run: npx playwright install chromium --with-deps
+      - name: Install Playwright Chromium
+        run: pnpm --filter ./frontend exec playwright install chromium --with-deps
 
-      - name: 🧭 Run Playwright E2E tests
-        run: npm run test:e2e
+      - name: Run Playwright E2E tests
+        run: pnpm --filter ./frontend run test:e2e
 
-      - name: 📸 Upload Playwright report on failure
-        uses: actions/upload-artifact@v4
+      - name: Upload Playwright report on failure
+        uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 14
 
-      - name: 📊 Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v6
         if: github.ref == 'refs/heads/main'
         with:
           name: frontend-build
@@ -141,38 +248,54 @@ jobs:
   security:
     name: Security Audit
     runs-on: ubuntu-latest
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
+    defaults:
+      run:
+        working-directory: .
 
-      - name: 📦 Setup Node.js
-        uses: actions/setup-node@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      - name: 🔒 Audit Backend Dependencies
-        working-directory: ./backend
-        run: npm audit --audit-level=high
-        continue-on-error: true
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: 🔒 Audit Frontend Dependencies
-        working-directory: ./frontend
-        run: npm audit --audit-level=high
-        continue-on-error: true
+      - name: Audit workspace dependencies
+        run: pnpm audit --audit-level=high
 
   # ============================================
   # Final Status Check (for branch protection)
   # ============================================
   ci-success:
     name: CI Success
-    needs: [backend, frontend]
+    needs: [backend, frontend, security, health-check]
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: ✅ Check all jobs passed
+      - name: Check all jobs passed
         run: |
-          if [[ "${{ needs.backend.result }}" != "success" ]] || [[ "${{ needs.frontend.result }}" != "success" ]]; then
-            echo "❌ One or more jobs failed"
-            exit 1
-          fi
-          echo "✅ All CI checks passed!"
+          for job in backend frontend security health-check; do
+            r=""
+            case "$job" in
+              backend) r="${{ needs.backend.result }}" ;;
+              frontend) r="${{ needs.frontend.result }}" ;;
+              security) r="${{ needs.security.result }}" ;;
+              health-check) r="${{ needs.health-check.result }}" ;;
+            esac
+            if [ "$r" != "success" ]; then
+              echo "Job ${job} result: ${r}"
+              exit 1
+            fi
+          done
+          echo "All CI checks passed"

@@ -1,6 +1,11 @@
 {
   "name": "diecast360",
   "private": true,
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=20.19.0 <21 || >=22.12.0",
+    "pnpm": ">=10.0.0"
+  },
   "scripts": {
     "start": "pnpm run dev",
     "dev": "concurrently -k -n backend,frontend -c cyan,magenta \"pnpm run dev:backend\" \"pnpm run dev:frontend\"",
@@ -8,18 +13,13 @@
     "dev:frontend": "pnpm --filter ./frontend dev"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.0.1",
+    "@commitlint/config-conventional": "^21.0.1",
     "concurrently": "^8.2.1"
   },
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "@nestjs/core",
-      "@prisma/client",
-      "@prisma/engines",
-      "bcrypt",
-      "esbuild",
-      "prisma",
-      "sharp",
-      "unrs-resolver"
-    ]
+    "overrides": {
+      "fast-uri": "^3.1.2"
+    }
   }
 }

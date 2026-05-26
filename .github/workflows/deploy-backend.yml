@@ -1,25 +1,33 @@
 # CD: (1) Apply Prisma migrations on GitHub-hosted runner (reaches Neon reliably).
-#     (2) Build on self-hosted Pi, sync to DEPLOY_REMOTE_PATH, generate client, restart.
+# (2) Build on self-hosted Pi, deploy via `pnpm deploy` (production bundle), prisma generate, restart.
 #
-# Requires: self-hosted runner on the Pi with labels: self-hosted, diecast360-pi
-#           (see docs/BACKEND_SELF_HOSTED_RUNNER.md).
+# Trigger: CI workflow completed successfully after a push to `main`, or manual workflow_dispatch.
+#
+# Path filter: `workflow_run` does not natively support `paths:` filters, so the
+# `check-changes` job inspects the head commit (vs its first parent) and only lets
+# `migrate`/`deploy` run when at least one of `backend/**`, `pnpm-lock.yaml`, or
+# `.github/workflows/deploy-backend.yml` changed. `workflow_dispatch` always
+# deploys regardless of paths. Rebase-merge with multiple commits in one push
+# only inspects the last commit — use `workflow_dispatch` for those rare cases.
+#
+# Requires: GitHub-hosted runner secrets for migrate; Pi runner with labels: self-hosted, diecast360-pi
+#
+# Requires on Pi once: corepack enable && corepack prepare pnpm@10.33.4 --activate
+# (matches root package.json "packageManager").
 #
 # GitHub Environment "production" secrets (for migrate job):
 #   PRODUCTION_DATABASE_URL — Neon pooled URL (same meaning as backend DATABASE_URL)
-#   PRODUCTION_DIRECT_URL     — Neon direct URL (for prisma migrate)
-#
-# Optional: workflow_dispatch input `skip_migrate` when Neon/GitHub already applied migrations.
+#   PRODUCTION_DIRECT_URL   — Neon direct URL (for prisma migrate)
 #
 # Optional secret: DEPLOY_REMOTE_PATH (default /opt/diecast360-backend)
 
 name: Deploy backend (Pi)
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
-    paths:
-      - "backend/**"
-      - ".github/workflows/deploy-backend.yml"
   workflow_dispatch:
     inputs:
       skip_migrate:
@@ -32,88 +40,163 @@ concurrency:
   group: deploy-backend-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "20"
+
 jobs:
+  check-changes:
+    name: Check if backend changed
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
+
+      - name: Detect backend-relevant changes
+        id: filter
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "::notice::Manual dispatch — skipping path filter, deploying."
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git rev-parse HEAD^ >/dev/null 2>&1; then
+            echo "::notice::No parent commit available; defaulting to deploy."
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only HEAD^ HEAD || true)
+          echo "Changed files in head commit:"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" \
+            | grep -qE '^(backend/|pnpm-lock\.yaml$|\.github/workflows/deploy-backend\.yml$)'; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No backend-relevant changes — skipping migrate & deploy."
+          fi
+
   migrate:
     name: Prisma migrate (production)
+    needs: check-changes
+    if: needs.check-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     environment: production
     defaults:
       run:
-        working-directory: backend
+        working-directory: .
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          run_install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Prisma generate & migrate deploy
-        if: ${{ github.event_name != 'workflow_dispatch' || (github.event_name == 'workflow_dispatch' && !fromJSON(github.event.inputs.skip_migrate || 'false')) }}
+        if: ${{ github.event_name != 'workflow_dispatch' || !fromJSON(github.event.inputs.skip_migrate || 'false') }}
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
         run: |
-          npx prisma generate
-          npx prisma migrate deploy
+          pnpm --filter ./backend exec prisma generate
+          pnpm --filter ./backend exec prisma migrate deploy
 
       - name: Skip migrate (manual dispatch)
         if: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.skip_migrate || 'false') }}
-        run: echo "::notice::Skipped prisma migrate deploy — using Neon/GitHub or manual migration."
+        run: echo "::notice::Skipped prisma migrate deploy — manual skip."
 
   deploy:
     name: Build & deploy on Pi
-    needs: migrate
+    needs: [check-changes, migrate]
+    if: needs.check-changes.outputs.backend == 'true'
     runs-on: [self-hosted, diecast360-pi]
     environment: production
     env:
       DEPLOY_REMOTE_PATH: ${{ secrets.DEPLOY_REMOTE_PATH }}
     defaults:
       run:
-        working-directory: backend
+        working-directory: .
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/checkout@v5
         with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
-      # NODE_ENV=production (e.g. in shell profile) makes `npm ci` skip devDependencies,
-      # so @nestjs/cli is missing and `nest build` fails — force dev deps for this step.
+      - name: Enable corepack / pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.4 --activate
+          pnpm --version
+
+      - name: Setup Node.js (cache)
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
       - name: Install & build
         env:
           NPM_CONFIG_PRODUCTION: "false"
           NODE_ENV: development
         run: |
-          npm ci
-          npm run build
+          pnpm install --frozen-lockfile
+          pnpm --filter ./backend run build
 
       - name: Verify build output
         run: |
-          test -d dist
-          test -n "$(find dist -type f -print -quit)" || (echo "::error::dist/ has no files — aborting deploy"; exit 1)
+          test -d backend/dist
+          test -n "$(find backend/dist -type f -print -quit)" \
+            || (echo "::error::backend/dist empty — aborting deploy"; exit 1)
 
-      - name: Sync artifact to deploy directory
+      - name: Produce production bundle
+        id: bundle
+        env:
+          NODE_ENV: development
+        run: |
+          DEPLOY_STAGE="${RUNNER_TEMP}/deploy-stage"
+          rm -rf "$DEPLOY_STAGE"
+          pnpm --filter ./backend deploy --prod --legacy "$DEPLOY_STAGE"
+          echo "path=${DEPLOY_STAGE}" >> "$GITHUB_OUTPUT"
+
+      - name: Sync bundle to runtime directory
         run: |
           set -euo pipefail
           REDIR="${DEPLOY_REMOTE_PATH:-/opt/diecast360-backend}"
-          mkdir -p "${REDIR}/dist" "${REDIR}/prisma"
-          rsync -a --delete ./dist/ "${REDIR}/dist/"
-          rsync -a ./package.json ./package-lock.json "${REDIR}/"
-          rsync -a --delete ./prisma/ "${REDIR}/prisma/"
+          mkdir -p "$REDIR"
+          rsync -a --delete --exclude='.env' "${{ steps.bundle.outputs.path }}/" "${REDIR}/"
 
-      - name: Install prod deps, generate, restart
+      - name: Prisma generate & restart API
         run: |
           set -euo pipefail
           REDIR="${DEPLOY_REMOTE_PATH:-/opt/diecast360-backend}"
@@ -121,13 +204,10 @@ jobs:
           set -a
           [ -f .env ] && . ./.env
           set +a
-          # Default when .env omits PORT or sets it empty.
           PORT="${PORT:-3000}"
-          npm ci --omit=dev
           npx prisma generate
           sudo systemctl restart diecast360-api
           systemctl is-active --quiet diecast360-api
-          # Post-restart probe: Pi/Node may need several seconds before accepting IPv4.
           HEALTH_RETRIES="${HEALTH_RETRIES:-30}"
           HEALTH_INTERVAL_SEC="${HEALTH_INTERVAL_SEC:-2}"
           for i in $(seq 1 "$HEALTH_RETRIES"); do
@@ -135,7 +215,7 @@ jobs:
               break
             fi
             if [ "$i" -eq "$HEALTH_RETRIES" ]; then
-              echo "::error::Health check failed after ${HEALTH_RETRIES} attempts (${HEALTH_INTERVAL_SEC}s interval)" >&2
+              echo "::error::Health check failed after ${HEALTH_RETRIES} attempts" >&2
               sudo systemctl --no-pager -l status diecast360-api || true
               journalctl -u diecast360-api -n 80 --no-pager || true
               exit 1

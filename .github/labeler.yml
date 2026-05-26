@@ -1,0 +1,22 @@
+'area:backend':
+  - changed-files:
+      - any-glob-to-any-file: backend/**/*
+
+'area:frontend':
+  - changed-files:
+      - any-glob-to-any-file: frontend/**/*
+
+'area:ci':
+  - changed-files:
+      - any-glob-to-any-file: .github/workflows/**/*
+      - any-glob-to-any-file: .github/actions/**/*
+
+'area:docs':
+  - changed-files:
+      - any-glob-to-any-file: docs/**/*
+      - any-glob-to-any-file: '*.md'
+
+'area:deps':
+  - changed-files:
+      - any-glob-to-any-file: '**/package.json'
+      - any-glob-to-any-file: 'pnpm-lock.yaml'
