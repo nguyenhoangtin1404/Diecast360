@@ -751,7 +751,7 @@ Condition: ${item.condition || ''}`;
       }
       return tx.item.update({
         where: { id },
-        data: { preorder_closes_at: null, preorder_opens_at: item.created_at },
+        data: { preorder_closes_at: null, preorder_opens_at: now },
       });
     });
     return { item: updated };

@@ -243,7 +243,7 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 
 ### PATCH /api/v1/items/:id/reopen-preorder
 - Auth: JWT + active shop (**shop_admin only** — shop_staff bị từ chối 403).
-- Mở lại preorder đã đóng bằng cách xóa `preorder_closes_at` (open-ended). Admin có thể đặt lại deadline qua PATCH thông thường. Thao tác atomic (transaction).
+- Mở lại preorder đã đóng: xóa `preorder_closes_at` (open-ended) và set `preorder_opens_at = NOW()` (đợt mới từ lúc mở lại). Admin có thể đặt lại deadline qua PATCH thông thường. Thao tác atomic (transaction).
 - Lỗi `VALIDATION_ERROR (422)` nếu item không phải `status = "preorder"` hoặc preorder chưa đóng.
 - Response 200: `data: { item }`.
 

@@ -1451,7 +1451,7 @@ describe('ItemsService', () => {
 
       expect(prisma.item.update).toHaveBeenCalledWith({
         where: { id: 'item-123' },
-        data: { preorder_closes_at: null, preorder_opens_at: closedPreorderItem.created_at },
+        data: { preorder_closes_at: null, preorder_opens_at: expect.any(Date) },
       });
       expect(result.item).toBe(reopenedItem);
     });
