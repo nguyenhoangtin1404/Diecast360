@@ -20,7 +20,35 @@ Sau khi PR #250 (`ci: pnpm-first pipelines, gated Pi deploy, and hygiene workflo
   ```
 - **Time-to-detection:** ~10 giờ (PR #250 merged 04:11 UTC+7, phát hiện ~14:00 UTC+7).
 - **Time-to-mitigation:** ~30 phút sau khi phát hiện (PR #280).
-- **Financial:** xem framework tính ở `docs/POSTMORTEMS/2026-05-26-uploads-wiped.md` section *Cost estimate* (cần input số liệu từ owner).
+- **Financial:** chưa quantify được tại thời điểm viết. Cần input từ owner: số item có ảnh, doanh thu/ngày, chi phí tái upload. Framework tính ở dưới (section *Cost estimate framework*).
+
+## Cost estimate framework
+
+Khi có số liệu từ owner, tính theo công thức:
+
+```
+Loss_labor   = N_items_with_images * T_per_item_min   * (Rate_labor_per_hour / 60)
+             + N_spinner_sets      * T_per_spinner_min * (Rate_labor_per_hour / 60)
+             + N_shop_branding     * 5 min             * (Rate_labor_per_hour / 60)
+
+Loss_revenue = D_outage_days * Rev_daily * Drop_conv
+
+Loss_total   = Loss_labor + Loss_revenue
+```
+
+Inputs cần thu thập (chạy query trong [`../RUNBOOKS/data-loss-incident.md`](../RUNBOOKS/data-loss-incident.md) Step 2 để có 3 số đầu):
+
+- `N_items_with_images` — count `item_images` (file_path distinct)
+- `N_spinner_sets` — count `spin_sets`
+- `N_shop_branding` — count shops có `appearance_json -> 'logo_url'` hoặc `'favicon_url'`
+- `T_per_item_min` — thời gian chụp + upload lại 1 item (operator ước lượng, ~15 min)
+- `T_per_spinner_min` — thời gian quay lại 1 spinner 24-frame (~30 min)
+- `Rate_labor_per_hour` — chi phí nhân công (VND/giờ)
+- `D_outage_days` — số ngày ảnh hưởng tới sales (từ deploy đầu sau #250 tới khi recover xong)
+- `Rev_daily` — doanh thu trung bình/ngày
+- `Drop_conv` — % conversion drop khi ảnh vỡ (ước lượng 60–90% cho retail-by-image)
+
+Update bảng này khi có số liệu thật.
 
 ## Timeline (UTC+7, 2026-05-26)
 

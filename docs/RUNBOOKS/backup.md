@@ -32,12 +32,15 @@ Tài liệu này tập trung vào **`UPLOAD_DIR`** — phần lớn nhất, dễ
 
 ## Setup (Pi + R2 + USB)
 
-### 1. Cài restic
+### 1. Cài restic + jq
+
+`jq` được dùng bởi health-check script ở step 7 (parse `restic snapshots --json`). Cài cùng lúc để cron alert không silently fail.
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y restic
+sudo apt-get install -y restic jq
 restic version
+jq --version
 ```
 
 ### 2. Chuẩn bị credentials cho R2
@@ -83,38 +86,89 @@ restic stats latest
 
 ### 5. USB backup (offline copy)
 
-Mount USB tại `/mnt/usb-backup`, init repo riêng:
+Mount USB tại `/mnt/usb-backup`, tạo password file riêng (cron sẽ đọc), init repo:
 
 ```bash
 sudo mkdir -p /mnt/usb-backup
 sudo mount /dev/sda1 /mnt/usb-backup
 sudo chown pi:pi /mnt/usb-backup
 
-# Repo USB:
+# Tạo password file cho USB repo (khác password R2). Password >= 32 char,
+# sinh random + lưu vào password manager song song với file này.
+# File này được cron đọc qua RESTIC_PASSWORD_FILE — KHÔNG bỏ qua bước này.
+sudo -u pi tee /home/pi/.restic-usb-password > /dev/null <<'EOF'
+<long-random-passphrase-cho-USB-repo>
+EOF
+sudo chown pi:pi /home/pi/.restic-usb-password
+sudo chmod 600 /home/pi/.restic-usb-password
+
+# Init repo (đọc password từ file vừa tạo):
 RESTIC_REPOSITORY=/mnt/usb-backup/diecast360-restic \
-RESTIC_PASSWORD="<password>" \
+RESTIC_PASSWORD_FILE=/home/pi/.restic-usb-password \
 restic init
 
-# Backup vào USB (giữ env riêng):
+# First backup (cùng env):
 RESTIC_REPOSITORY=/mnt/usb-backup/diecast360-restic \
-RESTIC_PASSWORD="<password>" \
+RESTIC_PASSWORD_FILE=/home/pi/.restic-usb-password \
 restic backup /var/lib/diecast360/uploads --tag uploads --tag usb
 ```
 
 ### 6. Cron job (nightly)
 
+> **Đừng pipe `restic backup && restic forget | logger` trực tiếp trong cron.** Bash trả exit code của lệnh **cuối cùng** trong pipeline trừ khi `pipefail` được set; nếu `restic forget` fail (retention/prune lỗi) mà `logger` thành công, cron sẽ coi như OK — bạn không biết retention hỏng. Bọc qua wrapper script với `set -o pipefail` để bắt được mọi lỗi.
+
+Wrapper script `/usr/local/bin/diecast360-backup.sh`:
+
+```bash
+#!/bin/bash
+# Backup wrapper: forward stdout/stderr vào syslog với tag, exit non-zero nếu
+# bất kỳ stage nào fail (kể cả forget/prune). Đọc env theo TARGET arg.
+set -euo pipefail
+
+TARGET="${1:?usage: $0 <r2|usb>}"
+case "$TARGET" in
+  r2)
+    source /home/pi/.restic.env
+    RETENTION=(--keep-daily 7 --keep-weekly 4 --keep-monthly 12)
+    TAG=pi
+    LOGTAG=restic-r2
+    ;;
+  usb)
+    export RESTIC_REPOSITORY=/mnt/usb-backup/diecast360-restic
+    export RESTIC_PASSWORD_FILE=/home/pi/.restic-usb-password
+    RETENTION=(--keep-daily 14)
+    TAG=usb
+    LOGTAG=restic-usb
+    ;;
+  *) echo "unknown target: $TARGET" >&2; exit 2 ;;
+esac
+
+{
+  restic backup /var/lib/diecast360/uploads --tag uploads --tag "$TAG" --quiet
+  restic forget "${RETENTION[@]}" --prune --quiet
+} 2>&1 | logger -t "$LOGTAG"
+
+# `set -o pipefail` ở trên đảm bảo exit code phản ánh lỗi của bất kỳ lệnh nào
+# trong block — kể cả forget/prune — không bị `logger` nuốt.
+```
+
+```bash
+sudo install -m 755 -o root -g root /dev/stdin /usr/local/bin/diecast360-backup.sh < diecast360-backup.sh
+```
+
 `/etc/cron.d/diecast360-backup`:
 
 ```cron
-# Backup uploads tới R2 mỗi 03:00, USB mỗi 04:00.
-# Pi user. STDOUT/STDERR đi vào journal.
+# Backup uploads tới R2 mỗi 03:00, USB mỗi 04:00. Pi user.
+# Wrapper script bắt lỗi qua pipefail; cron sẽ email/mail spool khi exit != 0
+# (cần MAILTO hoặc systemd OnFailure để forward — xem step 7 alert).
 
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=""
 
-0 3 * * * pi source /home/pi/.restic.env && restic backup /var/lib/diecast360/uploads --tag uploads --tag pi --quiet && restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune --quiet | logger -t restic-r2
-
-0 4 * * * pi RESTIC_REPOSITORY=/mnt/usb-backup/diecast360-restic RESTIC_PASSWORD_FILE=/home/pi/.restic-usb-password restic backup /var/lib/diecast360/uploads --tag uploads --tag usb --quiet && RESTIC_REPOSITORY=/mnt/usb-backup/diecast360-restic RESTIC_PASSWORD_FILE=/home/pi/.restic-usb-password restic forget --keep-daily 14 --prune --quiet | logger -t restic-usb
+0 3 * * * pi /usr/local/bin/diecast360-backup.sh r2
+0 4 * * * pi /usr/local/bin/diecast360-backup.sh usb
 ```
 
 Retention example: 7 ngày + 4 tuần + 12 tháng trên R2; 14 ngày trên USB.
