@@ -80,6 +80,7 @@ describe('PreordersService', () => {
           brand: 'Mini GT',
           car_brand: 'Nissan',
           model_brand: 'Skyline',
+          preorder_closes_at: null,
           item_images: [{ file_path: 'images/cover.jpg' }],
         },
       },
@@ -90,11 +91,13 @@ describe('PreordersService', () => {
       expect.objectContaining({
         status: PreOrderStatus.WAITING_FOR_GOODS,
         countdown_target: expect.any(Date),
+        preorder_closes_at: null,
         display_price: 200,
         short_specs: expect.stringContaining('1:64'),
         cover_image_url: 'http://localhost/images/cover.jpg',
       }),
     );
+    expect(result.cards[0]).not.toHaveProperty('item_created_at');
     expect(prisma.preOrder.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { PreorderCountdown } from '../preorder/PreorderCountdown';
 
 interface ItemCardProps {
   item: {
@@ -11,6 +12,7 @@ interface ItemCardProps {
     original_price?: number | null;
     preorder_price?: number | null;
     preorder_closes_at?: string | null;
+    created_at?: string;
     condition?: string | null;
   };
   index?: number;
@@ -98,6 +100,14 @@ export const ItemCard = ({ item, index = 0, shopSearch = '' }: ItemCardProps) =>
               <div className="text-lg font-extrabold tracking-tight text-slate-900">
                 {formatPrice(displayPrice)}
               </div>
+            </div>
+          )}
+          {isPreorderOpen && item.preorder_closes_at && (
+            <div className="mt-2">
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Hạn đặt cọc
+              </p>
+              <PreorderCountdown closesAt={item.preorder_closes_at} compact />
             </div>
           )}
         </div>
