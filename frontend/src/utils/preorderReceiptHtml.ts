@@ -204,7 +204,7 @@ export const buildPreorderReceiptHtml = (
   </table>
   <div class="totals">
     ${lineItem('Cộng tiền hàng', formatNullableVnd(subtotal))}
-    ${lineItem('Chiết khấu', formatVndLine(preorder.discount_amount))}
+    ${preorder.discount_amount != null ? lineItem('Chiết khấu', formatVndLine(preorder.discount_amount)) : ''}
     <div class="line strong"><span class="label">Tổng cộng</span><span class="value">${escapeHtml(formatNullableVnd(totalAmount))}</span></div>
     ${lineItem('Đặt cọc', formatVndLine(preorder.deposit_amount))}
     ${lineItem('Đã thu', formatVndLine(preorder.paid_amount))}

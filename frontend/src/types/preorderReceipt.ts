@@ -17,7 +17,8 @@ export type PreorderReceiptPayload = {
     deposit_amount: number;
     paid_amount: number;
     remaining_amount: number | null;
-    discount_amount: number;
+    /** null = chưa có nghiệp vụ chiết khấu — dòng sẽ ẩn trên phiếu */
+    discount_amount: number | null;
     note: string | null;
     created_at: string;
     item: { name: string };

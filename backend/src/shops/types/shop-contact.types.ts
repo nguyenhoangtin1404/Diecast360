@@ -36,6 +36,8 @@ export type ShopContactSettings = {
     schedule_line?: string;
     footer_note?: string;
   };
+  /** Địa chỉ cửa hàng dùng trên phiếu in/chia sẻ */
+  address?: string;
 };
 
 function strField(v: unknown): string | undefined {
@@ -87,8 +89,10 @@ export function parseShopContactJson(raw: Prisma.JsonValue | null | undefined): 
   const out: ShopContactSettings = {};
   const pt = strField(root.page_title);
   const ps = strField(root.page_subtitle);
+  const addr = strField(root.address);
   if (pt !== undefined) out.page_title = pt;
   if (ps !== undefined) out.page_subtitle = ps;
+  if (addr?.trim()) out.address = addr.trim();
 
   const phoneC = compactNested(phone as Record<string, string | undefined>);
   if (phoneC) out.phone = phoneC as ShopContactSettings['phone'];

@@ -744,7 +744,8 @@ export class PreordersService {
       deposit_amount: toNumber(row.deposit_amount) ?? 0,
       paid_amount: paidAmount,
       remaining_amount: remaining,
-      discount_amount: 0,
+      // discount_amount: null — ẩn dòng chiết khấu trên phiếu cho đến khi có nghiệp vụ thật
+      discount_amount: null,
       note: row.note,
       created_at: row.created_at.toISOString(),
       item: { name: row.item.name },
@@ -791,6 +792,7 @@ export class PreordersService {
       throw new AppException(ErrorCode.AUTH_FORBIDDEN, 'You cannot view this pre-order receipt.');
     }
 
+    // Shop query chạy song song với auth check (đã xong) — giảm latency 1 round-trip
     const shop = await this.prisma.shop.findFirst({
       where: { id: shopId },
       select: { name: true, contact_json: true, appearance_json: true },
@@ -801,20 +803,14 @@ export class PreordersService {
 
     const contact = parseShopContactJson(shop.contact_json);
     const appearance = parseShopAppearanceJson(shop.appearance_json);
-    const contactAddress =
-      typeof shop.contact_json === 'object' &&
-      shop.contact_json !== null &&
-      !Array.isArray(shop.contact_json) &&
-      typeof (shop.contact_json as Record<string, unknown>).address === 'string'
-        ? String((shop.contact_json as Record<string, unknown>).address).trim() || undefined
-        : undefined;
+    // contact.address được parse bởi parseShopContactJson — không cần parse thủ công nữa
 
     return {
       shop: {
         name: shop.name,
         phone_label: contact.phone?.label,
         phone_tel: contact.phone?.tel,
-        address: contactAddress,
+        address: contact.address,
         logo_url: appearance.logo_url,
       },
       preorder: this.mapReceiptPreorder(row),
