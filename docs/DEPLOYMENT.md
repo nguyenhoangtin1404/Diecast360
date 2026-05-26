@@ -118,6 +118,18 @@ WantedBy=multi-user.target
 
 ---
 
+## 3b. Fly.io (tùy chọn — container chỉ API)
+
+`Dockerfile` ở **root** monorepo: cài workspace qua `pnpm-lock.yaml`, **`pnpm --filter ./backend run build`**, runtime chạy **`pnpm --filter ./backend run start:prod`** (một process HTTP). Frontend tĩnh vẫn trên Vercel/Pages; `VITE_API_BASE_URL` trỏ tới hostname API Fly (HTTPS, `/api/v1`).
+
+- **`fly.toml`**: `http_service.internal_port = 8080` khớp `PORT` mà Fly gán cho máy; có health check `GET /api/v1/health`.
+- **Biến / secrets**: cùng nhóm bắt buộc như backend trên Pi — xem [`ENV.md`](ENV.md); đặt bằng `fly secrets set` / `[env]` trong `fly.toml` (không commit secret).
+- **Migration:** dùng `[deploy] release_command` (ví dụ `pnpm --filter ./backend exec prisma migrate deploy`) hoặc chạy tay sau deploy, tương tự Neon + Pi.
+
+Kiểm tra image cục bộ: `docker build -t diecast360-api:fly .` rồi `docker run` với `-e PORT=8080` và đủ biến để ứng dụng boot (ít nhất `DATABASE_URL`, `JWT_SECRET`, `COOKIE_SECRET` ≥ 32 ký tự).
+
+---
+
 ## 4. Biến môi trường tối thiểu (tóm tắt)
 
 | Nơi | Biến | Ghi chú |

@@ -7,6 +7,8 @@ app = 'diecast360'
 primary_region = 'sin'
 
 [build]
+  dockerfile = 'Dockerfile'
+  build-target = 'production'
 
 [http_service]
   internal_port = 8080
@@ -16,8 +18,14 @@ primary_region = 'sin'
   min_machines_running = 0
   processes = ['app']
 
+[[http_service.checks]]
+  grace_period = '15s'
+  interval = '30s'
+  method = 'GET'
+  timeout = '5s'
+  path = '/api/v1/health'
+
 [[vm]]
-  memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 256
+  memory = '1gb'
