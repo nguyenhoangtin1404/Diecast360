@@ -118,7 +118,38 @@ WantedBy=multi-user.target
 
 ---
 
-## 3b. Fly.io (tùy chọn — container chỉ API)
+## 3.b. Production data layout rules
+
+**Invariant rút ra từ sự cố 2026-05-26** ([`POSTMORTEMS/2026-05-26-uploads-wiped.md`](POSTMORTEMS/2026-05-26-uploads-wiped.md)): state directory (uploads, backups, local caches) **phải nằm ngoài** `DEPLOY_REMOTE_PATH`. Workflow Pi dùng `rsync --delete` ở mức gốc của `DEPLOY_REMOTE_PATH`; mọi thứ trong đó không thuộc deploy bundle và không có trong exclude list sẽ bị xoá.
+
+**Bảng path chuẩn (FHS-aligned):**
+
+| Loại | Đường dẫn khuyến nghị | Owner | Lý do |
+|---|---|---|---|
+| Artifact deploy | `/opt/diecast360-backend/` | pi:pi | Bị `rsync --delete` đồng bộ mỗi deploy |
+| Config (secrets) | `/opt/diecast360-backend/.env` | pi:pi 600 | Excluded khỏi rsync (`--exclude=/.env`) |
+| **User state — uploads** | `/var/lib/diecast360/uploads/` | pi:pi 755 | **Phải ngoài artifact root.** Default mới. |
+| Backup local | `/mnt/usb-backup/diecast360-restic/` | pi:pi | USB external, ngoài Pi disk |
+| Log | journalctl (systemd) | system | Không ghi file trực tiếp |
+| Tmp / cache runtime | `/tmp/diecast360/` | pi:pi | Ephemeral, không cần backup |
+
+**Setup `/var/lib/diecast360/uploads` (1 lần per Pi):**
+
+```bash
+sudo mkdir -p /var/lib/diecast360/uploads
+sudo chown pi:pi /var/lib/diecast360/uploads
+sudo chmod 755 /var/lib/diecast360/uploads
+# Cập nhật /opt/diecast360-backend/.env: UPLOAD_DIR=/var/lib/diecast360/uploads
+sudo systemctl restart diecast360-api
+```
+
+**Khi nào hợp lệ để đặt state trong `DEPLOY_REMOTE_PATH`?** Chỉ khi state đó được **liệt kê tường minh** trong `--exclude` của rsync **và** được commit vào workflow review. Hiện tại workflow exclude `.env` + `/uploads`. Mọi state mới (ví dụ sqlite cache, vector store local) **phải đi qua quy trình:** thêm exclude → thêm bảng path → thêm gotcha vào AGENTS/CLAUDE.
+
+**Backup strategy** cho `UPLOAD_DIR`: xem [`RUNBOOKS/backup.md`](RUNBOOKS/backup.md). Tóm tắt: restic → R2 (offsite, encrypted, dedup, retention 7d/4w/12m) + USB external (offline, retention 14d) chạy nightly, alert nếu snapshot >26h.
+
+**Recovery** khi nghi mất data: xem [`RUNBOOKS/data-loss-incident.md`](RUNBOOKS/data-loss-incident.md). Quy tắc số 1: `systemctl stop` trước khi điều tra (bảo toàn ext4 inode).
+
+## 3.c. Fly.io (tùy chọn — container chỉ API)
 
 `Dockerfile` ở **root** monorepo: cài workspace qua `pnpm-lock.yaml`, **`pnpm --filter ./backend run build`**, runtime chạy **`pnpm --filter ./backend run start:prod`** (một process HTTP). Frontend tĩnh vẫn trên Vercel/Pages; `VITE_API_BASE_URL` trỏ tới hostname API Fly (HTTPS, `/api/v1`).
 
@@ -140,7 +171,7 @@ Kiểm tra image cục bộ: `docker build -t diecast360-api:fly .` rồi `docke
 | **Pi** | `BACKEND_URL` | URL public của API (HTTPS), dùng làm base cho signed media URL `/api/v1/media` |
 | **Pi** | `MEDIA_SIGNING_SECRET`, `MEDIA_URL_TTL_MS` | Tùy chọn cho signed media URL; nếu không set secret riêng, backend fallback sang `JWT_SECRET` |
 | **Pi** | `COOKIE_SECURE=true`, `COOKIE_SAME_SITE` | Production HTTPS — xem [`ENV.md`](ENV.md) |
-| **Pi** | `UPLOAD_DIR` | Bắt buộc khi `STORAGE_DRIVER=local` — đường dẫn ghi được. Với `STORAGE_DRIVER=r2` có thể giữ mặc định hoặc bỏ qua nhu cầu volume lớn cho media |
+| **Pi** | `UPLOAD_DIR` | Bắt buộc khi `STORAGE_DRIVER=local` — đường dẫn ghi được, **phải nằm ngoài `DEPLOY_REMOTE_PATH`** (xem mục 3.b). Default mới: `/var/lib/diecast360/uploads`. Với `STORAGE_DRIVER=r2` có thể bỏ qua nhu cầu volume lớn cho media |
 | **Pi** | `STORAGE_DRIVER`, `R2_*` | Khi dùng Cloudflare R2 — xem [`ENV.md`](ENV.md) |
 | **Vercel / Pages** (build) | `VITE_API_BASE_URL` | `https://<api-host>/api/v1` |
 
