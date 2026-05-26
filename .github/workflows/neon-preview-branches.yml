@@ -79,7 +79,17 @@ jobs:
         run: |
           pnpm install --frozen-lockfile --filter ./backend...
           pnpm --filter ./backend exec prisma generate
-          pnpm --filter ./backend exec prisma migrate deploy
+          # Retry up to 3 times to handle Neon endpoint cold-start latency.
+          for attempt in 1 2 3; do
+            pnpm --filter ./backend exec prisma migrate deploy && break
+            if [ "$attempt" -lt 3 ]; then
+              echo "Migrate attempt $attempt failed, retrying in 15 seconds..."
+              sleep 15
+            else
+              echo "Migrate failed after 3 attempts."
+              exit 1
+            fi
+          done
 
   # Optional: neondatabase/schema-diff-action with pull-requests: write — see Neon docs.
 
