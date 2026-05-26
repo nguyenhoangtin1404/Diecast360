@@ -58,23 +58,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       # Pooled for app-style URL; direct for Prisma migrate (see backend prisma schema).
       - name: Prisma migrate (preview DB)
-        working-directory: backend
+        working-directory: .
         env:
           DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url_pooled }}
           DIRECT_URL: ${{ steps.create_neon_branch.outputs.db_url }}
         run: |
-          npm ci
-          npx prisma generate
-          npx prisma migrate deploy
+          pnpm install --frozen-lockfile --filter ./backend...
+          pnpm --filter ./backend exec prisma generate
+          pnpm --filter ./backend exec prisma migrate deploy
 
   # Optional: neondatabase/schema-diff-action with pull-requests: write — see Neon docs.
 

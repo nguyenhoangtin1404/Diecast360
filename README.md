@@ -83,7 +83,7 @@ SECURITY.md           Chính sách báo cáo lỗ hổng
 
 ## Stack & quy ước API
 
-- **Monorepo:** [pnpm](https://pnpm.io/) ở root (`pnpm install`, `pnpm dev` chạy song song backend + frontend nhờ `concurrently`). Root khai báo `pnpm.onlyBuiltDependencies` để native modules (`sharp`, `bcrypt`, `prisma`, …) được build đúng trên pnpm 10+ (xem [`package.json`](package.json), [`AGENTS.md`](AGENTS.md)). **GitHub Actions** hiện dùng `npm ci` theo `package-lock.json` trong `backend/` và `frontend/` (xem [`.github/workflows/ci.yml`](.github/workflows/ci.yml)); cập nhật lockfile khi đổi dependency để CI khớp.
+- **Monorepo:** [pnpm](https://pnpm.io/) ở root (`pnpm install`, `pnpm dev` …). Cấu hình native deps build: [`pnpm-workspace.yaml`](pnpm-workspace.yaml) (`onlyBuiltDependencies`); pin version: **`packageManager`** / **`engines`** trong [`package.json`](package.json) (xem [`AGENTS.md`](AGENTS.md)). **GitHub Actions** và deploy Pi đều dùng **`pnpm install --frozen-lockfile`** và lockfile **`pnpm-lock.yaml`** ở root (đã loại `package-lock.json` cũ trong từng package).
 - **Backend:** Node.js, NestJS 11, Prisma 6, PostgreSQL, Sharp, upload local trong dev; tùy chọn OpenAI, Pinecone.
 - **Frontend:** React 19, Vite 7, React Router 7, TanStack Query, Tailwind CSS 3, Radix Slot; test: Vitest + Playwright.
 - **API:** prefix toàn cục `/api/v1`; payload JSON **snake_case**; envelope `{ ok, data, message }` hoặc `{ ok, error, message }` ([`docs/ERROR_HANDLING.md`](docs/ERROR_HANDLING.md)).

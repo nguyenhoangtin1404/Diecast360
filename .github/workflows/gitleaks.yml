@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main, develop]
 
+concurrency:
+  group: gitleaks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   gitleaks:
     name: Scan for secrets

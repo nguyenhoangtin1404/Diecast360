@@ -6,6 +6,8 @@
 
 Diecast360 is a pnpm monorepo (`backend/` + `frontend/`) for a diecast model car inventory app with 360° image viewer, public catalog, and social-selling tools.
 
+Pinned tooling: **`packageManager`** và **`engines`** trong `package.json` gốc (Node + pnpm).
+
 ### Services
 
 | Service | Port | How to start |
@@ -19,26 +21,36 @@ Diecast360 is a pnpm monorepo (`backend/` + `frontend/`) for a diecast model car
 
 - **COOKIE_SECRET** must be at least 32 characters in `backend/.env` or the app will throw at startup.
 - **Object storage (Cloudflare R2):** optional `STORAGE_DRIVER=r2` and `R2_*` variables — see [`docs/ENV.md`](docs/ENV.md) section **Object storage (Cloudflare R2)** and cutover notes in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
-- **pnpm.onlyBuiltDependencies** in root `package.json` is required so that native modules (`sharp`, `bcrypt`, `prisma`, `esbuild`) build during `pnpm install`. Without it, pnpm v10+ silently skips their build scripts.
+- **`onlyBuiltDependencies`** cho native deps (`sharp`, `bcrypt`, `prisma`, …) được khai báo trong [`pnpm-workspace.yaml`](pnpm-workspace.yaml).
 - After `pnpm install`, the backend `postinstall` runs `prisma generate` automatically.
 - `prisma migrate dev` prompts interactively for a migration name if the schema drifts; use `prisma migrate deploy` (non-interactive) when only applying existing migrations.
 - Frontend lint (`pnpm --filter ./frontend lint`) currently has pre-existing lint errors in the codebase — these are not regressions.
 - Node.js version must satisfy `>=20.19.0 <21 || >=22.12.0` (env ships v22.22.2 via nvm at `/home/ubuntu/.nvm`).
+- Repo dùng **một lockfile**: `pnpm-lock.yaml` — không maintain `backend/package-lock.json` / `frontend/package-lock.json`.
 
 ### Continuous Integration (GitHub Actions)
 
-Workflows under `.github/workflows/`:
-
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `ci.yml` | `push` / `pull_request` to `main`, `develop` | Backend (lint, build, Jest), frontend (lint, typecheck, build, Vitest, Playwright), **backend health-check** (Postgres service, migrate, boot API, `GET /api/v1/health`), optional high-severity `npm audit`, and an aggregate **`CI Success`** job for branch protection. |
-| `gitleaks.yml` | same branches | Secret scanning on full git history (`fetch-depth: 0`). |
-| `commitlint.yml` | `pull_request` only | Enforces [Conventional Commits](https://www.conventionalcommits.org/) using root `.commitlintrc.json` (types include `feat`, `fix`, `docs`, `ci`, …). |
-| `deploy-backend.yml` | deploy | Production deploy plus systemd health retry (separate from CI smoke). |
+| **`CI`** (`ci.yml`) | `push` / `pull_request` → `main`, `develop` | `pnpm install --frozen-lockfile`; backend lint/build/Jest; **upload `backend/dist` artifact**; frontend lint/tsc/Vitest/Playwright; Postgres **health-check** (`GET /api/v1/health`, production env vars + artifact reuse); **`pnpm audit --audit-level=high`** block; **`CI Success`** gate gộp backend, frontend, security, health-check. |
+| **`Gitleaks`** | Same branches | Quét secret (full git history). |
+| **`Commitlint`** | Pull requests | Conventional commits cho từng commit trong PR (`.commitlintrc.json`). |
+| **`PR Title Lint`** | PR opened/edited/… | Title semantic (squash-merge). Types giống commitlint (`feat`, `fix`, …). |
+| **`Labeler`** (`pull_request_target`) | Pull requests → `main`, `develop` | Label theo path (`.github/labeler.yml`); cần tạo sẵn labels `area:*`, `deps` trong repo. |
+| **`Deploy backend (Pi)`** | **`workflow_run` sau khi CI trên `main` success** (push event), hoặc `workflow_dispatch` | Migrate trên GitHub-hosted, build + **`pnpm deploy --prod --legacy`** trên runner Pi → rsync vào `/opt/diecast360-backend` (preserve `.env`), `prisma generate`, restart service. |
 
-**Branch protection:** require the **`CI Success`** check (and any other required jobs your repo policy lists). Commitlint and Gitleaks are separate workflow names in the GitHub checks list—add them as required checks if you want PRs blocked on commit message format and leak scans.
+**Pi (một lần):** bật pnpm khớp [`package.json`](package.json) `packageManager`, ví dụ:
 
-**Local commit messages:** match the same types as in `.commitlintrc.json` (e.g. `feat:`, `fix:`, `ci:`) so PRs pass Commitlint.
+```bash
+corepack enable
+corepack prepare pnpm@10.33.4 --activate
+```
+
+**Branch protection:** bật required checks: **`CI Success`**, **`Scan for secrets`** (Gitleaks), **`Lint commit messages`**, **`Validate PR title`**. Labeler không bắt buộc.
+
+**Squash-merge:** chỉnh **PR title** đúng Conventional Commit trước khi squash (ảnh hưởng message commit trên `main`).
+
+Dependabot weekly: [`.github/dependabot.yml`](.github/dependabot.yml).
 
 ### Lint / Test / Build commands
 
@@ -53,7 +65,7 @@ See `docs/DEV.md` for full reference. Quick summary:
 | Frontend E2E (Playwright) | `pnpm --filter ./frontend test:e2e` |
 | Backend build | `pnpm --filter ./backend build` |
 | Frontend build | `pnpm --filter ./frontend build` |
-| TypeScript check (frontend) | `cd frontend && npx tsc -b --noEmit` |
+| TypeScript check (frontend) | `pnpm --filter ./frontend exec tsc --noEmit` |
 
 ### Admin credentials (dev only)
 
