@@ -23,7 +23,7 @@ import { UploadSupportService } from '../common/upload/upload-support.service';
 import { verifySignedMediaParams } from '../common/media/signed-media.util';
 import { resolveMediaSigningSecret } from '../common/media/media-signing-secret';
 import { v7 as uuidv7 } from 'uuid';
-import * as sharp from 'sharp';
+import sharp from 'sharp';
 
 const SHOP_BRANDING_MIME_ALLOWLIST = ['image/jpeg', 'image/png', 'image/webp'] as const;
 

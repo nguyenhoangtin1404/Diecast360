@@ -1,5 +1,5 @@
 import { Injectable, Logger, LoggerService } from '@nestjs/common';
-import * as sharp from 'sharp';
+import sharp from 'sharp';
 import { AppException, ErrorCode } from '../exceptions/http-exception.filter';
 import { IStorageService } from '../../storage/storage.interface';
 

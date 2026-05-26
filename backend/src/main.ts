@@ -5,7 +5,7 @@ import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/exceptions/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import * as sharp from 'sharp';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { createCsrfMiddleware } from './common/middleware/csrf.middleware';
 import { validateRuntimeSecurityConfig } from './common/security/runtime-security';

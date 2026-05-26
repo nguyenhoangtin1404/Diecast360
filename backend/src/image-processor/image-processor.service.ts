@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as path from 'path';
-import * as sharp from 'sharp';
+import sharp from 'sharp';
 import { v7 as uuidv7 } from 'uuid';
 
 export class WatermarkProcessingError extends Error {
