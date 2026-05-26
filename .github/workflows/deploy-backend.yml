@@ -194,7 +194,16 @@ jobs:
           set -euo pipefail
           REDIR="${DEPLOY_REMOTE_PATH:-/opt/diecast360-backend}"
           mkdir -p "$REDIR"
-          rsync -a --delete --exclude='.env' "${{ steps.bundle.outputs.path }}/" "${REDIR}/"
+          # Excludes protect operator state that lives in REDIR but is NOT part of
+          # the deploy bundle. Without these, `--delete` wipes user data each deploy.
+          # - .env: secrets configured per-host
+          # - /uploads: legacy default UPLOAD_DIR (./uploads -> $REDIR/uploads). New
+          #   installs should set UPLOAD_DIR outside REDIR (see backend/.env.production.example).
+          rsync -a --delete \
+            --exclude='/.env' \
+            --exclude='/uploads' \
+            --exclude='/uploads/' \
+            "${{ steps.bundle.outputs.path }}/" "${REDIR}/"
 
       - name: Prisma generate & restart API
         run: |
