@@ -20,6 +20,7 @@ Pinned tooling: **`packageManager`** và **`engines`** trong `package.json` gố
 ### Key gotchas
 
 - **COOKIE_SECRET** must be at least 32 characters in `backend/.env` or the app will throw at startup.
+- **Production data layout:** `UPLOAD_DIR` (và mọi state khác như backup, log riêng, sqlite) **phải nằm ngoài** `DEPLOY_REMOTE_PATH` (mặc định `/opt/diecast360-backend`). Workflow Pi dùng `rsync --delete` để đồng bộ bundle: mọi thứ trong deploy root không thuộc bundle (trừ exclude) sẽ bị xoá khi deploy. Default đã chuyển sang `/var/lib/diecast360/uploads`. Postmortem chi tiết: [`docs/POSTMORTEMS/2026-05-26-uploads-wiped.md`](docs/POSTMORTEMS/2026-05-26-uploads-wiped.md).
 - **Object storage (Cloudflare R2):** optional `STORAGE_DRIVER=r2` and `R2_*` variables — see [`docs/ENV.md`](docs/ENV.md) section **Object storage (Cloudflare R2)** and cutover notes in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 - **`onlyBuiltDependencies`** cho native deps (`sharp`, `bcrypt`, `prisma`, …) được khai báo trong [`pnpm-workspace.yaml`](pnpm-workspace.yaml).
 - After `pnpm install`, the backend `postinstall` runs `prisma generate` automatically.
@@ -37,7 +38,7 @@ Pinned tooling: **`packageManager`** và **`engines`** trong `package.json` gố
 | **`Commitlint`** | Pull requests | Conventional commits cho từng commit trong PR (`.commitlintrc.json`). |
 | **`PR Title Lint`** | PR opened/edited/… | Title semantic (squash-merge). Types giống commitlint (`feat`, `fix`, …). |
 | **`Labeler`** (`pull_request_target`) | Pull requests → `main`, `develop` | Label theo path (`.github/labeler.yml`); cần tạo sẵn labels `area:*`, `deps` trong repo. |
-| **`Deploy backend (Pi)`** | **`workflow_run` sau khi CI trên `main` success** (push event), hoặc `workflow_dispatch` | Migrate trên GitHub-hosted, build + **`pnpm deploy --prod --legacy`** trên runner Pi → rsync vào `/opt/diecast360-backend` (preserve `.env`), `prisma generate`, restart service. |
+| **`Deploy backend (Pi)`** | **`workflow_run` sau khi CI trên `main` success** (push event), hoặc `workflow_dispatch` | Migrate trên GitHub-hosted, build + **`pnpm deploy --prod --legacy`** trên runner Pi → rsync vào `/opt/diecast360-backend` (preserve `.env` + exclude `/uploads`), `prisma generate`, restart service. Trước khi sửa workflow phần `rsync`/`--delete`: review kèm `--dry-run` output trong PR description; nếu có thể, thử trên staging Pi/VM trước. Health check `/api/v1/health` hiện **không** touch storage — không tự phát hiện được "file mất nhưng app sống" (xem postmortem 2026-05-26). |
 
 **Pi (một lần):** bật pnpm khớp [`package.json`](package.json) `packageManager`, ví dụ:
 

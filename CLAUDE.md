@@ -141,6 +141,17 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Lint:** frontend has pre-existing lint errors — don't treat them as regressions, but don't add new ones.
 
+**Production data isolation:** `UPLOAD_DIR` (và mọi user state khác) **không bao giờ** được đặt trong `DEPLOY_REMOTE_PATH` (mặc định `/opt/diecast360-backend`). Default đã chuyển ra `/var/lib/diecast360/uploads`. Workflow Pi dùng `rsync --delete` ở mức gốc của `DEPLOY_REMOTE_PATH`; bất kỳ thứ gì không thuộc deploy bundle và không nằm trong exclude list sẽ bị xoá. Đây là invariant rút ra từ sự cố 2026-05-26 (xem [`docs/POSTMORTEMS/2026-05-26-uploads-wiped.md`](docs/POSTMORTEMS/2026-05-26-uploads-wiped.md)).
+
+**CI/CD touching deploy paths:** PR sửa `.github/workflows/deploy-*.yml` (đặc biệt phần `rsync`, `--delete`, `rm`, container image swap) phải:
+1. Kèm `--dry-run` output trong PR description, hoặc
+2. Verify trên staging Pi/VM trước, hoặc
+3. Scope hẹp 1 mục tiêu để dễ review từng dòng `--delete`/`--exclude`.
+
+Không gộp deploy changes với CI hygiene / dependency bumps / lockfile cleanup trong cùng PR.
+
+**Data loss response:** Nghi mất dữ liệu trên production → `systemctl stop diecast360-api` **TRƯỚC** khi điều tra (bảo toàn ext4 inode cho recovery). Quy trình: [`docs/RUNBOOKS/data-loss-incident.md`](docs/RUNBOOKS/data-loss-incident.md).
+
 ---
 
 **These guidelines are working if:** diffs are minimal, questions come before implementation, rewrites due to overcomplication are rare, and every changed line traces to the stated requirement.
