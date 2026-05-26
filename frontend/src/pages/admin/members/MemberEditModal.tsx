@@ -4,6 +4,7 @@ type EditFormState = {
   full_name: string;
   email: string;
   phone: string;
+  address: string;
 };
 
 type MemberEditModalProps = {
@@ -52,6 +53,12 @@ export function MemberEditModal(props: MemberEditModalProps) {
               value={props.form.phone}
               onChange={(event) => props.onFormChange({ ...props.form, phone: event.target.value })}
               placeholder="Số điện thoại (tuỳ chọn)"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+            <input
+              value={props.form.address}
+              onChange={(event) => props.onFormChange({ ...props.form, address: event.target.value })}
+              placeholder="Địa chỉ (tuỳ chọn)"
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
             <button

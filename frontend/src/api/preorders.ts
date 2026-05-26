@@ -7,6 +7,7 @@ import type {
   PreOrderCard,
   PreOrderStatus,
 } from '../types/preorder';
+import type { PreorderReceiptPayload } from '../types/preorderReceipt';
 
 interface AdminListResponse {
   preorders: AdminPreOrder[];
@@ -66,6 +67,11 @@ export const createPreorder = async (payload: {
 
 export const fetchCampaignParticipants = async (itemId: string) => {
   const response = (await apiClient.get(`/preorders/admin/campaigns/${itemId}/participants`)) as ApiResponse<ParticipantResponse>;
+  return response.data;
+};
+
+export const fetchPreorderReceipt = async (preorderId: string): Promise<PreorderReceiptPayload> => {
+  const response = (await apiClient.get(`/preorders/${preorderId}/receipt`)) as ApiResponse<PreorderReceiptPayload>;
   return response.data;
 };
 

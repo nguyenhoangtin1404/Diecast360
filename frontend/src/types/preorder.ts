@@ -49,6 +49,7 @@ export interface AdminPreOrder {
     id: string;
     full_name: string;
     phone: string | null;
+    address?: string | null;
   } | null;
 }
 
@@ -75,6 +76,7 @@ export interface Participant {
     id: string;
     full_name: string;
     phone: string | null;
+    address?: string | null;
   } | null;
 }
 
