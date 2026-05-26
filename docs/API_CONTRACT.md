@@ -20,7 +20,7 @@
 
 ## Data shape
 - `ItemStatus`: `"con_hang" | "giu_cho" | "da_ban" | "preorder"`. Transition rules: `con_hang`/`giu_cho` → any; `da_ban` → `con_hang` only (re-stock, tự set quantity=1); `da_ban → preorder`/`giu_cho` bị chặn; `preorder` → `con_hang` (hàng về, tự trigger cập nhật đơn `WAITING_FOR_GOODS→ARRIVED`) hoặc `preorder` → `da_ban` (nhà cung cấp hủy, quantity=0).
-- `Item`: `{ id, shop_id?, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, preorder_price?, status: ItemStatus, quantity, attributes, notes?, is_public, fb_post_content, preorder_closes_at?, cover_image_url, fb_post_url?, fb_posted_at?, fb_posts_count?, created_at, updated_at, deleted_at? }`. `preorder_closes_at` — ISO-8601 hoặc `null`; chỉ có ý nghĩa khi `status = "preorder"`. `preorder_price` — giá áp dụng khi preorder đang mở; `null` hoặc thiếu = dùng `price` thông thường. Luôn được lưu trong DB bất kể status (không tự xóa khi item đổi status); catalog quyết định hiển thị giá nào.
+- `Item`: `{ id, shop_id?, name, description, scale, brand, car_brand, model_brand, condition, price, original_price, preorder_price?, status: ItemStatus, quantity, attributes, notes?, is_public, fb_post_content, preorder_closes_at?, preorder_opens_at?, cover_image_url, fb_post_url?, fb_posted_at?, fb_posts_count?, created_at, updated_at, deleted_at? }`. `preorder_closes_at` — ISO-8601 hoặc `null`; chỉ có ý nghĩa khi `status = "preorder"`. `preorder_opens_at` — mốc mở cửa sổ đặt cọc; khi chuyển sang `preorder` service gán bằng `created_at` của item; tạo mới với `status=preorder` gán bằng thời điểm tạo; backfill legacy = `created_at`. `preorder_price` — giá áp dụng khi preorder đang mở; `null` hoặc thiếu = dùng `price` thông thường. Luôn được lưu trong DB bất kể status (không tự xóa khi item đổi status); catalog quyết định hiển thị giá nào.
 - `attributes`: object phẳng `Record<string, string | number | boolean | null>`, tối đa 50 key, key phải được trim và không được dùng các tên dự phòng như `__proto__`, `constructor`, `prototype`.
 - `FacebookPost`: `{ id, item_id, post_url, content, posted_at, created_at }`.
 - `User`: `{ id, email, full_name, role, platform_role?, is_active?, allowed_shop_ids: string[], shop_roles?, allowed_shops?, active_shop_id? }`.
@@ -507,7 +507,7 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 ## Public
 ### GET /api/v1/public/items
 - Query: `page`, `page_size`, `status` (optional), `q`, `car_brand`, `model_brand`, `condition=new|old`, `preorder_open=true` (optional — xem mô tả tương tự `GET /items`), `sort_by=name|price|created_at`, `sort_order=asc|desc`.
-- Response item shape gồm thêm `preorder_closes_at` (ISO-8601 hoặc `null`) và `preorder_price` (number hoặc `null`).
+- Response item shape gồm thêm `preorder_closes_at`, `preorder_opens_at` (ISO-8601 hoặc `null`) và `preorder_price` (number hoặc `null`).
 - **`shop_id` (optional):** giới hạn catalog theo một shop. Giá trị hợp lệ:
   - UUID của `Shop.id`, hoặc
   - Chuỗi **khớp chính xác** `Shop.slug` (phân biệt hoa thường).
@@ -558,7 +558,7 @@ Các route admin yêu cầu JWT + `active_shop_id`; `shop_admin` ghi được, `
 
 ### GET /api/v1/preorders/admin
 - Query: `status`, `item_id`, `page`, `page_size`.
-- Response 200: `data: { pre_orders, pagination }`. Nested `item` object includes `name`, `preorder_closes_at` (ISO-8601 | null), `created_at` (ISO-8601).
+- Response 200: `data: { pre_orders, pagination }`. Nested `item` object includes `name`, `preorder_closes_at` (ISO-8601 | null), `preorder_opens_at` (ISO-8601 | null), `created_at` (ISO-8601).
 
 ### GET /api/v1/preorders/admin/summary
 - Response 200: summary dashboard cho pre-order trong tenant hiện tại.
@@ -570,12 +570,12 @@ Các route admin yêu cầu JWT + `active_shop_id`; `shop_admin` ghi được, `
 ### GET /api/v1/preorders/public
 - Public.
 - Query bắt buộc: `shop_id` (UUID). Optional: `status`, `item_id`, `page`, `page_size`.
-- Response 200: public cards cho pre-order của shop. Card shape: `{ id, status, quantity, display_price, deposit_amount, countdown_target (ISO-8601 | null), preorder_closes_at (ISO-8601 | null), title, short_specs, cover_image_url }`. `countdown_target` là mốc giao hàng dự kiến (copy UI). Thanh “hạn đặt cọc” trên frontend chỉ dựa vào `preorder_closes_at`.
+- Response 200: public cards cho pre-order của shop. Card shape: `{ id, status, quantity, display_price, deposit_amount, countdown_target (ISO-8601 | null), preorder_closes_at (ISO-8601 | null), preorder_opens_at (ISO-8601), title, short_specs, cover_image_url }`. `countdown_target` là mốc giao hàng dự kiến (copy UI). Thanh “hạn đặt cọc”: `preorder_opens_at` → mốc mở, `preorder_closes_at` → mốc đóng.
 
 ### GET /api/v1/preorders/my-orders
 - Auth: JWT + active shop.
 - Query: `status`, `item_id`, `page`, `page_size`.
-- Response 200: đơn pre-order của user hiện tại trong tenant. Card shape giống `GET /preorders/public` (có `preorder_closes_at`).
+- Response 200: đơn pre-order của user hiện tại trong tenant. Card shape giống `GET /preorders/public` (có `preorder_closes_at`, `preorder_opens_at`).
 
 ## Inventory
 Các route yêu cầu JWT + active shop; `shop_admin` ghi được, `shop_staff` chỉ đọc theo guard chung.

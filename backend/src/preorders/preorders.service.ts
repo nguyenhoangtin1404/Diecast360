@@ -170,9 +170,12 @@ export class PreordersService {
       car_brand: string | null;
       model_brand: string | null;
       preorder_closes_at: Date | null;
+      preorder_opens_at: Date | null;
+      created_at: Date;
       item_images: Array<{ file_path: string }>;
     };
   }) {
+    const opensAt = data.item.preorder_opens_at ?? data.item.created_at;
     return {
       id: data.id,
       status: data.status,
@@ -181,6 +184,7 @@ export class PreordersService {
       deposit_amount: toNumber(data.deposit_amount) ?? 0,
       countdown_target: data.expected_arrival_at ?? data.expected_delivery_at,
       preorder_closes_at: data.item.preorder_closes_at?.toISOString() ?? null,
+      preorder_opens_at: opensAt.toISOString(),
       title: data.item.name,
       short_specs: [data.item.scale, data.item.brand, data.item.car_brand, data.item.model_brand]
         .filter(Boolean)
@@ -465,7 +469,9 @@ export class PreordersService {
         take: pageSize,
         orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
         include: {
-          item: { select: { name: true, preorder_closes_at: true, created_at: true } },
+          item: {
+            select: { name: true, preorder_closes_at: true, preorder_opens_at: true, created_at: true },
+          },
           user: { select: { id: true, full_name: true, email: true } },
           member: { select: { id: true, full_name: true, phone: true } },
         },
@@ -484,6 +490,8 @@ export class PreordersService {
           ? {
               ...row.item,
               preorder_closes_at: row.item.preorder_closes_at?.toISOString() ?? null,
+              preorder_opens_at:
+                row.item.preorder_opens_at?.toISOString() ?? row.item.created_at.toISOString(),
               created_at: row.item.created_at.toISOString(),
             }
           : row.item,
@@ -532,6 +540,8 @@ export class PreordersService {
             car_brand: true,
             model_brand: true,
             preorder_closes_at: true,
+            preorder_opens_at: true,
+            created_at: true,
             item_images: { where: { is_cover: true }, take: 1, select: { file_path: true } },
           },
         },
@@ -570,6 +580,8 @@ export class PreordersService {
               car_brand: true,
               model_brand: true,
               preorder_closes_at: true,
+              preorder_opens_at: true,
+              created_at: true,
               item_images: { where: { is_cover: true }, take: 1, select: { file_path: true } },
             },
           },

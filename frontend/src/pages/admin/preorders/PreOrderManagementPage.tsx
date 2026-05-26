@@ -80,10 +80,13 @@ export const PreOrderManagementPage = () => {
     void queryClient.invalidateQueries({ queryKey: ['admin-preorder-participants'] });
   });
 
+  const campaignOpensAt =
+    campaignPreorders[0]?.item?.preorder_opens_at ?? campaignPreorders[0]?.item?.created_at;
+
   const campaignCountdown = campaignPreorderDeadline ? (
     <div className={styles.countdownOverview}>
       <span className={styles.countdownOverviewLabel}>Hạn nhận đặt cọc (sớm nhất trong đợt)</span>
-      <PreorderCountdown closesAt={campaignPreorderDeadline} />
+      <PreorderCountdown opensAt={campaignOpensAt} closesAt={campaignPreorderDeadline} />
     </div>
   ) : null;
 

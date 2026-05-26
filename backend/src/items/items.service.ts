@@ -465,6 +465,7 @@ Condition: ${item.condition || ''}`;
           preorder_closes_at: initialStatus === 'preorder' && createDto.preorder_closes_at
             ? new Date(createDto.preorder_closes_at)
             : null,
+          preorder_opens_at: initialStatus === 'preorder' ? new Date() : null,
           preorder_price: createDto.preorder_price != null ? createDto.preorder_price : null,
         },
       });
@@ -623,6 +624,11 @@ Condition: ${item.condition || ''}`;
         : null;
     } else if (nextStatus !== 'preorder' && existingItem.status === 'preorder') {
       updateData.preorder_closes_at = null;
+      updateData.preorder_opens_at = null;
+    }
+
+    if (nextStatus === 'preorder' && existingItem.status !== 'preorder') {
+      updateData.preorder_opens_at = existingItem.created_at;
     }
 
     // preorder_price: persist as-is regardless of status; catalog decides when to show it
@@ -743,7 +749,10 @@ Condition: ${item.condition || ''}`;
       if (!item.preorder_closes_at || item.preorder_closes_at > now) {
         throw new AppException(ErrorCode.VALIDATION_ERROR, 'Preorder is not closed yet');
       }
-      return tx.item.update({ where: { id }, data: { preorder_closes_at: null } });
+      return tx.item.update({
+        where: { id },
+        data: { preorder_closes_at: null, preorder_opens_at: item.created_at },
+      });
     });
     return { item: updated };
   }

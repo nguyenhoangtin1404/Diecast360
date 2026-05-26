@@ -26,6 +26,8 @@ export interface BaseItem {
   attributes?: ItemAttributesPayload;
   /** ISO-8601 datetime when the preorder window closes; null = open indefinitely */
   preorder_closes_at?: string | null;
+  /** ISO-8601 when the deposit window opened; defaults to created_at on legacy rows */
+  preorder_opens_at?: string | null;
   /** Special price applied while preorder is open; reverts to price when closed */
   preorder_price?: number | null;
   created_at?: string;

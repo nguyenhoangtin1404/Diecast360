@@ -75,7 +75,7 @@ export const PreorderCountdown = ({
     );
   }
 
-  const { diffMs, fillPct, remainingPct, hasValidWindow } = metrics;
+  const { diffMs, remainingPct, hasValidWindow } = metrics;
   const tone = getPreorderBarTone(remainingPct);
   const label = formatRemaining(diffMs, compact);
   const barClass = remainingPct < 25 ? 'animate-pulse-slow' : undefined;
@@ -89,7 +89,7 @@ export const PreorderCountdown = ({
         <div className="h-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
           <div
             className={cn('h-full rounded-full transition-[width] duration-500 ease-out', fillToneClass[tone], barClass)}
-            style={{ width: `${fillPct}%` }}
+            style={{ width: `${remainingPct}%` }}
           />
         </div>
       </div>
@@ -107,7 +107,7 @@ export const PreorderCountdown = ({
       <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
         <div
           className={cn('h-full rounded-full transition-[width] duration-500 ease-out', fillToneClass[tone], barClass)}
-          style={{ width: `${fillPct}%` }}
+          style={{ width: `${remainingPct}%` }}
         />
       </div>
     </div>

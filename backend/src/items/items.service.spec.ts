@@ -977,6 +977,23 @@ describe('ItemsService', () => {
       expect(result.item.status).toBe('preorder');
     });
 
+    it('should set preorder_opens_at to item created_at when entering preorder', async () => {
+      const createdAt = new Date('2025-06-01T00:00:00.000Z');
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'con_hang', created_at: createdAt });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'preorder' });
+
+      await service.update('item-123', { status: 'preorder' }, TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'preorder',
+            preorder_opens_at: createdAt,
+          }),
+        }),
+      );
+    });
+
     it('should allow transition from preorder to con_hang', async () => {
       prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder' });
       prisma.item.update.mockResolvedValue({ ...mockItem, status: 'con_hang' });
@@ -1434,7 +1451,7 @@ describe('ItemsService', () => {
 
       expect(prisma.item.update).toHaveBeenCalledWith({
         where: { id: 'item-123' },
-        data: { preorder_closes_at: null },
+        data: { preorder_closes_at: null, preorder_opens_at: closedPreorderItem.created_at },
       });
       expect(result.item).toBe(reopenedItem);
     });

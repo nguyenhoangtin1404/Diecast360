@@ -240,6 +240,7 @@ export class PublicService {
             : null,
           has_spinner: Boolean(defaultSpinSet && defaultSpinSet.frames.length > 0),
           preorder_closes_at: item.preorder_closes_at ?? null,
+          preorder_opens_at: item.preorder_opens_at ?? item.created_at,
           created_at: item.created_at,
           updated_at: item.updated_at,
         };

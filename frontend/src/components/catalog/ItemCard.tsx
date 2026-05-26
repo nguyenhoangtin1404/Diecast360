@@ -107,7 +107,11 @@ export const ItemCard = ({ item, index = 0, shopSearch = '' }: ItemCardProps) =>
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                 Hạn đặt cọc
               </p>
-              <PreorderCountdown closesAt={item.preorder_closes_at} compact />
+              <PreorderCountdown
+                opensAt={item.preorder_opens_at ?? item.created_at}
+                closesAt={item.preorder_closes_at}
+                compact
+              />
             </div>
           )}
         </div>

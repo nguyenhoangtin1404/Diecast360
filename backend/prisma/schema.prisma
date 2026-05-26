@@ -180,6 +180,8 @@ model Item {
   notes          String?
   fb_post_content String?
   preorder_closes_at DateTime?
+  /** When the current preorder deposit window opened; backfilled from created_at for legacy rows. */
+  preorder_opens_at  DateTime?
   preorder_price     Decimal?    @db.Decimal(18,0)
   // Multi-tenant: shop_id is nullable for backward-compatible migration.
   // All new items must have a shop_id. Migration sets existing items to default shop.
@@ -202,6 +204,7 @@ model Item {
   @@index([condition])
   @@index([shop_id])
   @@index([status, preorder_closes_at])
+  @@index([status, preorder_opens_at])
 }
 
 model InventoryTransaction {

@@ -181,7 +181,11 @@ export const ItemsTable = ({
                 </div>
                 {isPreorderOpen(item) && item.preorder_closes_at && (
                   <div className="mt-1">
-                    <PreorderCountdown closesAt={item.preorder_closes_at} compact />
+                    <PreorderCountdown
+                      opensAt={item.preorder_opens_at ?? item.created_at}
+                      closesAt={item.preorder_closes_at}
+                      compact
+                    />
                   </div>
                 )}
                 {isPreorderClosed(item) && (

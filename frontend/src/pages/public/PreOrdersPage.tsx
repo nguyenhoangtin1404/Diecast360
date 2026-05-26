@@ -85,7 +85,10 @@ export const PreOrdersPage = () => {
               {card.preorder_closes_at && (
                 <div className={styles.depositWindow}>
                   <span className={styles.depositWindowLabel}>Hạn nhận đặt cọc</span>
-                  <PreorderCountdown closesAt={card.preorder_closes_at} />
+                  <PreorderCountdown
+                    opensAt={card.preorder_opens_at}
+                    closesAt={card.preorder_closes_at}
+                  />
                 </div>
               )}
               <button className={styles.cta} type="button" data-testid="public-preorder-cta">

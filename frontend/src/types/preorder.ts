@@ -14,6 +14,7 @@ export interface PreOrderCard {
   deposit_amount: number;
   countdown_target: string | null;
   preorder_closes_at?: string | null;
+  preorder_opens_at?: string | null;
   title: string;
   short_specs: string;
   cover_image_url: string | null;
@@ -36,6 +37,7 @@ export interface AdminPreOrder {
   item?: {
     name: string;
     preorder_closes_at?: string | null;
+    preorder_opens_at?: string | null;
     created_at?: string;
   };
   user?: {
