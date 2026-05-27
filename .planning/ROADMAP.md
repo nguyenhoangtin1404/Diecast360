@@ -22,10 +22,17 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 14: Multi-Tenant Shop** - Support multiple isolated diecast shops on a single deployment with scoped access.
 - [x] **Phase 15: Admin RBAC & Tenant Authorization** - Separate platform operator permissions from per-shop roles; extend shop roles (e.g. read-only staff) and align API + admin UI.
 - [x] **Phase 18: Issue #59 - Category Tenant Guard Hardening** - Close inactive-shop authorization lifecycle gap on category mutate routes. *(2026-05-16)*
-- [x] **Phase 16: Per-Shop Public Homepage** - Resolve public catalog and item detail to a single shop tenant via URL or explicit query param, aligned with existing multi-tenant isolation. (completed 2026-04-30)
-- [x] **Phase 17: Cloudflare R2 upload — migrate backend media from local disk to object storage** - S3-compatible R2 behind `IStorageService`; presigned or proxied media URLs; optional disk→R2 migration. (completed 2026-05-09)
-
-- [ ] **Phase 19: Pre-order PAID → điểm hội viên** - Gắn `Member` bắt buộc khi tạo đơn; cộng điểm khi `PAID` theo cấu hình shop; hoàn tác sau `PAID` trừ điểm (FSM + ledger idempotent).
+- [x] **Phase 16: Per-Shop Public Homepage** - Resolve public catalog and item detail to a single shop tenant via URL or explicit query param, aligned with existing multi-tenant isolation. *(completed 2026-04-30)*
+- [x] **Phase 17: Cloudflare R2 upload — migrate backend media from local disk to object storage** - S3-compatible R2 behind `IStorageService`; presigned or proxied media URLs; optional disk→R2 migration. *(completed 2026-05-09)*
+- [x] **Phase 19: Pre-order PAID → Member Points** - Bind `Member` on pre-order create; award loyalty points on `PAID` per shop config; reverse points idempotently on refund (FSM + ledger). *(completed 2026-05-20)*
+- [x] **Phase 20: Issue #145 - Tokenized QR Gateway** - Token-based QR code per product; public gateway redirects to catalog; admin step 5 with preview, copy-link, download, and direct thermal print. *(completed 2026-05-24)*
+- [x] **Phase 21: Defense-in-Depth Security Hardening** - Helmet CSP/CORP headers, JWT bearer toggle, AI route throttle + custom instruction cap, structured 4xx/5xx observability logging, and Dependabot auto-updates. *(completed 2026-05-20)*
+- [x] **Phase 22: Pre-order UX Enhancements** - Item-level pre-order status with campaign shortcut button; closing-date selector; countdown progress bar; persist `preorder_opens_at` from item `created_at`; UUID v4→v7 migration; atomic refresh-token revocation. *(completed 2026-05-26)*
+- [x] **Phase 23: CI/CD Overhaul — pnpm-first pipelines & gated Pi deploy** - Monorepo standardized on `pnpm-lock.yaml`; full backend/frontend/security/health-check gate with `CI Success` aggregator; gated Pi deploy via `workflow_run`; Gitleaks, Commitlint, PR title lint, Labeler, CODEOWNERS, Dependabot. *(completed 2026-05-26)*
+- [x] **Phase 24: Pre-order Receipt — Thermal Print & Share Image** - `GET /preorders/:id/receipt` API; 58mm thermal print layout; PNG export/share via `html-to-image`; member address field; print/share actions on admin and My Orders; E2E coverage. *(completed 2026-05-26)*
+- [x] **Phase 25: Backend Staging Deploy on Vercel** - Separate staging workflow gated on build success; automated migrate + deploy to Vercel staging environment; aligned deploy checks. *(completed 2026-05-27)*
+- [ ] **Phase 26: Issue #232/#237/#243/#244/#246 - Auth Security Hardening Wave 1** - Login audit log + X-Trace-Id; per-email rate limit + account lockout (PostgreSQL-backed, survive restart); admin UI to view audit log and unlock accounts; Google reCAPTCHA v3 on admin login.
+- [ ] **Phase 27: Issue #238/#242/#245/#289 - Auth Security Wave 2 — Alerting, E2E & Ops** - Telegram security alerts with dedupe; Playwright E2E for lockout/CAPTCHA/rate-limit flows; production ops security checklist; staging pipeline completion.
 ## Phase Details
 
 ### Phase 1: Inventory Foundation
@@ -148,7 +155,13 @@ Plans:
 | 16. Per-Shop Public Homepage | 3/3 | Complete | 2026-04-30 |
 | 17. Cloudflare R2 upload | 3/3 | Complete | 2026-05-09 |
 | 18. Issue #59 - Category Tenant Guard Hardening | 1/1 | Complete | 2026-05-16 |
-| 19. Pre-order PAID → điểm hội viên | 0/3 | Planned | — |
+| 19. Pre-order PAID → Member Points | 3/3 | Complete | 2026-05-20 |
+| 20. Issue #145 - Tokenized QR Gateway | 2/2 | Complete | 2026-05-24 |
+| 21. Defense-in-Depth Security Hardening | 1/1 | Complete | 2026-05-20 |
+| 22. Pre-order UX Enhancements | 4/4 | Complete | 2026-05-26 |
+| 23. CI/CD Overhaul — pnpm-first pipelines | 1/1 | Complete | 2026-05-26 |
+| 24. Pre-order Receipt — Thermal Print & Share | 1/1 | Complete | 2026-05-26 |
+| 25. Backend Staging Deploy on Vercel | 1/1 | Complete | 2026-05-27 |
 
 
 ### Phase 12: Issue #44 - Playwright Phase 1
@@ -193,6 +206,15 @@ Plans:
 | 14. Multi-Tenant Shop | 3/3 | Complete | 2026-03-23 |
 | 15. Admin RBAC & Tenant Authorization | 3/3 | Complete | 2026-04-29 |
 | 16. Per-Shop Public Homepage | 3/3 | Complete | 2026-04-30 |
+| 19. Pre-order PAID → Member Points | 3/3 | Complete | 2026-05-20 |
+| 20. Tokenized QR Gateway | 2/2 | Complete | 2026-05-24 |
+| 21. Security Hardening | 1/1 | Complete | 2026-05-20 |
+| 22. Pre-order UX Enhancements | 4/4 | Complete | 2026-05-26 |
+| 23. CI/CD Overhaul | 1/1 | Complete | 2026-05-26 |
+| 24. Pre-order Receipt | 1/1 | Complete | 2026-05-26 |
+| 25. Staging Deploy | 1/1 | Complete | 2026-05-27 |
+| 26. Auth Security Hardening Wave 1 | 0/3 | Planned | — |
+| 27. Auth Security Wave 2 | 0/3 | Planned | — |
 
 ## Execution Update (2026-03-04)
 
@@ -319,12 +341,85 @@ Implemented in codebase for Phase 13:
 
 ## Remaining Work Snapshot (By Phase)
 
-Phases not yet complete and pending tasks:
-- **Phase 19** — Pre-order loyalty points on `PAID` / refund (planned 2026-05-13; xem `.planning/phases/19-preorder-member-points-on-paid/`).
-- **Phase 18** — Issue #59 Category Tenant Guard Hardening (xem `.planning/phases/18-category-tenant-guard-hardening/`).
+All phases through Phase 25 are complete as of 2026-05-27. Phase 26 and Phase 27 are currently pending (Planned).
 
 Partially executed phases (still pending full completion):
-- None.
+- **Phase 26: Auth Security Hardening Wave 1** (Planned, 0/3 plans complete)
+- **Phase 27: Auth Security Wave 2** (Planned, 0/3 plans complete)
+
+
+---
+
+## Execution Update (2026-05-20, Phase 19)
+
+Implemented in codebase for Phase 19 — Pre-order PAID → Member Points:
+- Added `pre_orders.member_id` FK and `shop_loyalty_config` (vnd_per_point, basis) schema + migration.
+- Admin pre-order create/edit enforces mandatory `member_id` picker (autocomplete from shop members).
+- On `PAID` transition: `PreordersService` calls `MembersService.awardPoints(memberId, delta)` with idempotency key (`preorder_id + status = PAID`); prevents duplicate awards on re-saves.
+- On reversal after `PAID` (e.g. `PAID → CANCELLED`): points are reversed via ledger debit with matching idempotency key.
+- E2E asserts member name in campaign participant rows.
+
+## Execution Update (2026-05-20, Phase 21)
+
+Implemented in codebase for Phase 21 — Defense-in-Depth Security Hardening:
+- Applied `Helmet` in `main.ts` with API-oriented CSP, `Cross-Origin-Resource-Policy: cross-origin` for SPA, optional HSTS via `SECURITY_HSTS_DISABLED` escape hatch.
+- Added `JWT_ALLOW_AUTHORIZATION_BEARER` feature flag to toggle `Authorization: Bearer` extraction (default off for cookie-only flows).
+- AI route throttle tightened; `custom_instructions` capped at 2 000 chars; OpenAI calls logged with `shop/op` context.
+- Structured warn logs on failed login, CSRF rejection, and Nest 401/403 responses (no request bodies leaked).
+- Dependabot weekly npm updates for both workspaces.
+
+## Execution Update (2026-05-22–24, Phase 20)
+
+Implemented in codebase for Phase 20 — Tokenized QR Gateway (Issue #145):
+- Added `qr_token` (unique) column to `items` table via migration; lazy token generation (`crypto.randomBytes` hex, 3-try unique guard).
+- `GET /api/v1/items/:id/qr` — admin endpoint returns token + `resolve_url` + `image_data_url` (base64 via `qrcode`).
+- `GET /api/v1/public/qr/:token` — public 302-redirect gateway; validates `is_public`, not-deleted, active shop before redirecting to frontend item detail with `?source=qr&action=view`.
+- Admin `ItemDetailPage` gains step 5 "Mã QR sản phẩm" with lazy QR fetch, preview, copy-link, download-PNG, and private-item warning badge.
+- "Print QR" button on step 5 and printer icon in product list (fetch on-demand); thermal print layout uses `mm` units for 58mm roll.
+- `PublicItemDetailPage` shows "Bạn đang xem sản phẩm qua mã QR" banner when `source=qr` detected.
+- `API_CONTRACT.md` updated with both endpoints and error semantics.
+
+## Execution Update (2026-05-23–26, Phase 22)
+
+Implemented in codebase for Phase 22 — Pre-order UX Enhancements:
+- **Item-level pre-order status** (`cb6e876`): Items gain a `preorder` status with FSM transition rules; admin item detail page shows "Tạo chiến dịch đặt trước" shortcut button linking to new campaign with `item_id`.
+- **Closing-date selector** (`75a6ded`): Admin campaign form exposes a date-picker for `closes_at`; backend accepts and stores the field.
+- **Countdown progress bar** (`66b8e79`, Issue #227): Public pre-order page shows remaining time / progress bar driven by `opens_at` and `closes_at`.
+- **Persist `preorder_opens_at`** (`058db50`): When a campaign is created, `preorder_opens_at` on the linked item is backfilled from `created_at` so the countdown is accurate for items created before the field existed.
+- **UUID v4 → v7 migration** (`2629ed9`): All Prisma models migrated from random v4 to time-ordered v7 UUIDs; services updated for consistent ordering.
+- **Atomic refresh-token revocation** (`1f9c731`): Prevents a race condition where concurrent `/auth/refresh` requests could both succeed; revocation is now a single atomic DB write.
+
+## Execution Update (2026-05-26, Phase 23)
+
+Implemented in codebase for Phase 23 — CI/CD Overhaul (pnpm-first pipelines & gated Pi deploy):
+- Dropped all `npm` lockfiles; monorepo standardized on single `pnpm-lock.yaml` with `packageManager: pnpm@10.33.4`.
+- CI workflow restructured into four jobs: `backend`, `frontend` (lint/tsc/Vitest/Playwright), `security` (`pnpm audit --audit-level=high`), `health-check` (boots dist + Postgres + `GET /api/v1/health`); gated by a `ci-success` aggregator required check.
+- Pi deploy: triggered via `workflow_run` on CI success + push to `main`; path-filter prevents docs/frontend-only pushes from restarting the Pi service; bundle uses `pnpm deploy --prod --legacy` + `rsync --exclude=.env --exclude=/uploads`.
+- Hygiene workflows added: Gitleaks (`.gitleaks.toml` allowlist for CI placeholders), Commitlint, PR title lint, Labeler (`.github/labeler.yml`), CODEOWNERS, Dependabot weekly.
+- All GitHub Actions bumped to Node 24-compatible major versions.
+- Fixed rsync `--delete` bug that was wiping `UPLOAD_DIR` on Pi (`b16be0e`); postmortem and runbooks documented in `docs/POSTMORTEMS/` and `docs/RUNBOOKS/`.
+
+## Execution Update (2026-05-26, Phase 24)
+
+Implemented in codebase for Phase 24 — Pre-order Receipt (Thermal Print & Share Image):
+- Added `GET /api/v1/preorders/:id/receipt` endpoint; accessible to shop staff/admin and the order owner.
+- Receipt includes: shop logo, shop name/contact, order number, member name + address, item list, amounts (total, paid, discount, remaining), and VND words for the amount due.
+- Added `members.address` field via migration; `ShopContactSettings` extended with `address`.
+- Frontend renders receipt in a hidden DOM node via `html-to-image`; supports:
+  - **Thermal print** (58mm roll via `@media print` mm rules) using native browser `window.print()`.
+  - **PNG export / share** via Web Share API (`navigator.share`) with `html-to-image` rasterize (double-rAF for layout stability).
+- Print/Share action buttons added to admin pre-order detail page and public My Orders page.
+- Sanitizes logo URLs (rejects protocol-relative `//` URLs); renders pre-order note on receipts.
+- Playwright E2E: print popup assertion, PNG download, receipt API error cases.
+- Backend unit tests: `getReceipt` auth matrix (403/200/404), VND words, receipt HTML, logo whitelist.
+
+## Execution Update (2026-05-27, Phase 25)
+
+Implemented in codebase for Phase 25 — Backend Staging Deploy on Vercel:
+- Added `.github/workflows/deploy-staging.yml`: separate staging deploy workflow triggered after backend build succeeds.
+- Gated: staging migrate (`prisma migrate deploy` on Neon staging DB) runs only after build artifact is validated.
+- Aligned deploy checks with the `CI Success` gate so staging is never deployed from a broken build.
+- Staging environment targets Vercel project with separate env vars (Neon staging branch, staging `BACKEND_URL`).
 
 ### Phase 14: Multi-Tenant Shop
 
@@ -384,17 +479,119 @@ Plans:
 - [ ] 17-02: Backend — `MediaController` R2 streaming branch + contract docs for URL semantics
 - [ ] 17-03: Ops/docs — ENV + deployment + Pi notes + cutover runbook (optional staging smoke checkpoint)
 
-### Phase 19: Pre-order PAID → điểm hội viên
+### Phase 19: Pre-order PAID → Member Points
 
-**Goal:** Khi pre-order chuyển `PAID`, tự động cộng điểm cho `Member` đã gắn trên đơn theo `vnd_per_point` và basis (`paid_amount` | `total_amount`); khi hoàn tác sau `PAID`, trừ điểm tương ứng; admin bắt buộc chọn hội viên lúc tạo đơn.
-
-**Requirements:** PORD-02 (đề xuất), MEMB-01 (tái sử dụng ledger)
-
+**Goal:** When a pre-order transitions to `PAID`, automatically award loyalty points to the bound `Member` based on `vnd_per_point` and basis (`paid_amount` | `total_amount`); reverse points idempotently when the order is reversed after `PAID`; member selection mandatory on create.
+**Requirements:** PORD-02, MEMB-01
 **Depends on:** Phase 9 (pre-order), Phase 11 (members/points)
-
 **Plans:** 3 plans
 
 Plans:
-- [ ] 19-01: Schema — `pre_orders.member_id`, shop loyalty config, ledger `reference_*` + idempotency unique
-- [ ] 19-02: Backend — validate member on create; transaction earn on `PAID`; export `MembersService`; shop settings API
-- [ ] 19-03: FSM `PAID → REFUNDED` (tên cuối theo CONTEXT), trừ điểm idempotent; admin UI member picker + labels/tests
+- [x] 19-01: Schema — `pre_orders.member_id`, shop loyalty config, ledger `reference_*` + idempotency unique
+- [x] 19-02: Backend — validate member on create; transaction earn on `PAID`; export `MembersService`; shop settings API
+- [x] 19-03: FSM reversal trừ điểm idempotent; admin UI member picker + labels; E2E assert member name in participant rows
+
+---
+
+### Phase 20: Issue #145 - Tokenized QR Gateway
+
+**Goal:** Generate a stable, token-based QR code per product so codes never expire; public gateway 302-redirects to catalog; admin step 5 with preview, copy-link, download, and direct thermal print from both step 5 and product list.
+**Requirements:** PBLC-04 (proposed)
+**Depends on:** Phase 16 (public catalog), Phase 3 (public item detail)
+**Plans:** 2 plans
+
+Plans:
+- [x] 20-01: Backend — `qr_token` migration, `QrService`, `GET /items/:id/qr`, `GET /public/qr/:token` gateway, contract docs
+- [x] 20-02: Frontend — Admin step 5 QR panel, copy/download/print actions, public banner for `?source=qr`; Playwright smoke
+
+---
+
+### Phase 21: Defense-in-Depth Security Hardening
+
+**Goal:** Harden the API surface with security headers, optional JWT bearer, tighter AI limits, and structured observability logging without breaking existing cookie-based auth flows.
+**Requirements:** PLAT-04 (proposed)
+**Depends on:** Phase 5, Phase 15
+**Plans:** 1 plan
+
+Plans:
+- [x] 21-01: Helmet CSP/CORP headers, `JWT_ALLOW_AUTHORIZATION_BEARER` toggle, AI throttle + instruction cap, 4xx/5xx structured logs, Dependabot config
+
+---
+
+### Phase 22: Pre-order UX Enhancements
+
+**Goal:** Close UX and data-model gaps discovered after Phase 9/19: item-level pre-order status, campaign closing date, countdown progress bar, `preorder_opens_at` persistence, UUID v7 migration, and atomic token revocation.
+**Requirements:** PORD-03 (proposed)
+**Depends on:** Phase 9, Phase 19
+**Plans:** 4 plans
+
+Plans:
+- [x] 22-01: Item `preorder` status + FSM transition rules + campaign shortcut button (Issue #209)
+- [x] 22-02: Pre-order closing-date selector on admin campaign form (Issue #228)
+- [x] 22-03: Countdown progress bar on public pre-order page (Issue #227) + persist `preorder_opens_at`
+- [x] 22-04: UUID v4→v7 migration across all models; atomic refresh-token revocation guard
+
+---
+
+### Phase 23: CI/CD Overhaul — pnpm-first Pipelines & Gated Pi Deploy
+
+**Goal:** Standardize the monorepo on `pnpm-lock.yaml`; add a robust multi-job CI gate (backend / frontend / security / health-check); gate Pi deploy on CI success; add hygiene workflows (Gitleaks, Commitlint, Labeler, Dependabot).
+**Requirements:** DEVOPS-01 (proposed)
+**Depends on:** Phase 5 (CI baseline)
+**Plans:** 1 plan
+
+Plans:
+- [x] 23-01: pnpm lockfile unification, CI multi-job gate, gated Pi deploy, hygiene workflows, rsync UPLOAD_DIR protection, postmortem + runbooks
+
+---
+
+### Phase 24: Pre-order Receipt — Thermal Print & Share Image
+
+**Goal:** Generate a printable thermal receipt (58mm) and shareable PNG for each pre-order; expose `GET /preorders/:id/receipt` API; support native browser print and Web Share API on admin + public My Orders.
+**Requirements:** PORD-04 (proposed)
+**Depends on:** Phase 9, Phase 19, Phase 11 (member address)
+**Plans:** 1 plan
+
+Plans:
+- [x] 24-01: Backend receipt API + `members.address` migration; frontend thermal print layout + PNG export/share via `html-to-image`; E2E coverage
+
+---
+
+### Phase 25: Backend Staging Deploy on Vercel
+
+**Goal:** Add a separate GitHub Actions workflow that deploys the backend to a Vercel staging environment after CI passes, gated on migrate success, so changes can be validated in a production-like environment before hitting the Pi.
+**Requirements:** DEVOPS-02 (proposed)
+**Depends on:** Phase 23 (CI gate), Phase 5 (deploy baseline)
+**Plans:** 1 plan
+
+Plans:
+- [x] 25-01: Staging deploy workflow (`deploy-staging.yml`), migrate gate, aligned deploy checks
+
+---
+
+### Phase 26: Issue #232/#237/#243/#244/#246 - Auth Security Hardening Wave 1
+
+**Goal**: Build anti-brute force protection layers including login audit log, X-Trace-Id tracing, per-email rate limit, account lockout, admin UI viewer, and Google reCAPTCHA v3.
+**Depends on**: Phase 15, Phase 21
+**Requirements**: AUTH-SEC-01 (proposed)
+**Plans**: 3 plans
+
+Plans:
+- [ ] 26-01: Login audit log + X-Trace-Id tracing (#232)
+- [ ] 26-02: Email rate limit + account lockout (PostgreSQL-backed, survive restart) (#237, #246)
+- [ ] 26-03: Admin UI: login audit log & account unlock + reCAPTCHA v3 (#243, #244)
+
+---
+
+### Phase 27: Issue #238/#242/#245/#289 - Auth Security Wave 2 — Alerting, E2E & Ops
+
+**Goal**: Complete security incident detection and response with Telegram alerts, Playwright E2E security flows, production ops checklist, and staging pipeline completion.
+**Depends on**: Phase 26, Phase 23, Phase 25
+**Requirements**: AUTH-SEC-02 (proposed)
+**Plans**: 3 plans
+
+Plans:
+- [ ] 27-01: Telegram security alerts (dedupe + threshold) (#238)
+- [ ] 27-02: Playwright E2E security flows (lockout, CAPTCHA, rate limit) (#242)
+- [ ] 27-03: Production ops security checklist & staging pipeline completion (#245, #289)
+

@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: complete
-last_updated: "2026-05-16T15:30:00.000Z"
+status: planning
+last_updated: "2026-05-27T11:00:00.000Z"
 progress:
-  total_phases: 18
-  completed_phases: 18
-  total_plans: 40
-  completed_plans: 40
+  total_phases: 27
+  completed_phases: 25
+  total_plans: 59
+  completed_plans: 53
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-30)
 
 **Core value:** A seller can publish a diecast listing with complete media and ready-to-post content in one flow.
-**Current focus:** Phase 19 (Pre-order PAID → điểm hội viên) — next milestone work when picked up.
+**Current focus:** Phase 26 (Auth Security Hardening Wave 1) — planning and feedback.
 
 ## Current Position
 
-Phase: **18** — Issue #59 Category Tenant Guard Hardening (**complete**: 18-01 shipped 2026-05-16)
-Plan: **18-01** Harden category mutate tenant authorization
-Status: Implemented — `RolesGuard` tenant branch now verifies `shop.is_active` via live `shop.findUnique` (aligns category mutate routes with tenant lifecycle; platform_super early-return unchanged).
-Last activity: 2026-05-16 — Phase 18 merged implementation: inactive `active_shop_id` JWT context cannot pass tenant `RolesGuard`.
+Phase: **26** — Issue #232/#237/#243/#244/#246 Auth Security Hardening Wave 1 (**planned**: 0/3 plans completed)
+Plan: **26-01** Login audit log + X-Trace-Id tracing
+Status: Planned — Ready to initiate execution after user approval.
+Last activity: 2026-05-27 — Created Context and Plan documents for Phase 26 & 27; updated ROADMAP.md and STATE.md.
 
-Progress: [##########] 18/18 phases shipped for current roadmap slice; Phase 19 remains planned.
+Progress: [#########################  ] 25/27 phases shipped.
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18+ (cộng thêm 09-04)
-- Average duration: 1 session
-- Tracked execution time: 6+ hours
+- Total plans completed: 53
+- Average duration: 1-2 sessions per phase
+- Tracked execution time: 24+ hours
 
 ## Accumulated Context
 
@@ -68,25 +68,32 @@ Progress: [##########] 18/18 phases shipped for current roadmap slice; Phase 19 
 - (2026-04-29) Completed Phase 15: PlatformRole enum + User.platform_role migration+backfill; dual-layer RolesGuard (platform_role check + shop_staff HTTP-method enforcement — Option C); @PlatformRoles decorator; AddShopAdminDto extended with role field; frontend isPlatformSuper + useIsSuperAdmin updated; AddMemberModal role picker (shop_admin/shop_staff); audit labels for new actions.
 - (2026-04-30) **Phase 16:** Public catalog/detail accept optional `shop_id` (UUID or slug); explicit query overrides JWT for reads; frontend propagates `shop_id` via URL, `VITE_PUBLIC_CATALOG_SHOP_ID`, or JWT after auth settles (`shopContextReady`); Playwright two-shop mock proves UI isolation.
 - (2026-05-16) **Phase 18 / Issue #59:** Tenant-layer `RolesGuard` now loads `shop.is_active` per request (`shop.findUnique`) after role match so deactivated shops cannot authorize mutating routes (including category PATCH/DELETE) with stale JWT `active_shop_id`; platform_super still bypasses tenant branch; regression tests in `roles.guard.spec.ts`.
+- (2026-05-20) **Phase 19:** Member points awarded on pre-order transition to `PAID` with idempotency safeguards, reversed on order cancelation.
+- (2026-05-20) **Phase 21:** Defense-in-Depth security hardening including Helmet, CSP, JWT Bearer toggle flag, AI route limits, and structured warn logs.
+- (2026-05-22–24) **Phase 20:** Tokenized QR Gateway implemented with stable unique tokens, 302 public redirector, and direct thermal printing layouts.
+- (2026-05-23–26) **Phase 22:** Pre-order UX Enhancements completed: countdown progress bars, UUID v7 DB-wide migration, atomic refresh token revocation, and campaign shortcut button.
+- (2026-05-26) **Phase 23:** Monorepo standard lockfile and CI/CD Overhaul standardizing on pnpm, multi-job aggregator checks, and Pi rsync deployment with `UPLOAD_DIR` wipe protection.
+- (2026-05-26) **Phase 24:** Pre-order thermal printable receipt (58mm) and PNG image share export.
+- (2026-05-27) **Phase 25:** Vercel backend staging deploy automated on build success, gated by staging DB migration check.
 
 ### Roadmap Evolution
 
 - Phase 17 added: Cloudflare R2 upload — migrate backend media from local disk to object storage (2026-05-08).
-- Phase 17 planned: RESEARCH + plans 17-01..17-03 + PLAN-CHECK (2026-05-08).
 - Phase 18 added: Issue #59 Category Tenant Guard Hardening (2026-05-12).
-- Phase 18 completed: RolesGuard active-shop lifecycle hardening (2026-05-16).
+- Phase 19-25 completed: Pre-order points, QR Gateway, Security Hardening, Pre-order UX, CI/CD Overhaul, Thermal Receipt, and Staging Deploy (2026-05-20 to 2026-05-27).
+- Phase 26 & 27 planned: Auth Security Hardening Wave 1 & Wave 2 (2026-05-27).
 
 ### Pending Todos
 
-- Merge nhánh `feat/security-signed-media-csrf-throttle` + cập nhật `docs/API_CONTRACT.md` / `ENV.md` nếu chưa làm.
-- Execute Phase 19 plans when scheduled (pre-order PAID → member points).
+- Obtain user feedback on Phase 26 & 27 plans.
+- Initiate Phase 26-01 execution once approved.
 
 ### Blockers/Concerns
 
-- Playwright local cần `pnpm exec playwright install` và đủ thư viện OS (ví dụ `libnspr4`); CI image thường đã cài — chạy E2E trên CI khi merge.
+- None.
 
 ## Session Continuity
 
-Last session: 2026-05-16 (Phase 18 — RolesGuard `shop.is_active` check + tests + roadmap/state)
-Stopped at: **Complete** — branch `cursor/category-tenant-guard-hardening-8c96` ready for review/merge.
-Resume file: `.planning/phases/19-preorder-member-points-on-paid/19-01-PLAN.md` (next phase when prioritized)
+Last session: 2026-05-27 (Created Phase 26 & 27 Contexts and Plans)
+Stopped at: **Planning** — Ready to request feedback/approval for Auth Security Hardening Phase 26 and Phase 27.
+Resume file: `.planning/phases/26-auth-security-hardening-wave-1/26-01-PLAN.md`
