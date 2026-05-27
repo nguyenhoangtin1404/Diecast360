@@ -1,0 +1,165 @@
+# CD Staging: Deploy backend (staging instance on Pi).
+# Frontend: Vercel tự auto-deploy preview khi push staging — không cần job riêng.
+#
+# Trigger: push to `staging` branch, chỉ khi backend thay đổi.
+#
+# Backend:  SAME Pi runner (label: diecast360-pi).
+#           Service: diecast360-api-staging, port 3001.
+#           Deploy path: /opt/diecast360-staging (hoặc STAGING_DEPLOY_PATH var).
+#
+# GitHub Environment "staging" secrets:
+#   STAGING_DATABASE_URL   — Neon staging branch pooled URL
+#   STAGING_DIRECT_URL     — Neon staging branch direct URL
+#
+# GitHub Environment "staging" variables:
+#   STAGING_DEPLOY_PATH    — default /opt/diecast360-staging
+
+name: Deploy Staging (backend)
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'backend/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/deploy-staging.yml'
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================================
+  # Migrate staging DB (Neon staging branch)
+  # ============================================================
+  migrate:
+    name: Prisma migrate (staging DB)
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate & migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.STAGING_DIRECT_URL }}
+        run: |
+          pnpm --filter ./backend exec prisma generate
+          pnpm --filter ./backend exec prisma migrate deploy
+
+  # ============================================================
+  # Deploy backend to Pi (staging instance)
+  # ============================================================
+  deploy-backend:
+    name: Build & deploy backend (staging)
+    needs: migrate
+    runs-on: [self-hosted, diecast360-pi]
+    environment: staging
+    env:
+      DEPLOY_REMOTE_PATH: ${{ vars.STAGING_DEPLOY_PATH }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable corepack / pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.4 --activate
+          pnpm --version
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install & build
+        env:
+          NPM_CONFIG_PRODUCTION: 'false'
+          NODE_ENV: development
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter ./backend run build
+
+      - name: Verify build output
+        run: |
+          test -d backend/dist
+          test -n "$(find backend/dist -type f -print -quit)" \
+            || (echo "::error::backend/dist empty — aborting"; exit 1)
+
+      - name: Produce production bundle
+        id: bundle
+        env:
+          NODE_ENV: development
+        run: |
+          DEPLOY_STAGE="${RUNNER_TEMP}/deploy-stage-staging"
+          rm -rf "$DEPLOY_STAGE"
+          pnpm --filter ./backend deploy --prod --legacy "$DEPLOY_STAGE"
+          echo "path=${DEPLOY_STAGE}" >> "$GITHUB_OUTPUT"
+
+      - name: Sync bundle to staging runtime directory
+        run: |
+          set -euo pipefail
+          REDIR="${DEPLOY_REMOTE_PATH:-/opt/diecast360-staging}"
+          mkdir -p "$REDIR"
+          rsync -a --delete \
+            --exclude='/.env' \
+            --exclude='/uploads' \
+            --exclude='/uploads/' \
+            "${{ steps.bundle.outputs.path }}/" "${REDIR}/"
+
+      - name: Prisma generate & restart staging API
+        run: |
+          set -euo pipefail
+          REDIR="${DEPLOY_REMOTE_PATH:-/opt/diecast360-staging}"
+          cd "$REDIR"
+          set -a
+          [ -f .env ] && . ./.env
+          set +a
+          PORT="${PORT:-3001}"
+          npx prisma generate
+          sudo systemctl restart diecast360-api-staging
+          systemctl is-active --quiet diecast360-api-staging
+          for i in $(seq 1 30); do
+            if curl -sfS "http://127.0.0.1:${PORT}/api/v1/health" > /dev/null; then
+              echo "✅ Backend staging healthy after ${i} attempts"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "::error::Health check failed after 30 attempts"
+              sudo systemctl --no-pager -l status diecast360-api-staging || true
+              journalctl -u diecast360-api-staging -n 80 --no-pager || true
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Job summary
+        if: always()
+        run: |
+          echo "## 🚀 Staging Backend Deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "| | |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Backend** | https://staging.nhtin.name.vn |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Branch** | \`staging\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Commit** | \`${{ github.sha }}\` |" >> "$GITHUB_STEP_SUMMARY"
