@@ -580,7 +580,7 @@ Các route admin yêu cầu JWT + `active_shop_id`; `shop_admin` ghi được, `
 ### GET /api/v1/preorders/:id/receipt
 - Auth: JWT + active shop.
 - Quyền: `shop_admin` / `shop_staff` xem mọi đơn trong tenant; user thường chỉ xem đơn có `user_id` trùng JWT.
-- Response 200: `data: { shop: { name, phone_label?, phone_tel?, address?, logo_url? }, preorder: { id, status, quantity, unit_price, total_amount, deposit_amount, paid_amount, remaining_amount, discount_amount, note, created_at, item, member?, user? } }` — dùng cho in phiếu nhiệt và xuất ảnh PNG.
+- Response 200: `data: { shop: { name, phone_label?, phone_tel?, address?, logo_url? }, preorder: { ... } }` — dùng cho in phiếu nhiệt và xuất ảnh PNG. `shop.logo_url` với file `shop-branding/*` được trả dạng signed `GET /api/v1/media?d=...&s=...` (CORS-safe cho xuất PNG từ frontend khác domain), không trả presigned R2 trực tiếp.
 
 ## Inventory
 Các route yêu cầu JWT + active shop; `shop_admin` ghi được, `shop_staff` chỉ đọc theo guard chung.

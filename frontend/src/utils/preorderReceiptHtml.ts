@@ -47,9 +47,10 @@ export type ReceiptRenderMode = 'thermal' | 'share';
 export interface BuildReceiptOptions {
   /**
    * Data URL (base64) của logo đã fetch sẵn — dùng cho share/export mode để
-   * tránh canvas bị taint do CORS. Nếu không truyền, dùng `shop.logo_url` trực tiếp.
+   * tránh canvas bị taint do CORS. `null` = không hiển thị logo (không fallback URL ngoài).
+   * Không truyền = dùng `shop.logo_url` (in nhiệt).
    */
-  logoDataUrl?: string;
+  logoDataUrl?: string | null;
 }
 
 export const buildPreorderReceiptHtml = (
@@ -77,7 +78,11 @@ export const buildPreorderReceiptHtml = (
   // Ưu tiên dùng logoDataUrl (data URL đã fetch — không bị CORS taint khi rasterize);
   // fallback về logo_url gốc kèm crossorigin cho thermal print.
   const resolvedLogoSrc: string | null =
-    options.logoDataUrl ?? (shop.logo_url ? sanitizeLogoUrl(shop.logo_url) : null);
+    options.logoDataUrl !== undefined
+      ? options.logoDataUrl || null
+      : shop.logo_url
+        ? sanitizeLogoUrl(shop.logo_url)
+        : null;
   if (resolvedLogoSrc) {
     const corsAttr = options.logoDataUrl ? '' : ' crossorigin="anonymous"';
     headerParts.push(

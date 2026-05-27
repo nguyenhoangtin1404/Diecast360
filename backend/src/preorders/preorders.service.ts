@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PlatformRole, PreOrderStatus, Prisma, ShopRole } from '../generated/prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
@@ -14,6 +15,7 @@ import { MembersService } from '../members/members.service';
 import { parseShopLoyaltyJson } from '../shops/shop-loyalty-json.util';
 import { parseShopContactJson } from '../shops/types/shop-contact.types';
 import { parseShopAppearanceJson } from '../shops/types/shop-appearance.types';
+import { resolveReceiptLogoUrl } from '../common/media/resolve-receipt-logo-url';
 
 @Injectable()
 export class PreordersService {
@@ -26,6 +28,7 @@ export class PreordersService {
     private readonly prisma: PrismaService,
     @Inject('IStorageService') private readonly storage: IStorageService,
     private readonly membersService: MembersService,
+    private readonly config: ConfigService,
   ) {}
 
   private requireActiveShopId(tenantId: string | undefined | null): string {
@@ -811,7 +814,7 @@ export class PreordersService {
         phone_label: contact.phone?.label,
         phone_tel: contact.phone?.tel,
         address: contact.address,
-        logo_url: appearance.logo_url,
+        logo_url: resolveReceiptLogoUrl(appearance.logo_url, this.config),
       },
       preorder: this.mapReceiptPreorder(row),
     };
