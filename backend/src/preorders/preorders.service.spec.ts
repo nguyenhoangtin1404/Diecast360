@@ -1,9 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { PlatformRole, PreOrderStatus, ShopRole } from '../generated/prisma/client';
 import { AppException } from '../common/exceptions/http-exception.filter';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PreordersService } from './preorders.service';
 import { MembersService } from '../members/members.service';
+
+const testJwtSecret = 'test-jwt-secret-for-preorders-spec-32';
 
 describe('PreordersService', () => {
   let service: PreordersService;
@@ -39,6 +42,16 @@ describe('PreordersService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: 'IStorageService', useValue: storage },
         { provide: MembersService, useValue: membersService },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string) => {
+              if (key === 'BACKEND_URL') return 'https://api.example.com';
+              if (key === 'JWT_SECRET') return testJwtSecret;
+              return undefined;
+            },
+          },
+        },
       ],
     }).compile();
 
@@ -552,6 +565,21 @@ describe('PreordersService', () => {
         platformRole: null,
       });
       expect(result.shop.address).toBe('123 ABC');
+    });
+
+    it('rewrites shop-branding R2 logo to API signed media URL for CORS-safe export', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        ...shopRow,
+        appearance_json: {
+          logo_url:
+            'https://acct.r2.cloudflarestorage.com/bucket/shop-branding/tenant_logo.jpg?X-Amz-Signature=x',
+        },
+      });
+      const result = await service.getReceipt(preorderId, tenantId, {
+        userId: ownerUserId,
+        platformRole: null,
+      });
+      expect(result.shop.logo_url).toMatch(/^https:\/\/api\.example\.com\/api\/v1\/media\?/);
     });
   });
 });

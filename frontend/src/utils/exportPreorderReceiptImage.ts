@@ -1,3 +1,4 @@
+import { API_CONFIG } from '../config/api';
 import type { PreorderReceiptPayload } from '../types/preorderReceipt';
 import { buildPreorderReceiptHtml } from './preorderReceiptHtml';
 
@@ -39,10 +40,18 @@ const rasterizeBody = async (body: HTMLElement): Promise<Blob> => {
  * CORS taint khi rasterize bằng html-to-image.
  * Trả về null nếu fetch thất bại (logo sẽ bị bỏ qua thay vì crash).
  */
+const toAbsoluteMediaUrl = (logoUrl: string): string => {
+  if (/^https?:\/\//i.test(logoUrl)) {
+    return logoUrl;
+  }
+  const base = API_CONFIG.BASE_URL.replace(/\/$/, '');
+  return logoUrl.startsWith('/') ? `${base}${logoUrl}` : `${base}/${logoUrl}`;
+};
+
 const fetchLogoDataUrl = async (logoUrl: string | undefined): Promise<string | undefined> => {
   if (!logoUrl) return undefined;
   try {
-    const res = await fetch(logoUrl, { mode: 'cors', credentials: 'omit' });
+    const res = await fetch(toAbsoluteMediaUrl(logoUrl), { mode: 'cors', credentials: 'omit' });
     if (!res.ok) return undefined;
     const blob = await res.blob();
     return await new Promise<string>((resolve, reject) => {
@@ -82,7 +91,7 @@ export const exportPreorderReceiptImage = async (
 ): Promise<Blob> => {
   // Fetch logo trước → data URL để tránh canvas bị CORS taint
   const logoDataUrl = await fetchLogoDataUrl(data.shop.logo_url ?? undefined);
-  const html = buildPreorderReceiptHtml(data, 'share', { logoDataUrl });
+  const html = buildPreorderReceiptHtml(data, 'share', { logoDataUrl: logoDataUrl ?? null });
   const iframe = mountOffscreenReceipt(html);
   try {
     const body = iframe.contentDocument?.body;
