@@ -13,6 +13,7 @@
 #
 # GitHub Environment "staging" variables:
 #   STAGING_DEPLOY_PATH    — default /opt/diecast360-staging
+#   STAGING_PUBLIC_URL     — optional; shown in deploy job summary (no default in workflow)
 
 name: Deploy Staging (backend)
 
@@ -36,10 +37,45 @@ env:
 
 jobs:
   # ============================================================
-  # Migrate staging DB (Neon staging branch)
+  # Build gate — fail before migrate if TypeScript/build breaks
+  # ============================================================
+  build:
+    name: Build backend (gate)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install & build
+        env:
+          NPM_CONFIG_PRODUCTION: 'false'
+          NODE_ENV: development
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter ./backend run build
+
+      - name: Verify build output
+        run: |
+          test -d backend/dist
+          test -n "$(find backend/dist -type f -print -quit)" \
+            || (echo "::error::backend/dist empty — aborting"; exit 1)
+
+  # ============================================================
+  # Migrate staging DB (Neon staging branch) — only after build OK
   # ============================================================
   migrate:
     name: Prisma migrate (staging DB)
+    needs: build
     runs-on: ubuntu-latest
     environment: staging
 
@@ -122,6 +158,11 @@ jobs:
           set -euo pipefail
           REDIR="${DEPLOY_REMOTE_PATH:-/opt/diecast360-staging}"
           mkdir -p "$REDIR"
+          # Excludes protect operator state that lives in REDIR but is NOT part of
+          # the deploy bundle. Without these, `--delete` wipes user data each deploy.
+          # - .env: secrets configured per-host
+          # - /uploads: legacy default UPLOAD_DIR (./uploads -> $REDIR/uploads). New
+          #   installs should set UPLOAD_DIR outside REDIR (see backend/.env.production.example).
           rsync -a --delete \
             --exclude='/.env' \
             --exclude='/uploads' \
@@ -140,26 +181,34 @@ jobs:
           npx prisma generate
           sudo systemctl restart diecast360-api-staging
           systemctl is-active --quiet diecast360-api-staging
-          for i in $(seq 1 30); do
-            if curl -sfS "http://127.0.0.1:${PORT}/api/v1/health" > /dev/null; then
+          HEALTH_RETRIES="${HEALTH_RETRIES:-30}"
+          HEALTH_INTERVAL_SEC="${HEALTH_INTERVAL_SEC:-2}"
+          for i in $(seq 1 "$HEALTH_RETRIES"); do
+            if curl -sfS "http://127.0.0.1:${PORT}/api/v1/health" >/dev/null; then
               echo "✅ Backend staging healthy after ${i} attempts"
               break
             fi
-            if [ "$i" -eq 30 ]; then
-              echo "::error::Health check failed after 30 attempts"
+            if [ "$i" -eq "$HEALTH_RETRIES" ]; then
+              echo "::error::Health check failed after ${HEALTH_RETRIES} attempts" >&2
               sudo systemctl --no-pager -l status diecast360-api-staging || true
               journalctl -u diecast360-api-staging -n 80 --no-pager || true
               exit 1
             fi
-            sleep 2
+            sleep "${HEALTH_INTERVAL_SEC}"
           done
 
       - name: Job summary
         if: always()
+        env:
+          STAGING_PUBLIC_URL: ${{ vars.STAGING_PUBLIC_URL }}
         run: |
           echo "## 🚀 Staging Backend Deployed" >> "$GITHUB_STEP_SUMMARY"
           echo "| | |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Backend** | https://staging.nhtin.name.vn |" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${STAGING_PUBLIC_URL}" ]; then
+            echo "| **Backend** | ${STAGING_PUBLIC_URL} |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| **Backend** | staging API (set \`STAGING_PUBLIC_URL\` in Environment \`staging\`) |" >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "| **Branch** | \`staging\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| **Commit** | \`${{ github.sha }}\` |" >> "$GITHUB_STEP_SUMMARY"
