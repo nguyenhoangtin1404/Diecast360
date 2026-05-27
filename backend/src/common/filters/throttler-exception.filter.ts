@@ -8,9 +8,15 @@ import {
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { Request, Response } from 'express';
-import { v7 as uuidv7 } from 'uuid';
 import { ErrorCode } from '../constants/error-codes';
+import { createLoginTraceId } from '../../auth/login-trace-id';
 import { LoginAuditService } from '../../auth/login-audit.service';
+import {
+  extractClientIp,
+  extractLoginEmail,
+  extractUserAgent,
+  isLoginEndpoint,
+} from '../../auth/login-audit.helpers';
 
 @Catch(ThrottlerException)
 export class ThrottlerExceptionFilter implements ExceptionFilter {
@@ -29,21 +35,15 @@ export class ThrottlerExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
 
-    // endsWith handles both standard prefix and reverse-proxy path stripping
-    const isLoginEndpoint = request.path.endsWith('/auth/login');
-    if (isLoginEndpoint && this.loginAuditService) {
-      const traceId = uuidv7();
+    if (isLoginEndpoint(request.path) && this.loginAuditService) {
+      const traceId = createLoginTraceId();
       response.setHeader('X-Trace-Id', traceId);
-
-      const ip = (request.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? request.ip;
-      const userAgent = (request.headers['user-agent'] as string | undefined)?.slice(0, 512);
-      const rawEmail = (request.body as Record<string, unknown>)?.email;
 
       this.loginAuditService.record({
         trace_id: traceId,
-        email: typeof rawEmail === 'string' ? rawEmail.slice(0, 254) : '',
-        ip_address: ip,
-        user_agent: userAgent,
+        email: extractLoginEmail(request.body),
+        ip_address: extractClientIp(request),
+        user_agent: extractUserAgent(request),
         status: 'failed',
         failure_reason: 'rate_limited',
       });

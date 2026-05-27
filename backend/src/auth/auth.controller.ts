@@ -1,11 +1,11 @@
-import { Controller, Post, Get, Body, UseGuards, Request, Res, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, UseInterceptors, Request, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
 import * as crypto from 'crypto';
-import { v7 as uuidv7 } from 'uuid';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginAuditService } from './login-audit.service';
-import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
+import { LoginAuditInterceptor } from './login-audit.interceptor';
+import { LOGIN_TRACE_ID_KEY, extractClientIp, extractUserAgent } from './login-audit.helpers';
 import { LoginDto } from './dto/login.dto';
 import { SwitchShopDto } from './dto/switch-shop.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -90,33 +90,17 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60000, limit: 8 } })
+  @UseInterceptors(LoginAuditInterceptor)
   async login(
     @Body() loginDto: LoginDto,
     @Request() req,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const traceId = uuidv7();
-    res.setHeader('X-Trace-Id', traceId);
+    const traceId = String(req[LOGIN_TRACE_ID_KEY] ?? '');
+    const ip = extractClientIp(req);
+    const userAgent = extractUserAgent(req);
 
-    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.ip;
-    const userAgent = (req.headers['user-agent'] as string | undefined)?.slice(0, 512);
-
-    let result: Awaited<ReturnType<typeof this.authService.login>>;
-    try {
-      result = await this.authService.login(loginDto);
-    } catch (e) {
-      this.loginAuditService.record({
-        trace_id: traceId,
-        email: loginDto.email,
-        ip_address: ip,
-        user_agent: userAgent,
-        status: 'failed',
-        failure_reason: (e instanceof AppException && e.errorCode === ErrorCode.AUTH_INVALID_CREDENTIALS)
-          ? 'invalid_credentials'
-          : 'internal_error',
-      });
-      throw e;
-    }
+    const result = await this.authService.login(loginDto);
 
     this.loginAuditService.record({
       trace_id: traceId,
