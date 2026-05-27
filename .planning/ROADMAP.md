@@ -33,6 +33,7 @@ This roadmap organizes Diecast360 delivery from core product foundations to oper
 - [x] **Phase 25: Backend Staging Deploy on Vercel** - Separate staging workflow gated on build success; automated migrate + deploy to Vercel staging environment; aligned deploy checks. *(completed 2026-05-27)*
 - [ ] **Phase 26: Issue #232/#237/#243/#244/#246 - Auth Security Hardening Wave 1** - Login audit log + X-Trace-Id; per-email rate limit + account lockout (PostgreSQL-backed, survive restart); admin UI to view audit log and unlock accounts; Google reCAPTCHA v3 on admin login.
 - [ ] **Phase 27: Issue #238/#242/#245/#289 - Auth Security Wave 2 — Alerting, E2E & Ops** - Telegram security alerts with dedupe; Playwright E2E for lockout/CAPTCHA/rate-limit flows; production ops security checklist; staging pipeline completion.
+- [ ] **Phase 28: Voucher** - Shop-scoped promotional codes applied to pre-orders; optional linkage to member; receipt `discount_amount` populated from applied voucher; admin CRUD + validation (dates, usage caps, min order).
 ## Phase Details
 
 ### Phase 1: Inventory Foundation
@@ -215,6 +216,7 @@ Plans:
 | 25. Staging Deploy | 1/1 | Complete | 2026-05-27 |
 | 26. Auth Security Hardening Wave 1 | 0/3 | Planned | — |
 | 27. Auth Security Wave 2 | 0/3 | Planned | — |
+| 28. Voucher | 0/3 | Planned | — |
 
 ## Execution Update (2026-03-04)
 
@@ -346,6 +348,7 @@ All phases through Phase 25 are complete as of 2026-05-27. Phase 26 and Phase 27
 Partially executed phases (still pending full completion):
 - **Phase 26: Auth Security Hardening Wave 1** (Planned, 0/3 plans complete)
 - **Phase 27: Auth Security Wave 2** (Planned, 0/3 plans complete)
+- **Phase 28: Voucher** (Planned, 0/3 plans complete)
 
 
 ---
@@ -581,8 +584,6 @@ Plans:
 - [ ] 26-02: Email rate limit + account lockout (PostgreSQL-backed, survive restart) (#237, #246)
 - [ ] 26-03: Admin UI: login audit log & account unlock + reCAPTCHA v3 (#243, #244)
 
----
-
 ### Phase 27: Issue #238/#242/#245/#289 - Auth Security Wave 2 — Alerting, E2E & Ops
 
 **Goal**: Complete security incident detection and response with Telegram alerts, Playwright E2E security flows, production ops checklist, and staging pipeline completion.
@@ -594,4 +595,16 @@ Plans:
 - [ ] 27-01: Telegram security alerts (dedupe + threshold) (#238)
 - [ ] 27-02: Playwright E2E security flows (lockout, CAPTCHA, rate limit) (#242)
 - [ ] 27-03: Production ops security checklist & staging pipeline completion (#245, #289)
+
+### Phase 28: Voucher
+
+**Goal:** Cho phép shop tạo mã giảm giá (voucher) theo tenant; áp dụng khi tạo/cập nhật pre-order; lưu snapshot chiết khấu trên đơn; hiển thị trên phiếu in (`discount_amount`); kiểm soát hạn dùng, ngân sách lần dùng, và giá trị tối thiểu đơn hàng.
+**Depends on:** Phase 9 (pre-orders), Phase 14 (multi-tenant), Phase 24 (receipt contract có `discount_amount` placeholder)
+**Requirements:** VOCH-01 (proposed)
+**Plans:** 3 plans
+
+Plans:
+- [ ] 28-01: Schema + domain — `Voucher`, `VoucherRedemption` (hoặc tương đương), quy tắc tính giảm (fixed VND / percent cap), snapshot trên `PreOrder`
+- [ ] 28-02: Nest APIs — CRUD voucher (shop_admin), validate/apply trên pre-order create/update; TenantGuard; `docs/API_CONTRACT.md` + `docs/DOMAIN.md`
+- [ ] 28-03: Admin UI + receipt wiring — form mã, picker trên pre-order, receipt hiển thị chiết khấu; Playwright/E2E tối thiểu cho flow áp dụng + phiếu
 

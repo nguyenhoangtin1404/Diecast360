@@ -5,9 +5,9 @@ milestone_name: milestone
 status: planning
 last_updated: "2026-05-27T11:00:00.000Z"
 progress:
-  total_phases: 27
+  total_phases: 28
   completed_phases: 25
-  total_plans: 59
+  total_plans: 62
   completed_plans: 53
 ---
 
@@ -27,7 +27,7 @@ Plan: **26-01** Login audit log + X-Trace-Id tracing
 Status: Planned — Ready to initiate execution after user approval.
 Last activity: 2026-05-27 — Created Context and Plan documents for Phase 26 & 27; updated ROADMAP.md and STATE.md.
 
-Progress: [#########################  ] 25/27 phases shipped.
+Progress: [#########################  ] 25/28 phases shipped.
 
 ## Performance Metrics
 
@@ -82,11 +82,13 @@ Progress: [#########################  ] 25/27 phases shipped.
 - Phase 18 added: Issue #59 Category Tenant Guard Hardening (2026-05-12).
 - Phase 19-25 completed: Pre-order points, QR Gateway, Security Hardening, Pre-order UX, CI/CD Overhaul, Thermal Receipt, and Staging Deploy (2026-05-20 to 2026-05-27).
 - Phase 26 & 27 planned: Auth Security Hardening Wave 1 & Wave 2 (2026-05-27).
+- Phase 28 added: Voucher (GSD planning: CONTEXT + plans 28-01…28-03) (2026-05-27).
 
 ### Pending Todos
 
 - Obtain user feedback on Phase 26 & 27 plans.
 - Initiate Phase 26-01 execution once approved.
+- Review Phase 28 voucher CONTEXT and plan breakdown (`28-01` → `28-03`); start `28-01` when ready.
 
 ### Blockers/Concerns
 
