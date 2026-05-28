@@ -39,7 +39,7 @@ Pinned tooling: **`packageManager`** và **`engines`** trong `package.json` gố
 | **`Commitlint`** | Pull requests | Conventional commits cho từng commit trong PR (`.commitlintrc.json`). |
 | **`PR Title Lint`** | PR opened/edited/… | Title semantic (squash-merge). Types giống commitlint (`feat`, `fix`, …). |
 | **`Labeler`** (`pull_request_target`) | Pull requests → `main`, `develop` | Label theo path (`.github/labeler.yml`); cần tạo sẵn labels `area:*`, `deps` trong repo. |
-| **`Deploy backend (Pi)`** | **`workflow_run` sau khi CI trên `main` success** (push event), hoặc `workflow_dispatch` | Migrate trên GitHub-hosted, build + **`pnpm deploy --prod --legacy`** trên runner Pi → rsync vào `/opt/diecast360-backend` (preserve `.env` + exclude `/uploads`), `prisma generate`, restart service. Trước khi sửa workflow phần `rsync`/`--delete`: review kèm `--dry-run` output trong PR description; nếu có thể, thử trên staging Pi/VM trước. Health check `/api/v1/health` hiện **không** touch storage — không tự phát hiện được "file mất nhưng app sống" (xem postmortem 2026-05-26). |
+| **`Deploy backend (Pi)`** | **`workflow_run` sau khi CI trên `main` success** (push event), hoặc `workflow_dispatch` | Fail-fast: **build gate** → migrate Neon → deploy Pi → **`CD Success`**. Path filter: artifact `push-changed-files-<sha>`. **Không** hiện trên PR checks — [`docs/CICD.md`](docs/CICD.md). Health không probe storage (postmortem 2026-05-26). |
 
 **Pi (một lần):** bật pnpm khớp [`package.json`](package.json) `packageManager`, ví dụ:
 
@@ -48,7 +48,7 @@ corepack enable
 corepack prepare pnpm@10.33.4 --activate
 ```
 
-**Branch protection:** bật required checks: **`CI Success`**, **`Scan for secrets`** (Gitleaks), **`Lint commit messages`**, **`Validate PR title`**. Labeler không bắt buộc.
+**Branch protection:** bật required checks: **`CI Success`**, **`Scan for secrets`** (Gitleaks), **`Lint commit messages`**, **`Validate PR title`**. Labeler không bắt buộc. Sau merge `main`, theo dõi **`Deploy backend (Pi)`** / **`CD Success`** (không bắt buộc trên PR) — bảng đầy đủ: [`docs/CICD.md`](docs/CICD.md).
 
 **Squash-merge:** chỉnh **PR title** đúng Conventional Commit trước khi squash (ảnh hưởng message commit trên `main`).
 
