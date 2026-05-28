@@ -1,8 +1,12 @@
-import { Controller, Post, Get, Body, UseGuards, Request, Res, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, UseInterceptors, Request, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
 import * as crypto from 'crypto';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
+import { LoginAuditService } from './login-audit.service';
+import { LoginAuditInterceptor } from './login-audit.interceptor';
+import { LOGIN_TRACE_ID_KEY, extractClientIp, extractUserAgent } from './login-audit.helpers';
+import { createLoginTraceId } from './login-trace-id';
 import { LoginDto } from './dto/login.dto';
 import { SwitchShopDto } from './dto/switch-shop.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -21,6 +25,7 @@ interface CookieOptions {
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
+    private readonly loginAuditService: LoginAuditService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -86,26 +91,45 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60000, limit: 8 } })
+  @UseInterceptors(LoginAuditInterceptor)
   async login(
     @Body() loginDto: LoginDto,
+    @Request() req,
     @Res({ passthrough: true }) res: Response,
   ) {
+    const hasTraceId = typeof req[LOGIN_TRACE_ID_KEY] === 'string' && req[LOGIN_TRACE_ID_KEY].length > 0;
+    const traceId = hasTraceId ? req[LOGIN_TRACE_ID_KEY] : createLoginTraceId();
+    if (!hasTraceId) {
+      res.setHeader('X-Trace-Id', traceId);
+    }
+    const ip = extractClientIp(req);
+    const userAgent = extractUserAgent(req);
+
     const result = await this.authService.login(loginDto);
-    
+
+    this.loginAuditService.record({
+      trace_id: traceId,
+      user_id: result.user.id,
+      email: result.user.email,
+      shop_id: result.active_shop_id,
+      ip_address: ip,
+      user_agent: userAgent,
+      status: 'success',
+    });
+
     // Set access_token cookie (15 minutes)
-    const accessTokenMaxAge = 15 * 60 * 1000; // 15 minutes
+    const accessTokenMaxAge = 15 * 60 * 1000;
     res.cookie('access_token', result.access_token, this.getCookieOptions(accessTokenMaxAge));
-    
+
     // Set refresh_token cookie (7 days)
-    const refreshTokenMaxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+    const refreshTokenMaxAge = 7 * 24 * 60 * 60 * 1000;
     res.cookie('refresh_token', result.refresh_token, {
       ...this.getCookieOptions(refreshTokenMaxAge),
-      path: '/api/v1/auth', // Restrict refresh token to auth endpoints only
+      path: '/api/v1/auth',
     });
 
     this.issueCsrfCookie(res);
 
-    // Return user info (tokens are in cookies, not in response body for security)
     return {
       user: result.user,
       message: 'Login successful',

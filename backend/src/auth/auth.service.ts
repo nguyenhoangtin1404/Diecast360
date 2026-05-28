@@ -42,6 +42,7 @@ export class AuthService {
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
+      active_shop_id: defaultShopId,
       user: {
         id: user.id,
         email: user.email,

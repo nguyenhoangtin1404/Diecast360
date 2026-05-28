@@ -122,6 +122,7 @@ model User {
   pre_orders     PreOrder[]
   inventory_transactions InventoryTransaction[]
   member_points_ledger MemberPointsLedger[]
+  login_audit_logs LoginAuditLog[]
 
   @@map("users")
 }
@@ -416,6 +417,27 @@ model Category {
   @@index([type, display_order])
   @@index([shop_id, type])
   @@index([shop_id, type, name])
+}
+
+model LoginAuditLog {
+  id             String   @id @default(uuid(7))
+  trace_id       String   @unique
+  user_id        String?
+  email          String
+  shop_id        String?
+  ip_address     String?
+  user_agent     String?
+  status         String   // 'success' | 'failed'
+  failure_reason String?
+  created_at     DateTime @default(now())
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@map("login_audit_logs")
+  @@index([user_id, trace_id(sort: Desc)])
+  @@index([status, trace_id(sort: Desc)])
+  @@index([created_at(sort: Desc)])
+  @@index([email, created_at(sort: Desc)])
 }
 
 model AiItemDraft {
