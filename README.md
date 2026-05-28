@@ -58,7 +58,7 @@ Diecast360 là phần mềm quản lý kho và bán hàng cho shop diecast, tậ
 - Monorepo: `pnpm`
 - Backend: NestJS 11 + Prisma 6 + PostgreSQL 16
 - Frontend: React 19 + Vite 7 + TanStack Query + Tailwind CSS 3
-- API: `/api/v1`, payload `snake_case`, envelope `{ ok, data/message }`
+- API: `/api/v1`, payload `snake_case`, envelope `{ ok, data, message }` hoặc `{ ok, error, message }`
 
 ## Chạy nhanh trên local
 
@@ -114,6 +114,8 @@ pnpm dev
 - [`docs/DEV.md`](docs/DEV.md): hướng dẫn dev đầy đủ
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md): triển khai production
 - [`docs/CICD.md`](docs/CICD.md): pipeline CI/CD
+- [`AGENTS.md`](AGENTS.md): lệnh vận hành nhanh và gotchas khi phát triển
+- [`SECURITY.md`](SECURITY.md): chính sách bảo mật và cách báo cáo lỗ hổng
 
 ## Cấu trúc repo
 
