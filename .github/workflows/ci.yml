@@ -16,6 +16,41 @@ env:
 
 jobs:
   # ============================================
+  # CD gate (main push only) — deploy jobs appear only when this is true
+  # ============================================
+  detect-backend-deploy:
+    name: Backend deploy gate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.filter.outputs.deploy }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Detect backend-relevant changes
+        id: filter
+        run: |
+          set -euo pipefail
+          if ! git rev-parse HEAD^ >/dev/null 2>&1; then
+            echo "::notice::No parent commit; enabling deploy."
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only HEAD^ HEAD || true)
+          echo "Changed files:"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" \
+            | grep -qE '^(backend/|pnpm-lock\.yaml$|\.github/workflows/deploy-backend(\-manual)?\.yml$|\.github/workflows/ci\.yml$)'; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No backend CD changes — Pi deploy not scheduled."
+          fi
+
+  # ============================================
   # Backend Job
   # ============================================
   backend:
@@ -299,3 +334,16 @@ jobs:
             fi
           done
           echo "All CI checks passed"
+
+  # ============================================
+  # Production deploy (Pi) — only on main push when backend CD gate is true
+  # ============================================
+  production-deploy:
+    name: Deploy backend (Pi)
+    needs: [ci-success, detect-backend-deploy]
+    if: |
+      needs.ci-success.result == 'success' &&
+      needs.detect-backend-deploy.result == 'success' &&
+      needs.detect-backend-deploy.outputs.deploy == 'true'
+    uses: ./.github/workflows/deploy-backend.yml
+    secrets: inherit

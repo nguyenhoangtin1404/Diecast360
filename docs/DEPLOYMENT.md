@@ -178,13 +178,13 @@ Chi tiết Facebook, OpenAI, Pinecone: tùy tính năng bật — vẫn trong [`
 5. Cập nhật `VITE_API_BASE_URL` trên host frontend, deploy lại frontend.
 6. Kiểm tra đăng nhập, upload nhỏ, catalog; đọc [`COOKIE_AUTH.md`](COOKIE_AUTH.md) nếu cookie cross-site lỗi.
 
-Tự động deploy backend khi **`CI` workflow** trên `main` hoàn thành (sự kiện **push**) với conclusion **success** (đã thay trigger `paths:` bằng `workflow_run` — không deploy nếu CI đỏ). Runner Pi: checkout + **`pnpm install` / `pnpm --filter ./backend run build`** + **`pnpm --filter ./backend deploy --prod --legacy`** (bundle production), **`rsync --exclude .env`** vào `DEPLOY_REMOTE_PATH` (thường `/opt/diecast360-backend`), **`npx prisma generate`**, restart `diecast360-api`, probe `GET /api/v1/health`. Vẫn có **`workflow_dispatch`** (tùy chọn skip migrate).
+Tự động deploy backend khi merge `main`: cài [GitHub self-hosted runner trên Pi](BACKEND_SELF_HOSTED_RUNNER.md). Sau **CI Success**, workflow **CI** gọi reusable [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml) — job **Prisma migrate (production)** và **Build & deploy on Pi** nằm **cùng một run CI** trên commit (không deploy nếu CI đỏ). **Backend deploy gate** chỉ bật CD khi commit đổi `backend/**`, `pnpm-lock.yaml`, hoặc workflow CD liên quan. Migrate Neon trên GitHub-hosted; Pi: `pnpm deploy` bundle, `rsync` (exclude `.env`, `uploads/`), `prisma generate`, restart `diecast360-api`, probe health. Deploy thủ công: Actions → **Deploy backend (Pi) — manual** (workflow riêng, không gắn commit check; có thể skip migrate).
 
 ---
 
 ## 6. CI và migration
 
-Workflow CI mặc định: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Deploy backend: [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml) và [`BACKEND_SELF_HOSTED_RUNNER.md`](BACKEND_SELF_HOSTED_RUNNER.md).
+Workflow CI: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Deploy reusable: [`.github/workflows/deploy-backend.yml`](../.github/workflows/deploy-backend.yml). Deploy thủ công: [`.github/workflows/deploy-backend-manual.yml`](../.github/workflows/deploy-backend-manual.yml). Hướng dẫn Pi: [`BACKEND_SELF_HOSTED_RUNNER.md`](BACKEND_SELF_HOSTED_RUNNER.md).
 
 **Migration production** chạy **trước** bước Pi, trên runner `ubuntu-latest`, biến lấy từ GitHub Environment **production**:
 

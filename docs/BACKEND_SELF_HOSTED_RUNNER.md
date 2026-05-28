@@ -111,8 +111,8 @@ Environment **production** (nếu workflow gắn `environment: production`): có
 
 ## Bước 5 — Kích hoạt deploy
 
-- **Push `main`** có thay đổi `backend/**` hoặc `.github/workflows/deploy-backend.yml`.
-- Hoặc **Actions** → **Deploy backend (Pi)** → **Run workflow**.
+- **Push `main` (CD)**: sau **CI Success**, job **Deploy backend (Pi)** chỉ chạy nếu **Backend deploy gate** = true (`backend/**`, `pnpm-lock.yaml`, hoặc workflow `ci.yml` / `deploy-backend*.yml`).
+- **Thủ công**: Actions → **Deploy backend (Pi) — manual** (workflow riêng, không hiện trên popup check của commit).
 
 Job chỉ chạy khi có runner **online** với label **`diecast360-pi`**. Nếu không có runner, job sẽ **treo chờ** — cần bật Pi + `sudo ./svc.sh start`.
 

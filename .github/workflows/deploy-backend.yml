@@ -1,40 +1,22 @@
-# CD: (1) Apply Prisma migrations on GitHub-hosted runner (reaches Neon reliably).
-# (2) Build on self-hosted Pi, deploy via `pnpm deploy` (production bundle), prisma generate, restart.
+# Reusable CD — only invoked from CI (push main) or deploy-backend-manual.yml.
+# Do not add workflow_dispatch here (manual runs stay off commit checks).
 #
-# Trigger: CI workflow completed successfully after a push to `main`, or manual workflow_dispatch.
+# (1) Prisma migrate on GitHub-hosted (Neon). (2) Build bundle on Pi, rsync, restart.
 #
-# Path filter: `workflow_run` does not natively support `paths:` filters, so the
-# `check-changes` job inspects the head commit (vs its first parent) and only lets
-# `migrate`/`deploy` run when at least one of `backend/**`, `pnpm-lock.yaml`, or
-# `.github/workflows/deploy-backend.yml` changed. `workflow_dispatch` always
-# deploys regardless of paths. Rebase-merge with multiple commits in one push
-# only inspects the last commit — use `workflow_dispatch` for those rare cases.
-#
-# Requires: GitHub-hosted runner secrets for migrate; Pi runner with labels: self-hosted, diecast360-pi
-#
-# Requires on Pi once: corepack enable && corepack prepare pnpm@10.33.4 --activate
-# (matches root package.json "packageManager").
-#
-# GitHub Environment "production" secrets (for migrate job):
-#   PRODUCTION_DATABASE_URL — Neon pooled URL (same meaning as backend DATABASE_URL)
-#   PRODUCTION_DIRECT_URL   — Neon direct URL (for prisma migrate)
-#
-# Optional secret: DEPLOY_REMOTE_PATH (default /opt/diecast360-backend)
+# Requires: Pi runner labels self-hosted, diecast360-pi; corepack pnpm@10.33.4 on Pi.
+# Secrets (environment production): PRODUCTION_DATABASE_URL, PRODUCTION_DIRECT_URL;
+# optional DEPLOY_REMOTE_PATH.
 
 name: Deploy backend (Pi)
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-    branches: [main]
-  workflow_dispatch:
+  workflow_call:
     inputs:
       skip_migrate:
-        description: "Skip prisma migrate (use if Neon/GitHub already migrated)"
+        description: Skip prisma migrate deploy
         required: false
-        default: false
         type: boolean
+        default: false
 
 concurrency:
   group: deploy-backend-${{ github.ref }}
@@ -47,53 +29,8 @@ env:
   NODE_VERSION: "20"
 
 jobs:
-  check-changes:
-    name: Check if backend changed
-    runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main')
-    outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
-          fetch-depth: 2
-
-      - name: Detect backend-relevant changes
-        id: filter
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "::notice::Manual dispatch — skipping path filter, deploying."
-            echo "backend=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if ! git rev-parse HEAD^ >/dev/null 2>&1; then
-            echo "::notice::No parent commit available; defaulting to deploy."
-            echo "backend=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          changed=$(git diff --name-only HEAD^ HEAD || true)
-          echo "Changed files in head commit:"
-          printf '%s\n' "$changed"
-          if printf '%s\n' "$changed" \
-            | grep -qE '^(backend/|pnpm-lock\.yaml$|\.github/workflows/deploy-backend\.yml$)'; then
-            echo "backend=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "backend=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No backend-relevant changes — skipping migrate & deploy."
-          fi
-
   migrate:
     name: Prisma migrate (production)
-    needs: check-changes
-    if: needs.check-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     environment: production
     defaults:
@@ -103,8 +40,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v5
@@ -122,7 +57,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Prisma generate & migrate deploy
-        if: ${{ github.event_name != 'workflow_dispatch' || !fromJSON(github.event.inputs.skip_migrate || 'false') }}
+        if: ${{ !inputs.skip_migrate }}
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           DIRECT_URL: ${{ secrets.PRODUCTION_DIRECT_URL }}
@@ -130,14 +65,13 @@ jobs:
           pnpm --filter ./backend exec prisma generate
           pnpm --filter ./backend exec prisma migrate deploy
 
-      - name: Skip migrate (manual dispatch)
-        if: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.skip_migrate || 'false') }}
-        run: echo "::notice::Skipped prisma migrate deploy — manual skip."
+      - name: Skip migrate
+        if: ${{ inputs.skip_migrate }}
+        run: echo "::notice::Skipped prisma migrate deploy."
 
   deploy:
     name: Build & deploy on Pi
-    needs: [check-changes, migrate]
-    if: needs.check-changes.outputs.backend == 'true'
+    needs: migrate
     runs-on: [self-hosted, diecast360-pi]
     environment: production
     env:
@@ -149,8 +83,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Enable corepack / pnpm
         run: |
@@ -194,11 +126,9 @@ jobs:
           set -euo pipefail
           REDIR="${DEPLOY_REMOTE_PATH:-/opt/diecast360-backend}"
           mkdir -p "$REDIR"
-          # Excludes protect operator state that lives in REDIR but is NOT part of
-          # the deploy bundle. Without these, `--delete` wipes user data each deploy.
-          # - .env: secrets configured per-host
-          # - /uploads: legacy default UPLOAD_DIR (./uploads -> $REDIR/uploads). New
-          #   installs should set UPLOAD_DIR outside REDIR (see backend/.env.production.example).
+          # Excludes protect operator state in REDIR (not part of the bundle).
+          # - .env: per-host secrets
+          # - /uploads: legacy UPLOAD_DIR; prefer UPLOAD_DIR outside REDIR (see backend/.env.production.example).
           rsync -a --delete \
             --exclude='/.env' \
             --exclude='/uploads' \
@@ -221,6 +151,7 @@ jobs:
           HEALTH_INTERVAL_SEC="${HEALTH_INTERVAL_SEC:-2}"
           for i in $(seq 1 "$HEALTH_RETRIES"); do
             if curl -sfS "http://127.0.0.1:${PORT}/api/v1/health" >/dev/null; then
+              echo "::notice::API healthy on port ${PORT}"
               break
             fi
             if [ "$i" -eq "$HEALTH_RETRIES" ]; then

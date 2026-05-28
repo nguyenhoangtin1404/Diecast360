@@ -1,0 +1,21 @@
+# Manual production deploy — separate workflow (does not attach to commit checks).
+# For automatic deploy on merge, use CI on main (job Deploy backend (Pi)).
+
+name: Deploy backend (Pi) — manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_migrate:
+        description: "Skip prisma migrate (use if Neon/GitHub already migrated)"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  deploy:
+    name: Deploy backend (Pi)
+    uses: ./.github/workflows/deploy-backend.yml
+    secrets: inherit
+    with:
+      skip_migrate: ${{ inputs.skip_migrate }}
