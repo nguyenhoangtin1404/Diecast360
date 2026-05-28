@@ -1,6 +1,11 @@
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { AuthController } from './auth.controller';
 import { LOGIN_TRACE_ID_KEY } from './login-audit.helpers';
+import { createLoginTraceId } from './login-trace-id';
+
+jest.mock('./login-trace-id', () => ({
+  createLoginTraceId: jest.fn(() => 'trace-fallback-00000000-0000-7000-8000-000000000003'),
+}));
 
 describe('AuthController login audit', () => {
   const authService = {
@@ -93,5 +98,38 @@ describe('AuthController login audit', () => {
     ).rejects.toThrow(AppException);
 
     expect(loginAuditService.record).not.toHaveBeenCalled();
+  });
+
+  it('uses generated fallback trace id when interceptor key is missing', async () => {
+    authService.login.mockResolvedValue({
+      access_token: 'access',
+      refresh_token: 'refresh',
+      active_shop_id: 'shop-1',
+      user: {
+        id: 'user-1',
+        email: 'admin@test.com',
+        full_name: 'Admin',
+        role: 'admin',
+        platform_role: null,
+      },
+    });
+
+    const req = {
+      headers: { 'user-agent': 'jest-agent' },
+      ip: '127.0.0.1',
+    };
+
+    await controller.login(
+      { email: 'admin@test.com', password: 'password123' },
+      req,
+      res as never,
+    );
+
+    expect(createLoginTraceId).toHaveBeenCalledTimes(1);
+    expect(loginAuditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trace_id: 'trace-fallback-00000000-0000-7000-8000-000000000003',
+      }),
+    );
   });
 });

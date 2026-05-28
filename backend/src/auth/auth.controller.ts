@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { LoginAuditService } from './login-audit.service';
 import { LoginAuditInterceptor } from './login-audit.interceptor';
 import { LOGIN_TRACE_ID_KEY, extractClientIp, extractUserAgent } from './login-audit.helpers';
+import { createLoginTraceId } from './login-trace-id';
 import { LoginDto } from './dto/login.dto';
 import { SwitchShopDto } from './dto/switch-shop.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -96,7 +97,9 @@ export class AuthController {
     @Request() req,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const traceId = String(req[LOGIN_TRACE_ID_KEY] ?? '');
+    const traceId = typeof req[LOGIN_TRACE_ID_KEY] === 'string' && req[LOGIN_TRACE_ID_KEY].length > 0
+      ? req[LOGIN_TRACE_ID_KEY]
+      : createLoginTraceId();
     const ip = extractClientIp(req);
     const userAgent = extractUserAgent(req);
 

@@ -433,6 +433,7 @@ model LoginAuditLog {
   @@index([user_id, trace_id(sort: Desc)])
   @@index([status, trace_id(sort: Desc)])
   @@index([created_at(sort: Desc)])
+  @@index([email, created_at(sort: Desc)])
 }
 
 model AiItemDraft {
