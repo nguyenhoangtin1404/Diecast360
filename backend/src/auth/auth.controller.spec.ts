@@ -22,10 +22,15 @@ describe('AuthController login audit', () => {
     }),
   };
 
+  const captchaService = {
+    verify: jest.fn().mockResolvedValue(undefined),
+  };
+
   const controller = new AuthController(
     authService as never,
     loginAuditService as never,
     configService as never,
+    captchaService as never,
   );
 
   const res = {
@@ -59,7 +64,7 @@ describe('AuthController login audit', () => {
 
     const result = await controller.login(
       { email: 'admin@test.com', password: 'password123' },
-      req,
+      req as never,
       res as never,
     );
 
@@ -92,7 +97,7 @@ describe('AuthController login audit', () => {
     await expect(
       controller.login(
         { email: 'wrong@test.com', password: 'bad' },
-        req,
+        req as never,
         res as never,
       ),
     ).rejects.toThrow(AppException);
@@ -121,7 +126,7 @@ describe('AuthController login audit', () => {
 
     await controller.login(
       { email: 'admin@test.com', password: 'password123' },
-      req,
+      req as never,
       res as never,
     );
 
