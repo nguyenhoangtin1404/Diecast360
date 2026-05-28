@@ -42,7 +42,7 @@ export const LoginPage = () => {
   const [captchaStatus, setCaptchaStatus] = useState<CaptchaStatus>('idle');
   const { login } = useAuth();
   const navigate = useNavigate();
-  const { execute: executeRecaptcha } = useRecaptchaV3();
+  const { execute: executeRecaptcha, loadError: recaptchaLoadError } = useRecaptchaV3();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,7 +90,7 @@ export const LoginPage = () => {
   };
 
   // Disable while loading OR while waiting for Turnstile token (covers all error states)
-  const submitDisabled = loading || (isTurnstile && !captchaToken);
+  const submitDisabled = loading || (isTurnstile && !captchaToken) || (isRecaptcha && recaptchaLoadError);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#F8FAFC] px-4 py-12 sm:px-6">
@@ -217,6 +217,20 @@ export const LoginPage = () => {
                     </p>
                   )}
                 </>
+              )}
+
+              {isRecaptcha && recaptchaLoadError && (
+                <p className="flex items-center justify-center gap-1.5 text-center text-xs text-amber-700">
+                  Không tải được reCAPTCHA.{' '}
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="inline-flex items-center gap-1 underline hover:no-underline"
+                  >
+                    <RefreshCw className="h-3 w-3" strokeWidth={2} aria-hidden />
+                    Tải lại trang
+                  </button>
+                </p>
               )}
 
               <button

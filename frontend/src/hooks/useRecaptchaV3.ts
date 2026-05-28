@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CAPTCHA_ENABLED, CAPTCHA_PROVIDER, CAPTCHA_SITE_KEY } from '../config/captcha';
 
 declare global {
@@ -11,6 +11,8 @@ declare global {
 }
 
 export const useRecaptchaV3 = () => {
+  const [loadError, setLoadError] = useState(false);
+
   useEffect(() => {
     if (!CAPTCHA_ENABLED || CAPTCHA_PROVIDER !== 'google') return;
     if (document.getElementById('recaptcha-script')) return;
@@ -18,6 +20,7 @@ export const useRecaptchaV3 = () => {
     script.id = 'recaptcha-script';
     script.src = `https://www.google.com/recaptcha/api.js?render=${CAPTCHA_SITE_KEY}`;
     script.async = true;
+    script.onerror = () => setLoadError(true);
     document.head.appendChild(script);
   }, []);
 
@@ -40,5 +43,5 @@ export const useRecaptchaV3 = () => {
     });
   }, []);
 
-  return { execute };
+  return { execute, loadError };
 };

@@ -106,4 +106,20 @@ describe('CaptchaService', () => {
 
     await expect(service.verify('token')).resolves.toBeUndefined();
   });
+
+  it('clamps out-of-range CAPTCHA_MIN_SCORE to [0,1]', async () => {
+    config.set('CAPTCHA_ENABLED', 'true');
+    config.set('CAPTCHA_PROVIDER', 'google');
+    config.set('CAPTCHA_SECRET_KEY', 'secret');
+    config.set('CAPTCHA_MIN_SCORE', '2');
+
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, action: 'login', score: 0.9 }),
+    } as Response);
+
+    await expect(service.verify('token')).rejects.toMatchObject({
+      errorCode: ErrorCode.CAPTCHA_FAILED,
+    });
+  });
 });

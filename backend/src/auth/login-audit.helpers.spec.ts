@@ -60,6 +60,11 @@ describe('login-audit.helpers', () => {
           new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials'),
         ),
       ).toBe('invalid_credentials');
+      expect(
+        mapLoginFailureReason(
+          new AppException(ErrorCode.CAPTCHA_FAILED, 'captcha failed'),
+        ),
+      ).toBe('validation_error');
       expect(mapLoginFailureReason(new BadRequestException('Validation failed'))).toBe(
         'validation_error',
       );

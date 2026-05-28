@@ -113,7 +113,8 @@ export class CaptchaService {
     }
 
     const rawScore = parseFloat(this.configService.get<string>('CAPTCHA_MIN_SCORE') ?? '0.5');
-    const minScore = isNaN(rawScore) ? 0.5 : rawScore;
+    const normalizedScore = isNaN(rawScore) ? 0.5 : rawScore;
+    const minScore = Math.min(1, Math.max(0, normalizedScore));
 
     // Treat absent score as 0: some token types (v2, action mismatch) omit it entirely.
     if (!data.success || (data.score ?? 0) < minScore) {
