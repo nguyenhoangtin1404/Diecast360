@@ -184,8 +184,9 @@ jobs:
           HEALTH_RETRIES="${HEALTH_RETRIES:-30}"
           HEALTH_INTERVAL_SEC="${HEALTH_INTERVAL_SEC:-2}"
           for i in $(seq 1 "$HEALTH_RETRIES"); do
-            if curl -sfS "http://127.0.0.1:${PORT}/api/v1/health" >/dev/null; then
-              echo "✅ Backend staging healthy after ${i} attempts"
+            if curl -sfS "http://127.0.0.1:${PORT}/api/v1/health" > /tmp/staging-health.json; then
+              bash scripts/ci/assert-health-json.sh /tmp/staging-health.json
+              echo "Backend staging healthy after ${i} attempt(s)"
               break
             fi
             if [ "$i" -eq "$HEALTH_RETRIES" ]; then

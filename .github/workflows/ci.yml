@@ -154,7 +154,7 @@ jobs:
           for i in $(seq 1 30); do
             if curl -sf http://127.0.0.1:3000/api/v1/health > /tmp/health.json; then
               echo "Health OK after ${i} attempts"
-              jq -e '.ok == true and (.data.ok == true or .data.status == "healthy")' /tmp/health.json
+              bash scripts/ci/assert-health-json.sh /tmp/health.json
               exit 0
             fi
             if [ "$i" -eq 30 ]; then
@@ -273,6 +273,40 @@ jobs:
 
       - name: Audit workspace dependencies
         run: pnpm audit --audit-level=high
+
+  # ============================================
+  # Push file list for CD path filter (multi-commit push)
+  # ============================================
+  record-push-changes:
+    name: Record push changed files
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Write changed-files list
+        run: |
+          set -euo pipefail
+          before="${{ github.event.before }}"
+          after="${{ github.sha }}"
+          if [ "$before" = "0000000000000000000000000000000000000000" ]; then
+            git diff --name-only HEAD^ HEAD > changed-files.txt
+          else
+            git diff --name-only "$before" "$after" > changed-files.txt
+          fi
+          echo "Files in push (${before:0:7}..${after:0:7}):"
+          cat changed-files.txt
+
+      - name: Upload artifact for Deploy backend (Pi)
+        uses: actions/upload-artifact@v6
+        with:
+          name: push-changed-files-${{ github.sha }}
+          path: changed-files.txt
+          retention-days: 7
+          if-no-files-found: error
 
   # ============================================
   # Final Status Check (for branch protection)
