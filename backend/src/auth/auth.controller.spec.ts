@@ -14,6 +14,9 @@ describe('AuthController login audit', () => {
   const loginAuditService = {
     record: jest.fn(),
   };
+  const captchaService = {
+    verify: jest.fn(),
+  };
   const configService = {
     get: jest.fn((key: string) => {
       if (key === 'COOKIE_SECURE') return 'false';
@@ -26,6 +29,7 @@ describe('AuthController login audit', () => {
     authService as never,
     loginAuditService as never,
     configService as never,
+    captchaService as never,
   );
 
   const res = {
@@ -35,6 +39,7 @@ describe('AuthController login audit', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    captchaService.verify.mockResolvedValue(undefined);
   });
 
   it('records success audit with trace id from interceptor', async () => {
@@ -59,7 +64,7 @@ describe('AuthController login audit', () => {
 
     const result = await controller.login(
       { email: 'admin@test.com', password: 'password123' },
-      req,
+      req as never,
       res as never,
     );
 
@@ -67,6 +72,7 @@ describe('AuthController login audit', () => {
       user: expect.objectContaining({ id: 'user-1', email: 'admin@test.com' }),
       message: 'Login successful',
     });
+    expect(captchaService.verify).toHaveBeenCalledWith(undefined, '127.0.0.1');
     expect(loginAuditService.record).toHaveBeenCalledWith({
       trace_id: 'trace-success-1',
       user_id: 'user-1',
@@ -92,11 +98,12 @@ describe('AuthController login audit', () => {
     await expect(
       controller.login(
         { email: 'wrong@test.com', password: 'bad' },
-        req,
+        req as never,
         res as never,
       ),
     ).rejects.toThrow(AppException);
 
+    expect(captchaService.verify).toHaveBeenCalledWith(undefined, '127.0.0.1');
     expect(loginAuditService.record).not.toHaveBeenCalled();
   });
 
@@ -121,7 +128,7 @@ describe('AuthController login audit', () => {
 
     await controller.login(
       { email: 'admin@test.com', password: 'password123' },
-      req,
+      req as never,
       res as never,
     );
 

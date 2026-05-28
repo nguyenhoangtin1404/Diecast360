@@ -21,6 +21,7 @@
 | IMAGE_WATERMARK_FAILED | 422 | Watermark/branding image không xử lý được. |
 | ITEM_STATUS_TRANSITION_INVALID | 422 | Transition trạng thái item/pre-order không hợp lệ theo rule service. |
 | ITEM_CATEGORY_INVALID | 422 | Category/brand scope không hợp lệ cho item/tenant. |
+| CAPTCHA_FAILED | 422 | CAPTCHA thiếu, không hợp lệ, score thấp, hoặc dịch vụ CAPTCHA tạm thời lỗi. |
 | RATE_LIMIT_EXCEEDED | 429 | Vượt rate limit global hoặc endpoint throttle. |
 | INTERNAL_SERVER_ERROR | 500 | Lỗi ngoài dự kiến, không lộ stacktrace ra client. |
 | FACEBOOK_AUTH_ERROR | 401 | Facebook Access Token không hợp lệ hoặc đã hết hạn. |

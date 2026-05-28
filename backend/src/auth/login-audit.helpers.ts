@@ -46,6 +46,9 @@ export function mapLoginFailureReason(error: unknown): LoginFailureReason {
     if (error.errorCode === ErrorCode.AUTH_INVALID_CREDENTIALS) {
       return 'invalid_credentials';
     }
+    if (error.errorCode === ErrorCode.CAPTCHA_FAILED) {
+      return 'validation_error';
+    }
     return 'internal_error';
   }
 

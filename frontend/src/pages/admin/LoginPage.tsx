@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { useAuth } from '../../hooks/useAuth';
-import { Mail, Lock, LogIn, AlertCircle, Box, Loader2, Shield } from 'lucide-react';
+import { Mail, Lock, LogIn, AlertCircle, Box, Loader2, Shield, RefreshCw } from 'lucide-react';
 import type { ApiErrorResponse } from '../../types/item.types';
 import { ROUTES } from '../../config/routes';
+import { CaptchaWidget } from '../../components/CaptchaWidget';
+import { useRecaptchaV3 } from '../../hooks/useRecaptchaV3';
+import { CAPTCHA_ENABLED, CAPTCHA_PROVIDER } from '../../config/captcha';
 
 const defaultLoginError = 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
 
@@ -24,28 +27,70 @@ function getLoginErrorMessage(err: unknown): string {
   return defaultLoginError;
 }
 
+const isTurnstile = CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'cloudflare';
+const isRecaptcha = CAPTCHA_ENABLED && CAPTCHA_PROVIDER === 'google';
+
+type CaptchaStatus = 'idle' | 'ready' | 'widget-error' | 'load-error';
+
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  const [captchaStatus, setCaptchaStatus] = useState<CaptchaStatus>('idle');
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { execute: executeRecaptcha, loadError: recaptchaLoadError } = useRecaptchaV3();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
+    let token: string | undefined = captchaToken ?? undefined;
+
+    if (isRecaptcha) {
+      try {
+        token = await executeRecaptcha();
+      } catch {
+        setError('Xác minh CAPTCHA thất bại. Vui lòng tải lại trang.');
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
-      await login(email, password);
+      await login(email, password, token);
       navigate(ROUTES.admin.reports);
     } catch (err) {
       setError(getLoginErrorMessage(err));
+      if (isTurnstile) {
+        setCaptchaToken(null);
+        setCaptchaStatus('idle');
+        setCaptchaResetKey((k) => k + 1);
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // Transient widget error (network timeout, rate limit from CF) — auto-retry
+  const handleWidgetError = () => {
+    setCaptchaToken(null);
+    setCaptchaStatus('widget-error');
+    setCaptchaResetKey((k) => k + 1);
+  };
+
+  // Script failed to load (ad-blocker, CSP, network) — requires page reload
+  const handleLoadError = () => {
+    setCaptchaToken(null);
+    setCaptchaStatus('load-error');
+  };
+
+  // Disable while loading OR while waiting for Turnstile token (covers all error states)
+  const submitDisabled = loading || (isTurnstile && !captchaToken) || (isRecaptcha && recaptchaLoadError);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#F8FAFC] px-4 py-12 sm:px-6">
@@ -142,9 +187,55 @@ export const LoginPage = () => {
                 </div>
               </div>
 
+              {isTurnstile && (
+                <>
+                  <CaptchaWidget
+                    onToken={(t) => { setCaptchaToken(t); setCaptchaStatus('ready'); }}
+                    onExpire={() => { setCaptchaToken(null); setCaptchaStatus('idle'); }}
+                    onError={handleWidgetError}
+                    onLoadError={handleLoadError}
+                    resetKey={captchaResetKey}
+                  />
+
+                  {captchaStatus === 'widget-error' && (
+                    <p className="text-center text-xs text-amber-700">
+                      CAPTCHA gặp lỗi, đang thử lại…
+                    </p>
+                  )}
+
+                  {captchaStatus === 'load-error' && (
+                    <p className="flex items-center justify-center gap-1.5 text-center text-xs text-amber-700">
+                      Không tải được CAPTCHA.{' '}
+                      <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                        className="inline-flex items-center gap-1 underline hover:no-underline"
+                      >
+                        <RefreshCw className="h-3 w-3" strokeWidth={2} aria-hidden />
+                        Tải lại trang
+                      </button>
+                    </p>
+                  )}
+                </>
+              )}
+
+              {isRecaptcha && recaptchaLoadError && (
+                <p className="flex items-center justify-center gap-1.5 text-center text-xs text-amber-700">
+                  Không tải được reCAPTCHA.{' '}
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="inline-flex items-center gap-1 underline hover:no-underline"
+                  >
+                    <RefreshCw className="h-3 w-3" strokeWidth={2} aria-hidden />
+                    Tải lại trang
+                  </button>
+                </p>
+              )}
+
               <button
                 type="submit"
-                disabled={loading}
+                disabled={submitDisabled}
                 className="group flex w-full min-h-[48px] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-shop to-shopAccent py-3 text-sm font-bold text-white shadow-corporate-btn transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-corporate-card-hover disabled:translate-y-0 disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-500 disabled:shadow-none"
               >
                 {loading ? (

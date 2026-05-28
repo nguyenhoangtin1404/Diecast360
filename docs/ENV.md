@@ -20,6 +20,7 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 | NODE_ENV | Môi trường runtime | `development` / `production` | Production bật kiểm tra cookie/CORS và yêu cầu HTTPS cookie |
 | PORT | Cổng backend listen | `3000` | Mặc định `3000` |
 | HOST | Địa chỉ backend bind | `0.0.0.0` | Mặc định trong code là `0.0.0.0`; dùng `127.0.0.1` khi chỉ expose qua tunnel/proxy local |
+| TRUST_PROXY | Số hop proxy tin cậy trước app | `1` | `1` = Nginx/Cloudflare đơn hop; `2` = CDN+LB; `0` = không proxy (dev direct). Ảnh hưởng `req.ip` dùng cho rate limit và CAPTCHA `remoteip`. Sai số hop có thể cho phép client giả mạo IP qua `X-Forwarded-For`. |
 | JWT_SECRET | Secret ký access token | `change-me-to-random-32-char-jwt-secret` | Bắt buộc, đủ entropy và tối thiểu 32 ký tự |
 | JWT_ALLOW_AUTHORIZATION_BEARER | Cho phép đọc access JWT từ header `Authorization: Bearer` | `true` (mặc định) | Đặt `false` khi chỉ dùng web + cookie HttpOnly để thu hẹp kênh lộ token (XSS không đọc được cookie nhưng có thể đọc header nếu JS chèn được fetch tùy biến). |
 | JWT_EXPIRES_IN | TTL access token | `15m` | Chuỗi thời gian (ms, s, m, h...) |
@@ -54,6 +55,10 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 | PINECONE_INDEX | Pinecone index | `diecast360` | Tùy chọn; code có default |
 | THROTTLE_TTL | TTL rate limit global | `60000` | Tùy chọn; Nest Throttler đọc theo ms |
 | THROTTLE_LIMIT | Số request trong TTL | `100` | Tùy chọn; default code là `100` |
+| CAPTCHA_ENABLED | Bật xác minh CAPTCHA cho login | `false` | Tùy chọn; đặt `true` để bật |
+| CAPTCHA_PROVIDER | Nhà cung cấp CAPTCHA | `cloudflare` | `cloudflare` (Turnstile) hoặc `google` (reCAPTCHA v3) |
+| CAPTCHA_SECRET_KEY | Secret key từ dashboard CAPTCHA | `...` | Bắt buộc khi `CAPTCHA_ENABLED=true`; **không commit** |
+| CAPTCHA_MIN_SCORE | Ngưỡng score tối thiểu (Google v3) | `0.5` | Tùy chọn; chỉ dùng với `CAPTCHA_PROVIDER=google`; 0.0–1.0 |
 
 ## Frontend build-time env
 
@@ -66,6 +71,9 @@ Các biến `VITE_*` được đọc lúc Vite start/build; đổi giá trị c�
 | VITE_PUBLIC_PREORDER_SHOP_ID | Shop mặc định cho trang `/preorders` public | UUID shop | Hữu ích cho single-tenant deploy khi URL không có `?shop_id=` |
 | VITE_PUBLIC_CATALOG_SHOP_ID | Shop mặc định cho catalog `/` public | UUID hoặc slug shop | Production public catalog cần shop scope nếu khách không có JWT active shop |
 | VITE_MAX_SPINNER_FRAMES | Giới hạn frame spinner ở UI | `48` | Phải khớp hoặc nhỏ hơn `MAX_SPINNER_FRAMES` backend |
+| VITE_CAPTCHA_ENABLED | Bật CAPTCHA ở frontend | `false` | **Phải đồng bộ** với `CAPTCHA_ENABLED` backend để tránh lệch hành vi FE/BE |
+| VITE_CAPTCHA_PROVIDER | Provider CAPTCHA cho frontend | `cloudflare` | Phải khớp với `CAPTCHA_PROVIDER` backend |
+| VITE_CAPTCHA_SITE_KEY | Site key từ dashboard CAPTCHA | `...` | Dùng khi `VITE_CAPTCHA_ENABLED=true`; nếu thiếu thì frontend sẽ không render CAPTCHA |
 
 ## Object storage (Cloudflare R2)
 
