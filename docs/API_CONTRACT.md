@@ -47,10 +47,11 @@
 - Response 200: `data: { csrf_token }`.
 
 ### POST /api/v1/auth/login
-- Body JSON: `{ "email": "string", "password": "string" }`.
+- Body JSON: `{ "email": "string", "password": "string", "captcha_token?": "string" }`.
+- `captcha_token` là optional trong schema, nhưng khi `CAPTCHA_ENABLED=true` thì backend yêu cầu hợp lệ; thiếu hoặc sai token trả lỗi `CAPTCHA_FAILED`.
 - CSRF: exempt để bootstrap phiên đăng nhập.
 - Response 200: set cookie HttpOnly `access_token`, HttpOnly `refresh_token` (path `/api/v1/auth`) và cookie đọc được `csrf_token`; `data: { user, message }`. Token không trả trong body.
-- Errors: `AUTH_INVALID_CREDENTIALS (401)`, `VALIDATION_ERROR (422)`.
+- Errors: `AUTH_INVALID_CREDENTIALS (401)`, `VALIDATION_ERROR (422)`, `CAPTCHA_FAILED (422)`.
 
 ### POST /api/v1/auth/refresh
 - Auth: đọc `refresh_token` từ cookie path `/api/v1/auth`.

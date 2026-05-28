@@ -71,8 +71,9 @@ Các biến `VITE_*` được đọc lúc Vite start/build; đổi giá trị c�
 | VITE_PUBLIC_PREORDER_SHOP_ID | Shop mặc định cho trang `/preorders` public | UUID shop | Hữu ích cho single-tenant deploy khi URL không có `?shop_id=` |
 | VITE_PUBLIC_CATALOG_SHOP_ID | Shop mặc định cho catalog `/` public | UUID hoặc slug shop | Production public catalog cần shop scope nếu khách không có JWT active shop |
 | VITE_MAX_SPINNER_FRAMES | Giới hạn frame spinner ở UI | `48` | Phải khớp hoặc nhỏ hơn `MAX_SPINNER_FRAMES` backend |
+| VITE_CAPTCHA_ENABLED | Bật CAPTCHA ở frontend | `false` | **Phải đồng bộ** với `CAPTCHA_ENABLED` backend để tránh lệch hành vi FE/BE |
 | VITE_CAPTCHA_PROVIDER | Provider CAPTCHA cho frontend | `cloudflare` | Phải khớp với `CAPTCHA_PROVIDER` backend |
-| VITE_CAPTCHA_SITE_KEY | Site key từ dashboard CAPTCHA | `...` | Tùy chọn; bật widget khi có giá trị |
+| VITE_CAPTCHA_SITE_KEY | Site key từ dashboard CAPTCHA | `...` | Dùng khi `VITE_CAPTCHA_ENABLED=true`; nếu thiếu thì frontend sẽ không render CAPTCHA |
 
 ## Object storage (Cloudflare R2)
 
