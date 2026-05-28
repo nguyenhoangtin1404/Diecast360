@@ -118,8 +118,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * Login with email and password
    * Server will set HttpOnly cookies automatically
    */
-  const login = async (email: string, password: string) => {
-    const response = await apiClient.post('/auth/login', { email, password }) as ApiResponse<{
+  const login = async (email: string, password: string, captchaToken?: string) => {
+    const response = await apiClient.post('/auth/login', {
+      email,
+      password,
+      ...(captchaToken ? { captcha_token: captchaToken } : {}),
+    }) as ApiResponse<{
       user: User;
       message: string;
     }> | {

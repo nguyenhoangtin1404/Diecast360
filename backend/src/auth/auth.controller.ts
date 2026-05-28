@@ -1,5 +1,5 @@
 import { Controller, Post, Get, Body, UseGuards, UseInterceptors, Request, Res, HttpCode, HttpStatus } from '@nestjs/common';
-import { Response } from 'express';
+import { Request as ExpressRequest, Response } from 'express';
 import * as crypto from 'crypto';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -11,6 +11,7 @@ import { LoginDto } from './dto/login.dto';
 import { SwitchShopDto } from './dto/switch-shop.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ConfigService } from '@nestjs/config';
+import { CaptchaService } from '../common/captcha/captcha.service';
 
 // Cookie configuration interface
 interface CookieOptions {
@@ -27,6 +28,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly loginAuditService: LoginAuditService,
     private readonly configService: ConfigService,
+    private readonly captchaService: CaptchaService,
   ) {}
 
   /**
@@ -94,9 +96,10 @@ export class AuthController {
   @UseInterceptors(LoginAuditInterceptor)
   async login(
     @Body() loginDto: LoginDto,
-    @Request() req,
+    @Request() req: ExpressRequest,
     @Res({ passthrough: true }) res: Response,
   ) {
+    await this.captchaService.verify(loginDto.captcha_token, req.ip);
     const hasTraceId = typeof req[LOGIN_TRACE_ID_KEY] === 'string' && req[LOGIN_TRACE_ID_KEY].length > 0;
     const traceId = hasTraceId ? req[LOGIN_TRACE_ID_KEY] : createLoginTraceId();
     if (!hasTraceId) {
@@ -104,7 +107,6 @@ export class AuthController {
     }
     const ip = extractClientIp(req);
     const userAgent = extractUserAgent(req);
-
     const result = await this.authService.login(loginDto);
 
     this.loginAuditService.record({
