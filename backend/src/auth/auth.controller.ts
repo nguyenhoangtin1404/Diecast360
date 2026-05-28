@@ -97,9 +97,11 @@ export class AuthController {
     @Request() req,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const traceId = typeof req[LOGIN_TRACE_ID_KEY] === 'string' && req[LOGIN_TRACE_ID_KEY].length > 0
-      ? req[LOGIN_TRACE_ID_KEY]
-      : createLoginTraceId();
+    const hasTraceId = typeof req[LOGIN_TRACE_ID_KEY] === 'string' && req[LOGIN_TRACE_ID_KEY].length > 0;
+    const traceId = hasTraceId ? req[LOGIN_TRACE_ID_KEY] : createLoginTraceId();
+    if (!hasTraceId) {
+      res.setHeader('X-Trace-Id', traceId);
+    }
     const ip = extractClientIp(req);
     const userAgent = extractUserAgent(req);
 

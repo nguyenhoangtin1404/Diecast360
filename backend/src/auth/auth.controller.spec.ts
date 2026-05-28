@@ -126,6 +126,10 @@ describe('AuthController login audit', () => {
     );
 
     expect(createLoginTraceId).toHaveBeenCalledTimes(1);
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'X-Trace-Id',
+      'trace-fallback-00000000-0000-7000-8000-000000000003',
+    );
     expect(loginAuditService.record).toHaveBeenCalledWith(
       expect.objectContaining({
         trace_id: 'trace-fallback-00000000-0000-7000-8000-000000000003',
