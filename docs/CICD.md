@@ -6,28 +6,52 @@ Tài liệu này khớp workflow trong `.github/workflows/` (cập nhật 2026-0
 
 ## Sơ đồ
 
-```text
-PR / push → develop|main
-    │
-    ├─ CI (ci.yml) ─────────────────────────────────────────────┐
-    │    Backend: lint, build, jest (mock DB)                     │
-    │    Backend Health Check: Postgres 16 + migrate + boot API   │
-    │    Frontend: lint, tsc, build, Vitest, Playwright E2E       │
-    │    Security: pnpm audit --audit-level=high                  │
-    │    CI Success (gate branch protection)                      │
-    │    [push main only] Record push changed-files artifact      │
-    ├─ Gitleaks, Commitlint (PR), PR title, Labeler, Neon PR…     │
-    │
-push main + CI success
-    │
-    └─ Deploy backend (Pi) (deploy-backend.yml)
-         check-changes (path filter, xem artifact push)
-         → Prisma migrate (production / Neon)
-         → Build & deploy on Pi (rsync, restart, health probe)
-         → CD Success (fail nếu backend đổi mà migrate/deploy fail)
+### PR (fail-fast trong CI)
 
-Frontend production: Vercel GitHub App (check riêng trên commit, không nằm trong ci.yml).
+```text
+                    ┌── Backend ──────────────┐
+                    │   lint → build → jest   │
+                    │         │               │
+                    │         ▼ (needs)       │
+                    │   Health Check (smoke)  │
+                    └───┬─────────────────────┘
+                        │
+    Frontend ───────────┼── Security (audit)
+    (lint,tsc,build,    │
+     e2e)               ▼
+                  CI Success  ←── bất kỳ job fail → đỏ, không merge
 ```
+
+Song song: Gitleaks, Commitlint, PR title, Neon preview (PR), Vercel preview.
+
+### Production CD sau merge `main` (fail-fast)
+
+```text
+CI Success (main push)
+        │
+        ▼
+Check backend changed?
+        │
+   No ──┴── Yes
+   │         │
+   │         ▼
+   │    Build gate (ubuntu) ──fail──► dừng (không migrate Neon)
+   │         │
+   │         ▼
+   │    Prisma migrate (Neon) ──fail──► dừng (không deploy Pi)
+   │         │
+   │         ▼
+   │    Build & deploy on Pi + health JSON ──fail──► CD Success đỏ
+   │         │
+   │         ▼
+   │    CD Success xanh
+   │
+   └──► CD Success (skipped — chỉ frontend/docs đổi)
+
+Vercel production: check riêng; nên bật “Wait for Checks” = CI Success.
+```
+
+Thứ tự job trong `deploy-backend.yml`: `check-changes` → `build` → `migrate` → `deploy` → `cd-success` (mỗi bước `needs` bước trước).
 
 ---
 
@@ -38,8 +62,8 @@ Frontend production: Vercel GitHub App (check riêng trên commit, không nằm 
 | **Chất lượng code** | `CI / CI Success` | Không | Job xanh trên PR |
 | **Backend smoke (giả lập)** | `CI / Backend Health Check` | Không — Postgres trong container CI, không phải Neon/Pi | JSON health + DB `SELECT 1` trên runner Ubuntu |
 | **Frontend** | `CI / Frontend` + **Vercel** | Vercel: có (static) khi merge/push branch được hook | Vercel check + dashboard Deployments |
-| **DB production** | *Không hiện trên PR* | Có — khi CD chạy | Actions → **Deploy backend (Pi)** → **Prisma migrate (production)** |
-| **Backend Pi** | *Không hiện trên PR* | Có — khi có thay đổi backend-relevant | Cùng workflow → **Build & deploy on Pi** → **CD Success** |
+| **DB production** | *Không hiện trên PR* | Có — sau **Build gate** CD | **Prisma migrate (production)** |
+| **Backend Pi** | *Không hiện trên PR* | Có — khi backend-relevant | **Build & deploy on Pi** → **CD Success** |
 
 ---
 
@@ -50,7 +74,7 @@ Workflow **`Deploy backend (Pi)`** chạy khi:
 1. Workflow **CI** kết thúc **success** trên **`main`**, event **push** (sau merge), **hoặc**
 2. **`workflow_dispatch`** (luôn deploy, bỏ qua path filter).
 
-Job **`Check if backend changed`** bỏ qua migrate + deploy nếu **không** có file trong:
+Job **`Check if backend changed`** bỏ qua **build, migrate, deploy** nếu **không** có file trong:
 
 - `backend/**`
 - `pnpm-lock.yaml`
@@ -88,7 +112,9 @@ Frontend staging: Vercel preview (không job trong repo).
 | Pi health sau deploy | `curl` + assert JSON envelope | Giống CI về DB; **không** probe media/storage (postmortem 2026-05-26) |
 | Vercel | Build + deploy static | Không verify API prod; `VITE_*` phải đúng trên Vercel dashboard |
 
-**Migrate thành công, deploy fail:** schema Neon có thể đã lên trước code — xử lý theo [`RUNBOOKS/data-loss-incident.md`](RUNBOOKS/data-loss-incident.md) / rollback runbook, không auto-down migration.
+**Build gate (CD):** compile trên GitHub **trước** `prisma migrate deploy` — tránh migrate Neon khi code không build được (CI trên PR đã build một lần; gate CD bắt lại đúng SHA merge).
+
+**Migrate thành công, deploy Pi fail:** schema Neon có thể đã lên trước binary trên Pi — xử lý theo [`RUNBOOKS/data-loss-incident.md`](RUNBOOKS/data-loss-incident.md) / rollback runbook, không auto-down migration.
 
 ---
 
@@ -113,7 +139,8 @@ Frontend staging: Vercel preview (không job trong repo).
 |-------------|-------------------------|
 | CI xanh, prod backend cũ | Chỉ đổi `frontend/**` → CD skip (đúng thiết kế) |
 | CD xanh nhưng không deploy | `backend=false` — xem log **Check if backend changed** |
-| Migrate fail | Secret Neon / `DIRECT_URL`, migration conflict |
+| Build gate (CD) fail | TypeScript/Nest build lỗi — migrate/deploy không chạy |
+| Migrate fail | Secret Neon / `DIRECT_URL`, migration conflict — deploy Pi không chạy |
 | Deploy fail trên Pi | Runner offline, `sudo systemctl`, thiếu `.env`, build ARM OOM |
 | Health fail Pi | Neon down, `PORT` sai, app crash — xem `journalctl -u diecast360-api` |
 | Vercel xanh, API lỗi | `VITE_API_BASE_URL` sai hoặc Pi/tunnel down (CD không chạy) |

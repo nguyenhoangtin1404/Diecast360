@@ -39,7 +39,7 @@ Pinned tooling: **`packageManager`** và **`engines`** trong `package.json` gố
 | **`Commitlint`** | Pull requests | Conventional commits cho từng commit trong PR (`.commitlintrc.json`). |
 | **`PR Title Lint`** | PR opened/edited/… | Title semantic (squash-merge). Types giống commitlint (`feat`, `fix`, …). |
 | **`Labeler`** (`pull_request_target`) | Pull requests → `main`, `develop` | Label theo path (`.github/labeler.yml`); cần tạo sẵn labels `area:*`, `deps` trong repo. |
-| **`Deploy backend (Pi)`** | **`workflow_run` sau khi CI trên `main` success** (push event), hoặc `workflow_dispatch` | Migrate Neon → deploy Pi; job **`CD Success`** khi backend đổi. Path filter dùng artifact `push-changed-files-<sha>` từ CI. **Không** hiện trên PR checks — xem [`docs/CICD.md`](docs/CICD.md). Health `/api/v1/health` không probe storage (postmortem 2026-05-26). |
+| **`Deploy backend (Pi)`** | **`workflow_run` sau khi CI trên `main` success** (push event), hoặc `workflow_dispatch` | Fail-fast: **build gate** → migrate Neon → deploy Pi → **`CD Success`**. Path filter: artifact `push-changed-files-<sha>`. **Không** hiện trên PR checks — [`docs/CICD.md`](docs/CICD.md). Health không probe storage (postmortem 2026-05-26). |
 
 **Pi (một lần):** bật pnpm khớp [`package.json`](package.json) `packageManager`, ví dụ:
 

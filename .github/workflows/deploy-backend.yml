@@ -1,5 +1,5 @@
-# CD: (1) Apply Prisma migrations on GitHub-hosted runner (reaches Neon reliably).
-# (2) Build on self-hosted Pi, deploy via `pnpm deploy` (production bundle), prisma generate, restart.
+# CD (fail-fast): check-changes → build gate (GitHub) → migrate (Neon) → deploy (Pi) → CD Success.
+# Build runs before migrate so a broken compile does not touch production schema.
 #
 # Trigger: CI workflow completed successfully after a push to `main`, or manual workflow_dispatch.
 #
@@ -98,12 +98,53 @@ jobs:
             echo "backend=true" >> "$GITHUB_OUTPUT"
           else
             echo "backend=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No backend-relevant changes — skipping migrate & deploy."
+            echo "::notice::No backend-relevant changes — skipping build, migrate & deploy."
           fi
+
+  build:
+    name: Build backend (gate)
+    needs: check-changes
+    if: needs.check-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install & build
+        env:
+          NPM_CONFIG_PRODUCTION: "false"
+          NODE_ENV: development
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter ./backend run build
+
+      - name: Verify build output
+        run: |
+          test -d backend/dist
+          test -n "$(find backend/dist -type f -print -quit)" \
+            || (echo "::error::backend/dist empty — aborting CD"; exit 1)
 
   migrate:
     name: Prisma migrate (production)
-    needs: check-changes
+    needs: [check-changes, build]
     if: needs.check-changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     environment: production
@@ -259,13 +300,14 @@ jobs:
 
   cd-success:
     name: CD Success
-    needs: [check-changes, migrate, deploy]
+    needs: [check-changes, build, migrate, deploy]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Report CD outcome
         env:
           BACKEND: ${{ needs.check-changes.outputs.backend }}
+          BUILD: ${{ needs.build.result }}
           MIGRATE: ${{ needs.migrate.result }}
           DEPLOY: ${{ needs.deploy.result }}
         run: |
@@ -276,9 +318,10 @@ jobs:
             echo "No \`backend/**\`, \`pnpm-lock.yaml\`, or deploy workflow changes." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          for job in migrate deploy; do
+          for job in build migrate deploy; do
             r=""
             case "$job" in
+              build) r="$BUILD" ;;
               migrate) r="$MIGRATE" ;;
               deploy) r="$DEPLOY" ;;
             esac
@@ -287,6 +330,6 @@ jobs:
               exit 1
             fi
           done
-          echo "Production CD completed (migrate + Pi deploy)."
+          echo "Production CD completed (build gate, migrate, Pi deploy)."
           echo "## CD Success" >> "$GITHUB_STEP_SUMMARY"
-          echo "Neon migrate and Pi deploy finished." >> "$GITHUB_STEP_SUMMARY"
+          echo "Build gate, Neon migrate, and Pi deploy finished." >> "$GITHUB_STEP_SUMMARY"
