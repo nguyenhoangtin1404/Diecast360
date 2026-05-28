@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: pnpm/action-setup@v5
         with:
@@ -80,7 +80,7 @@ jobs:
     environment: staging
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: pnpm/action-setup@v5
         with:
@@ -115,7 +115,7 @@ jobs:
       DEPLOY_REMOTE_PATH: ${{ vars.STAGING_DEPLOY_PATH }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Enable corepack / pnpm
         run: |
