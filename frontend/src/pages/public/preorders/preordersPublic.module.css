@@ -79,6 +79,41 @@
   line-height: 1.55;
 }
 
+.deliveryHint {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.deliveryHintLabel {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ct-muted, #64748b);
+}
+
+.deliveryHintValue {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--ct-muted, #64748b);
+}
+
+.depositWindow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.depositWindowLabel {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ct-muted, #64748b);
+}
+
 .badge {
   width: fit-content;
   padding: 0.25rem 0.65rem;

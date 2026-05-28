@@ -42,7 +42,7 @@
     "@nestjs/core": "^11.1.10",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
-    "@nestjs/platform-express": "^11.1.10",
+    "@nestjs/platform-express": "^11.1.24",
     "@nestjs/throttler": "^6.5.0",
     "@pinecone-database/pinecone": "^7.0.0",
     "@prisma/client": "^6.19.1",
@@ -77,16 +77,16 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/qrcode": "^1.5.6",
     "@types/uuid": "^10.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^8.60.0",
     "@typescript-eslint/parser": "^8.56.0",
     "ajv": "^6.12.6",
     "eslint": "^9.39.2",
     "globals": "^17.3.0",
-    "jest": "^30.2.0",
-    "ts-jest": "^29.4.6",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.56.0"
+    "typescript-eslint": "^8.60.0"
   },
   "prisma": {
     "seed": "ts-node prisma/seed-categories.ts"

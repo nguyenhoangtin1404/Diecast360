@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { PREORDER_STATUS_LABELS } from '../../constants/preorder';
 import { safeHttpUrlForAttribute } from '../../utils/safeHttpUrl';
 import { PublicBlobPageShell } from '../../components/PublicBlobPageShell';
+import { PreorderReceiptActions } from '../../components/preorders/PreorderReceiptActions';
 import styles from './preorders/preordersPublic.module.css';
 
 export const MyOrdersPage = () => {
@@ -64,6 +65,10 @@ export const MyOrdersPage = () => {
               <button type="button" className={styles.ctaSecondary}>
                 Quản lý thanh toán
               </button>
+              <PreorderReceiptActions
+                preorderId={card.id}
+                buttonClassName={styles.ctaSecondary}
+              />
             </div>
           </article>
         ))}

@@ -110,4 +110,16 @@ export class PreordersController {
     }
     return this.preordersService.findMyOrders(userId, tenantId, query);
   }
+
+  @Get(':id/receipt')
+  @UseGuards(JwtAuthGuard, TenantGuard)
+  getReceipt(
+    @Param('id') id: string,
+    @CurrentTenantId() tenantId: string,
+    @CurrentUserId() userId: string | null,
+    @Req() req: Request,
+  ) {
+    const platformRole = (req.user as { platform_role?: PlatformRole | null } | undefined)?.platform_role ?? null;
+    return this.preordersService.getReceipt(id, tenantId, { userId, platformRole });
+  }
 }

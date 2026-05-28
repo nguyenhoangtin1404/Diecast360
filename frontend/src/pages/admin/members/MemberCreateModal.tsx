@@ -7,11 +7,12 @@ type MemberCreateModalProps = {
     full_name: string;
     email: string;
     phone: string;
+    address: string;
   };
   isSubmitting: boolean;
   errorMessage: string | null;
   onClose: () => void;
-  onFormChange: (next: { full_name: string; email: string; phone: string }) => void;
+  onFormChange: (next: { full_name: string; email: string; phone: string; address: string }) => void;
   onSubmit: (event: FormEvent) => void;
 };
 

@@ -25,6 +25,7 @@ describe('publicCatalogUrlState', () => {
       carBrand: 'Toyota',
       modelBrand: null,
       condition: 'old',
+      preorderOpen: false,
       sortBy: 'price',
       sortOrder: 'asc',
     });
@@ -37,6 +38,7 @@ describe('publicCatalogUrlState', () => {
       carBrand: 'Nissan',
       modelBrand: null,
       condition: null,
+      preorderOpen: false,
       sortBy: 'created_at',
       sortOrder: 'desc',
     });
@@ -82,6 +84,7 @@ describe('publicCatalogUrlState', () => {
       carBrand: null,
       modelBrand: null,
       condition: null,
+      preorderOpen: false,
       sortBy: 'created_at',
       sortOrder: 'desc',
     });

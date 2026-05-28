@@ -5,6 +5,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import type { StringValue } from 'ms';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { LoginAuditService } from './login-audit.service';
+import { LoginAuditInterceptor } from './login-audit.interceptor';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaModule } from '../common/prisma/prisma.module';
 import { CaptchaModule } from '../common/captcha/captcha.module';
@@ -32,8 +34,8 @@ import { CaptchaModule } from '../common/captcha/captcha.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
-  exports: [AuthService],
+  providers: [AuthService, LoginAuditService, LoginAuditInterceptor, JwtStrategy],
+  exports: [AuthService, LoginAuditService],
 })
 export class AuthModule {}
 

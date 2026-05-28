@@ -56,6 +56,19 @@ export class QueryItemsDto {
   @IsOptional()
   @IsIn(['posted', 'not_posted'])
   fb_status?: 'posted' | 'not_posted';
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      if (value.toLowerCase() === 'true') return true;
+      if (value.toLowerCase() === 'false') return false;
+    }
+    return value;
+  })
+  @IsBoolean()
+  preorder_open?: boolean;
 }
 
 

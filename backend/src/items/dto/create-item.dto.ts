@@ -10,6 +10,7 @@ import {
   IsInt,
   ValidateIf,
   MaxLength,
+  IsISO8601,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ItemStatus } from '../../generated/prisma/client';
@@ -90,6 +91,16 @@ export class CreateItemDto {
   @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
   @IsString()
   draft_id?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  preorder_closes_at?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  preorder_price?: number;
 }
 
 

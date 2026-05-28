@@ -1,6 +1,6 @@
 # GitHub Actions self-hosted runner trên Raspberry Pi (deploy backend)
 
-Khi runner chạy **trực tiếp trên Pi**, workflow **không** SSH từ internet vào nhà: job **`migrate`** chạy trước trên **GitHub-hosted** (`prisma migrate deploy` với secret Neon); job deploy trên Pi chỉ `checkout` → `build` trên ARM → `rsync` nội bộ → `npm ci` → `prisma generate` → `systemctl restart`.
+Khi runner chạy **trực tiếp trên Pi**, workflow **không** SSH từ internet vào nhà: job **`migrate`** chạy trước trên **GitHub-hosted** (`pnpm install --frozen-lockfile` + `pnpm --filter ./backend exec prisma migrate deploy`); job deploy trên Pi chỉ `checkout` → **`pnpm` install + build + `pnpm deploy --prod --legacy`** → `rsync` bundle (giữ `.env`) → `npx prisma generate` → `systemctl restart`.
 
 **Nhãn runner bắt buộc:** workflow dùng `runs-on: [self-hosted, diecast360-pi]`. Khi đăng ký runner, thêm nhãn tùy chọn **`diecast360-pi`** (Settings → Actions → Runners → runner của bạn → labels), hoặc thêm lúc cấu hình lần đầu.
 

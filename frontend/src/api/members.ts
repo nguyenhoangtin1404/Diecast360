@@ -65,14 +65,24 @@ export async function deleteMemberTier(tierId: string) {
   return response.data.ok;
 }
 
-export async function createMember(payload: { full_name: string; email?: string; phone?: string }) {
+export async function createMember(payload: {
+  full_name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+}) {
   const response = (await apiClient.post('/members', payload)) as ApiResponse<MemberPayload>;
   return response.data.member;
 }
 
 export async function updateMember(
   memberId: string,
-  payload: Partial<{ full_name: string; email: string | null; phone: string | null }>,
+  payload: Partial<{
+    full_name: string;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+  }>,
 ) {
   const response = (await apiClient.patch(`/members/${memberId}`, payload)) as ApiResponse<MemberPayload>;
   return response.data.member;

@@ -1,4 +1,5 @@
-import { IsOptional, IsInt, Min, IsString, IsIn, Max, MaxLength } from 'class-validator';
+import { IsOptional, IsInt, Min, IsString, IsIn, Max, MaxLength, IsBoolean } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { Type } from 'class-transformer';
 
 export class QueryPublicItemsDto {
@@ -51,5 +52,18 @@ export class QueryPublicItemsDto {
   @IsOptional()
   @IsIn(['asc', 'desc'])
   sort_order?: 'asc' | 'desc' = 'desc';
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      if (value.toLowerCase() === 'true') return true;
+      if (value.toLowerCase() === 'false') return false;
+    }
+    return value;
+  })
+  @IsBoolean()
+  preorder_open?: boolean;
 }
 

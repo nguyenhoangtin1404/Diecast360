@@ -977,6 +977,23 @@ describe('ItemsService', () => {
       expect(result.item.status).toBe('preorder');
     });
 
+    it('should set preorder_opens_at to item created_at when entering preorder', async () => {
+      const createdAt = new Date('2025-06-01T00:00:00.000Z');
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'con_hang', created_at: createdAt });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'preorder' });
+
+      await service.update('item-123', { status: 'preorder' }, TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'preorder',
+            preorder_opens_at: createdAt,
+          }),
+        }),
+      );
+    });
+
     it('should allow transition from preorder to con_hang', async () => {
       prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'preorder' });
       prisma.item.update.mockResolvedValue({ ...mockItem, status: 'con_hang' });
@@ -984,6 +1001,34 @@ describe('ItemsService', () => {
       const result = await service.update('item-123', { status: 'con_hang' }, TEST_SHOP_ID);
 
       expect(result.item.status).toBe('con_hang');
+    });
+
+    it('should clear preorder_opens_at when leaving preorder even if payload sends preorder_closes_at: null', async () => {
+      // Reproduces Codex P2: admin editor sends `preorder_closes_at: null` for non-preorder
+      // statuses, which previously skipped the opens_at clear branch and left stale data.
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        status: 'preorder',
+        preorder_opens_at: new Date('2025-06-01T00:00:00.000Z'),
+        preorder_closes_at: new Date('2025-07-01T00:00:00.000Z'),
+      });
+      prisma.item.update.mockResolvedValue({ ...mockItem, status: 'con_hang' });
+
+      await service.update(
+        'item-123',
+        { status: 'con_hang', preorder_closes_at: null },
+        TEST_SHOP_ID,
+      );
+
+      expect(prisma.item.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: 'con_hang',
+            preorder_closes_at: null,
+            preorder_opens_at: null,
+          }),
+        }),
+      );
     });
 
     it('should allow preorder → preorder self-transition (editing other fields does not break)', async () => {
@@ -1344,6 +1389,148 @@ describe('ItemsService', () => {
       prisma.item.findFirst.mockResolvedValue(null);
 
       await expect(service.remove('nonexistent', TEST_SHOP_ID)).rejects.toThrow(AppException);
+    });
+  });
+
+  // ============================================================
+  // closePreorder
+  // ============================================================
+  describe('closePreorder', () => {
+    const preorderItem = {
+      ...mockItem,
+      status: 'preorder' as ItemStatus,
+      preorder_closes_at: null,
+    };
+
+    it('should set preorder_closes_at to now when preorder is open-ended', async () => {
+      prisma.item.findFirst.mockResolvedValue(preorderItem);
+      const closedItem = { ...preorderItem, preorder_closes_at: new Date() };
+      prisma.item.update.mockResolvedValue(closedItem);
+
+      const result = await service.closePreorder('item-123', TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: { preorder_closes_at: expect.any(Date) },
+      });
+      expect(result.item).toBe(closedItem);
+    });
+
+    it('should set preorder_closes_at to now when closes_at is in the future', async () => {
+      const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      prisma.item.findFirst.mockResolvedValue({ ...preorderItem, preorder_closes_at: futureDate });
+      prisma.item.update.mockResolvedValue({ ...preorderItem, preorder_closes_at: new Date() });
+
+      await service.closePreorder('item-123', TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalled();
+    });
+
+    it('should throw NOT_FOUND when item does not exist', async () => {
+      prisma.item.findFirst.mockResolvedValue(null);
+
+      await expect(service.closePreorder('nonexistent', TEST_SHOP_ID)).rejects.toMatchObject({
+        errorCode: ErrorCode.NOT_FOUND,
+      });
+    });
+
+    it('should throw VALIDATION_ERROR when item is not a preorder item', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'con_hang' });
+
+      await expect(service.closePreorder('item-123', TEST_SHOP_ID)).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+      });
+    });
+
+    it('should throw VALIDATION_ERROR when preorder is already closed', async () => {
+      const pastDate = new Date(Date.now() - 60 * 1000);
+      prisma.item.findFirst.mockResolvedValue({ ...preorderItem, preorder_closes_at: pastDate });
+
+      await expect(service.closePreorder('item-123', TEST_SHOP_ID)).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+      });
+      expect(prisma.item.update).not.toHaveBeenCalled();
+    });
+
+    it('should reject when active shop id is missing', async () => {
+      await expect(service.closePreorder('item-123', '')).rejects.toMatchObject({
+        errorCode: ErrorCode.AUTH_FORBIDDEN,
+      });
+    });
+  });
+
+  // ============================================================
+  // reopenPreorder
+  // ============================================================
+  describe('reopenPreorder', () => {
+    const pastDate = new Date(Date.now() - 60 * 1000);
+    const closedPreorderItem = {
+      ...mockItem,
+      status: 'preorder' as ItemStatus,
+      preorder_closes_at: pastDate,
+    };
+
+    it('should clear preorder_closes_at when preorder is closed', async () => {
+      prisma.item.findFirst.mockResolvedValue(closedPreorderItem);
+      const reopenedItem = { ...closedPreorderItem, preorder_closes_at: null };
+      prisma.item.update.mockResolvedValue(reopenedItem);
+
+      const result = await service.reopenPreorder('item-123', TEST_SHOP_ID);
+
+      expect(prisma.item.update).toHaveBeenCalledWith({
+        where: { id: 'item-123' },
+        data: { preorder_closes_at: null, preorder_opens_at: expect.any(Date) },
+      });
+      expect(result.item).toBe(reopenedItem);
+    });
+
+    it('should throw NOT_FOUND when item does not exist', async () => {
+      prisma.item.findFirst.mockResolvedValue(null);
+
+      await expect(service.reopenPreorder('nonexistent', TEST_SHOP_ID)).rejects.toMatchObject({
+        errorCode: ErrorCode.NOT_FOUND,
+      });
+    });
+
+    it('should throw VALIDATION_ERROR when item is not a preorder item', async () => {
+      prisma.item.findFirst.mockResolvedValue({ ...mockItem, status: 'con_hang' });
+
+      await expect(service.reopenPreorder('item-123', TEST_SHOP_ID)).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+      });
+    });
+
+    it('should throw VALIDATION_ERROR when preorder is still open (closes_at in future)', async () => {
+      const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        status: 'preorder' as ItemStatus,
+        preorder_closes_at: futureDate,
+      });
+
+      await expect(service.reopenPreorder('item-123', TEST_SHOP_ID)).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+      });
+      expect(prisma.item.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw VALIDATION_ERROR when preorder has no closes_at (open-ended)', async () => {
+      prisma.item.findFirst.mockResolvedValue({
+        ...mockItem,
+        status: 'preorder' as ItemStatus,
+        preorder_closes_at: null,
+      });
+
+      await expect(service.reopenPreorder('item-123', TEST_SHOP_ID)).rejects.toMatchObject({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+      });
+      expect(prisma.item.update).not.toHaveBeenCalled();
+    });
+
+    it('should reject when active shop id is missing', async () => {
+      await expect(service.reopenPreorder('item-123', '')).rejects.toMatchObject({
+        errorCode: ErrorCode.AUTH_FORBIDDEN,
+      });
     });
   });
 

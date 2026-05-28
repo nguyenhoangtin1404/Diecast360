@@ -104,10 +104,12 @@ Primary key: `(user_id, shop_id)`.
 | `is_public` | boolean | default `false` |
 | `notes` | text? | Internal notes |
 | `fb_post_content` | text? | Caption/content lưu cho social selling |
+| `preorder_closes_at` | datetime? | Nullable; thời điểm đóng nhận đặt pre-order. `NULL` = mở vô thời hạn. Service tự xóa khi `status` rời `preorder`. |
+| `preorder_price` | decimal(18,0)? | Nullable; giá áp dụng trong thời gian cửa sổ preorder còn mở. `NULL` = dùng `price` thông thường. **Không tự xóa khi đổi status** — luôn lưu để admin theo dõi; catalog quyết định hiển thị. |
 | `qr_token` | text? | NULL, UNIQUE; token 16-ký tự hex tạo lazily khi admin gọi `GET /items/:id/qr` lần đầu |
 | `created_at`, `updated_at`, `deleted_at` | datetime | soft delete bằng `deleted_at` |
 
-Indexes: `status`, `created_at`, `deleted_at`, `car_brand`, `model_brand`, `condition`, `shop_id`, `qr_token` (UNIQUE).
+Indexes: `status`, `created_at`, `deleted_at`, `car_brand`, `model_brand`, `condition`, `shop_id`, `qr_token` (UNIQUE), `(status, preorder_closes_at)` (dùng cho filter `preorder_open`).
 
 ### item_images
 
@@ -212,7 +214,7 @@ Unique: `(shop_id, name)`, `(shop_id, rank)`. Index: `(shop_id, rank)`.
 | `id` | uuid | PK |
 | `shop_id` | uuid | FK `shops(id)` ON DELETE CASCADE |
 | `full_name` | string | NOT NULL |
-| `email`, `phone` | string? | Unique theo shop khi có giá trị |
+| `email`, `phone`, `address` | string? | `email`/`phone` unique theo shop khi có giá trị |
 | `points_balance` | int | default `0` |
 | `tier_id` | uuid? | FK `membership_tiers(id)` ON DELETE SET NULL |
 | `created_at`, `updated_at` | datetime | timestamps |

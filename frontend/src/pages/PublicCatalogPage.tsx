@@ -74,6 +74,7 @@ export const PublicCatalogPage = () => {
       carBrand: string | null;
       modelBrand: string | null;
       condition: 'new' | 'old' | null;
+      preorderOpen: boolean;
       sortBy: CatalogSortBy;
       sortOrder: CatalogSortOrder;
     }>,
@@ -99,6 +100,7 @@ export const PublicCatalogPage = () => {
       urlState.carBrand,
       urlState.modelBrand,
       urlState.condition,
+      urlState.preorderOpen,
       urlState.sortBy,
       urlState.sortOrder,
     ],
@@ -114,6 +116,7 @@ export const PublicCatalogPage = () => {
       if (urlState.carBrand) params.append('car_brand', urlState.carBrand);
       if (urlState.modelBrand) params.append('model_brand', urlState.modelBrand);
       if (urlState.condition) params.append('condition', urlState.condition);
+      if (urlState.preorderOpen) params.append('preorder_open', 'true');
       params.append('sort_by', urlState.sortBy);
       params.append('sort_order', urlState.sortOrder);
 
@@ -152,20 +155,15 @@ export const PublicCatalogPage = () => {
 
   const activeFilterCount = useMemo(() => {
     let n = 0;
-    if (urlState.carBrand) {
-      n += 1;
-    }
-    if (urlState.modelBrand) {
-      n += 1;
-    }
-    if (urlState.condition) {
-      n += 1;
-    }
+    if (urlState.carBrand) n += 1;
+    if (urlState.modelBrand) n += 1;
+    if (urlState.condition) n += 1;
+    if (urlState.preorderOpen) n += 1;
     return n;
-  }, [urlState.carBrand, urlState.modelBrand, urlState.condition]);
+  }, [urlState.carBrand, urlState.modelBrand, urlState.condition, urlState.preorderOpen]);
 
   const clearCatalogFilters = useCallback(() => {
-    updateUrlState({ carBrand: null, modelBrand: null, condition: null });
+    updateUrlState({ carBrand: null, modelBrand: null, condition: null, preorderOpen: false });
   }, [updateUrlState]);
 
   const closeFilterPanel = useCallback(() => {
@@ -288,6 +286,19 @@ export const PublicCatalogPage = () => {
                     <span className="sr-only">Gỡ lọc tình trạng</span>
                   </button>
                 )}
+                {urlState.preorderOpen && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded-full bg-shop/10 py-1 pl-3 pr-2 text-sm font-medium text-shop ring-1 ring-shop/15 hover:bg-shop/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
+                    onClick={() => updateUrlState({ preorderOpen: false })}
+                  >
+                    Đang mở đặt hàng
+                    <span className="text-base leading-none opacity-70" aria-hidden>
+                      ×
+                    </span>
+                    <span className="sr-only">Gỡ lọc pre-order</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   className="ml-1 text-sm font-semibold text-shop underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shop focus-visible:ring-offset-2"
@@ -362,9 +373,11 @@ export const PublicCatalogPage = () => {
                     carBrand={urlState.carBrand}
                     modelBrand={urlState.modelBrand}
                     condition={urlState.condition}
+                    preorderOpen={urlState.preorderOpen}
                     onCarBrandChange={(nextCarBrand) => updateUrlState({ carBrand: nextCarBrand })}
                     onModelBrandChange={(nextModelBrand) => updateUrlState({ modelBrand: nextModelBrand })}
                     onConditionChange={(nextCondition) => updateUrlState({ condition: nextCondition })}
+                    onPreorderOpenChange={(val) => updateUrlState({ preorderOpen: val })}
                   />
                 </div>
               </div>
@@ -381,7 +394,7 @@ export const PublicCatalogPage = () => {
           {items.length === 0 && !isLoading && (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 py-14 text-center">
               <p className="text-lg font-semibold text-slate-800">Không tìm thấy sản phẩm nào.</p>
-              {(urlState.search || urlState.carBrand || urlState.modelBrand || urlState.condition) && (
+              {(urlState.search || urlState.carBrand || urlState.modelBrand || urlState.condition || urlState.preorderOpen) && (
                 <p className="mt-2 text-sm text-slate-500">Thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm.</p>
               )}
             </div>

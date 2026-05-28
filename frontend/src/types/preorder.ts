@@ -13,6 +13,8 @@ export interface PreOrderCard {
   display_price: number;
   deposit_amount: number;
   countdown_target: string | null;
+  preorder_closes_at?: string | null;
+  preorder_opens_at?: string | null;
   title: string;
   short_specs: string;
   cover_image_url: string | null;
@@ -34,6 +36,9 @@ export interface AdminPreOrder {
   member_id?: string | null;
   item?: {
     name: string;
+    preorder_closes_at?: string | null;
+    preorder_opens_at?: string | null;
+    created_at?: string;
   };
   user?: {
     id: string;
@@ -44,6 +49,7 @@ export interface AdminPreOrder {
     id: string;
     full_name: string;
     phone: string | null;
+    address?: string | null;
   } | null;
 }
 
@@ -70,6 +76,7 @@ export interface Participant {
     id: string;
     full_name: string;
     phone: string | null;
+    address?: string | null;
   } | null;
 }
 

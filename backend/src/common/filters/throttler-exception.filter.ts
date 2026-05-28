@@ -3,16 +3,51 @@ import {
   Catch,
   ArgumentsHost,
   HttpStatus,
+  Optional,
+  Logger,
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { ErrorCode } from '../constants/error-codes';
+import { createLoginTraceId } from '../../auth/login-trace-id';
+import { LoginAuditService } from '../../auth/login-audit.service';
+import {
+  extractClientIp,
+  extractLoginEmail,
+  extractUserAgent,
+  isLoginEndpoint,
+} from '../../auth/login-audit.helpers';
 
 @Catch(ThrottlerException)
 export class ThrottlerExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(ThrottlerExceptionFilter.name);
+
+  constructor(
+    @Optional() private readonly loginAuditService?: LoginAuditService,
+  ) {
+    if (!loginAuditService) {
+      this.logger.warn('LoginAuditService not injected — throttled login attempts will not be audited');
+    }
+  }
+
   catch(_exception: ThrottlerException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
+    const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
+
+    if (isLoginEndpoint(request.path) && this.loginAuditService) {
+      const traceId = createLoginTraceId();
+      response.setHeader('X-Trace-Id', traceId);
+
+      this.loginAuditService.record({
+        trace_id: traceId,
+        email: extractLoginEmail(request.body),
+        ip_address: extractClientIp(request),
+        user_agent: extractUserAgent(request),
+        status: 'failed',
+        failure_reason: 'rate_limited',
+      });
+    }
 
     response
       .status(HttpStatus.TOO_MANY_REQUESTS)

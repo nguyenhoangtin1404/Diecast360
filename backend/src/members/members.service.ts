@@ -112,12 +112,15 @@ export class MembersService {
           select: { id: true },
         });
 
+        const normalizedAddress = dto.address?.trim() || null;
+
         const member = await tx.member.create({
           data: {
             shop_id: tenantId,
             full_name: dto.full_name.trim(),
             email: normalizedEmail,
             phone: normalizedPhone,
+            address: normalizedAddress,
             tier_id: baseTier?.id ?? null,
           },
           include: { tier: true },
@@ -177,12 +180,16 @@ export class MembersService {
           }
         }
 
+        const nextAddress =
+          dto.address === undefined ? undefined : dto.address?.trim() || null;
+
         const member = await tx.member.update({
           where: { id: memberId },
           data: {
             full_name: dto.full_name?.trim(),
             email: nextEmail,
             phone: nextPhone,
+            address: nextAddress,
           },
           include: { tier: true },
         });

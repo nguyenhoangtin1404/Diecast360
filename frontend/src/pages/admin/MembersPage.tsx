@@ -42,7 +42,7 @@ export const MembersPage = () => {
   const [deleteMemberCandidate, setDeleteMemberCandidate] = useState<Member | null>(null);
   const [membersPage, setMembersPage] = useState(1);
   const [ledgerPage, setLedgerPage] = useState(1);
-  const [createForm, setCreateForm] = useState({ full_name: '', email: '', phone: '' });
+  const [createForm, setCreateForm] = useState({ full_name: '', email: '', phone: '', address: '' });
   const [adjustForm, setAdjustForm] = useState({
     type: 'adjust' as MemberPointsMutationType,
     points: '1',
@@ -52,7 +52,7 @@ export const MembersPage = () => {
   const [adjustError, setAdjustError] = useState<string | null>(null);
   const [createMemberErrorInline, setCreateMemberErrorInline] = useState<string | null>(null);
   const [editMemberErrorInline, setEditMemberErrorInline] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ full_name: '', email: '', phone: '' });
+  const [editForm, setEditForm] = useState({ full_name: '', email: '', phone: '', address: '' });
   const [tierForm, setTierForm] = useState({ name: '', rank: '1', min_points: '0' });
 
   const membersQuery = useQuery({
@@ -72,7 +72,7 @@ export const MembersPage = () => {
   const createMutation = useMutation({
     mutationFn: createMember,
     onSuccess: async () => {
-      setCreateForm({ full_name: '', email: '', phone: '' });
+      setCreateForm({ full_name: '', email: '', phone: '', address: '' });
       setCreateMemberErrorInline(null);
       setIsCreateModalOpen(false);
       await queryClient.invalidateQueries({ queryKey: ['members'] });
@@ -116,6 +116,7 @@ export const MembersPage = () => {
         full_name: editForm.full_name.trim(),
         email: editForm.email.trim() || null,
         phone: editForm.phone.trim() || null,
+        address: editForm.address.trim() || null,
       });
     },
     onSuccess: async () => {
@@ -198,6 +199,7 @@ export const MembersPage = () => {
       full_name: createForm.full_name.trim(),
       email: createForm.email.trim() || undefined,
       phone: createForm.phone.trim() || undefined,
+      address: createForm.address.trim() || undefined,
     });
   };
 
@@ -262,6 +264,7 @@ export const MembersPage = () => {
               full_name: member.full_name ?? '',
               email: member.email ?? '',
               phone: member.phone ?? '',
+              address: member.address ?? '',
             });
           }}
           onDeleteMember={(member) => setDeleteMemberCandidate(member)}

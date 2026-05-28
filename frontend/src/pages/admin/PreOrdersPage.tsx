@@ -6,6 +6,7 @@ import { PREORDER_STATUS_LABELS } from '../../constants/preorder';
 import { usePreorderTransition } from '../../hooks/usePreorderTransition';
 import type { PreOrderStatus } from '../../types/preorder';
 import { PREORDER_STATUS_COLORS, PREORDER_TRANSITIONS } from './preorders/status';
+import { PreorderReceiptActions } from '../../components/preorders/PreorderReceiptActions';
 import styles from './preorders/preordersAdmin.module.css';
 
 export const PreOrdersPage = () => {
@@ -79,6 +80,11 @@ export const PreOrdersPage = () => {
             </span>
             <span>Số lượng: {preorder.quantity}</span>
             <span>Tổng tiền: {(preorder.total_amount ?? preorder.unit_price ?? 0).toLocaleString('vi-VN')} VND</span>
+            <PreorderReceiptActions
+              preorderId={preorder.id}
+              className={styles.controls}
+              buttonClassName={styles.button}
+            />
             <div className={styles.controls}>
               {(PREORDER_TRANSITIONS[preorder.status] ?? []).map((status) => (
                 <button

@@ -1,9 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { PlatformRole, PreOrderStatus, ShopRole } from '../generated/prisma/client';
 import { AppException } from '../common/exceptions/http-exception.filter';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PreordersService } from './preorders.service';
 import { MembersService } from '../members/members.service';
+
+const testJwtSecret = 'test-jwt-secret-for-preorders-spec-32';
 
 describe('PreordersService', () => {
   let service: PreordersService;
@@ -39,6 +42,16 @@ describe('PreordersService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: 'IStorageService', useValue: storage },
         { provide: MembersService, useValue: membersService },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string) => {
+              if (key === 'BACKEND_URL') return 'https://api.example.com';
+              if (key === 'JWT_SECRET') return testJwtSecret;
+              return undefined;
+            },
+          },
+        },
       ],
     }).compile();
 
@@ -80,6 +93,9 @@ describe('PreordersService', () => {
           brand: 'Mini GT',
           car_brand: 'Nissan',
           model_brand: 'Skyline',
+          preorder_closes_at: null,
+          preorder_opens_at: new Date('2026-01-01T00:00:00.000Z'),
+          created_at: new Date('2026-01-01T00:00:00.000Z'),
           item_images: [{ file_path: 'images/cover.jpg' }],
         },
       },
@@ -90,6 +106,8 @@ describe('PreordersService', () => {
       expect.objectContaining({
         status: PreOrderStatus.WAITING_FOR_GOODS,
         countdown_target: expect.any(Date),
+        preorder_closes_at: null,
+        preorder_opens_at: '2026-01-01T00:00:00.000Z',
         display_price: 200,
         short_specs: expect.stringContaining('1:64'),
         cover_image_url: 'http://localhost/images/cover.jpg',
@@ -419,5 +437,149 @@ describe('PreordersService', () => {
     await expect(
       service.transitionStatus('po-2', PreOrderStatus.WAITING_FOR_GOODS, tenantId, 'u1'),
     ).rejects.toBeInstanceOf(AppException);
+  });
+
+  // ─── getReceipt auth matrix ───────────────────────────────────────────────
+  describe('getReceipt', () => {
+    const preorderId = 'receipt-po-1';
+    const ownerUserId = 'owner-user-id';
+    const otherUserId = 'other-user-id';
+    const staffUserId = 'staff-user-id';
+    const superUserId = 'platform-super-id';
+
+    const baseRow = {
+      id: preorderId,
+      shop_id: tenantId,
+      user_id: ownerUserId,
+      status: PreOrderStatus.WAITING_FOR_GOODS,
+      quantity: 1,
+      unit_price: { toNumber: () => 500_000 },
+      total_amount: { toNumber: () => 500_000 },
+      deposit_amount: { toNumber: () => 100_000 },
+      paid_amount: { toNumber: () => 100_000 },
+      note: null,
+      created_at: new Date('2026-05-01T00:00:00.000Z'),
+      item: { name: 'Mini GT R34' },
+      member: null,
+      user: { id: ownerUserId, full_name: 'Owner', email: 'owner@test.com' },
+    };
+
+    const shopRow = {
+      name: 'Shop Test',
+      contact_json: { phone: { label: '0123456789', tel: '+840123456789' }, address: '123 ABC' },
+      appearance_json: { logo_url: 'https://example.com/logo.png' },
+    };
+
+    beforeEach(() => {
+      prisma.preOrder.findFirst.mockResolvedValue(baseRow);
+      prisma.shop.findFirst.mockResolvedValue(shopRow);
+      prisma.userShopRole.findUnique.mockResolvedValue(null);
+    });
+
+    it('200 — chủ đơn (user_id === actor) có thể xem phiếu', async () => {
+      const result = await service.getReceipt(preorderId, tenantId, {
+        userId: ownerUserId,
+        platformRole: null,
+      });
+      expect(result.preorder.id).toBe(preorderId);
+      expect(result.shop.name).toBe('Shop Test');
+    });
+
+    it('200 — shop_staff được phép xem phiếu đơn bất kỳ trong shop', async () => {
+      prisma.userShopRole.findUnique.mockResolvedValue({ role: ShopRole.shop_staff });
+      const result = await service.getReceipt(preorderId, tenantId, {
+        userId: staffUserId,
+        platformRole: null,
+      });
+      expect(result.preorder.id).toBe(preorderId);
+    });
+
+    it('200 — shop_admin được phép xem phiếu đơn bất kỳ trong shop', async () => {
+      prisma.userShopRole.findUnique.mockResolvedValue({ role: ShopRole.shop_admin });
+      const result = await service.getReceipt(preorderId, tenantId, {
+        userId: 'admin-user-id',
+        platformRole: null,
+      });
+      expect(result.preorder.id).toBe(preorderId);
+    });
+
+    it('200 — platform_super được phép xem mọi phiếu', async () => {
+      const result = await service.getReceipt(preorderId, tenantId, {
+        userId: superUserId,
+        platformRole: PlatformRole.platform_super,
+      });
+      expect(result.preorder.id).toBe(preorderId);
+      expect(prisma.userShopRole.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('403 — user không phải chủ đơn và không phải staff bị từ chối', async () => {
+      await expect(
+        service.getReceipt(preorderId, tenantId, {
+          userId: otherUserId,
+          platformRole: null,
+        }),
+      ).rejects.toBeInstanceOf(AppException);
+    });
+
+    it('403 — user thuộc shop khác (membership null) + không phải chủ đơn bị từ chối', async () => {
+      prisma.userShopRole.findUnique.mockResolvedValue(null);
+      await expect(
+        service.getReceipt(preorderId, tenantId, {
+          userId: otherUserId,
+          platformRole: null,
+        }),
+      ).rejects.toBeInstanceOf(AppException);
+    });
+
+    it('404 — preorder không tồn tại trong shop', async () => {
+      prisma.preOrder.findFirst.mockResolvedValue(null);
+      await expect(
+        service.getReceipt('nonexistent-id', tenantId, {
+          userId: ownerUserId,
+          platformRole: null,
+        }),
+      ).rejects.toBeInstanceOf(AppException);
+    });
+
+    it('404 — shop không tồn tại', async () => {
+      prisma.shop.findFirst.mockResolvedValue(null);
+      await expect(
+        service.getReceipt(preorderId, tenantId, {
+          userId: ownerUserId,
+          platformRole: null,
+        }),
+      ).rejects.toBeInstanceOf(AppException);
+    });
+
+    it('discount_amount luôn null — dòng chiết khấu ẩn trên phiếu', async () => {
+      const result = await service.getReceipt(preorderId, tenantId, {
+        userId: ownerUserId,
+        platformRole: null,
+      });
+      expect(result.preorder.discount_amount).toBeNull();
+    });
+
+    it('contact.address được parse từ contact_json — không parse thủ công', async () => {
+      const result = await service.getReceipt(preorderId, tenantId, {
+        userId: ownerUserId,
+        platformRole: null,
+      });
+      expect(result.shop.address).toBe('123 ABC');
+    });
+
+    it('rewrites shop-branding R2 logo to API signed media URL for CORS-safe export', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        ...shopRow,
+        appearance_json: {
+          logo_url:
+            'https://acct.r2.cloudflarestorage.com/bucket/shop-branding/tenant_logo.jpg?X-Amz-Signature=x',
+        },
+      });
+      const result = await service.getReceipt(preorderId, tenantId, {
+        userId: ownerUserId,
+        platformRole: null,
+      });
+      expect(result.shop.logo_url).toMatch(/^https:\/\/api\.example\.com\/api\/v1\/media\?/);
+    });
   });
 });

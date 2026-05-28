@@ -122,6 +122,7 @@ model User {
   pre_orders     PreOrder[]
   inventory_transactions InventoryTransaction[]
   member_points_ledger MemberPointsLedger[]
+  login_audit_logs LoginAuditLog[]
 
   @@map("users")
 }
@@ -179,6 +180,10 @@ model Item {
   deleted_at     DateTime?
   notes          String?
   fb_post_content String?
+  preorder_closes_at DateTime?
+  /** When the current preorder deposit window opened; backfilled from created_at for legacy rows. */
+  preorder_opens_at  DateTime?
+  preorder_price     Decimal?    @db.Decimal(18,0)
   // Multi-tenant: shop_id is nullable for backward-compatible migration.
   // All new items must have a shop_id. Migration sets existing items to default shop.
   shop_id        String?
@@ -199,6 +204,8 @@ model Item {
   @@index([model_brand])
   @@index([condition])
   @@index([shop_id])
+  @@index([status, preorder_closes_at])
+  @@index([status, preorder_opens_at])
 }
 
 model InventoryTransaction {
@@ -285,6 +292,7 @@ model Member {
   full_name      String
   email          String?
   phone          String?
+  address        String?
   points_balance Int      @default(0)
   tier_id        String?
   created_at     DateTime @default(now())
@@ -409,6 +417,27 @@ model Category {
   @@index([type, display_order])
   @@index([shop_id, type])
   @@index([shop_id, type, name])
+}
+
+model LoginAuditLog {
+  id             String   @id @default(uuid(7))
+  trace_id       String   @unique
+  user_id        String?
+  email          String
+  shop_id        String?
+  ip_address     String?
+  user_agent     String?
+  status         String   // 'success' | 'failed'
+  failure_reason String?
+  created_at     DateTime @default(now())
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@map("login_audit_logs")
+  @@index([user_id, trace_id(sort: Desc)])
+  @@index([status, trace_id(sort: Desc)])
+  @@index([created_at(sort: Desc)])
+  @@index([email, created_at(sort: Desc)])
 }
 
 model AiItemDraft {

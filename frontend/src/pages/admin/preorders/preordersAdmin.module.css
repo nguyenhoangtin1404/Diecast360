@@ -92,6 +92,21 @@
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.countdownOverview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 0.75rem;
+}
+
+.countdownOverviewLabel {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ct-muted, #64748b);
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

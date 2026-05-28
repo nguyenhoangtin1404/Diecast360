@@ -5,6 +5,8 @@ import { fetchAdminPreorders, fetchCampaignParticipants } from '../../../api/pre
 import { PREORDER_STATUS_LABELS } from '../../../constants/preorder';
 import { usePreorderTransition } from '../../../hooks/usePreorderTransition';
 import { PREORDER_TRANSITIONS } from './status';
+import { PreorderCountdown } from '../../../components/preorder/PreorderCountdown';
+import { PreorderReceiptActions } from '../../../components/preorders/PreorderReceiptActions';
 import styles from './preordersAdmin.module.css';
 
 const PAGE_SIZE = 50;
@@ -56,10 +58,38 @@ export const PreOrderManagementPage = () => {
   const campaignPreorders = (data?.preorders ?? []).filter((order) => order.item_id === effectiveCampaignId);
   const projectedRevenue = campaignPreorders.reduce((sum, order) => sum + (order.total_amount ?? 0), 0);
 
+  /** Earliest preorder close among rows for this item — avoids misleading deadline when SKUs differ. */
+  const campaignPreorderDeadline = useMemo(() => {
+    const rows = (data?.preorders ?? []).filter((order) => order.item_id === effectiveCampaignId);
+    let best: string | null = null;
+    let bestMs = Infinity;
+    for (const o of rows) {
+      const raw = o.item?.preorder_closes_at;
+      if (!raw) continue;
+      const ms = new Date(raw).getTime();
+      if (!Number.isFinite(ms)) continue;
+      if (ms < bestMs) {
+        bestMs = ms;
+        best = raw;
+      }
+    }
+    return best;
+  }, [data?.preorders, effectiveCampaignId]);
+
   const { transitionMutation, transitionError } = usePreorderTransition(() => {
     void queryClient.invalidateQueries({ queryKey: ['admin-preorder-manage'] });
     void queryClient.invalidateQueries({ queryKey: ['admin-preorder-participants'] });
   });
+
+  const campaignOpensAt =
+    campaignPreorders[0]?.item?.preorder_opens_at ?? campaignPreorders[0]?.item?.created_at;
+
+  const campaignCountdown = campaignPreorderDeadline ? (
+    <div className={styles.countdownOverview}>
+      <span className={styles.countdownOverviewLabel}>Hạn nhận đặt cọc (sớm nhất trong đợt)</span>
+      <PreorderCountdown opensAt={campaignOpensAt} closesAt={campaignPreorderDeadline} />
+    </div>
+  ) : null;
 
   return (
     <div className={styles.container}>
@@ -116,6 +146,7 @@ export const PreOrderManagementPage = () => {
       <div className={styles.gridTwo}>
         <div className={styles.card}>
           <h2>Tổng quan campaign</h2>
+          {campaignCountdown}
           <p data-testid="admin-campaign-summary">
             Số đơn đang mở (campaign đã chọn): {campaignPreorders.length}
           </p>
@@ -193,6 +224,12 @@ export const PreOrderManagementPage = () => {
             </strong>
             <span>Số lượng: {participant.quantity}</span>
             <span>Trạng thái: {PREORDER_STATUS_LABELS[participant.status]}</span>
+            <PreorderReceiptActions
+              preorderId={participant.preorder_id}
+              className={styles.controls}
+              buttonClassName={styles.button}
+              compact
+            />
             <div className={styles.controls}>
               {(PREORDER_TRANSITIONS[participant.status] ?? []).map((status) => (
                 <button
