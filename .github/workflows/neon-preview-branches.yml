@@ -34,6 +34,7 @@ jobs:
     # Do not re-expose connection strings as job outputs (they contain credentials).
     needs: setup
     if: |
+      github.actor != 'dependabot[bot]' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event_name == 'pull_request' && (
         github.event.action == 'synchronize'
@@ -87,6 +88,7 @@ jobs:
     name: Delete Neon Branch
     needs: setup
     if: |
+      github.actor != 'dependabot[bot]' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
