@@ -20,6 +20,7 @@
       ]
     ],
     "subject-case": [2, "never", ["upper-case"]],
-    "subject-max-length": [2, "always", 100]
+    "subject-max-length": [2, "always", 100],
+    "body-max-line-length": [0]
   }
 }
