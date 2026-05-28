@@ -67,7 +67,7 @@ jobs:
       - name: Download push changed-files from CI
         if: github.event_name == 'workflow_run'
         id: push_artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: push-changed-files-${{ github.event.workflow_run.head_sha }}
           path: /tmp/push-changed-files

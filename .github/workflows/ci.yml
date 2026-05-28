@@ -117,7 +117,7 @@ jobs:
         run: pnpm install --frozen-lockfile --filter ./backend...
 
       - name: Download backend dist
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: backend-dist
           path: backend/dist
