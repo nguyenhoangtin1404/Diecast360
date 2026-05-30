@@ -7,6 +7,7 @@ export const LOGIN_TRACE_ID_KEY = 'loginTraceId';
 export type LoginFailureReason =
   | 'invalid_credentials'
   | 'account_locked'
+  | 'captcha_failed'
   | 'validation_error'
   | 'rate_limited'
   | 'internal_error';
@@ -73,7 +74,7 @@ export function mapLoginFailureReason(error: unknown): LoginFailureReason {
       return 'rate_limited';
     }
     if (error.errorCode === ErrorCode.CAPTCHA_FAILED) {
-      return 'validation_error';
+      return 'captcha_failed';
     }
     return 'internal_error';
   }

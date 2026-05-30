@@ -29,7 +29,10 @@ export class LoginSecurityService {
     let entry = this.emailWindows.get(key);
     if (!entry || now - entry.windowStartMs >= windowMs) {
       if (this.emailWindows.size >= 1000) {
-        this.emailWindows.clear();
+        // Evict only expired entries to avoid resetting windows for active emails
+        for (const [k, v] of this.emailWindows) {
+          if (now - v.windowStartMs >= windowMs) this.emailWindows.delete(k);
+        }
       }
       entry = { count: 0, windowStartMs: now };
       this.emailWindows.set(key, entry);

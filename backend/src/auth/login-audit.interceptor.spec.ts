@@ -83,7 +83,7 @@ describe('LoginAuditInterceptor', () => {
     expect(loginAuditService.record).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'failed',
-        failure_reason: 'validation_error',
+        failure_reason: 'captcha_failed',
       }),
     );
   });
