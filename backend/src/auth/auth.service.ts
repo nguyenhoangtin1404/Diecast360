@@ -45,6 +45,7 @@ export class AuthService {
 
     if (!user || !user.is_active) {
       this.logger.warn(`auth.login_failed reason=user_missing_or_inactive email=${email}`);
+      this.loginSecurity.recordEmailFailedAttempt(email);
       this.loginAudit.record({
         traceId: ctx.traceId,
         email,
@@ -75,6 +76,7 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.password_hash);
     if (!isPasswordValid) {
       this.logger.warn(`auth.login_failed reason=bad_password email=${email}`);
+      this.loginSecurity.recordEmailFailedAttempt(email);
       const { locked } = await this.loginSecurity.recordFailedLogin(user.id);
       this.loginAudit.record({
         traceId: ctx.traceId,
@@ -88,13 +90,12 @@ export class AuthService {
       this.securityAlerts.recordLoginFailed(email);
       if (locked) {
         this.securityAlerts.recordAccountLocked(email);
-        const lockMs = Number(process.env.AUTH_LOCKOUT_DURATION_MS || 1_800_000);
         throw new AppException(
           ErrorCode.AUTH_ACCOUNT_LOCKED,
           'Account temporarily locked due to too many failed login attempts. Please try again later.',
           [],
           undefined,
-          Math.ceil(lockMs / 1000),
+          await this.loginSecurity.getLockoutRetryAfterSeconds(),
         );
       }
       throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials');

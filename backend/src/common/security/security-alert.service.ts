@@ -36,7 +36,6 @@ export class SecurityAlertService {
     void this.sendDeduped(
       'account_locked',
       `🔒 Diecast360: account locked after failed logins.\nEmail: ${this.maskEmail(email)}`,
-      0,
     );
   }
 

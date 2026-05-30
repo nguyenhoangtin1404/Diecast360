@@ -21,15 +21,32 @@ export class LoginSecurityService {
     return email.trim().toLowerCase();
   }
 
+  /** Check rate limit without incrementing — call before attempting authentication. */
   assertEmailRateLimit(email: string): void {
     const limit = Number(this.config.get<string>('AUTH_EMAIL_RATE_LIMIT', '10'));
+    const windowMs = Number(this.config.get<string>('AUTH_EMAIL_RATE_WINDOW_MS', '900000'));
+    const key = this.normalizeEmail(email);
+    const now = Date.now();
+    const entry = this.emailWindows.get(key);
+    if (entry && now - entry.windowStartMs < windowMs && entry.count > limit) {
+      throw new AppException(
+        ErrorCode.RATE_LIMIT_EXCEEDED,
+        'Too many login attempts for this account. Please try again later.',
+        [],
+        undefined,
+        Math.ceil((entry.windowStartMs + windowMs - now) / 1000),
+      );
+    }
+  }
+
+  /** Increment the failed-attempt counter for an email. Call only after a failed login. */
+  recordEmailFailedAttempt(email: string): void {
     const windowMs = Number(this.config.get<string>('AUTH_EMAIL_RATE_WINDOW_MS', '900000'));
     const key = this.normalizeEmail(email);
     const now = Date.now();
     let entry = this.emailWindows.get(key);
     if (!entry || now - entry.windowStartMs >= windowMs) {
       if (this.emailWindows.size >= 1000) {
-        // Evict only expired entries to avoid resetting windows for active emails
         for (const [k, v] of this.emailWindows) {
           if (now - v.windowStartMs >= windowMs) this.emailWindows.delete(k);
         }
@@ -38,15 +55,6 @@ export class LoginSecurityService {
       this.emailWindows.set(key, entry);
     }
     entry.count += 1;
-    if (entry.count > limit) {
-      throw new AppException(
-        ErrorCode.RATE_LIMIT_EXCEEDED,
-        'Too many login attempts for this account. Please try again later.',
-        [],
-        undefined,
-        Math.ceil(windowMs / 1000),
-      );
-    }
   }
 
   async assertAccountNotLocked(user: {
@@ -97,6 +105,11 @@ export class LoginSecurityService {
       data: { locked_until: lockedUntil },
     });
     return { locked: true };
+  }
+
+  getLockoutRetryAfterSeconds(): number {
+    const lockMs = Number(this.config.get<string>('AUTH_LOCKOUT_DURATION_MS', '1800000'));
+    return Math.ceil(lockMs / 1000);
   }
 
   async recordSuccessfulLogin(userId: string): Promise<void> {

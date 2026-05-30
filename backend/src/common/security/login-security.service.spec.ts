@@ -28,17 +28,33 @@ describe('LoginSecurityService', () => {
     );
   });
 
-  it('should rate limit by email after threshold', () => {
-    expect(() => {
-      service.assertEmailRateLimit('a@test.com');
-      service.assertEmailRateLimit('a@test.com');
-      service.assertEmailRateLimit('a@test.com');
-      service.assertEmailRateLimit('a@test.com');
-    }).toThrow(AppException);
+  it('should not rate limit before threshold is reached', () => {
+    // Record 3 failures (= limit) — should not throw
+    service.recordEmailFailedAttempt('a@test.com');
+    service.recordEmailFailedAttempt('a@test.com');
+    service.recordEmailFailedAttempt('a@test.com');
+    expect(() => service.assertEmailRateLimit('a@test.com')).not.toThrow();
+  });
+
+  it('should rate limit by email once failure count exceeds threshold', () => {
+    // 4 failures with limit=3: count=4 > limit=3 → blocked
+    service.recordEmailFailedAttempt('a@test.com');
+    service.recordEmailFailedAttempt('a@test.com');
+    service.recordEmailFailedAttempt('a@test.com');
+    service.recordEmailFailedAttempt('a@test.com');
+
     try {
       service.assertEmailRateLimit('a@test.com');
+      fail('expected to throw');
     } catch (e) {
       expect((e as AppException).errorCode).toBe(ErrorCode.RATE_LIMIT_EXCEEDED);
+    }
+  });
+
+  it('should not rate limit successful logins (assertEmailRateLimit called without prior failures)', () => {
+    // Simulates a user who logs in successfully many times — should never be rate-limited
+    for (let i = 0; i < 20; i++) {
+      expect(() => service.assertEmailRateLimit('b@test.com')).not.toThrow();
     }
   });
 

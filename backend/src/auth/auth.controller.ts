@@ -107,7 +107,6 @@ export class AuthController {
       userAgent: extractUserAgent(req),
     });
 
-
     // Set access_token cookie (15 minutes)
     const accessTokenMaxAge = 15 * 60 * 1000;
     res.cookie('access_token', result.access_token, this.getCookieOptions(accessTokenMaxAge));
