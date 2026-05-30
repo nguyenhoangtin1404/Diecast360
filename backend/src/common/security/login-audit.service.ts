@@ -62,5 +62,18 @@ export class LoginAuditService {
         failure_reason: entry.failureReason ?? null,
       },
     });
+
+    // Probabilistic cleanup (1% chance) to keep table bounded.
+    // Retains 90 days of audit history; safe to miss — next request will clean.
+    if (Math.random() < 0.01) {
+      const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      void this.prisma.loginAuditLog
+        .deleteMany({ where: { created_at: { lt: cutoff } } })
+        .catch((err) => {
+          this.logger.warn(
+            `login_audit.cleanup_failed err=${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
   }
 }

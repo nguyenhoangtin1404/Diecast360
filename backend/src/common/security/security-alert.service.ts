@@ -110,6 +110,7 @@ export class SecurityAlertService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chat_id: chatId, text }),
+        signal: AbortSignal.timeout(5000),
       });
       if (!res.ok) {
         this.logger.warn(`telegram.send_failed status=${res.status}`);
