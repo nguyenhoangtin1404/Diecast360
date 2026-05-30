@@ -9,14 +9,12 @@ import { LoginAuditService } from './login-audit.service';
 import { LoginAuditInterceptor } from './login-audit.interceptor';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaModule } from '../common/prisma/prisma.module';
-import { CaptchaModule } from '../common/captcha/captcha.module';
 
 @Module({
   imports: [
     PrismaModule,
     PassportModule,
     ConfigModule,
-    CaptchaModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {

@@ -1,7 +1,6 @@
 import { Controller, Post, Get, Body, UseGuards, UseInterceptors, Request, Res, HttpCode, HttpStatus } from '@nestjs/common';
 import { Request as ExpressRequest, Response } from 'express';
 import * as crypto from 'crypto';
-import { v7 as uuidv7 } from 'uuid';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginAuditService } from './login-audit.service';
@@ -12,7 +11,6 @@ import { LoginDto } from './dto/login.dto';
 import { SwitchShopDto } from './dto/switch-shop.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ConfigService } from '@nestjs/config';
-import { CaptchaService } from '../common/captcha/captcha.service';
 
 // Cookie configuration interface
 interface CookieOptions {
@@ -29,7 +27,6 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly loginAuditService: LoginAuditService,
     private readonly configService: ConfigService,
-    private readonly captchaService: CaptchaService,
   ) {}
 
   /**
@@ -112,23 +109,15 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const ip = extractClientIp(req);
-    await this.captchaService.verify(loginDto.captcha_token, ip);
     const hasTraceId = typeof req[LOGIN_TRACE_ID_KEY] === 'string' && req[LOGIN_TRACE_ID_KEY].length > 0;
     const traceId = hasTraceId ? req[LOGIN_TRACE_ID_KEY] : createLoginTraceId();
     if (!hasTraceId) {
       res.setHeader('X-Trace-Id', traceId);
     }
-    const userAgent = extractUserAgent(req);
-    const result = await this.authService.login(loginDto);
-
-    this.loginAuditService.record({
-      trace_id: traceId,
-      user_id: result.user.id,
-      email: result.user.email,
-      shop_id: result.active_shop_id,
-      ip_address: ip,
-      user_agent: userAgent,
-      status: 'success',
+    const result = await this.authService.login(loginDto, {
+      traceId,
+      ipAddress: ip,
+      userAgent: extractUserAgent(req),
     });
 
 

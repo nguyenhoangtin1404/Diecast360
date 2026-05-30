@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { useAuth } from '../../hooks/useAuth';
@@ -44,14 +44,10 @@ export const LoginPage = () => {
   const navigate = useNavigate();
   const { execute: executeRecaptcha, loadError: recaptchaLoadError } = useRecaptchaV3();
 
-  const handleCaptchaToken = useCallback((token: string | null) => {
-    setCaptchaToken(token);
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (captchaOn && captchaProvider === 'cloudflare' && !captchaToken) {
+    if (isTurnstile && !captchaToken) {
       setError('Vui lòng hoàn tất xác minh bảo mật trước khi đăng nhập.');
       return;
     }

@@ -14,9 +14,6 @@ describe('AuthController login audit', () => {
   const loginAuditService = {
     record: jest.fn(),
   };
-  const captchaService = {
-    verify: jest.fn(),
-  };
   const configService = {
     get: jest.fn((key: string) => {
       if (key === 'COOKIE_SECURE') return 'false';
@@ -29,7 +26,6 @@ describe('AuthController login audit', () => {
     authService as never,
     loginAuditService as never,
     configService as never,
-    captchaService as never,
   );
 
   const res = {
@@ -39,21 +35,14 @@ describe('AuthController login audit', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    captchaService.verify.mockResolvedValue(undefined);
   });
 
-  it('records success audit with trace id from interceptor', async () => {
+  it('passes traceId + ip + userAgent to authService.login', async () => {
     authService.login.mockResolvedValue({
       access_token: 'access',
       refresh_token: 'refresh',
       active_shop_id: 'shop-1',
-      user: {
-        id: 'user-1',
-        email: 'admin@test.com',
-        full_name: 'Admin',
-        role: 'admin',
-        platform_role: null,
-      },
+      user: { id: 'user-1', email: 'admin@test.com', full_name: 'Admin', role: 'admin', platform_role: null },
     });
 
     const req = {
@@ -72,19 +61,13 @@ describe('AuthController login audit', () => {
       user: expect.objectContaining({ id: 'user-1', email: 'admin@test.com' }),
       message: 'Login successful',
     });
-    expect(captchaService.verify).toHaveBeenCalledWith(undefined, '127.0.0.1');
-    expect(loginAuditService.record).toHaveBeenCalledWith({
-      trace_id: 'trace-success-1',
-      user_id: 'user-1',
-      email: 'admin@test.com',
-      shop_id: 'shop-1',
-      ip_address: '127.0.0.1',
-      user_agent: 'jest-agent',
-      status: 'success',
-    });
+    expect(authService.login).toHaveBeenCalledWith(
+      { email: 'admin@test.com', password: 'password123' },
+      { traceId: 'trace-success-1', ipAddress: '127.0.0.1', userAgent: 'jest-agent' },
+    );
   });
 
-  it('propagates login errors without recording success audit', async () => {
+  it('propagates login errors from authService', async () => {
     authService.login.mockRejectedValue(
       new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials'),
     );
@@ -102,9 +85,6 @@ describe('AuthController login audit', () => {
         res as never,
       ),
     ).rejects.toThrow(AppException);
-
-    expect(captchaService.verify).toHaveBeenCalledWith(undefined, '127.0.0.1');
-    expect(loginAuditService.record).not.toHaveBeenCalled();
   });
 
   it('uses generated fallback trace id when interceptor key is missing', async () => {
@@ -112,13 +92,7 @@ describe('AuthController login audit', () => {
       access_token: 'access',
       refresh_token: 'refresh',
       active_shop_id: 'shop-1',
-      user: {
-        id: 'user-1',
-        email: 'admin@test.com',
-        full_name: 'Admin',
-        role: 'admin',
-        platform_role: null,
-      },
+      user: { id: 'user-1', email: 'admin@test.com', full_name: 'Admin', role: 'admin', platform_role: null },
     });
 
     const req = {
@@ -137,9 +111,10 @@ describe('AuthController login audit', () => {
       'X-Trace-Id',
       'trace-fallback-00000000-0000-7000-8000-000000000003',
     );
-    expect(loginAuditService.record).toHaveBeenCalledWith(
+    expect(authService.login).toHaveBeenCalledWith(
+      expect.any(Object),
       expect.objectContaining({
-        trace_id: 'trace-fallback-00000000-0000-7000-8000-000000000003',
+        traceId: 'trace-fallback-00000000-0000-7000-8000-000000000003',
       }),
     );
   });
