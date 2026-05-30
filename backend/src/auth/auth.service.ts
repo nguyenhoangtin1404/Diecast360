@@ -39,8 +39,9 @@ export class AuthService {
     await this.captcha.assertValid(loginDto.captcha_token, ctx.ipAddress);
     this.loginSecurity.assertEmailRateLimit(email);
 
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    // Case-insensitive lookup so accounts created before email normalization still work.
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: loginDto.email, mode: 'insensitive' } },
     });
 
     if (!user || !user.is_active) {

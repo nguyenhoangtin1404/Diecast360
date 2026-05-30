@@ -47,8 +47,21 @@ export class LoginSecurityService {
     let entry = this.emailWindows.get(key);
     if (!entry || now - entry.windowStartMs >= windowMs) {
       if (this.emailWindows.size >= 1000) {
+        // First try evicting expired entries.
         for (const [k, v] of this.emailWindows) {
           if (now - v.windowStartMs >= windowMs) this.emailWindows.delete(k);
+        }
+        // If still at cap (all entries unexpired), evict the oldest to enforce hard cap.
+        if (this.emailWindows.size >= 1000) {
+          let oldestKey = '';
+          let oldestTime = Infinity;
+          for (const [k, v] of this.emailWindows) {
+            if (v.windowStartMs < oldestTime) {
+              oldestTime = v.windowStartMs;
+              oldestKey = k;
+            }
+          }
+          if (oldestKey) this.emailWindows.delete(oldestKey);
         }
       }
       entry = { count: 0, windowStartMs: now };

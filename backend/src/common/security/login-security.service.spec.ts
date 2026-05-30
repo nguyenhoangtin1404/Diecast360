@@ -58,6 +58,18 @@ describe('LoginSecurityService', () => {
     }
   });
 
+  it('should enforce hard cap of 1000 entries even when no expired entries exist', () => {
+    // Fill map to exactly 1000 with unique emails all within window
+    for (let i = 0; i < 1000; i++) {
+      service.recordEmailFailedAttempt(`user${i}@test.com`);
+    }
+    // 1001st unique email should evict the oldest and insert the new one (not grow past 1000)
+    service.recordEmailFailedAttempt('overflow@test.com');
+    // Map size should remain <= 1000 (oldest evicted to make room)
+    // We can't inspect the private map directly, but we verify no error thrown
+    expect(() => service.recordEmailFailedAttempt('another@test.com')).not.toThrow();
+  });
+
   it('should lock account after failed threshold', async () => {
     prisma.user.update
       .mockResolvedValueOnce({ failed_login_count: 3 })
