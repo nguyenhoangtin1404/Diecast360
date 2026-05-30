@@ -6,6 +6,7 @@ export const LOGIN_TRACE_ID_KEY = 'loginTraceId';
 
 export type LoginFailureReason =
   | 'invalid_credentials'
+  | 'account_locked'
   | 'validation_error'
   | 'rate_limited'
   | 'internal_error';
@@ -37,6 +38,20 @@ export function extractLoginEmail(body: unknown): string {
   return typeof raw === 'string' ? raw.slice(0, 254) : '';
 }
 
+/** Error codes that AuthService already records audit for before throwing. */
+const AUDITED_BY_SERVICE = new Set<string>([
+  ErrorCode.AUTH_INVALID_CREDENTIALS,
+  ErrorCode.AUTH_ACCOUNT_LOCKED,
+]);
+
+/**
+ * Returns true when the interceptor should skip recording audit because
+ * AuthService has already written a record with the same trace_id.
+ */
+export function isAlreadyAuditedByService(error: unknown): boolean {
+  return error instanceof AppException && AUDITED_BY_SERVICE.has(error.errorCode);
+}
+
 export function mapLoginFailureReason(error: unknown): LoginFailureReason {
   if (error instanceof ThrottlerException) {
     return 'rate_limited';
@@ -45,6 +60,12 @@ export function mapLoginFailureReason(error: unknown): LoginFailureReason {
   if (error instanceof AppException) {
     if (error.errorCode === ErrorCode.AUTH_INVALID_CREDENTIALS) {
       return 'invalid_credentials';
+    }
+    if (error.errorCode === ErrorCode.AUTH_ACCOUNT_LOCKED) {
+      return 'account_locked';
+    }
+    if (error.errorCode === ErrorCode.RATE_LIMIT_EXCEEDED) {
+      return 'rate_limited';
     }
     if (error.errorCode === ErrorCode.CAPTCHA_FAILED) {
       return 'validation_error';

@@ -24,7 +24,6 @@ describe('AuthController login audit', () => {
 
   const controller = new AuthController(
     authService as never,
-    loginAuditService as never,
     configService as never,
   );
 

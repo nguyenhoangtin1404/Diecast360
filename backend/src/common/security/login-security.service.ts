@@ -22,8 +22,8 @@ export class LoginSecurityService {
   }
 
   assertEmailRateLimit(email: string): void {
-    const limit = this.config.get<number>('AUTH_EMAIL_RATE_LIMIT', 10);
-    const windowMs = this.config.get<number>('AUTH_EMAIL_RATE_WINDOW_MS', 900_000);
+    const limit = Number(this.config.get<string>('AUTH_EMAIL_RATE_LIMIT', '10'));
+    const windowMs = Number(this.config.get<string>('AUTH_EMAIL_RATE_WINDOW_MS', '900000'));
     const key = this.normalizeEmail(email);
     const now = Date.now();
     let entry = this.emailWindows.get(key);
@@ -72,8 +72,8 @@ export class LoginSecurityService {
   }
 
   async recordFailedLogin(userId: string): Promise<{ locked: boolean }> {
-    const threshold = this.config.get<number>('AUTH_LOCKOUT_THRESHOLD', 5);
-    const lockMs = this.config.get<number>('AUTH_LOCKOUT_DURATION_MS', 1_800_000);
+    const threshold = Number(this.config.get<string>('AUTH_LOCKOUT_THRESHOLD', '5'));
+    const lockMs = Number(this.config.get<string>('AUTH_LOCKOUT_DURATION_MS', '1800000'));
 
     const user = await this.prisma.user.update({
       where: { id: userId },

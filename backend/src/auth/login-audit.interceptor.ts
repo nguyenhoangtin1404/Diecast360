@@ -14,6 +14,7 @@ import {
   extractClientIp,
   extractLoginEmail,
   extractUserAgent,
+  isAlreadyAuditedByService,
   mapLoginFailureReason,
 } from './login-audit.helpers';
 
@@ -36,14 +37,16 @@ export class LoginAuditInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       catchError((error: unknown) => {
-        this.loginAuditService.record({
-          trace_id: traceId,
-          email,
-          ip_address: ip,
-          user_agent: userAgent,
-          status: 'failed',
-          failure_reason: mapLoginFailureReason(error),
-        });
+        if (!isAlreadyAuditedByService(error)) {
+          this.loginAuditService.record({
+            trace_id: traceId,
+            email,
+            ip_address: ip,
+            user_agent: userAgent,
+            status: 'failed',
+            failure_reason: mapLoginFailureReason(error),
+          });
+        }
         return throwError(() => error);
       }),
     );

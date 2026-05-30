@@ -53,6 +53,7 @@ export class CaptchaService {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body,
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) {
       this.logger.warn(`captcha.cloudflare_http status=${res.status}`);
@@ -75,6 +76,7 @@ export class CaptchaService {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body,
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) {
       this.logger.warn(`captcha.google_http status=${res.status}`);

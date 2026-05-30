@@ -3,7 +3,6 @@ import { Request as ExpressRequest, Response } from 'express';
 import * as crypto from 'crypto';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { LoginAuditService } from './login-audit.service';
 import { LoginAuditInterceptor } from './login-audit.interceptor';
 import { LOGIN_TRACE_ID_KEY, extractClientIp, extractUserAgent } from './login-audit.helpers';
 import { createLoginTraceId } from './login-trace-id';
@@ -25,7 +24,6 @@ interface CookieOptions {
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly loginAuditService: LoginAuditService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -64,17 +62,6 @@ export class AuthController {
     const token = crypto.randomBytes(32).toString('hex');
     res.cookie('csrf_token', token, this.getCsrfCookieOptions());
     return token;
-  }
-
-  private resolveClientIp(req: ExpressRequest): string | undefined {
-    const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string' && forwarded.length > 0) {
-      return forwarded.split(',')[0]?.trim();
-    }
-    if (Array.isArray(forwarded) && forwarded[0]) {
-      return forwarded[0].split(',')[0]?.trim();
-    }
-    return req.ip;
   }
 
   private clearCsrfCookie(res: Response): void {
