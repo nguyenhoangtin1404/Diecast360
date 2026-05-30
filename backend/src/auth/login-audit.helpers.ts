@@ -38,10 +38,15 @@ export function extractLoginEmail(body: unknown): string {
   return typeof raw === 'string' ? raw.slice(0, 254) : '';
 }
 
-/** Error codes that AuthService already records audit for before throwing. */
+/**
+ * Error codes where AuthService records audit before throwing.
+ * AUTH_ACCOUNT_LOCKED is intentionally excluded: the assertAccountNotLocked()
+ * path does NOT record audit, so the interceptor must handle it.
+ * The bad-password lockout path does record audit, but the resulting
+ * duplicate trace_id insert fails silently (void persist, P2002 swallowed).
+ */
 const AUDITED_BY_SERVICE = new Set<string>([
   ErrorCode.AUTH_INVALID_CREDENTIALS,
-  ErrorCode.AUTH_ACCOUNT_LOCKED,
 ]);
 
 /**
