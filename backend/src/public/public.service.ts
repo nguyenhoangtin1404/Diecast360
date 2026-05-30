@@ -154,9 +154,9 @@ export class PublicService {
 
     if (queryDto.preorder_open === true) {
       where.status = 'preorder';
-      where.OR = [
-        { preorder_closes_at: null },
-        { preorder_closes_at: { gt: new Date() } },
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        { OR: [{ preorder_closes_at: null }, { preorder_closes_at: { gt: new Date() } }] },
       ];
     }
 

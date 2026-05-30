@@ -1,6 +1,5 @@
 import { IsOptional, IsInt, Min, IsString, IsIn, Max, MaxLength, IsBoolean } from 'class-validator';
-import { Transform } from 'class-transformer';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class QueryPublicItemsDto {
   @IsOptional()

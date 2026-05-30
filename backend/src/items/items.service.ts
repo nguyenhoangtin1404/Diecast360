@@ -253,9 +253,9 @@ Condition: ${item.condition || ''}`;
 
     if (queryDto.preorder_open === true) {
       where.status = 'preorder';
-      where.OR = [
-        { preorder_closes_at: null },
-        { preorder_closes_at: { gt: new Date() } },
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        { OR: [{ preorder_closes_at: null }, { preorder_closes_at: { gt: new Date() } }] },
       ];
     }
 
@@ -617,13 +617,13 @@ Condition: ${item.condition || ''}`;
     if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
     if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
 
-    // preorder_closes_at: set when explicitly provided; clear when status leaves preorder
-    if (updateDto.preorder_closes_at !== undefined) {
+    // preorder_closes_at: leaving preorder always wins (clears the window); otherwise honor payload
+    if (nextStatus !== 'preorder' && existingItem.status === 'preorder') {
+      updateData.preorder_closes_at = null;
+    } else if (updateDto.preorder_closes_at !== undefined) {
       updateData.preorder_closes_at = updateDto.preorder_closes_at
         ? new Date(updateDto.preorder_closes_at)
         : null;
-    } else if (nextStatus !== 'preorder' && existingItem.status === 'preorder') {
-      updateData.preorder_closes_at = null;
     }
 
     // preorder_opens_at lifecycle is driven solely by status transitions and must run
