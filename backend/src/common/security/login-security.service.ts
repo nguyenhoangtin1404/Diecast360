@@ -28,6 +28,9 @@ export class LoginSecurityService {
     const now = Date.now();
     let entry = this.emailWindows.get(key);
     if (!entry || now - entry.windowStartMs >= windowMs) {
+      if (this.emailWindows.size >= 1000) {
+        this.emailWindows.clear();
+      }
       entry = { count: 0, windowStartMs: now };
       this.emailWindows.set(key, entry);
     }
