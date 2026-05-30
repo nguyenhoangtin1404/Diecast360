@@ -89,7 +89,7 @@ export class SecurityAlertService {
     }
     const cooldown =
       cooldownMs ??
-      this.config.get<number>('SECURITY_ALERT_COOLDOWN_MS', 300_000);
+      Number(this.config.get<string>('SECURITY_ALERT_COOLDOWN_MS', '300000'));
     const now = Date.now();
     const prev = this.dedupe.get(kind);
     if (prev && now - prev.lastSentMs < cooldown) {
