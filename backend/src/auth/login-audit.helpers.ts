@@ -1,16 +1,11 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
+import { LoginFailureReason } from '../common/security/login-failure-reason';
+
+export type { LoginFailureReason };
 
 export const LOGIN_TRACE_ID_KEY = 'loginTraceId';
-
-export type LoginFailureReason =
-  | 'invalid_credentials'
-  | 'account_locked'
-  | 'captcha_failed'
-  | 'validation_error'
-  | 'rate_limited'
-  | 'internal_error';
 
 export function isLoginEndpoint(path: string | undefined): boolean {
   return typeof path === 'string' && path.endsWith('/auth/login');

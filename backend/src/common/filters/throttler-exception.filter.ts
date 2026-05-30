@@ -18,7 +18,11 @@ import {
   isLoginEndpoint,
 } from '../../auth/login-audit.helpers';
 import { SecurityAlertService } from '../security/security-alert.service';
-import { pathWithoutQuery } from '../middleware/csrf.middleware';
+
+function pathWithoutQuery(url: string): string {
+  const q = url.indexOf('?');
+  return q === -1 ? url : url.slice(0, q);
+}
 
 @Catch(ThrottlerException)
 export class ThrottlerExceptionFilter implements ExceptionFilter {

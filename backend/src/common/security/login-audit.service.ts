@@ -1,13 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LoginAuditStatus } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { LoginFailureReason } from './login-failure-reason';
 
-export type LoginFailureReason =
-  | 'invalid_credentials'
-  | 'account_disabled'
-  | 'account_locked'
-  | 'captcha_failed'
-  | 'rate_limited';
+export type { LoginFailureReason };
 
 export interface LoginAuditEntry {
   traceId: string;
