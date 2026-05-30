@@ -95,7 +95,7 @@ export class AuthService {
           'Account temporarily locked due to too many failed login attempts. Please try again later.',
           [],
           undefined,
-          await this.loginSecurity.getLockoutRetryAfterSeconds(),
+          this.loginSecurity.getLockoutRetryAfterSeconds(),
         );
       }
       throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials');
