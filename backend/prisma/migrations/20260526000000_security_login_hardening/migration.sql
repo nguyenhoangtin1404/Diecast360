@@ -15,6 +15,6 @@ DROP INDEX IF EXISTS "login_audit_logs_user_id_trace_id_idx";
 DROP INDEX IF EXISTS "login_audit_logs_status_trace_id_idx";
 DROP INDEX IF EXISTS "login_audit_logs_created_at_idx";
 
-CREATE INDEX "login_audit_logs_email_created_at_idx" ON "login_audit_logs"("email", "created_at" DESC);
+-- email_created_at_idx already handled by migration 20260528093000
 CREATE INDEX "login_audit_logs_user_id_created_at_idx" ON "login_audit_logs"("user_id", "created_at" DESC);
 CREATE INDEX "login_audit_logs_status_created_at_idx" ON "login_audit_logs"("status", "created_at" DESC);
