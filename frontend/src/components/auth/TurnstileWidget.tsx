@@ -96,13 +96,3 @@ export function TurnstileWidget({ siteKey, onToken }: Props) {
     </div>
   );
 }
-
-export function isCaptchaEnabled(): boolean {
-  const provider = import.meta.env.VITE_CAPTCHA_PROVIDER?.trim();
-  const siteKey = import.meta.env.VITE_CAPTCHA_SITE_KEY?.trim();
-  return Boolean(provider && siteKey);
-}
-
-export function getCaptchaProvider(): string | undefined {
-  return import.meta.env.VITE_CAPTCHA_PROVIDER?.trim() || undefined;
-}
