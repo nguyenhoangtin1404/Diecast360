@@ -57,7 +57,20 @@ export class AuthService {
       throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials');
     }
 
-    await this.loginSecurity.assertAccountNotLocked(user);
+    try {
+      await this.loginSecurity.assertAccountNotLocked(user);
+    } catch (err) {
+      this.loginAudit.record({
+        traceId: ctx.traceId,
+        email,
+        userId: user.id,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+        status: 'failed',
+        failureReason: 'account_locked',
+      });
+      throw err;
+    }
 
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.password_hash);
     if (!isPasswordValid) {

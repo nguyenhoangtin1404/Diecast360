@@ -9,11 +9,16 @@ ALTER TABLE "users"
   ADD COLUMN IF NOT EXISTS "failed_login_count" INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS "locked_until" TIMESTAMP(3);
 
--- Upgrade status column from TEXT to LoginAuditStatus enum (no-op if already correct type)
+-- Upgrade status column from TEXT to LoginAuditStatus enum (skip if already enum type)
 DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'login_audit_logs'
+      AND column_name = 'status'
+      AND udt_name = 'LoginAuditStatus'
+  ) THEN RETURN; END IF;
   ALTER TABLE "login_audit_logs"
     ALTER COLUMN "status" TYPE "LoginAuditStatus" USING "status"::"LoginAuditStatus";
-EXCEPTION WHEN others THEN null;
 END $$;
 
 -- Drop old indexes (different columns), add new ones

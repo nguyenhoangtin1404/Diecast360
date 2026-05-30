@@ -61,7 +61,7 @@ describe('LoginAuditInterceptor', () => {
     expect(loginAuditService.record).not.toHaveBeenCalled();
   });
 
-  it('audits AUTH_ACCOUNT_LOCKED (assertAccountNotLocked path has no prior audit record)', async () => {
+  it('skips audit for AUTH_ACCOUNT_LOCKED (AuthService now records all locked paths)', async () => {
     const lockedError = new AppException(ErrorCode.AUTH_ACCOUNT_LOCKED, 'Locked');
     const handler: CallHandler = { handle: () => throwError(() => lockedError) };
 
@@ -69,9 +69,7 @@ describe('LoginAuditInterceptor', () => {
       lastValueFrom(interceptor.intercept(createContext(), handler)),
     ).rejects.toBe(lockedError);
 
-    expect(loginAuditService.record).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'failed', failure_reason: 'account_locked' }),
-    );
+    expect(loginAuditService.record).not.toHaveBeenCalled();
   });
 
   it('audits CAPTCHA failures (not recorded by AuthService before throwing)', async () => {
