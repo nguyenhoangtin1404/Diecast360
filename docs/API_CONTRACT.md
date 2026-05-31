@@ -54,7 +54,7 @@
 - Errors: `AUTH_INVALID_CREDENTIALS (401)`, `AUTH_ACCOUNT_LOCKED (403, Retry-After)`, `CAPTCHA_FAILED (422)`, `RATE_LIMIT_EXCEEDED (429)`, `VALIDATION_ERROR (422)`.
 - Response header: `X-Trace-Id` — UUIDv7 định danh request này; có mặt trên cả response thành công lẫn thất bại (kể cả validation, sai credential, rate limit). Timestamp có thể suy ra từ giá trị này (48-bit ms prefix).
 - Mọi lần gọi endpoint này đều ghi một bản ghi vào `login_audit_logs` với `trace_id`, `email`, `ip_address`, `user_agent`, `status` (`success`|`failed`) và `failure_reason` khi thất bại.
-- `failure_reason` khi thất bại: `validation_error` (422/400), `invalid_credentials` (401), `rate_limited` (429), `account_locked` (403), `internal_error` (lỗi khác).
+- `failure_reason` khi thất bại: `invalid_credentials` (401), `account_locked` (403), `captcha_failed` (422), `validation_error` (422/400), `rate_limited` (429), `internal_error` (lỗi khác).
 
 ### POST /api/v1/auth/refresh
 - Auth: đọc `refresh_token` từ cookie path `/api/v1/auth`.
