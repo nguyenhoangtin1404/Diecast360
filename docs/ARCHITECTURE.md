@@ -19,7 +19,7 @@ Prisma ORM dùng `DATABASE_URL` cho runtime và `DIRECT_URL` cho migrate/introsp
 ## Backend
 - Layering: **Controller/Route → Service → PrismaService/Storage/Processor → DB/Object storage**. Không đưa business rule trực tiếp vào controller.
 - Module chính:
-  - **Auth**: JWT access + refresh, lưu refresh token để revoke; middleware guard cho route admin.
+  - **Auth**: JWT access + refresh, lưu refresh token để revoke; middleware guard cho route admin. Login admin có CAPTCHA tùy cấu hình (`CaptchaService`), throttle riêng, header `X-Trace-Id` và audit vào `login_audit_logs`.
   - **Items**: CRUD item (soft delete), toggle `is_public`, quản lý trạng thái kho.
   - **Images**: Upload ảnh thường, đặt cover, reorder, xóa; lưu metadata file/thumbnail.
   - **Spinner**: Quản lý spin set (default duy nhất), upload frame, reorder frame, đảm bảo `(spin_set_id, frame_index)` unique và liên tục.
@@ -34,8 +34,18 @@ Prisma ORM dùng `DATABASE_URL` cho runtime và `DIRECT_URL` cho migrate/introsp
 - Hạ tầng:
   - **Storage abstraction**: interface lưu/xóa/resolve URL; `LocalStorage` dùng `UPLOAD_DIR`, `R2StorageService` dùng Cloudflare R2 qua S3-compatible API khi `STORAGE_DRIVER=r2`.
   - **ImageProcessor**: dùng Sharp để resize/tạo thumbnail cả ảnh thường và frame spinner.
-  - **Config/Security**: lấy từ `.env`; bootstrap validate `JWT_SECRET`, `COOKIE_SECRET`, production `COOKIE_SECURE`, `COOKIE_SAME_SITE`, `CORS_ALLOW_LAN`; Helmet + CSRF double-submit.
+  - **Config/Security**: lấy từ `.env`; bootstrap validate `JWT_SECRET`, `COOKIE_SECRET`, production `COOKIE_SECURE`, `COOKIE_SAME_SITE`, `CORS_ALLOW_LAN`; Helmet + CSRF double-submit. `TRUST_PROXY` điều khiển Express `req.ip`; login audit/CAPTCHA ưu tiên IP đầu tiên trong `X-Forwarded-For` nếu proxy gửi header này.
 - Error handling: theo `docs/ERROR_HANDLING.md`, map chuẩn HTTP, không lộ chi tiết nhạy cảm.
+
+### Auth hardening flow
+
+`POST /api/v1/auth/login` là endpoint mutating duy nhất được miễn CSRF để bootstrap cookie session. Luồng xử lý chính:
+
+1. `ThrottlerGuard` áp limit riêng `8 req/phút`. Nếu bị 429, `ThrottlerExceptionFilter` tạo `X-Trace-Id` và ghi audit `failure_reason=rate_limited`.
+2. `LoginAuditInterceptor` tạo UUIDv7 trace ID cho request không bị throttle, set header `X-Trace-Id`, và ghi audit khi controller/service ném lỗi.
+3. `AuthController` xác minh CAPTCHA nếu `CAPTCHA_ENABLED=true`, gọi credential login, set cookie `access_token`, `refresh_token`, `csrf_token`, rồi ghi audit `success`.
+
+Audit ghi DB theo kiểu best-effort để sự cố logging không chặn login; không lưu password, token hay CAPTCHA token.
 
 ## Upload & xử lý ảnh
 - Ảnh thường: upload multipart → Service gọi ImageProcessor tạo thumbnail → lưu file qua Storage → persist metadata (path, thumbnail, is_cover, order).

@@ -47,6 +47,13 @@ DIRECT_URL="postgresql://postgres:postgres@localhost:5432/diecast360"
    - `VITE_API_BASE_URL=auto` hoặc bỏ trống để frontend gọi same-origin `/api/v1` qua proxy Vite trong `frontend/vite.config.ts`.
    - Nếu trình duyệt không đi qua proxy Vite hoặc API ở host khác, đặt URL tuyệt đối như `http://localhost:3000/api/v1`.
 
+CAPTCHA login mặc định tắt trong local dev. Khi cần test:
+
+- Backend `backend/.env`: `CAPTCHA_ENABLED=true`, `CAPTCHA_PROVIDER=cloudflare|google`, `CAPTCHA_SECRET_KEY=...`; với Google có thể đặt `CAPTCHA_MIN_SCORE=0.5`.
+- Frontend `frontend/.env`: `VITE_CAPTCHA_ENABLED=true`, `VITE_CAPTCHA_PROVIDER` khớp backend, `VITE_CAPTCHA_SITE_KEY=...`.
+- Đổi biến `VITE_*` cần restart `pnpm run dev:frontend` vì Vite đọc env lúc start.
+- Nếu gọi API trực tiếp không qua proxy local, đặt `TRUST_PROXY=0`; qua reverse proxy/tunnel local thì chọn số hop đúng và đảm bảo proxy set/strip `X-Forwarded-For` để audit/rate-limit/CAPTCHA dùng IP thật.
+
 ### A3. Cài package & migration
 
 ```bash
@@ -196,6 +203,12 @@ pnpm --filter ./backend run list:users
 
 - `FRONTEND_URL` phải khớp origin UI (kể cả `http` vs `https`, cổng).
 - Chi tiết cookie: [`docs/COOKIE_AUTH.md`](COOKIE_AUTH.md).
+
+### CAPTCHA login fail trong dev
+
+- Nếu backend bật `CAPTCHA_ENABLED=true` nhưng UI không hiện CAPTCHA, kiểm tra `VITE_CAPTCHA_ENABLED=true` và `VITE_CAPTCHA_SITE_KEY` trong `frontend/.env`, rồi restart Vite.
+- Nếu provider là Google, token phải được tạo với action `login`; code frontend hiện làm việc này qua `useRecaptchaV3`.
+- Nếu đang test qua tunnel/proxy, kiểm tra `TRUST_PROXY` và header `X-Forwarded-For` để IP audit không bị ghi thành IP proxy hoặc IP giả.
 
 ### Frontend gọi sai API
 

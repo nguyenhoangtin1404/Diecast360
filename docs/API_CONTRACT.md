@@ -50,8 +50,9 @@
 - Body JSON: `{ "email": "string", "password": "string", "captcha_token?": "string" }`.
 - `captcha_token` là optional trong schema, nhưng khi `CAPTCHA_ENABLED=true` thì backend yêu cầu hợp lệ; thiếu hoặc sai token trả lỗi `CAPTCHA_FAILED`.
 - CSRF: exempt để bootstrap phiên đăng nhập.
+- Rate limit: `8` request / `60s` cho mỗi key throttler; vượt giới hạn trả `RATE_LIMIT_EXCEEDED (429)` và header `Retry-After: 60`.
 - Response 200: set cookie HttpOnly `access_token`, HttpOnly `refresh_token` (path `/api/v1/auth`) và cookie đọc được `csrf_token`; `data: { user, message }`. Token không trả trong body.
-- Errors: `AUTH_INVALID_CREDENTIALS (401)`, `VALIDATION_ERROR (422)`, `CAPTCHA_FAILED (422)`.
+- Errors: `AUTH_INVALID_CREDENTIALS (401)`, `VALIDATION_ERROR (422)`, `CAPTCHA_FAILED (422)`, `RATE_LIMIT_EXCEEDED (429)`.
 - Response header: `X-Trace-Id` — UUIDv7 định danh request này; có mặt trên cả response thành công lẫn thất bại (kể cả validation, sai credential, rate limit). Timestamp có thể suy ra từ giá trị này (48-bit ms prefix).
 - Mọi lần gọi endpoint này đều ghi một bản ghi vào `login_audit_logs` với `trace_id`, `email`, `ip_address`, `user_agent`, `status` (`success`|`failed`) và `failure_reason` khi thất bại.
 - `failure_reason` khi thất bại: `validation_error` (422/400), `invalid_credentials` (401), `rate_limited` (429), `internal_error` (lỗi khác).

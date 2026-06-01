@@ -32,6 +32,8 @@ FRONTEND_URL=http://localhost:5173
 | `FRONTEND_URLS` | optional | Preview/admin domains | Danh sách origin bổ sung, tách bằng dấu phẩy |
 | `CORS_ALLOW_LAN` | `true` nếu test qua LAN | `false` | Chỉ dùng dev; production boot sẽ reject nếu bật |
 | `JWT_ALLOW_AUTHORIZATION_BEARER` | `true` | tùy policy | Đặt `false` nếu web chỉ dùng HttpOnly cookie và muốn tắt fallback `Authorization: Bearer` |
+| `TRUST_PROXY` | `0` khi gọi API trực tiếp | `1` cho Cloudflare/Nginx đơn hop | Ảnh hưởng `req.ip`; login audit/CAPTCHA cũng đọc IP đầu tiên từ `X-Forwarded-For` nếu có, nên ingress phải set/strip header này đúng cách |
+| `CAPTCHA_ENABLED` / `CAPTCHA_PROVIDER` / `CAPTCHA_SECRET_KEY` | `false` | tùy policy | Khi bật CAPTCHA cho login, frontend phải bật `VITE_CAPTCHA_*` tương ứng và cung cấp site key |
 
 ## Cookies được sử dụng
 
@@ -62,14 +64,21 @@ FRONTEND_URL=http://localhost:5173
 ### 1. Login
 ```
 POST /api/v1/auth/login
-Body: { email, password }
+Body: { email, password, captcha_token? }
 
 Response:
+- Header: X-Trace-Id: <uuidv7>
 - Set-Cookie: access_token=... (HttpOnly)
 - Set-Cookie: refresh_token=... (HttpOnly)
 - Set-Cookie: csrf_token=... (readable)
-- Body: { user: {...}, message: 'Login successful' }
+- Body: { ok: true, data: { user: {...}, message: 'Login successful' }, message: "" }
 ```
+
+Ghi chú:
+
+- `POST /api/v1/auth/login` được miễn CSRF để bootstrap session, nhưng bị throttle riêng `8 req/phút`.
+- Nếu `CAPTCHA_ENABLED=true`, backend yêu cầu `captcha_token` hợp lệ. Provider hỗ trợ: `cloudflare` (Turnstile) và `google` (reCAPTCHA v3, action bắt buộc là `login`).
+- Mọi attempt thành công/thất bại ghi vào `login_audit_logs` với `trace_id`, email, IP, user-agent, trạng thái và `failure_reason`. 429 do throttler được audit trong exception filter vì guard chạy trước interceptor.
 
 ### 2. API Request (tự động)
 ```
@@ -141,6 +150,11 @@ const apiClient = axios.create({
 - Nếu 401 → chưa đăng nhập hoặc token hết hạn
 - Với request mutating, client phải gửi `X-CSRF-Token` khớp cookie `csrf_token`; server trả `403 CSRF_INVALID` nếu thiếu hoặc sai.
 
+### CAPTCHA login (`src/pages/admin/LoginPage.tsx`)
+- Frontend chỉ render CAPTCHA khi `VITE_CAPTCHA_ENABLED=true` **và** có `VITE_CAPTCHA_SITE_KEY`.
+- `VITE_CAPTCHA_PROVIDER` phải khớp backend `CAPTCHA_PROVIDER` (`cloudflare` hoặc `google`).
+- Turnstile gửi token từ widget; reCAPTCHA v3 mint token với action `login` trước submit.
+
 ## Backend Implementation
 
 ### JWT Strategy (`src/auth/strategies/jwt.strategy.ts`)
@@ -183,6 +197,16 @@ async function bootstrap() {
 // GET/HEAD/OPTIONS pass; POST /auth/login is exempt for login bootstrap.
 // Other POST/PATCH/DELETE requests must send X-CSRF-Token equal to csrf_token cookie.
 ```
+
+### Login audit (`src/auth/login-audit.*`)
+```typescript
+// LoginAuditInterceptor sets X-Trace-Id and records failed attempts.
+// AuthController records successful attempts after credentials and CAPTCHA pass.
+// ThrottlerExceptionFilter records rate-limited login attempts because throttling
+// happens before the interceptor runs.
+```
+
+Audit writes are asynchronous best-effort; DB write failures are logged as `login_audit.write_failed` and do not block the login response.
 
 ## Kiểm tra hoạt động
 
@@ -236,6 +260,12 @@ Rồi restart API. Giữ `FRONTEND_URL` / `FRONTEND_URLS` khớp origin thật c
 - Gọi `GET /api/v1/auth/csrf` để lấy token mới nếu tab mở lâu hoặc cookie bị xóa
 - `POST /api/v1/auth/login` là endpoint mutating duy nhất được miễn CSRF để bootstrap session
 
+### 422 `CAPTCHA_FAILED` khi đăng nhập
+- Backend `CAPTCHA_ENABLED=true` nhưng frontend chưa bật `VITE_CAPTCHA_ENABLED=true` hoặc thiếu `VITE_CAPTCHA_SITE_KEY`.
+- `VITE_CAPTCHA_PROVIDER` không khớp backend `CAPTCHA_PROVIDER`.
+- Với Google reCAPTCHA v3, token không có action `login` hoặc score thấp hơn `CAPTCHA_MIN_SCORE`.
+- Sai `TRUST_PROXY` hoặc ingress giữ `X-Forwarded-For` không tin cậy có thể làm IP gửi đến CAPTCHA `remoteip` không đúng proxy topology.
+
 ### Production checklist
 - [ ] `COOKIE_SECRET` là chuỗi ngẫu nhiên dài > 32 ký tự
 - [ ] `COOKIE_SECURE=true`
@@ -243,6 +273,8 @@ Rồi restart API. Giữ `FRONTEND_URL` / `FRONTEND_URLS` khớp origin thật c
 - [ ] HTTPS được sử dụng
 - [ ] `FRONTEND_URL` là domain production
 - [ ] Frontend gửi `X-CSRF-Token` cho mọi request mutating sau login/refresh
+- [ ] Nếu bật CAPTCHA: backend `CAPTCHA_*` và frontend `VITE_CAPTCHA_*` khớp provider/key; deploy lại frontend sau khi đổi `VITE_*`
+- [ ] `TRUST_PROXY` đúng số hop trước backend và proxy ingress set/strip `X-Forwarded-For` để rate limit/audit/CAPTCHA dùng IP thật
 
 ## So sánh với localStorage
 

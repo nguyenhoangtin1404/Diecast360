@@ -85,6 +85,25 @@ Primary key: `(user_id, shop_id)`.
 | `metadata_json` | string? | JSON string metadata |
 | `created_at` | datetime | timestamp |
 
+### login_audit_logs
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `trace_id` | string | UNIQUE; UUIDv7 gửi lại cho client qua header `X-Trace-Id` ở `POST /auth/login` |
+| `user_id` | uuid? | FK `users(id)` ON DELETE SET NULL; chỉ có trên login thành công |
+| `email` | string | Email đã gửi trong body login, cắt tối đa 254 ký tự |
+| `shop_id` | uuid? | Active shop trong session login thành công, nếu có |
+| `ip_address` | string? | IP client lấy từ `X-Forwarded-For` đầu tiên nếu có, fallback `req.ip`; dùng cho điều tra và CAPTCHA `remoteip` |
+| `user_agent` | string? | User-Agent cắt tối đa 512 ký tự |
+| `status` | string | `success` hoặc `failed` |
+| `failure_reason` | string? | `invalid_credentials`, `validation_error`, `rate_limited`, hoặc `internal_error` |
+| `created_at` | datetime | timestamp |
+
+Indexes: `(user_id, trace_id DESC)`, `(status, trace_id DESC)`, `(created_at DESC)`, `(email, created_at DESC)`.
+
+Audit login là best-effort: lỗi ghi DB được log nội bộ (`login_audit.write_failed`) nhưng không làm fail request đăng nhập.
+
 ## Inventory & catalog
 
 ### items

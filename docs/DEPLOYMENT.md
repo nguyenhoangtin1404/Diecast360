@@ -44,6 +44,7 @@ Trình duyệt
 - Import repository GitHub → **Root Directory**: `frontend`.
 - **Build command** / **Output**: theo `frontend/package.json` (thường build ra `dist`).
 - Biến build (Production): `VITE_API_BASE_URL=https://<hostname-api-cua-ban>/api/v1` (HTTPS, khớp prefix `/api/v1`).
+- Nếu bật CAPTCHA cho admin login: đặt thêm `VITE_CAPTCHA_ENABLED=true`, `VITE_CAPTCHA_PROVIDER` (`cloudflare` hoặc `google`) và `VITE_CAPTCHA_SITE_KEY`. Đây là build-time env, đổi giá trị cần deploy lại frontend.
 
 ### Cloudflare Pages (thường được xem là lựa chọn free/CDN mạnh)
 
@@ -161,9 +162,12 @@ sudo systemctl restart diecast360-api
 | **Pi** | `BACKEND_URL` | URL public của API (HTTPS), dùng làm base cho signed media URL `/api/v1/media` |
 | **Pi** | `MEDIA_SIGNING_SECRET`, `MEDIA_URL_TTL_MS` | Tùy chọn cho signed media URL; nếu không set secret riêng, backend fallback sang `JWT_SECRET` |
 | **Pi** | `COOKIE_SECURE=true`, `COOKIE_SAME_SITE` | Production HTTPS — xem [`ENV.md`](ENV.md) |
+| **Pi** | `TRUST_PROXY` | Số hop proxy trước backend; Cloudflare Tunnel/Nginx đơn hop thường là `1`. Proxy ingress phải set/strip `X-Forwarded-For` đúng cách để login throttle/audit/CAPTCHA nhận IP thật |
+| **Pi** | `CAPTCHA_ENABLED`, `CAPTCHA_PROVIDER`, `CAPTCHA_SECRET_KEY`, `CAPTCHA_MIN_SCORE` | Tùy chọn cho admin login; nếu bật phải đồng bộ với `VITE_CAPTCHA_*` ở frontend |
 | **Pi** | `UPLOAD_DIR` | Bắt buộc khi `STORAGE_DRIVER=local` — đường dẫn ghi được, **phải nằm ngoài `DEPLOY_REMOTE_PATH`** (xem mục 3.b). Default mới: `/var/lib/diecast360/uploads`. Với `STORAGE_DRIVER=r2` có thể bỏ qua nhu cầu volume lớn cho media |
 | **Pi** | `STORAGE_DRIVER`, `R2_*` | Khi dùng Cloudflare R2 — xem [`ENV.md`](ENV.md) |
 | **Vercel / Pages** (build) | `VITE_API_BASE_URL` | `https://<api-host>/api/v1` |
+| **Vercel / Pages** (build) | `VITE_CAPTCHA_ENABLED`, `VITE_CAPTCHA_PROVIDER`, `VITE_CAPTCHA_SITE_KEY` | Chỉ khi backend bật `CAPTCHA_ENABLED=true`; provider phải khớp backend |
 
 Chi tiết Facebook, OpenAI, Pinecone: tùy tính năng bật — vẫn trong [`ENV.md`](ENV.md).
 
@@ -176,7 +180,7 @@ Chi tiết Facebook, OpenAI, Pinecone: tùy tính năng bật — vẫn trong [`
 3. GitHub Environment **production**: thêm secret `PRODUCTION_DATABASE_URL` và `PRODUCTION_DIRECT_URL` (cùng giá trị như trên Pi — xem mục 6).
 4. Cloudflare Tunnel: public HTTPS → port 3000 trên Pi.
 5. Cập nhật `VITE_API_BASE_URL` trên host frontend, deploy lại frontend.
-6. Kiểm tra đăng nhập, upload nhỏ, catalog; đọc [`COOKIE_AUTH.md`](COOKIE_AUTH.md) nếu cookie cross-site lỗi.
+6. Kiểm tra đăng nhập, upload nhỏ, catalog; đọc [`COOKIE_AUTH.md`](COOKIE_AUTH.md) nếu cookie cross-site lỗi. Nếu login trả `CAPTCHA_FAILED`, kiểm tra cặp backend `CAPTCHA_*` và frontend `VITE_CAPTCHA_*`; nếu rate limit/audit ghi IP proxy thay vì IP client, kiểm tra `TRUST_PROXY` và `X-Forwarded-For` ở ingress.
 
 Tự động deploy backend khi **`CI` workflow** trên `main` hoàn thành (sự kiện **push**) với conclusion **success** (đã thay trigger `paths:` bằng `workflow_run` — không deploy nếu CI đỏ). Runner Pi: checkout + **`pnpm install` / `pnpm --filter ./backend run build`** + **`pnpm --filter ./backend deploy --prod --legacy`** (bundle production), **`rsync --exclude .env`** vào `DEPLOY_REMOTE_PATH` (thường `/opt/diecast360-backend`), **`npx prisma generate`**, restart `diecast360-api`, probe `GET /api/v1/health`. Vẫn có **`workflow_dispatch`** (tùy chọn skip migrate).
 
