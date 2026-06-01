@@ -30,13 +30,10 @@ export class CaptchaService {
       throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA is not configured');
     }
 
-    const ok =
-      provider === 'google'
-        ? await this.verifyGoogle(secret, token, remoteIp)
-        : await this.verifyCloudflare(secret, token, remoteIp);
-
-    if (!ok) {
-      throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA verification failed');
+    if (provider === 'google') {
+      await this.verifyGoogle(secret, token, remoteIp);
+    } else {
+      await this.verifyCloudflare(secret, token, remoteIp);
     }
   }
 
@@ -44,52 +41,72 @@ export class CaptchaService {
     secret: string,
     token: string,
     remoteIp?: string,
-  ): Promise<boolean> {
+  ): Promise<void> {
     const body = new URLSearchParams({ secret, response: token });
     if (remoteIp) {
       body.set('remoteip', remoteIp);
     }
-    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) {
-      this.logger.warn(`captcha.cloudflare_http status=${res.status}`);
-      return false;
+    let data: { success?: boolean };
+    try {
+      const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) {
+        this.logger.error(`captcha.cloudflare_http status=${res.status}`);
+        throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA service is temporarily unavailable');
+      }
+      data = (await res.json()) as { success?: boolean };
+    } catch (err) {
+      if (err instanceof AppException) throw err;
+      this.logger.error('captcha.cloudflare_unreachable', err instanceof Error ? err.message : String(err));
+      throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA service is temporarily unavailable');
     }
-    const data = (await res.json()) as { success?: boolean };
-    return data.success === true;
+    if (data.success !== true) {
+      throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA verification failed');
+    }
   }
 
   private async verifyGoogle(
     secret: string,
     token: string,
     remoteIp?: string,
-  ): Promise<boolean> {
+  ): Promise<void> {
     const body = new URLSearchParams({ secret, response: token });
     if (remoteIp) {
       body.set('remoteip', remoteIp);
     }
-    const res = await fetch('https://www.google.com/recaptcha/api/siteverify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) {
-      this.logger.warn(`captcha.google_http status=${res.status}`);
-      return false;
+    let data: { success?: boolean; score?: number; action?: string };
+    try {
+      const res = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) {
+        this.logger.error(`captcha.google_http status=${res.status}`);
+        throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA service is temporarily unavailable');
+      }
+      data = (await res.json()) as { success?: boolean; score?: number; action?: string };
+    } catch (err) {
+      if (err instanceof AppException) throw err;
+      this.logger.error('captcha.google_unreachable', err instanceof Error ? err.message : String(err));
+      throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA service is temporarily unavailable');
     }
-    const data = (await res.json()) as { success?: boolean; score?: number };
+    // reCAPTCHA v3 tokens must be minted for the expected action.
+    // Fail closed when action is missing or mismatched to prevent cross-action token reuse.
+    if (data.action !== 'login') {
+      throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA verification failed');
+    }
     if (!data.success) {
-      return false;
+      throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA verification failed');
     }
     const minScore = Number(this.config.get<string>('CAPTCHA_MIN_SCORE', '0.5'));
     if (typeof data.score === 'number' && data.score < minScore) {
-      return false;
+      throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA verification failed');
     }
-    return true;
   }
 }
