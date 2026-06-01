@@ -17,7 +17,10 @@ DO $$ BEGIN
       AND column_name = 'status'
       AND udt_name = 'LoginAuditStatus'
   ) THEN RETURN; END IF;
-  -- Normalize any legacy values that don't match enum before casting
+  -- Normalize any legacy values before casting.
+  -- OPERATOR: run `SELECT DISTINCT status FROM login_audit_logs` before deploying
+  -- to production to confirm only 'success'/'failed' exist. Any other value will
+  -- be coerced to 'failed' here, which may misrepresent historical audit records.
   UPDATE "login_audit_logs"
     SET "status" = 'failed'
     WHERE "status" NOT IN ('success', 'failed');

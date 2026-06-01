@@ -78,7 +78,7 @@ export class AuthService {
     if (!isPasswordValid) {
       this.logger.warn(`auth.login_failed reason=bad_password email=${email}`);
       this.loginSecurity.recordEmailFailedAttempt(email);
-      const { locked } = await this.loginSecurity.recordFailedLogin(user.id);
+      const { locked, lockedUntil } = await this.loginSecurity.recordFailedLogin(user.id);
       this.loginAudit.record({
         traceId: ctx.traceId,
         email,
@@ -91,12 +91,15 @@ export class AuthService {
       this.securityAlerts.recordLoginFailed(email);
       if (locked) {
         this.securityAlerts.recordAccountLocked(email);
+        const retryAfter = lockedUntil
+          ? Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 1000))
+          : this.loginSecurity.getLockoutRetryAfterSeconds();
         throw new AppException(
           ErrorCode.AUTH_ACCOUNT_LOCKED,
           'Account temporarily locked due to too many failed login attempts. Please try again later.',
           [],
           undefined,
-          this.loginSecurity.getLockoutRetryAfterSeconds(),
+          retryAfter,
         );
       }
       throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials');

@@ -59,7 +59,7 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 | CAPTCHA_PROVIDER | Nhà cung cấp CAPTCHA | `cloudflare` | `cloudflare` (Turnstile) hoặc `google` (reCAPTCHA v3); khớp với `VITE_CAPTCHA_PROVIDER` |
 | CAPTCHA_SECRET_KEY | Secret key từ dashboard CAPTCHA | `...` | Bắt buộc khi `CAPTCHA_ENABLED=true`; **không commit** |
 | CAPTCHA_MIN_SCORE | Ngưỡng score tối thiểu (Google v3) | `0.5` | Tùy chọn; chỉ dùng với `CAPTCHA_PROVIDER=google`; 0.0–1.0 |
-| AUTH_EMAIL_RATE_LIMIT | Số lần thử login / email / window | `10` | Chống brute-force đổi IP |
+| AUTH_EMAIL_RATE_LIMIT | Số lần thử login / email / window | `10` | Chống brute-force đổi IP. **In-memory per-process** — không chia sẻ giữa replica, reset khi restart. Phù hợp Pi single-instance; cần Redis nếu scale horizontal (#239). |
 | AUTH_EMAIL_RATE_WINDOW_MS | Window email rate limit (ms) | `900000` | 15 phút |
 | AUTH_LOCKOUT_THRESHOLD | Số lần sai liên tiếp trước khi khóa | `5` | Chỉ user tồn tại |
 | AUTH_LOCKOUT_DURATION_MS | Thời gian khóa tạm (ms) | `1800000` | 30 phút |

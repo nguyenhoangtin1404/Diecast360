@@ -98,7 +98,7 @@ export class LoginSecurityService {
     );
   }
 
-  async recordFailedLogin(userId: string): Promise<{ locked: boolean }> {
+  async recordFailedLogin(userId: string): Promise<{ locked: boolean; lockedUntil?: Date }> {
     const threshold = Number(this.config.get<string>('AUTH_LOCKOUT_THRESHOLD', '5'));
     const lockMs = Number(this.config.get<string>('AUTH_LOCKOUT_DURATION_MS', '1800000'));
 
@@ -117,7 +117,7 @@ export class LoginSecurityService {
       where: { id: userId },
       data: { locked_until: lockedUntil },
     });
-    return { locked: true };
+    return { locked: true, lockedUntil };
   }
 
   getLockoutRetryAfterSeconds(): number {
