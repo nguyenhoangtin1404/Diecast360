@@ -91,6 +91,10 @@ export class AuthService {
       this.securityAlerts.recordLoginFailed(email);
       if (locked) {
         this.securityAlerts.recordAccountLocked(email);
+        // Intentional enumeration tradeoff: AUTH_ACCOUNT_LOCKED (403) reveals the email
+        // exists and is locked, unlike AUTH_INVALID_CREDENTIALS (401). This is accepted
+        // UX behaviour — legitimate users need Retry-After; the account being locked
+        // already implies prior failed attempts are recorded. See docs/DOMAIN.md.
         const retryAfter = lockedUntil
           ? Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 1000))
           : this.loginSecurity.getLockoutRetryAfterSeconds();
