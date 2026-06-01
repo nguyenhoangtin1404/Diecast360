@@ -136,7 +136,7 @@ describe('AuthService', () => {
       expect(result.user.email).toBe('admin@test.com');
       expect(result.user.full_name).toBe('Admin User');
       expect(result.user.role).toBe('admin');
-      expect(loginSecurity.recordSuccessfulLogin).toHaveBeenCalledWith('user-1');
+      expect(loginSecurity.recordSuccessfulLogin).toHaveBeenCalledWith('user-1', 'admin@test.com');
       expect(loginSecurity.recordEmailFailedAttempt).not.toHaveBeenCalled();
     });
 

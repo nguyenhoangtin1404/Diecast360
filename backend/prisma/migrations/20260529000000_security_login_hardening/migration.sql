@@ -17,6 +17,10 @@ DO $$ BEGIN
       AND column_name = 'status'
       AND udt_name = 'LoginAuditStatus'
   ) THEN RETURN; END IF;
+  -- Normalize any legacy values that don't match enum before casting
+  UPDATE "login_audit_logs"
+    SET "status" = 'failed'
+    WHERE "status" NOT IN ('success', 'failed');
   ALTER TABLE "login_audit_logs"
     ALTER COLUMN "status" TYPE "LoginAuditStatus" USING "status"::"LoginAuditStatus";
 END $$;

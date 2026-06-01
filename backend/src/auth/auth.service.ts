@@ -102,7 +102,7 @@ export class AuthService {
       throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials');
     }
 
-    await this.loginSecurity.recordSuccessfulLogin(user.id);
+    await this.loginSecurity.recordSuccessfulLogin(user.id, email);
 
     const defaultShopId = await this.resolveDefaultShopIdForUser(user.id);
     const accessToken = this.generateAccessToken(user.id, defaultShopId);

@@ -28,7 +28,7 @@ export class LoginSecurityService {
     const key = this.normalizeEmail(email);
     const now = Date.now();
     const entry = this.emailWindows.get(key);
-    if (entry && now - entry.windowStartMs < windowMs && entry.count > limit) {
+    if (entry && now - entry.windowStartMs < windowMs && entry.count >= limit) {
       throw new AppException(
         ErrorCode.RATE_LIMIT_EXCEEDED,
         'Too many login attempts for this account. Please try again later.',
@@ -125,7 +125,10 @@ export class LoginSecurityService {
     return Math.ceil(lockMs / 1000);
   }
 
-  async recordSuccessfulLogin(userId: string): Promise<void> {
+  async recordSuccessfulLogin(userId: string, email?: string): Promise<void> {
+    if (email) {
+      this.emailWindows.delete(this.normalizeEmail(email));
+    }
     await this.prisma.user.update({
       where: { id: userId },
       data: { failed_login_count: 0, locked_until: null },

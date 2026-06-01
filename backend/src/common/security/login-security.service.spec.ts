@@ -29,16 +29,14 @@ describe('LoginSecurityService', () => {
   });
 
   it('should not rate limit before threshold is reached', () => {
-    // Record 3 failures (= limit) — should not throw
-    service.recordEmailFailedAttempt('a@test.com');
+    // Record limit-1 failures (2 < 3) — should not throw
     service.recordEmailFailedAttempt('a@test.com');
     service.recordEmailFailedAttempt('a@test.com');
     expect(() => service.assertEmailRateLimit('a@test.com')).not.toThrow();
   });
 
-  it('should rate limit by email once failure count exceeds threshold', () => {
-    // 4 failures with limit=3: count=4 > limit=3 → blocked
-    service.recordEmailFailedAttempt('a@test.com');
+  it('should rate limit by email once failure count reaches threshold', () => {
+    // 3 failures with limit=3: count=3 >= limit=3 → blocked on next attempt
     service.recordEmailFailedAttempt('a@test.com');
     service.recordEmailFailedAttempt('a@test.com');
     service.recordEmailFailedAttempt('a@test.com');
