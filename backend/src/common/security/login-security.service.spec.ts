@@ -6,11 +6,17 @@ import { ErrorCode } from '../constants/error-codes';
 
 describe('LoginSecurityService', () => {
   let service: LoginSecurityService;
-  let prisma: { user: { update: jest.Mock } };
+  let prisma: { user: { update: jest.Mock }; $transaction: jest.Mock };
   let config: { get: jest.Mock };
 
   beforeEach(() => {
-    prisma = { user: { update: jest.fn() } };
+    const txUser = { update: jest.fn() };
+    prisma = {
+      user: { update: jest.fn() },
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn({ user: txUser })),
+    };
+    // Expose txUser so tests can mock its update calls
+    (prisma as unknown as { _txUser: typeof txUser })._txUser = txUser;
     config = {
       get: jest.fn((key: string, def?: number) => {
         const map: Record<string, number> = {
@@ -69,12 +75,13 @@ describe('LoginSecurityService', () => {
   });
 
   it('should lock account after failed threshold', async () => {
-    prisma.user.update
+    const txUser = (prisma as unknown as { _txUser: { update: jest.Mock } })._txUser;
+    txUser.update
       .mockResolvedValueOnce({ failed_login_count: 3 })
       .mockResolvedValueOnce({});
 
     const result = await service.recordFailedLogin('user-1');
     expect(result.locked).toBe(true);
-    expect(prisma.user.update).toHaveBeenCalledTimes(2);
+    expect(txUser.update).toHaveBeenCalledTimes(2);
   });
 });

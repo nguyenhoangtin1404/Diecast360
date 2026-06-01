@@ -102,22 +102,24 @@ export class LoginSecurityService {
     const threshold = Number(this.config.get<string>('AUTH_LOCKOUT_THRESHOLD', '5'));
     const lockMs = Number(this.config.get<string>('AUTH_LOCKOUT_DURATION_MS', '1800000'));
 
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { failed_login_count: { increment: 1 } },
-      select: { failed_login_count: true },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: { failed_login_count: { increment: 1 } },
+        select: { failed_login_count: true },
+      });
 
-    if (user.failed_login_count < threshold) {
-      return { locked: false };
-    }
+      if (user.failed_login_count < threshold) {
+        return { locked: false };
+      }
 
-    const lockedUntil = new Date(Date.now() + lockMs);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { locked_until: lockedUntil },
+      const lockedUntil = new Date(Date.now() + lockMs);
+      await tx.user.update({
+        where: { id: userId },
+        data: { locked_until: lockedUntil },
+      });
+      return { locked: true, lockedUntil };
     });
-    return { locked: true, lockedUntil };
   }
 
   getLockoutRetryAfterSeconds(): number {
