@@ -10,7 +10,7 @@ import { ThrottlerException } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { ErrorCode } from '../constants/error-codes';
 import { createLoginTraceId } from '../../auth/login-trace-id';
-import { LoginAuditService } from '../../auth/login-audit.service';
+import { LoginAuditService } from '../security/login-audit.service';
 import {
   extractClientIp,
   extractLoginEmail,
@@ -49,12 +49,12 @@ export class ThrottlerExceptionFilter implements ExceptionFilter {
       response.setHeader('X-Trace-Id', traceId);
 
       this.loginAuditService.record({
-        trace_id: traceId,
+        traceId,
         email: extractLoginEmail(request.body),
-        ip_address: extractClientIp(request),
-        user_agent: extractUserAgent(request),
+        ipAddress: extractClientIp(request),
+        userAgent: extractUserAgent(request),
         status: 'failed',
-        failure_reason: 'rate_limited',
+        failureReason: 'rate_limited',
       });
     }
 

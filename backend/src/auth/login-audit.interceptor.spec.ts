@@ -2,7 +2,7 @@ import { BadRequestException, CallHandler, ExecutionContext } from '@nestjs/comm
 import { of, throwError, lastValueFrom } from 'rxjs';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { LoginAuditInterceptor } from './login-audit.interceptor';
-import { LoginAuditService } from './login-audit.service';
+import { LoginAuditService } from '../common/security/login-audit.service';
 import { LOGIN_TRACE_ID_KEY } from './login-audit.helpers';
 
 jest.mock('./login-trace-id', () => ({
@@ -83,7 +83,7 @@ describe('LoginAuditInterceptor', () => {
     expect(loginAuditService.record).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'failed',
-        failure_reason: 'captcha_failed',
+        failureReason: 'captcha_failed',
       }),
     );
   });
@@ -100,7 +100,7 @@ describe('LoginAuditInterceptor', () => {
     expect(loginAuditService.record).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'failed',
-        failure_reason: 'validation_error',
+        failureReason: 'validation_error',
       }),
     );
   });

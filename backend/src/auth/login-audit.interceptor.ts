@@ -8,7 +8,7 @@ import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { Response } from 'express';
 import { createLoginTraceId } from './login-trace-id';
-import { LoginAuditService } from './login-audit.service';
+import { LoginAuditService } from '../common/security/login-audit.service';
 import {
   LOGIN_TRACE_ID_KEY,
   extractClientIp,
@@ -39,12 +39,12 @@ export class LoginAuditInterceptor implements NestInterceptor {
       catchError((error: unknown) => {
         if (!isAlreadyAuditedByService(error)) {
           this.loginAuditService.record({
-            trace_id: traceId,
+            traceId,
             email,
-            ip_address: ip,
-            user_agent: userAgent,
+            ipAddress: ip,
+            userAgent,
             status: 'failed',
-            failure_reason: mapLoginFailureReason(error),
+            failureReason: mapLoginFailureReason(error),
           });
         }
         return throwError(() => error);
