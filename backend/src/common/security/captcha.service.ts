@@ -101,11 +101,10 @@ export class CaptchaService {
     if (data.action !== 'login') {
       throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA verification failed');
     }
-    if (!data.success) {
-      throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA verification failed');
-    }
-    const minScore = Number(this.config.get<string>('CAPTCHA_MIN_SCORE', '0.5'));
-    if (typeof data.score === 'number' && data.score < minScore) {
+    // Treat absent/non-numeric score as 0 (fail-closed — some v2 tokens omit it).
+    const score = typeof data.score === 'number' ? data.score : 0;
+    const minScore = Math.min(1, Math.max(0, Number(this.config.get<string>('CAPTCHA_MIN_SCORE', '0.5')) || 0.5));
+    if (!data.success || score < minScore) {
       throw new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA verification failed');
     }
   }
