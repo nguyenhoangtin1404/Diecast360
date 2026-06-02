@@ -157,8 +157,8 @@ importers:
         specifier: ^9.39.2
         version: 9.39.4(jiti@2.6.1)
       globals:
-        specifier: ^17.3.0
-        version: 17.5.0
+        specifier: ^17.6.0
+        version: 17.6.0
       jest:
         specifier: ^30.4.2
         version: 30.4.2(@types/node@25.6.0)(ts-node@10.9.2(@types/node@25.6.0)(typescript@5.9.3))
@@ -248,8 +248,8 @@ importers:
         specifier: ^0.4.24
         version: 0.4.26(eslint@9.39.4(jiti@1.21.7))
       globals:
-        specifier: ^16.5.0
-        version: 16.5.0
+        specifier: ^17.6.0
+        version: 17.6.0
       jsdom:
         specifier: ^22.1.0
         version: 22.1.0
@@ -3570,12 +3570,8 @@ packages:
     resolution: {integrity: sha512-oahGvuMGQlPw/ivIYBjVSrWAfWLBeku5tpPE2fOPLi+WHffIWbuh2tCjhyQhTBPMf5E9jDEH4FOmTYgYwbKwtQ==}
     engines: {node: '>=18'}
 
-  globals@16.5.0:
-    resolution: {integrity: sha512-c/c15i26VrJ4IRt5Z89DnIzCGDn9EcebibhAOjw5ibqEHsE1wLUgkPn9RDmNcUKyU87GeaL633nyJ+pplFR2ZQ==}
-    engines: {node: '>=18'}
-
-  globals@17.5.0:
-    resolution: {integrity: sha512-qoV+HK2yFl/366t2/Cb3+xxPUo5BuMynomoDmiaZBIdbs+0pYbjfZU+twLhGKp4uCZ/+NbtpVepH5bGCxRyy2g==}
+  globals@17.6.0:
+    resolution: {integrity: sha512-sepffkT8stwnIYbsMBpoCHJuJM5l98FUF2AnE07hfvE0m/qp3R586hw4jF4uadbhvg1ooIdzuu7CsfD2jzCaNA==}
     engines: {node: '>=18'}
 
   gopd@1.2.0:
@@ -4576,8 +4572,8 @@ packages:
   react-is@18.3.1:
     resolution: {integrity: sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==}
 
-  react-is@19.2.6:
-    resolution: {integrity: sha512-XjBR15BhXuylgWGuslhDKqlSayuqvqBX91BP8pauG8kd1zY8kotkNWbXksTCNRarse4kuGbe2kIY05ARtwNIvw==}
+  react-is@19.2.7:
+    resolution: {integrity: sha512-kZFnouyVv7eP/Phmrlo9FK+zcAdriZJvzxXHF1Sl1P377WSGe2G/JxVolhTrB/jeV47lKImhNUsijjHAAbcl/A==}
 
   react-refresh@0.18.0:
     resolution: {integrity: sha512-QgT5//D3jfjJb6Gsjxv0Slpj23ip+HtOpnNgnb2S5zU3CB26G/IDPGoy4RJB42wzFE46DRsstbW6tKHoKbhAxw==}
@@ -9411,9 +9407,7 @@ snapshots:
 
   globals@14.0.0: {}
 
-  globals@16.5.0: {}
-
-  globals@17.5.0: {}
+  globals@17.6.0: {}
 
   gopd@1.2.0: {}
 
@@ -10463,7 +10457,7 @@ snapshots:
       '@jest/schemas': 30.4.1
       ansi-styles: 5.2.0
       react-is-18: react-is@18.3.1
-      react-is-19: react-is@19.2.6
+      react-is-19: react-is@19.2.7
 
   prisma@6.19.3(typescript@5.9.3):
     dependencies:
@@ -10528,7 +10522,7 @@ snapshots:
 
   react-is@18.3.1: {}
 
-  react-is@19.2.6: {}
+  react-is@19.2.7: {}
 
   react-refresh@0.18.0: {}
 
