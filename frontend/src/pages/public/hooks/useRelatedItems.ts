@@ -1,4 +1,5 @@
-import { useQuery, useMemo } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../../../api/client";
 import type { RelatedItem } from "../../../types/item.types";
 
