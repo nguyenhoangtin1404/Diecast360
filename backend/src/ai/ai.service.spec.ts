@@ -468,7 +468,8 @@ some trailing note`,
   // ============================================================
   describe('buildPrompt', () => {
     it('should include item details in prompt', () => {
-      const prompt = (service as unknown as { buildPrompt: (item: typeof mockItem) => string }).buildPrompt(mockItem);
+      const svc = (service as unknown as { descriptionService: { buildPrompt: (item: typeof mockItem) => string } });
+      const prompt = svc.descriptionService.buildPrompt(mockItem);
 
       expect(prompt).toContain('Hot Wheels Civic');
       expect(prompt).toContain('1:64');
@@ -476,8 +477,8 @@ some trailing note`,
     });
 
     it('should include custom instructions when provided', () => {
-      const prompt = (service as unknown as { buildPrompt: (item: typeof mockItem, instructions?: string) => string })
-        .buildPrompt(mockItem, 'Focus on rarity');
+      const svc = (service as unknown as { descriptionService: { buildPrompt: (item: typeof mockItem, instructions?: string) => string } });
+      const prompt = svc.descriptionService.buildPrompt(mockItem, 'Focus on rarity');
 
       expect(prompt).toContain('Focus on rarity');
     });
@@ -488,8 +489,8 @@ some trailing note`,
   // ============================================================
   describe('buildFbPostPrompt', () => {
     it('should build FB post prompt with item info', () => {
-      const prompt = (service as unknown as { buildFbPostPrompt: (item: typeof mockItem) => string })
-        .buildFbPostPrompt(mockItem);
+      const svc = (service as unknown as { facebookService: { buildFbPostPrompt: (item: typeof mockItem) => string } });
+      const prompt = svc.facebookService.buildFbPostPrompt(mockItem);
 
       expect(prompt).toContain('Hot Wheels Civic');
     });
