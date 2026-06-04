@@ -354,6 +354,34 @@ describe('PreordersService', () => {
     expect(prisma.userShopRole.findUnique).not.toHaveBeenCalled();
   });
 
+  it('on non-CANCELLED transition, does not write cancelled_at to updateMany data', async () => {
+    const preorderId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+    prisma.preOrder.findFirst
+      .mockResolvedValueOnce({
+        id: preorderId,
+        shop_id: tenantId,
+        status: PreOrderStatus.ARRIVED,
+        member_id: memberId,
+        paid_amount: { toNumber: () => 50_000 },
+        total_amount: { toNumber: () => 100_000 },
+      })
+      .mockResolvedValueOnce({
+        id: preorderId,
+        shop_id: tenantId,
+        status: PreOrderStatus.PAID,
+        member_id: memberId,
+      });
+    prisma.shop.findFirst.mockResolvedValue({
+      loyalty_json: { vnd_per_point: 1000, preorder_points_basis: 'paid_amount' },
+    });
+    prisma.preOrder.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.transitionStatus(preorderId, PreOrderStatus.PAID, tenantId, 'actor-1');
+
+    const updateCall = prisma.preOrder.updateMany.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).not.toHaveProperty('cancelled_at');
+  });
+
   it('on PAID transition, applies earn via MembersService when member and amounts present', async () => {
     const preorderId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
     prisma.preOrder.findFirst

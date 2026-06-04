@@ -489,6 +489,15 @@ describe('ShopsService', () => {
         where: { shop_id: shopId, action: 'deactivate_shop' },
       });
     });
+
+    it('should throw NOT_FOUND when shop does not exist', async () => {
+      prisma.shop.findUnique.mockResolvedValue(null);
+
+      await expect(service.findAuditLogs(shopId, { page: 1, page_size: 20 })).rejects.toThrow(
+        AppException,
+      );
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
   });
 
   describe('findItems', () => {
