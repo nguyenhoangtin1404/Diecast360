@@ -66,3 +66,6 @@ backend/src/generated/
 *.seed
 *.pid.lock
 .eslintcache
+
+# Claude Code
+.claude/
