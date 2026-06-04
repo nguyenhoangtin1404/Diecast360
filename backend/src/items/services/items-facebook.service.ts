@@ -4,7 +4,7 @@ import { AppException, ErrorCode } from '../../common/exceptions/http-exception.
 import { PublishFacebookPostDto } from '../dto/publish-facebook-post.dto';
 import { FacebookGraphService } from '../../integrations/facebook/facebook-graph.service';
 import { FacebookConfigService } from '../../integrations/facebook/facebook-config.service';
-import { ItemsCrudService } from './items-crud.service';
+import { requireActiveShopId } from '../../common/utils/require-active-shop';
 
 @Injectable()
 export class ItemsFacebookService {
@@ -17,11 +17,10 @@ export class ItemsFacebookService {
     // to detect whether the feature is enabled instead of null-checking the service.
     private facebookGraph: FacebookGraphService,
     private fbConfig: FacebookConfigService,
-    private crudService: ItemsCrudService,
   ) {}
 
   async addFacebookPost(itemId: string, dto: { post_url: string; content?: string }, tenantId: string) {
-    const shopId = this.crudService.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const item = await this.prisma.item.findFirst({
       where: {
         id: itemId,
@@ -52,7 +51,7 @@ export class ItemsFacebookService {
   }
 
   async removeFacebookPost(itemId: string, postId: string, tenantId: string) {
-    const shopId = this.crudService.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const post = await this.prisma.facebookPost.findFirst({
       where: {
         id: postId,
@@ -93,7 +92,7 @@ export class ItemsFacebookService {
     dto: PublishFacebookPostDto | undefined,
     tenantId: string,
   ) {
-    const shopId = this.crudService.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     // Use isConfigured() from FacebookConfigService rather than null-checking
     // the injected service — the service is always present because FacebookModule
     // is always imported. This is a server misconfiguration, not a bad token.

@@ -838,7 +838,7 @@ describe('ItemsService', () => {
 
       expect(result.item.name).toBe('Updated Name');
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ name: 'Updated Name' }),
       });
     });
@@ -871,7 +871,7 @@ describe('ItemsService', () => {
         },
       });
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ car_brand: 'Toyota' }),
       });
     });
@@ -909,7 +909,7 @@ describe('ItemsService', () => {
       }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           quantity: 5,
           attributes: { color: 'green', release_year: 2024 },
@@ -926,7 +926,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { quantity: 0 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ quantity: 0 }),
       });
     });
@@ -941,7 +941,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { attributes: {} }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ attributes: {} }),
       });
     });
@@ -957,7 +957,7 @@ describe('ItemsService', () => {
       );
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           fb_post_content: 'Post content from AI',
         }),
@@ -1058,7 +1058,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { status: 'con_hang' }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           status: 'con_hang',
           quantity: 1,
@@ -1073,7 +1073,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { status: 'con_hang', quantity: 5 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           status: 'con_hang',
           quantity: 5,
@@ -1088,7 +1088,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { status: 'con_hang', quantity: 0 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           status: 'con_hang',
           quantity: 1,
@@ -1103,7 +1103,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { status: 'da_ban', quantity: 8 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           status: 'da_ban',
           quantity: 0,
@@ -1126,7 +1126,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { quantity: 6 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           quantity: 0,
         }),
@@ -1159,7 +1159,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { status: 'da_ban' }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           status: 'da_ban',
           quantity: 0,
@@ -1232,7 +1232,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { status: 'preorder', quantity: 0 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ status: 'preorder', quantity: 0 }),
       });
     });
@@ -1244,7 +1244,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { quantity: 10 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ quantity: 10 }),
       });
     });
@@ -1257,7 +1257,7 @@ describe('ItemsService', () => {
 
       expect(result.item.status).toBe('da_ban');
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ status: 'da_ban', quantity: 0 }),
       });
     });
@@ -1391,7 +1391,7 @@ describe('ItemsService', () => {
 
       expect(result).toEqual({});
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: { deleted_at: expect.any(Date) },
       });
     });
@@ -1421,7 +1421,7 @@ describe('ItemsService', () => {
       const result = await service.closePreorder('item-123', TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: { preorder_closes_at: expect.any(Date) },
       });
       expect(result.item).toBe(closedItem);
@@ -1489,7 +1489,7 @@ describe('ItemsService', () => {
       const result = await service.reopenPreorder('item-123', TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: { preorder_closes_at: null, preorder_opens_at: expect.any(Date) },
       });
       expect(result.item).toBe(reopenedItem);

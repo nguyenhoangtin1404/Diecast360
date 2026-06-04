@@ -9,6 +9,7 @@ import { QueryItemsDto } from '../dto/query-items.dto';
 import type { VectorSyncItem, ItemWithCoverImage } from '../../common/types/item.types';
 import { toNumber } from '../../common/utils/decimal.utils';
 import { totalPagesFromCount } from '../../common/utils/pagination.utils';
+import { requireActiveShopId } from '../../common/utils/require-active-shop';
 import type { ItemAttributesInput } from '../dto/item-attributes.validator';
 import { CategoriesService } from '../../categories/categories.service';
 import { normalizeCategoryBrandField } from '../../common/utils/category-brand.utils';
@@ -66,26 +67,12 @@ export class ItemsCrudService {
     private categoriesService: CategoriesService,
   ) {}
 
-  /**
-   * Every admin item query/mutation must be scoped to exactly one shop.
-   * Without a non-empty tenant id, Prisma would match rows from all shops.
-   */
-  requireActiveShopId(tenantId: string | undefined | null): string {
-    if (typeof tenantId !== 'string' || tenantId.trim().length === 0) {
-      throw new AppException(
-        ErrorCode.AUTH_FORBIDDEN,
-        'Active shop context is required for this operation.',
-      );
-    }
-    return tenantId.trim();
-  }
-
   async getImageUrl(filePath: string): Promise<string> {
     return this.storage.getFileUrl(filePath);
   }
 
   async findAll(queryDto: QueryItemsDto, tenantId: string) {
-    const shopId = this.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const page = queryDto.page || 1;
     const pageSize = queryDto.page_size || 20;
     const skip = (page - 1) * pageSize;
@@ -195,7 +182,7 @@ export class ItemsCrudService {
   }
 
   async findOne(id: string, tenantId: string) {
-    const shopId = this.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const item = await this.prisma.item.findFirst({
       where: {
         id,
@@ -277,7 +264,7 @@ export class ItemsCrudService {
   }
 
   async create(createDto: CreateItemDto, tenantId: string) {
-    const shopId = this.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     this.validatePriceFields(createDto.price, createDto.original_price);
 
     const carBrandNorm = normalizeCategoryBrandField(createDto.car_brand);
@@ -427,7 +414,7 @@ export class ItemsCrudService {
   }
 
   async update(id: string, updateDto: UpdateItemDto, tenantId: string) {
-    const shopId = this.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const existingItem = await this.prisma.item.findFirst({
       where: {
         id,
@@ -533,7 +520,7 @@ export class ItemsCrudService {
 
     const item = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.item.update({
-        where: { id },
+        where: { id, shop_id: shopId, deleted_at: null },
         data: updateData,
       });
 
@@ -584,7 +571,7 @@ export class ItemsCrudService {
   }
 
   async remove(id: string, tenantId: string) {
-    const shopId = this.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const existingItem = await this.prisma.item.findFirst({
       where: {
         id,
@@ -598,7 +585,7 @@ export class ItemsCrudService {
     }
 
     await this.prisma.item.update({
-      where: { id },
+      where: { id, shop_id: shopId, deleted_at: null },
       data: { deleted_at: new Date() },
     });
 

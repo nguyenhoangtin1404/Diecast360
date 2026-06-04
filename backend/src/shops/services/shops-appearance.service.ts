@@ -5,11 +5,12 @@ import { ErrorCode, AppException } from '../../common/exceptions/http-exception.
 import { ShopAuditAction } from '../../generated/prisma/client';
 import { IStorageService } from '../../storage/storage.interface';
 import { UploadSupportService } from '../../common/upload/upload-support.service';
-import { verifySignedMediaParams } from '../../common/media/signed-media.util';
 import { resolveMediaSigningSecret } from '../../common/media/media-signing-secret';
+import { extractShopBrandingRelativePath } from '../../common/media/resolve-receipt-logo-url';
 import { jsonStableStringify } from '../json-stable-stringify';
+import { hydrateAppearanceJson } from '../utils/hydrate-appearance';
+import { mergeAppearanceJson } from '../utils/merge-shop-json';
 import { ShopsAuditService } from './shops-audit.service';
-import { ShopsCrudService } from './shops-crud.service';
 import { v7 as uuidv7 } from 'uuid';
 import * as sharp from 'sharp';
 import { Prisma } from '../../generated/prisma/client';
@@ -26,7 +27,6 @@ export class ShopsAppearanceService {
     private readonly uploadSupport: UploadSupportService,
     private readonly config: ConfigService,
     private readonly audit: ShopsAuditService,
-    private readonly crud: ShopsCrudService,
   ) {}
 
   private extractAppearanceUrl(json: Prisma.JsonValue, key: 'logo_url' | 'favicon_url'): string | undefined {
@@ -51,24 +51,28 @@ export class ShopsAppearanceService {
     }
   }
 
-  /** Best-effort delete of a prior uploaded branding file (signed /media URL under shop-branding/). */
+  private async hydrateAppearanceJson(json: Prisma.JsonValue): Promise<Prisma.JsonValue> {
+    return hydrateAppearanceJson(json, this.storage, this.config);
+  }
+
+  /** Best-effort delete of a prior uploaded branding file. Handles plain relative paths (new) and signed URLs (legacy). */
   async tryDeletePriorShopBrandingFile(previousUrl: string | undefined): Promise<void> {
     if (!previousUrl) return;
-    let secret: string;
-    try {
-      secret = resolveMediaSigningSecret(this.config);
-    } catch {
-      return;
+    let relativePath: string | null = null;
+    if (!previousUrl.startsWith('http://') && !previousUrl.startsWith('https://')) {
+      relativePath = previousUrl.startsWith('shop-branding/') ? previousUrl : null;
+    } else {
+      let secret: string | undefined;
+      try {
+        secret = resolveMediaSigningSecret(this.config);
+      } catch { /* ignore */ }
+      relativePath = extractShopBrandingRelativePath(previousUrl, secret);
     }
+    if (!relativePath?.startsWith('shop-branding/')) return;
     try {
-      const u = new URL(previousUrl);
-      const d = u.searchParams.get('d') ?? undefined;
-      const s = u.searchParams.get('s') ?? undefined;
-      const payload = verifySignedMediaParams(d, s, secret);
-      if (!payload?.p.startsWith('shop-branding/')) return;
-      await this.storage.deleteFile(payload.p);
+      await this.storage.deleteFile(relativePath);
     } catch {
-      /* ignore malformed URLs or delete failures */
+      /* ignore delete failures */
     }
   }
 
@@ -135,10 +139,10 @@ export class ShopsAppearanceService {
     }
     const filename = `${tenantId}_${kind}_${uuidv7()}${ext}`;
     const relativePath = await this.storage.saveFile(payloadBuffer, filename, 'shop-branding');
-    const publicUrl = await this.storage.getFileUrl(relativePath);
 
-    const patch = kind === 'logo' ? { logo_url: publicUrl } : { favicon_url: publicUrl };
-    const nextAppearance = this.crud.mergeAppearanceJson(oldShop.appearance_json, patch);
+    // Store the relative path (not the signed URL) so it never expires in the DB.
+    const patch = kind === 'logo' ? { logo_url: relativePath } : { favicon_url: relativePath };
+    const nextAppearance = mergeAppearanceJson(oldShop.appearance_json, patch);
     const appearanceChanged =
       jsonStableStringify(oldShop.appearance_json) !== jsonStableStringify(nextAppearance);
 
@@ -168,10 +172,13 @@ export class ShopsAppearanceService {
       });
     }
 
+    const hydratedAppearance = await this.hydrateAppearanceJson(updated.appearance_json);
+    const urlKey = kind === 'logo' ? 'logo_url' : 'favicon_url';
+    const freshUrl = (hydratedAppearance as Record<string, unknown>)[urlKey];
     return {
       kind,
-      url: publicUrl,
-      shop: updated,
+      url: typeof freshUrl === 'string' ? freshUrl : await this.storage.getFileUrl(relativePath),
+      shop: { ...updated, appearance_json: hydratedAppearance },
     };
   }
 }

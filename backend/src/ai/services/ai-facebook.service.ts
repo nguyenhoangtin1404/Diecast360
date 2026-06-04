@@ -1,21 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { Item } from '../../generated/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { toNumber } from '../../common/utils/decimal.utils';
 import { AppException, ErrorCode } from '../../common/exceptions/http-exception.filter';
+import { clampCustomInstructions, mapProviderError } from '../ai-utils';
 
 @Injectable()
 export class AiFacebookService {
   private readonly logger = new Logger(AiFacebookService.name);
 
-  private static readonly CUSTOM_INSTRUCTIONS_MAX = 2000;
-
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
-    private openai: OpenAI,
+    @Inject('OPENAI_CLIENT') private openai: OpenAI,
   ) {}
 
   async generateFacebookPost(
@@ -35,7 +34,7 @@ export class AiFacebookService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
     }
 
-    const prompt = this.buildFbPostPrompt(item, this.clampCustomInstructions(customInstructions));
+    const prompt = this.buildFbPostPrompt(item, clampCustomInstructions(customInstructions));
 
     try {
       const model = this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
@@ -77,7 +76,7 @@ Cấu trúc bài viết:
         throw error;
       }
       this.logger.error('OpenAI API error', error instanceof Error ? error.stack : String(error));
-      throw this.mapProviderError(error, 'Failed to generate Facebook post');
+      throw mapProviderError(error, 'Failed to generate Facebook post');
     }
   }
 
@@ -120,18 +119,6 @@ Cấu trúc bài viết:
     return prompt;
   }
 
-  private clampCustomInstructions(raw?: string): string | undefined {
-    if (raw == null || typeof raw !== 'string') {
-      return undefined;
-    }
-    const t = raw.trim();
-    if (!t) return undefined;
-    if (t.length <= AiFacebookService.CUSTOM_INSTRUCTIONS_MAX) {
-      return t;
-    }
-    return t.slice(0, AiFacebookService.CUSTOM_INSTRUCTIONS_MAX);
-  }
-
   private parseFacebookPostResponse(content: string | null | undefined): { content: string } {
     if (!content || !content.trim()) {
       throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI did not return content');
@@ -140,36 +127,4 @@ Cấu trúc bài viết:
     return { content: content.trim() };
   }
 
-  private mapProviderError(error: unknown, fallbackMessage: string): AppException {
-    const providerError = this.getProviderError(error);
-
-    if (providerError?.status === 429) {
-      return new AppException(
-        ErrorCode.RATE_LIMIT_EXCEEDED,
-        'AI rate limit exceeded. Please try again later.',
-      );
-    }
-
-    if (providerError?.status && providerError.status >= 400 && providerError.status < 500) {
-      return new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        'Invalid AI request. Please review the input and try again.',
-      );
-    }
-
-    return new AppException(ErrorCode.INTERNAL_SERVER_ERROR, fallbackMessage);
-  }
-
-  private getProviderError(error: unknown): { status?: number; message?: string } {
-    if (!error || typeof error !== 'object') {
-      return {};
-    }
-
-    const candidate = error as Record<string, unknown>;
-
-    return {
-      status: typeof candidate.status === 'number' ? candidate.status : undefined,
-      message: typeof candidate.message === 'string' ? candidate.message : undefined,
-    };
-  }
 }

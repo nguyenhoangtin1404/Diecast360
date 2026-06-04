@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { Item } from '../../generated/prisma/client';
@@ -6,17 +6,16 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { toNumber } from '../../common/utils/decimal.utils';
 import { AppException, ErrorCode } from '../../common/exceptions/http-exception.filter';
 import { AiDescriptionResponseDto } from '../dto/ai-description.dto';
+import { clampCustomInstructions, parseJsonObject, mapProviderError } from '../ai-utils';
 
 @Injectable()
 export class AiDescriptionService {
   private readonly logger = new Logger(AiDescriptionService.name);
 
-  private static readonly CUSTOM_INSTRUCTIONS_MAX = 2000;
-
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
-    private openai: OpenAI,
+    @Inject('OPENAI_CLIENT') private openai: OpenAI,
   ) {}
 
   async generateItemDescription(
@@ -36,7 +35,7 @@ export class AiDescriptionService {
       throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
     }
 
-    const prompt = this.buildPrompt(item, this.clampCustomInstructions(customInstructions));
+    const prompt = this.buildPrompt(item, clampCustomInstructions(customInstructions));
 
     try {
       const model = this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
@@ -80,7 +79,7 @@ Trả về JSON với format sau (KHÔNG có markdown code block):
         throw error;
       }
       this.logger.error('OpenAI API error', error instanceof Error ? error.stack : String(error));
-      throw this.mapProviderError(error, 'Failed to generate AI description');
+      throw mapProviderError(error, 'Failed to generate AI description');
     }
   }
 
@@ -119,20 +118,8 @@ Trả về JSON với format sau (KHÔNG có markdown code block):
     return prompt;
   }
 
-  private clampCustomInstructions(raw?: string): string | undefined {
-    if (raw == null || typeof raw !== 'string') {
-      return undefined;
-    }
-    const t = raw.trim();
-    if (!t) return undefined;
-    if (t.length <= AiDescriptionService.CUSTOM_INSTRUCTIONS_MAX) {
-      return t;
-    }
-    return t.slice(0, AiDescriptionService.CUSTOM_INSTRUCTIONS_MAX);
-  }
-
   private parseDescriptionResponse(content: string | null | undefined): AiDescriptionResponseDto {
-    const parsed = this.parseJsonObject(content, 'AI did not return a valid description payload') as Partial<AiDescriptionResponseDto>;
+    const parsed = parseJsonObject(content, 'AI did not return a valid description payload') as Partial<AiDescriptionResponseDto>;
     const normalizedBulletSpecs = Array.isArray(parsed.bullet_specs)
       ? parsed.bullet_specs.filter((spec): spec is string => typeof spec === 'string' && spec.trim().length > 0)
       : [];
@@ -156,59 +143,4 @@ Trả về JSON với format sau (KHÔNG có markdown code block):
     };
   }
 
-  private parseJsonObject(content: string | null | undefined, malformedMessage: string): Record<string, unknown> {
-    if (!content || !content.trim()) {
-      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI did not return content');
-    }
-
-    const trimmed = content.trim();
-    const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```/i);
-    const normalized = (fencedMatch?.[1] ?? trimmed).trim();
-
-    try {
-      const parsed = JSON.parse(normalized) as unknown;
-      if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
-        throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, malformedMessage);
-      }
-      return parsed as Record<string, unknown>;
-    } catch (error) {
-      if (error instanceof AppException) {
-        throw error;
-      }
-      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, malformedMessage);
-    }
-  }
-
-  private mapProviderError(error: unknown, fallbackMessage: string): AppException {
-    const providerError = this.getProviderError(error);
-
-    if (providerError?.status === 429) {
-      return new AppException(
-        ErrorCode.RATE_LIMIT_EXCEEDED,
-        'AI rate limit exceeded. Please try again later.',
-      );
-    }
-
-    if (providerError?.status && providerError.status >= 400 && providerError.status < 500) {
-      return new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        'Invalid AI request. Please review the input and try again.',
-      );
-    }
-
-    return new AppException(ErrorCode.INTERNAL_SERVER_ERROR, fallbackMessage);
-  }
-
-  private getProviderError(error: unknown): { status?: number; message?: string } {
-    if (!error || typeof error !== 'object') {
-      return {};
-    }
-
-    const candidate = error as Record<string, unknown>;
-
-    return {
-      status: typeof candidate.status === 'number' ? candidate.status : undefined,
-      message: typeof candidate.message === 'string' ? candidate.message : undefined,
-    };
-  }
 }

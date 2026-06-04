@@ -1,17 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { CsvFieldValue } from '../../common/types/item.types';
-import { ItemsCrudService } from './items-crud.service';
+import { requireActiveShopId } from '../../common/utils/require-active-shop';
 
 @Injectable()
 export class ItemsExportService {
   constructor(
     private prisma: PrismaService,
-    private crudService: ItemsCrudService,
   ) {}
 
   async exportCsv(tenantId: string): Promise<string> {
-    const shopId = this.crudService.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const items = await this.prisma.item.findMany({
       where: {
         deleted_at: null,

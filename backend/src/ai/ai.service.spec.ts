@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { AiService } from './ai.service';
+import { AiDescriptionService } from './services/ai-description.service';
+import { AiFacebookService } from './services/ai-facebook.service';
+import { AiImageService } from './services/ai-image.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 
@@ -86,11 +89,12 @@ describe('AiService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiService,
+        AiDescriptionService,
+        AiFacebookService,
+        AiImageService,
         { provide: PrismaService, useValue: prisma },
-        {
-          provide: ConfigService,
-          useValue: { get: configGet },
-        },
+        { provide: ConfigService, useValue: { get: configGet } },
+        { provide: 'OPENAI_CLIENT', useValue: { chat: { completions: { create: mockCreate } } } },
       ],
     }).compile();
 
@@ -137,8 +141,12 @@ describe('AiService', () => {
       const module = await Test.createTestingModule({
         providers: [
           AiService,
+          AiDescriptionService,
+          AiFacebookService,
+          AiImageService,
           { provide: PrismaService, useValue: prisma },
           { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(null) } },
+          { provide: 'OPENAI_CLIENT', useValue: { chat: { completions: { create: mockCreate } } } },
         ],
       }).compile();
       const svcNoKey = module.get<AiService>(AiService);
@@ -453,8 +461,12 @@ some trailing note`,
       const module = await Test.createTestingModule({
         providers: [
           AiService,
+          AiDescriptionService,
+          AiFacebookService,
+          AiImageService,
           { provide: PrismaService, useValue: prisma },
           { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(null) } },
+          { provide: 'OPENAI_CLIENT', useValue: { chat: { completions: { create: mockCreate } } } },
         ],
       }).compile();
       const svcNoKey = module.get<AiService>(AiService);
@@ -464,35 +476,47 @@ some trailing note`,
   });
 
   // ============================================================
-  // buildPrompt
+  // buildPrompt (verified via generateItemDescription → mockCreate call)
   // ============================================================
   describe('buildPrompt', () => {
-    it('should include item details in prompt', () => {
-      const svc = (service as unknown as { descriptionService: { buildPrompt: (item: typeof mockItem) => string } });
-      const prompt = svc.descriptionService.buildPrompt(mockItem);
+    it('should include item details in prompt sent to OpenAI', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
 
-      expect(prompt).toContain('Hot Wheels Civic');
-      expect(prompt).toContain('1:64');
-      expect(prompt).toContain('Hot Wheels');
+      await service.generateItemDescription('item-1', TEST_SHOP_ID);
+
+      const callArgs = mockCreate.mock.calls[0][0];
+      const userContent = callArgs.messages.find((m: { role: string }) => m.role === 'user').content as string;
+      expect(userContent).toContain('Hot Wheels Civic');
+      expect(userContent).toContain('1:64');
+      expect(userContent).toContain('Hot Wheels');
     });
 
-    it('should include custom instructions when provided', () => {
-      const svc = (service as unknown as { descriptionService: { buildPrompt: (item: typeof mockItem, instructions?: string) => string } });
-      const prompt = svc.descriptionService.buildPrompt(mockItem, 'Focus on rarity');
+    it('should include custom instructions in prompt sent to OpenAI', async () => {
+      prisma.item.findFirst.mockResolvedValue(mockItem);
 
-      expect(prompt).toContain('Focus on rarity');
+      await service.generateItemDescription('item-1', TEST_SHOP_ID, 'Focus on rarity');
+
+      const callArgs = mockCreate.mock.calls[0][0];
+      const userContent = callArgs.messages.find((m: { role: string }) => m.role === 'user').content as string;
+      expect(userContent).toContain('Focus on rarity');
     });
   });
 
   // ============================================================
-  // buildFbPostPrompt
+  // buildFbPostPrompt (verified via generateFacebookPost → mockCreate call)
   // ============================================================
   describe('buildFbPostPrompt', () => {
-    it('should build FB post prompt with item info', () => {
-      const svc = (service as unknown as { facebookService: { buildFbPostPrompt: (item: typeof mockItem) => string } });
-      const prompt = svc.facebookService.buildFbPostPrompt(mockItem);
+    it('should include item info in FB post prompt sent to OpenAI', async () => {
+      mockCreate.mockResolvedValueOnce({
+        choices: [{ message: { content: '🔥 Hot Wheels Civic tuyệt đẹp! #diecast' } }],
+      });
+      prisma.item.findFirst.mockResolvedValue(mockItem);
 
-      expect(prompt).toContain('Hot Wheels Civic');
+      await service.generateFacebookPost('item-1', TEST_SHOP_ID);
+
+      const callArgs = mockCreate.mock.calls[0][0];
+      const userContent = callArgs.messages.find((m: { role: string }) => m.role === 'user').content as string;
+      expect(userContent).toContain('Hot Wheels Civic');
     });
   });
 });

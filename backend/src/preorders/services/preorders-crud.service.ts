@@ -8,6 +8,7 @@ import { CreatePreorderDto } from '../dto/create-preorder.dto';
 import { UpdatePreorderDto } from '../dto/update-preorder.dto';
 import { QueryPreordersDto } from '../dto/query-preorders.dto';
 import { totalPagesFromCount } from '../../common/utils/pagination.utils';
+import { requireActiveShopId } from '../../common/utils/require-active-shop';
 
 @Injectable()
 export class PreordersCrudService {
@@ -20,16 +21,6 @@ export class PreordersCrudService {
     private readonly prisma: PrismaService,
     @Inject('IStorageService') private readonly storage: IStorageService,
   ) {}
-
-  requireActiveShopId(tenantId: string | undefined | null): string {
-    if (typeof tenantId !== 'string' || tenantId.trim().length === 0) {
-      throw new AppException(
-        ErrorCode.AUTH_FORBIDDEN,
-        'Active shop context is required for this operation.',
-      );
-    }
-    return tenantId.trim();
-  }
 
   async assertItemInShop(itemId: string, shopId: string): Promise<void> {
     const item = await this.prisma.item.findFirst({
@@ -195,7 +186,7 @@ export class PreordersCrudService {
     tenantId: string,
     actor: { userId: string | null; platformRole: PlatformRole | null },
   ) {
-    const shopId = this.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     if (dto.user_id) {
       await this.assertPreorderAssigneeAllowed(shopId, dto.user_id, actor.userId, actor.platformRole);
     }
@@ -241,7 +232,7 @@ export class PreordersCrudService {
     tenantId: string,
     actor: { userId: string | null; platformRole: PlatformRole | null },
   ) {
-    const shopId = this.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const current = await this.prisma.preOrder.findFirst({
       where: { id, shop_id: shopId },
     });
@@ -313,8 +304,8 @@ export class PreordersCrudService {
     const hasExpectedArrival = Object.prototype.hasOwnProperty.call(dto, 'expected_arrival_at');
     const hasExpectedDelivery = Object.prototype.hasOwnProperty.call(dto, 'expected_delivery_at');
 
-    const preorder = await this.prisma.preOrder.update({
-      where: { id },
+    await this.prisma.preOrder.updateMany({
+      where: { id, shop_id: shopId },
       data: {
         item_id: dto.item_id,
         user_id: dto.user_id,
@@ -337,12 +328,18 @@ export class PreordersCrudService {
         note: dto.note,
       },
     });
+    const preorder = await this.prisma.preOrder.findFirst({
+      where: { id, shop_id: shopId },
+    });
+    if (!preorder) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Pre-order not found');
+    }
 
     return { preorder };
   }
 
   async findAdminList(query: QueryPreordersDto, tenantId: string) {
-    const shopId = this.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const page = query.page ?? 1;
     const pageSize = Math.min(query.page_size ?? 20, 100);
     const skip = (page - 1) * pageSize;
@@ -446,7 +443,7 @@ export class PreordersCrudService {
   }
 
   async findMyOrders(userId: string, tenantId: string, query: QueryPreordersDto) {
-    const shopId = this.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const page = query.page ?? 1;
     const pageSize = Math.min(query.page_size ?? 20, 50);
     const skip = (page - 1) * pageSize;
@@ -490,7 +487,7 @@ export class PreordersCrudService {
   }
 
   async getAdminSummary(tenantId: string) {
-    const shopId = this.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const grouped = await this.prisma.preOrder.groupBy({
       by: ['status'],
       where: { shop_id: shopId },
@@ -509,7 +506,7 @@ export class PreordersCrudService {
   }
 
   async getCampaignParticipants(itemId: string, tenantId: string, query: QueryPreordersDto = {}) {
-    const shopId = this.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const page = query.page ?? 1;
     const pageSize = Math.min(query.page_size ?? 20, 100);
     const skip = (page - 1) * pageSize;
@@ -550,7 +547,7 @@ export class PreordersCrudService {
   }
 
   async getCampaignItemSummary(itemId: string, tenantId: string) {
-    const shopId = this.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
 
     const activeStatuses = [
       PreOrderStatus.PENDING_CONFIRMATION,

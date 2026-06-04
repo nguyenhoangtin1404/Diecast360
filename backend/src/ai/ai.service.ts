@@ -1,7 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import OpenAI from 'openai';
-import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { AiDescriptionResponseDto } from './dto/ai-description.dto';
 import { AiAnalysisResult } from '../items/dto/ai-draft.dto';
@@ -11,26 +9,12 @@ import { AiImageService } from './services/ai-image.service';
 
 @Injectable()
 export class AiService {
-  private readonly logger = new Logger(AiService.name);
-
-  private readonly descriptionService: AiDescriptionService;
-  private readonly facebookService: AiFacebookService;
-  private readonly imageService: AiImageService;
-
   constructor(
-    private prisma: PrismaService,
-    private configService: ConfigService,
-  ) {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    if (!apiKey) {
-      this.logger.warn('OPENAI_API_KEY not configured. AI features will not work.');
-    }
-    const openai = new OpenAI({ apiKey: apiKey || 'not-configured' });
-
-    this.descriptionService = new AiDescriptionService(prisma, configService, openai);
-    this.facebookService = new AiFacebookService(prisma, configService, openai);
-    this.imageService = new AiImageService(configService, openai);
-  }
+    private readonly configService: ConfigService,
+    private readonly descriptionService: AiDescriptionService,
+    private readonly facebookService: AiFacebookService,
+    private readonly imageService: AiImageService,
+  ) {}
 
   async generateItemDescription(
     itemId: string,

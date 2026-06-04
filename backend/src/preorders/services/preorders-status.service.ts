@@ -7,14 +7,13 @@ import { assertValidPreOrderStatusTransition } from '../domain/preorder-transiti
 import { PreOrderDomainException } from '../domain/preorder-domain.exception';
 import { MembersService } from '../../members/members.service';
 import { parseShopLoyaltyJson } from '../../shops/shop-loyalty-json.util';
-import { PreordersCrudService } from './preorders-crud.service';
+import { requireActiveShopId } from '../../common/utils/require-active-shop';
 
 @Injectable()
 export class PreordersStatusService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly membersService: MembersService,
-    private readonly crud: PreordersCrudService,
   ) {}
 
   async transitionStatus(
@@ -23,7 +22,7 @@ export class PreordersStatusService {
     tenantId: string,
     actorUserId: string | null,
   ) {
-    const shopId = this.crud.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
 
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.preOrder.findFirst({

@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ErrorCode, AppException } from '../../common/exceptions/http-exception.filter';
 import { isPrismaUniqueConstraintError } from '../../common/prisma/prisma-error.utils';
@@ -7,13 +8,15 @@ import { UpdateShopDto, ShopContactPatchDto } from '../dto/update-shop.dto';
 import { ShopAppearancePatchDto, ShopLoyaltyPatchDto } from '../dto/update-shop-appearance.dto';
 import { Prisma, ShopAuditAction } from '../../generated/prisma/client';
 import { jsonStableStringify } from '../json-stable-stringify';
-import { parseShopLoyaltyJson } from '../shop-loyalty-json.util';
 import { ShopsAuditService } from './shops-audit.service';
 import { QueryShopItemsDto } from '../dto/query-shop-items.dto';
 import { IStorageService } from '../../storage/storage.interface';
-import { Inject } from '@nestjs/common';
 import { toNumber } from '../../common/utils/decimal.utils';
 import { totalPagesFromCount } from '../../common/utils/pagination.utils';
+import { resolveMediaSigningSecret } from '../../common/media/media-signing-secret';
+import { extractShopBrandingRelativePath } from '../../common/media/resolve-receipt-logo-url';
+import { hydrateAppearanceJson } from '../utils/hydrate-appearance';
+import { mergeContactJson, mergeAppearanceJson, mergeLoyaltyJson } from '../utils/merge-shop-json';
 
 const MAX_SLUG_ALLOCATION_ATTEMPTS = 32;
 
@@ -23,6 +26,7 @@ export class ShopsCrudService {
     private prisma: PrismaService,
     @Inject('IStorageService') private storage: IStorageService,
     private readonly audit: ShopsAuditService,
+    private readonly config: ConfigService,
   ) {}
 
   private slugFromName(name: string): string {
@@ -42,99 +46,19 @@ export class ShopsCrudService {
     return attemptIndex === 0 ? base : `${base}-${attemptIndex}`;
   }
 
-  mergeContactJson(
-    existing: Prisma.JsonValue,
-    patch: ShopContactPatchDto,
-  ): Prisma.InputJsonValue {
-    const baseObj =
-      typeof existing === 'object' && existing !== null && !Array.isArray(existing)
-        ? { ...(existing as Record<string, unknown>) }
-        : {};
-    const next: Record<string, unknown> = { ...baseObj };
-
-    const mergeStringRecord = (
-      prevRaw: unknown,
-      patchRecord: Record<string, unknown> | undefined,
-    ): Record<string, unknown> => {
-      const prev =
-        typeof prevRaw === 'object' && prevRaw !== null && !Array.isArray(prevRaw)
-          ? { ...(prevRaw as Record<string, unknown>) }
-          : {};
-      if (!patchRecord) return prev;
-      for (const [k, v] of Object.entries(patchRecord)) {
-        if (v === undefined) continue;
-        if (typeof v === 'string' && v.trim() === '') {
-          delete prev[k];
-        } else {
-          prev[k] = v;
-        }
-      }
-      return prev;
-    };
-
-    if (patch.page_title !== undefined) {
-      if (patch.page_title.trim() === '') delete next.page_title;
-      else next.page_title = patch.page_title;
-    }
-    if (patch.page_subtitle !== undefined) {
-      if (patch.page_subtitle.trim() === '') delete next.page_subtitle;
-      else next.page_subtitle = patch.page_subtitle;
-    }
-
-    const nested = ['phone', 'facebook', 'zalo', 'hours'] as const;
-    for (const key of nested) {
-      if (patch[key] !== undefined) {
-        next[key] = mergeStringRecord(next[key], patch[key] as Record<string, unknown>);
-      }
-    }
-
-    return next as Prisma.InputJsonValue;
+  private async hydrateAppearanceJson(json: Prisma.JsonValue): Promise<Prisma.JsonValue> {
+    return hydrateAppearanceJson(json, this.storage, this.config);
   }
 
-  mergeAppearanceJson(
-    existing: Prisma.JsonValue,
-    patch: ShopAppearancePatchDto,
-  ): Prisma.InputJsonValue {
-    const baseObj =
-      typeof existing === 'object' && existing !== null && !Array.isArray(existing)
-        ? { ...(existing as Record<string, unknown>) }
-        : {};
-    const next: Record<string, unknown> = { ...baseObj };
-    const entries: [keyof typeof patch, unknown][] = [
-      ['logo_url', patch.logo_url],
-      ['favicon_url', patch.favicon_url],
-      ['primary_color', patch.primary_color],
-      ['accent_color', patch.accent_color],
-      ['font_family', patch.font_family],
-    ];
-    for (const [key, val] of entries) {
-      if (val === undefined) continue;
-      if (typeof val === 'string' && val.trim() === '') {
-        delete next[key as string];
-      } else {
-        next[key as string] = val;
-      }
+  private normalizeAppearancePatch(patch: ShopAppearancePatchDto, secret?: string): ShopAppearancePatchDto {
+    const normalized = { ...patch };
+    for (const key of ['logo_url', 'favicon_url'] as const) {
+      const val = normalized[key];
+      if (typeof val !== 'string') continue;
+      const rel = extractShopBrandingRelativePath(val.trim(), secret);
+      if (rel) normalized[key] = rel;
     }
-    return next as Prisma.InputJsonValue;
-  }
-
-  mergeLoyaltyJson(existing: Prisma.JsonValue, patch: ShopLoyaltyPatchDto): Prisma.InputJsonValue {
-    const baseObj =
-      typeof existing === 'object' && existing !== null && !Array.isArray(existing)
-        ? { ...(existing as Record<string, unknown>) }
-        : {};
-    const next: Record<string, unknown> = { ...baseObj };
-    if (patch.vnd_per_point !== undefined) {
-      next.vnd_per_point = patch.vnd_per_point;
-    }
-    if (patch.preorder_points_basis !== undefined) {
-      next.preorder_points_basis = patch.preorder_points_basis;
-    }
-    const normalized = parseShopLoyaltyJson(next);
-    return {
-      vnd_per_point: normalized.vnd_per_point,
-      preorder_points_basis: normalized.preorder_points_basis,
-    };
+    return normalized;
   }
 
   async findAll() {
@@ -189,7 +113,7 @@ export class ShopsCrudService {
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.is_active !== undefined) data.is_active = dto.is_active;
     if (dto.contact !== undefined) {
-      data.contact_json = this.mergeContactJson(oldShop.contact_json, dto.contact);
+      data.contact_json = mergeContactJson(oldShop.contact_json, dto.contact);
     }
 
     const updated = await this.prisma.shop.update({
@@ -274,7 +198,7 @@ export class ShopsCrudService {
     if (!shop) {
       throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found');
     }
-    return shop;
+    return { ...shop, appearance_json: await this.hydrateAppearanceJson(shop.appearance_json) };
   }
 
   async updateContactAndAppearanceForTenant(
@@ -305,13 +229,18 @@ export class ShopsCrudService {
 
     const data: Prisma.ShopUpdateInput = {};
     if (contact !== undefined) {
-      data.contact_json = this.mergeContactJson(oldShop.contact_json, contact);
+      data.contact_json = mergeContactJson(oldShop.contact_json, contact);
     }
     if (appearance !== undefined) {
-      data.appearance_json = this.mergeAppearanceJson(oldShop.appearance_json, appearance);
+      let normSecret: string | undefined;
+      try { normSecret = resolveMediaSigningSecret(this.config); } catch { /* ignore */ }
+      data.appearance_json = mergeAppearanceJson(
+        oldShop.appearance_json,
+        this.normalizeAppearancePatch(appearance, normSecret),
+      );
     }
     if (loyalty !== undefined) {
-      data.loyalty_json = this.mergeLoyaltyJson(oldShop.loyalty_json, loyalty);
+      data.loyalty_json = mergeLoyaltyJson(oldShop.loyalty_json, loyalty);
     }
 
     const contactChanged =
@@ -347,7 +276,7 @@ export class ShopsCrudService {
       });
     }
 
-    return updated;
+    return { ...updated, appearance_json: await this.hydrateAppearanceJson(updated.appearance_json) };
   }
 
   async findItems(shopId: string, query: QueryShopItemsDto) {

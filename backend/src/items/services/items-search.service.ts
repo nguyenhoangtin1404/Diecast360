@@ -1,10 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { VectorStoreService } from '../../ai/vector-store.service';
 import { EmbeddingService, EmbeddingUnavailableError } from '../../ai/embedding.service';
 import type { VectorSyncItem, ItemWithCoverImage } from '../../common/types/item.types';
 import { toNumber } from '../../common/utils/decimal.utils';
-import { ItemsCrudService } from './items-crud.service';
+import { totalPagesFromCount } from '../../common/utils/pagination.utils';
+import { requireActiveShopId } from '../../common/utils/require-active-shop';
+import { IStorageService } from '../../storage/storage.interface';
 
 @Injectable()
 export class ItemsSearchService {
@@ -15,7 +17,7 @@ export class ItemsSearchService {
     private prisma: PrismaService,
     private vectorStore: VectorStoreService,
     private embeddingService: EmbeddingService,
-    private crudService: ItemsCrudService,
+    @Inject('IStorageService') private storage: IStorageService,
   ) {}
 
   async syncVectorStore(item: VectorSyncItem) {
@@ -58,19 +60,19 @@ Condition: ${item.condition || ''}`;
   }
 
   async search(query: string, tenantId: string, limit: number = 20) {
-    const shopId = this.crudService.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     // Try vector/semantic search first, fallback to text search
     try {
       const embedding = await this.embeddingService.getEmbedding(query);
       if (!embedding.length) {
-        return this.crudService.findAll({ q: query, page: 1, page_size: limit }, shopId);
+        return this.textSearch(shopId, query, limit);
       }
 
       const ids = await this.vectorStore.search(embedding, limit);
 
       if (ids.length === 0) {
         // No vector results - fallback to text search
-        return this.crudService.findAll({ q: query, page: 1, page_size: limit }, shopId);
+        return this.textSearch(shopId, query, limit);
       }
 
       const items = await this.prisma.item.findMany({
@@ -101,7 +103,7 @@ Condition: ${item.condition || ''}`;
             price: toNumber(itemWithImages.price),
             original_price: toNumber(itemWithImages.original_price),
             cover_image_url: itemWithImages.item_images[0]
-              ? await this.crudService.getImageUrl(itemWithImages.item_images[0].file_path)
+              ? await this.storage.getFileUrl(itemWithImages.item_images[0].file_path)
               : null,
             item_images: undefined,
           };
@@ -128,7 +130,7 @@ Condition: ${item.condition || ''}`;
           err.stack,
         );
       }
-      return this.crudService.findAll({ q: query, page: 1, page_size: limit }, shopId);
+      return this.textSearch(shopId, query, limit);
     }
   }
 
@@ -180,6 +182,43 @@ Condition: ${item.condition || ''}`;
 
   async deleteFromVectorStore(itemId: string) {
     await this.vectorStore.deleteItem(itemId);
+  }
+
+  private async textSearch(shopId: string, query: string, limit: number) {
+    const where = {
+      deleted_at: null,
+      shop_id: shopId,
+      name: { contains: query, mode: 'insensitive' as const },
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.item.findMany({
+        where,
+        skip: 0,
+        take: limit,
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+        include: { item_images: { where: { is_cover: true }, take: 1 } },
+      }),
+      this.prisma.item.count({ where }),
+    ]);
+    return {
+      items: await Promise.all(
+        items.map(async (item) => ({
+          ...item,
+          price: toNumber(item.price),
+          original_price: toNumber(item.original_price),
+          cover_image_url: item.item_images[0]
+            ? await this.storage.getFileUrl(item.item_images[0].file_path)
+            : null,
+          item_images: undefined,
+        })),
+      ),
+      pagination: {
+        page: 1,
+        page_size: limit,
+        total,
+        total_pages: totalPagesFromCount(total, limit),
+      },
+    };
   }
 
   private async markVectorSyncPending(itemId: string, reason: string) {

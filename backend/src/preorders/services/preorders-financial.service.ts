@@ -7,14 +7,13 @@ import { toNumber } from '../../common/utils/decimal.utils';
 import { parseShopContactJson } from '../../shops/types/shop-contact.types';
 import { parseShopAppearanceJson } from '../../shops/types/shop-appearance.types';
 import { resolveReceiptLogoUrl } from '../../common/media/resolve-receipt-logo-url';
-import { PreordersCrudService } from './preorders-crud.service';
+import { requireActiveShopId } from '../../common/utils/require-active-shop';
 
 @Injectable()
 export class PreordersFinancialService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-    private readonly crud: PreordersCrudService,
   ) {}
 
   private mapReceiptPreorder(row: {
@@ -65,7 +64,7 @@ export class PreordersFinancialService {
     tenantId: string,
     actor: { userId: string | null; platformRole: PlatformRole | null },
   ) {
-    const shopId = this.crud.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const row = await this.prisma.preOrder.findFirst({
       where: { id, shop_id: shopId },
       include: {

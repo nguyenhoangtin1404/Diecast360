@@ -1,17 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AppException, ErrorCode } from '../../common/exceptions/http-exception.filter';
-import { ItemsCrudService } from './items-crud.service';
+import { requireActiveShopId } from '../../common/utils/require-active-shop';
 
 @Injectable()
 export class ItemsPreorderService {
-  constructor(
-    private prisma: PrismaService,
-    private crudService: ItemsCrudService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async closePreorder(id: string, tenantId: string) {
-    const shopId = this.crudService.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const now = new Date();
     const updated = await this.prisma.$transaction(async (tx) => {
       const item = await tx.item.findFirst({
@@ -26,13 +23,13 @@ export class ItemsPreorderService {
       if (item.preorder_closes_at && item.preorder_closes_at <= now) {
         throw new AppException(ErrorCode.VALIDATION_ERROR, 'Preorder is already closed');
       }
-      return tx.item.update({ where: { id }, data: { preorder_closes_at: now } });
+      return tx.item.update({ where: { id, shop_id: shopId, deleted_at: null }, data: { preorder_closes_at: now } });
     });
     return { item: updated };
   }
 
   async reopenPreorder(id: string, tenantId: string) {
-    const shopId = this.crudService.requireActiveShopId(tenantId);
+    const shopId = requireActiveShopId(tenantId);
     const now = new Date();
     const updated = await this.prisma.$transaction(async (tx) => {
       const item = await tx.item.findFirst({
@@ -48,7 +45,7 @@ export class ItemsPreorderService {
         throw new AppException(ErrorCode.VALIDATION_ERROR, 'Preorder is not closed yet');
       }
       return tx.item.update({
-        where: { id },
+        where: { id, shop_id: shopId, deleted_at: null },
         data: { preorder_closes_at: null, preorder_opens_at: now },
       });
     });

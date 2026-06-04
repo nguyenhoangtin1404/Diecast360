@@ -6,7 +6,7 @@ import { QueryShopMembersDto } from '../dto/query-shop-members.dto';
 import { ShopAuditAction, ShopRole } from '../../generated/prisma/client';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { ShopsAuditService } from './shops-audit.service';
-import { ShopsCrudService } from './shops-crud.service';
+import { assertShopExists } from '../utils/assert-shop-exists';
 import { totalPagesFromCount } from '../../common/utils/pagination.utils';
 import { isUUID } from 'class-validator';
 import * as bcrypt from 'bcrypt';
@@ -16,11 +16,10 @@ export class ShopsMembersService {
   constructor(
     private prisma: PrismaService,
     private readonly audit: ShopsAuditService,
-    private readonly crud: ShopsCrudService,
   ) {}
 
   async findMembers(shopId: string, query: QueryShopMembersDto) {
-    await this.crud.findOne(shopId); // 404 guard
+    await assertShopExists(this.prisma, shopId);
     const page = query.page || 1;
     const pageSize = query.page_size || 20;
     const skip = (page - 1) * pageSize;
@@ -54,7 +53,7 @@ export class ShopsMembersService {
    * Idempotent via `upsert` on composite key `(user_id, shop_id)`.
    */
   async addShopAdmin(shopId: string, dto: AddShopAdminDto, actorUserId?: string | null) {
-    await this.crud.findOne(shopId); // throws 404 if shop does not exist
+    await assertShopExists(this.prisma, shopId); // throws 404 if shop does not exist
 
     if (dto.user_id && !isUUID(dto.user_id)) {
       throw new AppException(ErrorCode.VALIDATION_ERROR, 'user_id must be a valid UUID.');
@@ -139,7 +138,7 @@ export class ShopsMembersService {
     plainPassword: string,
     actorUserId?: string | null,
   ) {
-    await this.crud.findOne(shopId);
+    await assertShopExists(this.prisma, shopId);
     const membership = await this.prisma.userShopRole.findUnique({
       where: {
         user_id_shop_id: { user_id: memberUserId, shop_id: shopId },
@@ -176,7 +175,7 @@ export class ShopsMembersService {
     is_active: boolean,
     actorUserId?: string | null,
   ) {
-    await this.crud.findOne(shopId);
+    await assertShopExists(this.prisma, shopId);
     const membership = await this.prisma.userShopRole.findUnique({
       where: {
         user_id_shop_id: { user_id: memberUserId, shop_id: shopId },

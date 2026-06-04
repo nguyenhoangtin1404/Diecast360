@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { AppException, ErrorCode } from '../../common/exceptions/http-exception.filter';
 import { QueryShopAuditLogsDto } from '../dto/query-shop-audit-logs.dto';
 import { ShopAuditAction } from '../../generated/prisma/client';
 import { totalPagesFromCount } from '../../common/utils/pagination.utils';
@@ -46,6 +47,8 @@ export class ShopsAuditService {
   }
 
   async getAuditLogs(shopId: string, query: QueryShopAuditLogsDto) {
+    const shop = await this.prisma.shop.findUnique({ where: { id: shopId } });
+    if (!shop) throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found');
     const page = query.page || 1;
     const pageSize = query.page_size || 20;
     const skip = (page - 1) * pageSize;

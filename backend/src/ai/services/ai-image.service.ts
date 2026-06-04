@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { AppException, ErrorCode } from '../../common/exceptions/http-exception.filter';
+import { parseJsonObject, mapProviderError } from '../ai-utils';
 import { AiAnalysisResult } from '../../items/dto/ai-draft.dto';
 
 @Injectable()
@@ -10,7 +11,7 @@ export class AiImageService {
 
   constructor(
     private configService: ConfigService,
-    private openai: OpenAI,
+    @Inject('OPENAI_CLIENT') private openai: OpenAI,
   ) {}
 
   async analyzeImages(
@@ -84,12 +85,12 @@ export class AiImageService {
         throw error;
       }
       this.logger.error('OpenAI Vision Error', error instanceof Error ? error.stack : String(error));
-      throw this.mapProviderError(error, 'Failed to analyze images');
+      throw mapProviderError(error, 'Failed to analyze images');
     }
   }
 
   private parseImageAnalysisResponse(content: string | null | undefined): AiAnalysisResult {
-    const parsed = this.parseJsonObject(content, 'AI did not return a valid image analysis payload') as {
+    const parsed = parseJsonObject(content, 'AI did not return a valid image analysis payload') as {
       aiJson?: Record<string, unknown>;
       confidence?: unknown;
       extracted_text?: unknown;
@@ -114,29 +115,6 @@ export class AiImageService {
     };
   }
 
-  private parseJsonObject(content: string | null | undefined, malformedMessage: string): Record<string, unknown> {
-    if (!content || !content.trim()) {
-      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, 'AI did not return content');
-    }
-
-    const trimmed = content.trim();
-    const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```/i);
-    const normalized = (fencedMatch?.[1] ?? trimmed).trim();
-
-    try {
-      const parsed = JSON.parse(normalized) as unknown;
-      if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
-        throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, malformedMessage);
-      }
-      return parsed as Record<string, unknown>;
-    } catch (error) {
-      if (error instanceof AppException) {
-        throw error;
-      }
-      throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, malformedMessage);
-    }
-  }
-
   private normalizeConfidenceMap(confidence: Record<string, unknown> | undefined): Record<string, number> {
     if (!confidence || typeof confidence !== 'object') {
       return {};
@@ -150,36 +128,4 @@ export class AiImageService {
     }, {});
   }
 
-  private mapProviderError(error: unknown, fallbackMessage: string): AppException {
-    const providerError = this.getProviderError(error);
-
-    if (providerError?.status === 429) {
-      return new AppException(
-        ErrorCode.RATE_LIMIT_EXCEEDED,
-        'AI rate limit exceeded. Please try again later.',
-      );
-    }
-
-    if (providerError?.status && providerError.status >= 400 && providerError.status < 500) {
-      return new AppException(
-        ErrorCode.VALIDATION_ERROR,
-        'Invalid AI request. Please review the input and try again.',
-      );
-    }
-
-    return new AppException(ErrorCode.INTERNAL_SERVER_ERROR, fallbackMessage);
-  }
-
-  private getProviderError(error: unknown): { status?: number; message?: string } {
-    if (!error || typeof error !== 'object') {
-      return {};
-    }
-
-    const candidate = error as Record<string, unknown>;
-
-    return {
-      status: typeof candidate.status === 'number' ? candidate.status : undefined,
-      message: typeof candidate.message === 'string' ? candidate.message : undefined,
-    };
-  }
 }
