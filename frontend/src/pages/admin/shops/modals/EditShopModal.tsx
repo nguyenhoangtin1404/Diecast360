@@ -1,7 +1,6 @@
 import React from 'react';
 import { styles } from '../../ShopsPage.styles';
 import { ShopContactFields } from '../ShopContactFields';
-import { parseShopContactFormDefaults, buildShopContactPatch } from '../shopContactForm';
 import type { ShopContactFormState } from '../types/shopContact';
 import type { Shop } from '../types';
 

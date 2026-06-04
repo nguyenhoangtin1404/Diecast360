@@ -56,6 +56,7 @@ const ShopsPage: React.FC = () => {
   const addMember = useAddMember(onActionSuccess, fetchShops);
   const editShop = useEditShop(onActionSuccess, fetchShops);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchShops(); }, [fetchShops]);
 
   const handleCreate = async (e: React.FormEvent) => {
