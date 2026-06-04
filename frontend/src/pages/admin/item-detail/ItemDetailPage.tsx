@@ -9,7 +9,7 @@ import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient, uploadFile } from "../../../api/client";
 import { ArrowLeft, Edit, Plus } from "lucide-react";
-import type { ApiResponse } from "../../../types/category";
+import type { ApiResponse, CategoryItem } from "../../../types/category";
 import { showToast } from "../../../utils/toast";
 import type { FacebookPost } from "../../../types/item.types";
 import type { ItemStatus } from "../../../constants/item";
@@ -46,6 +46,7 @@ import {
   formatNumber,
   parseNumber,
   toLocalDatetimeInput,
+  MAX_ITEM_ATTRIBUTE_KEYS,
 } from "./utils";
 import { ItemBasicInfoSection } from "./sections/ItemBasicInfoSection";
 import { ItemImagesSection } from "./sections/ItemImagesSection";
@@ -54,7 +55,7 @@ import { ItemAiSection } from "./sections/ItemAiSection";
 import { ItemQrSection } from "./sections/ItemQrSection";
 import { PreorderCloseConfirmModal } from "./components/PreorderCloseConfirmModal";
 
-import type { CategoryItem } from "../../../types/category";
+
 
 const PRODUCT_STEPS: Array<{
   id: ProductStep;
@@ -848,8 +849,8 @@ export const ItemDetailPage = () => {
 
   const addAttributeRow = () => {
     setAttributeRows((prev) => {
-      if (prev.length >= 50) {
-        showToast(`Tối đa 50 thuộc tính.`);
+      if (prev.length >= MAX_ITEM_ATTRIBUTE_KEYS) {
+        showToast(`Tối đa ${MAX_ITEM_ATTRIBUTE_KEYS} thuộc tính.`);
         return prev;
       }
       return [...prev, { id: newAttributeRowId(), key: "", value: "" }];
