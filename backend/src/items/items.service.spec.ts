@@ -1922,7 +1922,8 @@ describe('ItemsService', () => {
     });
 
     it('should process pending tasks from queue', async () => {
-      const syncSpy = jest.spyOn(service, 'syncVectorStore').mockResolvedValue(undefined);
+      const searchSvc = (service as unknown as { searchService: ItemsSearchService }).searchService;
+      const syncSpy = jest.spyOn(searchSvc, 'syncVectorStore').mockResolvedValue(undefined);
       prisma.vectorSyncTask.findMany.mockResolvedValue([
         { item_id: vectorItem.id, item: vectorItem } as unknown as { item_id: string; item: typeof vectorItem },
       ]);
@@ -1948,7 +1949,8 @@ describe('ItemsService', () => {
     });
 
     it('should re-enqueue when syncVectorStore throws unexpectedly', async () => {
-      const syncSpy = jest.spyOn(service, 'syncVectorStore').mockRejectedValue(new Error('vector failure'));
+      const searchSvc = (service as unknown as { searchService: ItemsSearchService }).searchService;
+      const syncSpy = jest.spyOn(searchSvc, 'syncVectorStore').mockRejectedValue(new Error('vector failure'));
       prisma.vectorSyncTask.upsert.mockClear();
       prisma.vectorSyncTask.findMany.mockResolvedValue([
         { item_id: vectorItem.id, item: vectorItem } as unknown as { item_id: string; item: typeof vectorItem },
