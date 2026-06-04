@@ -48,11 +48,10 @@ const ShopsPage: React.FC = () => {
   }, []);
 
   const onActionSuccess = useCallback((msg: string) => { setShopActionError(null); setShopActionSuccess(msg); }, []);
-  const onActionError = useCallback((msg: string) => { setShopActionSuccess(null); setShopActionError(msg); }, []);
 
   const shopItems = useShopItems();
   const audit = useAuditLogs();
-  const members = useShopMembers(onActionSuccess, onActionError, fetchShops);
+  const members = useShopMembers(onActionSuccess, fetchShops);
   const addMember = useAddMember(onActionSuccess, fetchShops);
   const editShop = useEditShop(onActionSuccess, fetchShops);
 

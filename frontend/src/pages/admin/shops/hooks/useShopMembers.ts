@@ -41,7 +41,6 @@ function shopMembersFromApiResponse(
 
 export function useShopMembers(
   onActionSuccess: (msg: string) => void,
-  onActionError: (msg: string) => void,
   fetchShops: () => Promise<void>,
 ) {
   const [membersListShopId, setMembersListShopId] = useState<string | null>(null);
