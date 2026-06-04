@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { ShopsService } from './shops.service';
+import { ShopsAuditService } from './services/shops-audit.service';
+import { ShopsCrudService } from './services/shops-crud.service';
+import { ShopsMembersService } from './services/shops-members.service';
+import { ShopsAppearanceService } from './services/shops-appearance.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException } from '../common/exceptions/http-exception.filter';
 import { UploadSupportService } from '../common/upload/upload-support.service';
@@ -92,6 +96,10 @@ describe('ShopsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ShopsService,
+        ShopsAuditService,
+        ShopsCrudService,
+        ShopsMembersService,
+        ShopsAppearanceService,
         { provide: PrismaService, useValue: prisma },
         { provide: 'IStorageService', useValue: storage },
         { provide: UploadSupportService, useValue: uploadSupport },

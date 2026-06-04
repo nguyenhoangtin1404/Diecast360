@@ -9,6 +9,11 @@ import { ItemStatus } from '../generated/prisma/client';
 import { FacebookGraphService } from '../integrations/facebook/facebook-graph.service';
 import { FacebookConfigService } from '../integrations/facebook/facebook-config.service';
 import { CategoriesService } from '../categories/categories.service';
+import { ItemsCrudService } from './services/items-crud.service';
+import { ItemsSearchService } from './services/items-search.service';
+import { ItemsExportService } from './services/items-export.service';
+import { ItemsFacebookService } from './services/items-facebook.service';
+import { ItemsPreorderService } from './services/items-preorder.service';
 
 
 describe('ItemsService', () => {
@@ -138,6 +143,11 @@ describe('ItemsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ItemsCrudService,
+        ItemsSearchService,
+        ItemsExportService,
+        ItemsFacebookService,
+        ItemsPreorderService,
         ItemsService,
         { provide: PrismaService, useValue: prisma },
         { provide: 'IStorageService', useValue: storage },
@@ -151,9 +161,10 @@ describe('ItemsService', () => {
 
     service = module.get<ItemsService>(ItemsService);
 
-    // Spy on logger.error to verify structured logging
-    jest.spyOn((service as unknown as { logger: { error: jest.Mock } }).logger, 'error').mockImplementation();
-    loggerErrorSpy = jest.spyOn((service as unknown as { logger: { error: jest.Mock } }).logger, 'error');
+    // Spy on crudService logger.error to verify structured logging
+    const crudService = module.get<ItemsCrudService>(ItemsCrudService);
+    jest.spyOn((crudService as unknown as { logger: { error: jest.Mock } }).logger, 'error').mockImplementation();
+    loggerErrorSpy = jest.spyOn((crudService as unknown as { logger: { error: jest.Mock } }).logger, 'error');
   });
 
   afterEach(() => {
@@ -1911,7 +1922,8 @@ describe('ItemsService', () => {
     });
 
     it('should process pending tasks from queue', async () => {
-      const syncSpy = jest.spyOn(service, 'syncVectorStore').mockResolvedValue(undefined);
+      const searchSvc = (service as unknown as { searchService: ItemsSearchService }).searchService;
+      const syncSpy = jest.spyOn(searchSvc, 'syncVectorStore').mockResolvedValue(undefined);
       prisma.vectorSyncTask.findMany.mockResolvedValue([
         { item_id: vectorItem.id, item: vectorItem } as unknown as { item_id: string; item: typeof vectorItem },
       ]);
@@ -1937,7 +1949,8 @@ describe('ItemsService', () => {
     });
 
     it('should re-enqueue when syncVectorStore throws unexpectedly', async () => {
-      const syncSpy = jest.spyOn(service, 'syncVectorStore').mockRejectedValue(new Error('vector failure'));
+      const searchSvc = (service as unknown as { searchService: ItemsSearchService }).searchService;
+      const syncSpy = jest.spyOn(searchSvc, 'syncVectorStore').mockRejectedValue(new Error('vector failure'));
       prisma.vectorSyncTask.upsert.mockClear();
       prisma.vectorSyncTask.findMany.mockResolvedValue([
         { item_id: vectorItem.id, item: vectorItem } as unknown as { item_id: string; item: typeof vectorItem },

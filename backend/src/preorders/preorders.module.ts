@@ -4,11 +4,14 @@ import { StorageModule } from '../storage/storage.module';
 import { MembersModule } from '../members/members.module';
 import { PreordersController } from './preorders.controller';
 import { PreordersService } from './preorders.service';
+import { PreordersCrudService } from './services/preorders-crud.service';
+import { PreordersStatusService } from './services/preorders-status.service';
+import { PreordersFinancialService } from './services/preorders-financial.service';
 
 @Module({
   imports: [PrismaModule, StorageModule, MembersModule],
   controllers: [PreordersController],
-  providers: [PreordersService],
+  providers: [PreordersService, PreordersCrudService, PreordersStatusService, PreordersFinancialService],
   exports: [PreordersService],
 })
 export class PreordersModule {}

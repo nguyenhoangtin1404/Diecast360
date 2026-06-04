@@ -1,0 +1,635 @@
+import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Prisma, ItemStatus, PreOrderStatus } from '../../generated/prisma/client';
+import { PrismaService } from '../../common/prisma/prisma.service';
+import { IStorageService } from '../../storage/storage.interface';
+import { AppException, ErrorCode } from '../../common/exceptions/http-exception.filter';
+import { CreateItemDto } from '../dto/create-item.dto';
+import { UpdateItemDto } from '../dto/update-item.dto';
+import { QueryItemsDto } from '../dto/query-items.dto';
+import type { VectorSyncItem, ItemWithCoverImage } from '../../common/types/item.types';
+import { toNumber } from '../../common/utils/decimal.utils';
+import { totalPagesFromCount } from '../../common/utils/pagination.utils';
+import type { ItemAttributesInput } from '../dto/item-attributes.validator';
+import { CategoriesService } from '../../categories/categories.service';
+import { normalizeCategoryBrandField } from '../../common/utils/category-brand.utils';
+
+// Self-transitions included so other fields can be edited without changing status.
+const ALLOWED_STATUS_TRANSITIONS: Record<ItemStatus, ItemStatus[]> = {
+  con_hang: ['con_hang', 'giu_cho', 'da_ban', 'preorder'],
+  giu_cho: ['giu_cho', 'con_hang', 'da_ban', 'preorder'],
+  da_ban: ['da_ban', 'con_hang'],
+  preorder: ['preorder', 'con_hang', 'da_ban'],
+};
+
+function getInitialQuantityForStatus(status: ItemStatus): number {
+  return status === 'da_ban' ? 0 : 1;
+}
+
+function toItemAttributesJson(attributes: ItemAttributesInput): Prisma.InputJsonObject {
+  return attributes as Prisma.InputJsonObject;
+}
+
+function resolveQuantityForStatus(status: ItemStatus, requestedQuantity?: number): number {
+  if (status === 'da_ban') {
+    return 0;
+  }
+
+  // Use explicit nullish check (not `||`): 0 is a valid stock level and must not fall back to default.
+  if (requestedQuantity == null) {
+    return getInitialQuantityForStatus(status);
+  }
+  return requestedQuantity;
+}
+
+function parseDraftImageUrls(imagesJson: string): string[] {
+  try {
+    const parsed = JSON.parse(imagesJson) as unknown;
+    if (!Array.isArray(parsed)) {
+      throw new Error('Expected JSON array');
+    }
+    return parsed.filter((u): u is string => typeof u === 'string');
+  } catch {
+    throw new AppException(
+      ErrorCode.VALIDATION_ERROR,
+      'AI draft images_json is invalid or corrupted',
+    );
+  }
+}
+
+@Injectable()
+export class ItemsCrudService {
+  private readonly logger = new Logger(ItemsCrudService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    @Inject('IStorageService') private storage: IStorageService,
+    private categoriesService: CategoriesService,
+  ) {}
+
+  /**
+   * Every admin item query/mutation must be scoped to exactly one shop.
+   * Without a non-empty tenant id, Prisma would match rows from all shops.
+   */
+  requireActiveShopId(tenantId: string | undefined | null): string {
+    if (typeof tenantId !== 'string' || tenantId.trim().length === 0) {
+      throw new AppException(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Active shop context is required for this operation.',
+      );
+    }
+    return tenantId.trim();
+  }
+
+  async getImageUrl(filePath: string): Promise<string> {
+    return this.storage.getFileUrl(filePath);
+  }
+
+  async findAll(queryDto: QueryItemsDto, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
+    const page = queryDto.page || 1;
+    const pageSize = queryDto.page_size || 20;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.ItemWhereInput = {
+      deleted_at: null,
+      shop_id: shopId,
+    };
+
+    if (queryDto.status) {
+      where.status = queryDto.status;
+    }
+
+    if (queryDto.is_public !== undefined) {
+      where.is_public = queryDto.is_public;
+    }
+
+    if (queryDto.q) {
+      where.name = {
+        contains: queryDto.q,
+        mode: 'insensitive',
+      };
+    }
+
+    if (queryDto.car_brand) {
+      where.car_brand = queryDto.car_brand;
+    }
+
+    if (queryDto.model_brand) {
+      where.model_brand = queryDto.model_brand;
+    }
+
+    if (queryDto.condition) {
+      where.condition = queryDto.condition;
+    }
+
+    if (queryDto.fb_status === 'posted') {
+      where.facebook_posts = { some: {} };
+    } else if (queryDto.fb_status === 'not_posted') {
+      where.facebook_posts = { none: {} };
+    }
+
+    if (queryDto.preorder_open === true) {
+      where.status = 'preorder';
+      where.OR = [
+        { preorder_closes_at: null },
+        { preorder_closes_at: { gt: new Date() } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.item.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+        include: {
+          item_images: {
+            where: { is_cover: true },
+            take: 1,
+          },
+          spin_sets: {
+            where: { is_default: true },
+            take: 1,
+          },
+          facebook_posts: {
+            orderBy: { posted_at: 'desc' },
+            take: 1,
+          },
+          _count: {
+            select: { facebook_posts: true },
+          },
+        },
+      }),
+      this.prisma.item.count({ where }),
+    ]);
+
+    const itemsWithCover = await Promise.all(
+      items.map(async (item) => ({
+        ...item,
+        price: toNumber(item.price),
+        original_price: toNumber(item.original_price),
+        preorder_price: toNumber(item.preorder_price),
+        cover_image_url: item.item_images[0]
+          ? await this.getImageUrl(item.item_images[0].file_path)
+          : null,
+        has_default_spin_set: item.spin_sets.length > 0,
+        fb_post_url: item.facebook_posts[0]?.post_url || null,
+        fb_posted_at: item.facebook_posts[0]?.posted_at || null,
+        fb_posts_count: item._count.facebook_posts,
+        item_images: undefined,
+        spin_sets: undefined,
+        facebook_posts: undefined,
+        _count: undefined,
+      })),
+    );
+
+    return {
+      items: itemsWithCover,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total,
+        total_pages: totalPagesFromCount(total, pageSize),
+      },
+    };
+  }
+
+  async findOne(id: string, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
+    const item = await this.prisma.item.findFirst({
+      where: {
+        id,
+        deleted_at: null,
+        shop_id: shopId,
+      },
+      include: {
+        item_images: {
+          orderBy: { display_order: 'asc' },
+        },
+        spin_sets: {
+          include: {
+            frames: {
+              orderBy: { frame_index: 'asc' },
+            },
+          },
+        },
+        facebook_posts: {
+          orderBy: { posted_at: 'desc' },
+        },
+      },
+    });
+
+    if (!item) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
+    }
+
+    const { item_images, spin_sets: spinSetsFromDb, facebook_posts, ...itemData } = item;
+
+    const priceValue = itemData.price as unknown as { toNumber?: () => number } | number | null;
+    const originalPriceValue = itemData.original_price as unknown as { toNumber?: () => number } | number | null;
+
+    const images = await Promise.all(
+      item_images.map(async (img) => ({
+        id: img.id,
+        item_id: img.item_id,
+        url: await this.getImageUrl(img.file_path),
+        thumbnail_url: img.thumbnail_path ? await this.getImageUrl(img.thumbnail_path) : null,
+        is_cover: img.is_cover,
+        display_order: img.display_order,
+        created_at: img.created_at,
+      })),
+    );
+
+    const spin_sets = await Promise.all(
+      spinSetsFromDb.map(async (set) => ({
+        id: set.id,
+        item_id: set.item_id,
+        label: set.label,
+        is_default: set.is_default,
+        frames: await Promise.all(
+          set.frames.map(async (frame) => ({
+            id: frame.id,
+            spin_set_id: frame.spin_set_id,
+            frame_index: frame.frame_index,
+            image_url: await this.getImageUrl(frame.file_path),
+            thumbnail_url: frame.thumbnail_path
+              ? await this.getImageUrl(frame.thumbnail_path)
+              : null,
+            created_at: frame.created_at,
+          })),
+        ),
+        created_at: set.created_at,
+        updated_at: set.updated_at,
+      })),
+    );
+
+    return {
+      item: {
+        ...itemData,
+        price: priceValue != null ? (typeof (priceValue as { toNumber?: () => number }).toNumber === 'function' ? (priceValue as { toNumber: () => number }).toNumber() : Number(priceValue)) : null,
+        original_price: originalPriceValue != null ? (typeof (originalPriceValue as { toNumber?: () => number }).toNumber === 'function' ? (originalPriceValue as { toNumber: () => number }).toNumber() : Number(originalPriceValue)) : null,
+        preorder_price: toNumber(itemData.preorder_price),
+      },
+      images,
+      spin_sets,
+      facebook_posts,
+    };
+  }
+
+  async create(createDto: CreateItemDto, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
+    this.validatePriceFields(createDto.price, createDto.original_price);
+
+    const carBrandNorm = normalizeCategoryBrandField(createDto.car_brand);
+    const modelBrandNorm = normalizeCategoryBrandField(createDto.model_brand);
+    const draftIdNorm =
+      typeof createDto.draft_id === 'string' && createDto.draft_id.trim().length > 0
+        ? createDto.draft_id.trim()
+        : null;
+
+    // Declared outside transaction; cleared inside to handle potential retries
+    let failedImages: { filename: string; error: string }[] = [];
+    let totalImages = 0;
+
+    const item = await this.prisma.$transaction(async (tx) => {
+      // Clear on each attempt to prevent duplicates if transaction retries
+      failedImages = [];
+      totalImages = 0;
+      const initialStatus = (createDto.status as ItemStatus | undefined) ?? 'con_hang';
+
+      let aiDraftForCategories: { id: string; images_json: string | null } | null = null;
+      let draftImageUrls: string[] = [];
+      if (draftIdNorm) {
+        aiDraftForCategories = await tx.aiItemDraft.findUnique({
+          where: { id: draftIdNorm },
+          select: { id: true, images_json: true },
+        });
+        if (aiDraftForCategories) {
+          if (aiDraftForCategories.images_json) {
+            draftImageUrls = parseDraftImageUrls(aiDraftForCategories.images_json);
+          }
+          await this.categoriesService.ensureCategoriesForAiImportInTx(
+            tx,
+            shopId,
+            carBrandNorm,
+            modelBrandNorm,
+          );
+        }
+      }
+      await this.categoriesService.validateCategoryMetadataForShop(
+        shopId,
+        carBrandNorm,
+        modelBrandNorm,
+        tx,
+      );
+
+      const item = await tx.item.create({
+        data: {
+          name: createDto.name,
+          description: createDto.description,
+          scale: createDto.scale || '1:64',
+          brand: createDto.brand,
+          car_brand: carBrandNorm,
+          model_brand: modelBrandNorm,
+          condition: (createDto.condition as 'new' | 'old' | undefined) || null,
+          price: createDto.price !== undefined && createDto.price !== null ? createDto.price : null,
+          original_price: createDto.original_price !== undefined && createDto.original_price !== null ? createDto.original_price : null,
+          status: initialStatus,
+          quantity: resolveQuantityForStatus(initialStatus, createDto.quantity),
+          attributes: toItemAttributesJson(createDto.attributes ?? {}),
+          is_public: createDto.is_public || false,
+          shop_id: shopId,
+          preorder_closes_at: initialStatus === 'preorder' && createDto.preorder_closes_at
+            ? new Date(createDto.preorder_closes_at)
+            : null,
+          preorder_opens_at: initialStatus === 'preorder' ? new Date() : null,
+          preorder_price: createDto.preorder_price != null ? createDto.preorder_price : null,
+        },
+      });
+
+      // Handle Draft if provided and row exists (ignore stale client draft_id)
+      if (draftIdNorm && aiDraftForCategories) {
+        const draft = aiDraftForCategories;
+        const imageUrls = draftImageUrls;
+        totalImages = imageUrls.length;
+
+        let displayOrder = 0;
+        for (const url of imageUrls) {
+          const filename = url.split('/').pop();
+          if (filename) {
+            try {
+              const newFilename = `item_${item.id}_${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`;
+              const newPath = await this.storage.moveFile(`drafts/${filename}`, newFilename, 'images');
+
+              await tx.itemImage.create({
+                data: {
+                  item_id: item.id,
+                  file_path: newPath,
+                  is_cover: displayOrder === 0,
+                  display_order: displayOrder,
+                },
+              });
+              displayOrder++;
+            } catch (e) {
+              const errorMessage = e instanceof Error ? e.message : String(e);
+              failedImages.push({ filename, error: errorMessage });
+              this.logger.error(
+                `Failed to process draft image "${filename}" for item ${item.id}`,
+                e instanceof Error ? e.stack : undefined,
+                `ItemsCrudService.create | draftId=${draftIdNorm}`,
+              );
+            }
+          }
+        }
+
+        // Update draft status based on image processing results
+        const draftStatus = failedImages.length === 0
+          ? 'CONFIRMED'
+          : failedImages.length < totalImages
+            ? 'PARTIAL'
+            : 'FAILED';
+
+        await tx.aiItemDraft.update({
+          where: { id: draft.id },
+          data: { status: draftStatus },
+        });
+      }
+
+      return item;
+    });
+
+    // If some images failed, mark item with notes for admin review
+    if (failedImages.length > 0) {
+      const MAX_NOTES_LENGTH = 500;
+      let notes = `[INCOMPLETE] Failed to process ${failedImages.length}/${totalImages} draft image(s): ` +
+        failedImages.map((f) => f.filename).join(', ');
+
+      if (notes.length > MAX_NOTES_LENGTH) {
+        notes = notes.substring(0, MAX_NOTES_LENGTH - 3) + '...';
+      }
+
+      await this.prisma.item.update({
+        where: { id: item.id },
+        data: { notes },
+      });
+
+      this.logger.error(
+        `Item ${item.id} created with ${failedImages.length}/${totalImages} failed image(s) ` +
+        `from draft ${draftIdNorm ?? createDto.draft_id}. Details: ${failedImages.map((f) => `${f.filename}: ${f.error}`).join('; ')}`,
+      );
+    }
+
+    return {
+      item,
+      failedImages,
+      totalImages,
+    };
+  }
+
+  async update(id: string, updateDto: UpdateItemDto, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
+    const existingItem = await this.prisma.item.findFirst({
+      where: {
+        id,
+        deleted_at: null,
+        shop_id: shopId,
+      },
+    });
+
+    if (!existingItem) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
+    }
+
+    if (updateDto.status !== undefined) {
+      this.validateStatusTransition(existingItem.status, updateDto.status);
+    }
+
+    const nextPrice = updateDto.price !== undefined
+      ? updateDto.price
+      : toNumber(existingItem.price);
+    const nextOriginalPrice = updateDto.original_price !== undefined
+      ? updateDto.original_price
+      : toNumber(existingItem.original_price);
+    const nextStatus = updateDto.status ?? existingItem.status;
+    this.validatePriceFields(nextPrice ?? undefined, nextOriginalPrice ?? undefined);
+
+    const updateData: Prisma.ItemUpdateInput = {};
+    if (updateDto.name !== undefined) updateData.name = updateDto.name;
+    if (updateDto.description !== undefined) updateData.description = updateDto.description;
+    if (updateDto.scale !== undefined) updateData.scale = updateDto.scale;
+    if (updateDto.brand !== undefined) updateData.brand = updateDto.brand;
+    if (updateDto.car_brand !== undefined) {
+      updateData.car_brand = normalizeCategoryBrandField(updateDto.car_brand);
+    }
+    if (updateDto.model_brand !== undefined) {
+      updateData.model_brand = normalizeCategoryBrandField(updateDto.model_brand);
+    }
+    if (updateDto.condition !== undefined) updateData.condition = updateDto.condition;
+    if (updateDto.price !== undefined) updateData.price = updateDto.price ?? null;
+    if (updateDto.original_price !== undefined) updateData.original_price = updateDto.original_price ?? null;
+    if (updateDto.status !== undefined) updateData.status = updateDto.status;
+    if (updateDto.quantity !== undefined) {
+      const resolved = resolveQuantityForStatus(nextStatus, updateDto.quantity);
+      // da_ban → con_hang must always result in quantity ≥ 1 (re-stocking invariant).
+      updateData.quantity =
+        existingItem.status === 'da_ban' && nextStatus === 'con_hang' && resolved <= 0
+          ? 1
+          : resolved;
+    } else if (updateDto.status === 'da_ban' && existingItem.status !== 'da_ban') {
+      updateData.quantity = 0;
+    } else if (existingItem.status === 'da_ban' && nextStatus === 'con_hang') {
+      updateData.quantity = 1;
+    }
+    if (updateDto.attributes !== undefined) {
+      updateData.attributes = toItemAttributesJson(updateDto.attributes);
+    }
+    if (updateDto.is_public !== undefined) updateData.is_public = updateDto.is_public;
+    if (updateDto.fb_post_content !== undefined) updateData.fb_post_content = updateDto.fb_post_content;
+
+    // preorder_closes_at: set when explicitly provided; clear when status leaves preorder
+    if (updateDto.preorder_closes_at !== undefined) {
+      updateData.preorder_closes_at = updateDto.preorder_closes_at
+        ? new Date(updateDto.preorder_closes_at)
+        : null;
+    } else if (nextStatus !== 'preorder' && existingItem.status === 'preorder') {
+      updateData.preorder_closes_at = null;
+    }
+
+    // preorder_opens_at lifecycle is driven solely by status transitions and must run
+    // independently of `preorder_closes_at` being present in the payload. Admin editor
+    // sends `preorder_closes_at: null` when leaving preorder, which previously skipped
+    // the clear branch above and left a stale `preorder_opens_at` in DB.
+    if (nextStatus === 'preorder' && existingItem.status !== 'preorder') {
+      updateData.preorder_opens_at = existingItem.created_at;
+    } else if (nextStatus !== 'preorder' && existingItem.status === 'preorder') {
+      updateData.preorder_opens_at = null;
+    }
+
+    // preorder_price: persist as-is regardless of status; catalog decides when to show it
+    if (updateDto.preorder_price !== undefined) {
+      updateData.preorder_price = updateDto.preorder_price ?? null;
+    }
+
+    if (updateDto.car_brand !== undefined || updateDto.model_brand !== undefined) {
+      const nextCarBrand =
+        updateDto.car_brand !== undefined
+          ? normalizeCategoryBrandField(updateDto.car_brand)
+          : normalizeCategoryBrandField(existingItem.car_brand);
+      const nextModelBrand =
+        updateDto.model_brand !== undefined
+          ? normalizeCategoryBrandField(updateDto.model_brand)
+          : normalizeCategoryBrandField(existingItem.model_brand);
+      await this.categoriesService.validateCategoryMetadataForShop(
+        shopId,
+        nextCarBrand,
+        nextModelBrand,
+      );
+    }
+
+    let preordersArrivedCount = 0;
+    let preordersPendingCount = 0;
+    let preordersAutoCancelledCount = 0;
+    let preordersWithDepositCount = 0;
+
+    const item = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.item.update({
+        where: { id },
+        data: updateData,
+      });
+
+      if (existingItem.status === 'preorder' && nextStatus === 'con_hang') {
+        const result = await tx.preOrder.updateMany({
+          where: { item_id: id, shop_id: shopId, status: PreOrderStatus.WAITING_FOR_GOODS },
+          data: { status: PreOrderStatus.ARRIVED },
+        });
+        preordersArrivedCount = result.count;
+
+        preordersPendingCount = await tx.preOrder.count({
+          where: { item_id: id, shop_id: shopId, status: PreOrderStatus.PENDING_CONFIRMATION },
+        });
+      }
+
+      if (existingItem.status === 'preorder' && nextStatus === 'da_ban') {
+        const cancelled = await tx.preOrder.updateMany({
+          where: {
+            item_id: id,
+            shop_id: shopId,
+            status: { in: [PreOrderStatus.PENDING_CONFIRMATION, PreOrderStatus.WAITING_FOR_GOODS] },
+            paid_amount: { equals: 0 },
+          },
+          data: { status: PreOrderStatus.CANCELLED, cancelled_at: new Date() },
+        });
+        preordersAutoCancelledCount = cancelled.count;
+
+        preordersWithDepositCount = await tx.preOrder.count({
+          where: {
+            item_id: id,
+            shop_id: shopId,
+            status: { in: [PreOrderStatus.PENDING_CONFIRMATION, PreOrderStatus.WAITING_FOR_GOODS] },
+            paid_amount: { gt: 0 },
+          },
+        });
+      }
+
+      return updated;
+    });
+
+    return {
+      item,
+      preorders_arrived_count: preordersArrivedCount,
+      preorders_pending_count: preordersPendingCount,
+      preorders_auto_cancelled_count: preordersAutoCancelledCount,
+      preorders_with_deposit_count: preordersWithDepositCount,
+    };
+  }
+
+  async remove(id: string, tenantId: string) {
+    const shopId = this.requireActiveShopId(tenantId);
+    const existingItem = await this.prisma.item.findFirst({
+      where: {
+        id,
+        deleted_at: null,
+        shop_id: shopId,
+      },
+    });
+
+    if (!existingItem) {
+      throw new AppException(ErrorCode.NOT_FOUND, 'Item not found');
+    }
+
+    await this.prisma.item.update({
+      where: { id },
+      data: { deleted_at: new Date() },
+    });
+
+    return {};
+  }
+
+  validateStatusTransition(current: ItemStatus, next: ItemStatus) {
+    const allowedNext = ALLOWED_STATUS_TRANSITIONS[current] || [];
+    if (!allowedNext.includes(next)) {
+      throw new AppException(
+        ErrorCode.ITEM_STATUS_TRANSITION_INVALID,
+        `Invalid item status transition from "${current}" to "${next}"`,
+        [{ from: current, to: next }],
+      );
+    }
+  }
+
+  validatePriceFields(price?: number | null, originalPrice?: number | null) {
+    if (price != null && price < 0) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'price must be greater than or equal to 0');
+    }
+
+    if (originalPrice != null && originalPrice < 0) {
+      throw new AppException(ErrorCode.VALIDATION_ERROR, 'original_price must be greater than or equal to 0');
+    }
+
+    if (price != null && originalPrice != null && originalPrice < price) {
+      throw new AppException(
+        ErrorCode.VALIDATION_ERROR,
+        'original_price must be greater than or equal to price',
+      );
+    }
+  }
+}
