@@ -4,6 +4,9 @@ import { PlatformRole, PreOrderStatus, ShopRole } from '../generated/prisma/clie
 import { AppException } from '../common/exceptions/http-exception.filter';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PreordersService } from './preorders.service';
+import { PreordersCrudService } from './services/preorders-crud.service';
+import { PreordersStatusService } from './services/preorders-status.service';
+import { PreordersFinancialService } from './services/preorders-financial.service';
 import { MembersService } from '../members/members.service';
 
 const testJwtSecret = 'test-jwt-secret-for-preorders-spec-32';
@@ -39,6 +42,9 @@ describe('PreordersService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PreordersService,
+        PreordersCrudService,
+        PreordersStatusService,
+        PreordersFinancialService,
         { provide: PrismaService, useValue: prisma },
         { provide: 'IStorageService', useValue: storage },
         { provide: MembersService, useValue: membersService },
