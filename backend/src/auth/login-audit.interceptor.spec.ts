@@ -2,7 +2,7 @@ import { BadRequestException, CallHandler, ExecutionContext } from '@nestjs/comm
 import { of, throwError, lastValueFrom } from 'rxjs';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { LoginAuditInterceptor } from './login-audit.interceptor';
-import { LoginAuditService } from './login-audit.service';
+import { LoginAuditService } from '../common/security/login-audit.service';
 import { LOGIN_TRACE_ID_KEY } from './login-audit.helpers';
 
 jest.mock('./login-trace-id', () => ({
@@ -47,9 +47,7 @@ describe('LoginAuditInterceptor', () => {
     expect(typeof req[LOGIN_TRACE_ID_KEY]).toBe('string');
   });
 
-  it('audits invalid credentials without blocking error propagation', async () => {
-    const traceId = 'trace-invalid';
-    req[LOGIN_TRACE_ID_KEY] = traceId;
+  it('skips audit for AUTH_INVALID_CREDENTIALS (already recorded by AuthService)', async () => {
     const authError = new AppException(
       ErrorCode.AUTH_INVALID_CREDENTIALS,
       'Invalid credentials',
@@ -60,14 +58,32 @@ describe('LoginAuditInterceptor', () => {
       lastValueFrom(interceptor.intercept(createContext(), handler)),
     ).rejects.toBe(authError);
 
+    expect(loginAuditService.record).not.toHaveBeenCalled();
+  });
+
+  it('skips audit for AUTH_ACCOUNT_LOCKED (AuthService now records all locked paths)', async () => {
+    const lockedError = new AppException(ErrorCode.AUTH_ACCOUNT_LOCKED, 'Locked');
+    const handler: CallHandler = { handle: () => throwError(() => lockedError) };
+
+    await expect(
+      lastValueFrom(interceptor.intercept(createContext(), handler)),
+    ).rejects.toBe(lockedError);
+
+    expect(loginAuditService.record).not.toHaveBeenCalled();
+  });
+
+  it('audits CAPTCHA failures (not recorded by AuthService before throwing)', async () => {
+    const captchaError = new AppException(ErrorCode.CAPTCHA_FAILED, 'CAPTCHA failed');
+    const handler: CallHandler = { handle: () => throwError(() => captchaError) };
+
+    await expect(
+      lastValueFrom(interceptor.intercept(createContext(), handler)),
+    ).rejects.toBe(captchaError);
+
     expect(loginAuditService.record).toHaveBeenCalledWith(
       expect.objectContaining({
-        trace_id: expect.any(String),
-        email: 'admin@test.com',
-        ip_address: '203.0.113.9',
-        user_agent: 'jest-agent',
         status: 'failed',
-        failure_reason: 'invalid_credentials',
+        failureReason: 'captcha_failed',
       }),
     );
   });
@@ -84,7 +100,7 @@ describe('LoginAuditInterceptor', () => {
     expect(loginAuditService.record).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'failed',
-        failure_reason: 'validation_error',
+        failureReason: 'validation_error',
       }),
     );
   });

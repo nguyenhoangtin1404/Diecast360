@@ -9,6 +9,16 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { SwitchShopDto } from './dto/switch-shop.dto';
+import { CaptchaService } from '../common/security/captcha.service';
+import { LoginAuditService } from '../common/security/login-audit.service';
+import { LoginSecurityService } from '../common/security/login-security.service';
+import { SecurityAlertService } from '../common/security/security-alert.service';
+
+export interface LoginRequestContext {
+  traceId: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -17,27 +27,103 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private readonly captcha: CaptchaService,
+    private readonly loginAudit: LoginAuditService,
+    private readonly loginSecurity: LoginSecurityService,
+    private readonly securityAlerts: SecurityAlertService,
   ) {}
 
-  async login(loginDto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: loginDto.email },
+  async login(loginDto: LoginDto, ctx: LoginRequestContext) {
+    const email = this.loginSecurity.normalizeEmail(loginDto.email);
+
+    await this.captcha.assertValid(loginDto.captcha_token, ctx.ipAddress);
+    this.loginSecurity.assertEmailRateLimit(email);
+
+    // Case-insensitive lookup so accounts created before email normalization still work.
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: loginDto.email, mode: 'insensitive' } },
     });
 
     if (!user || !user.is_active) {
-      this.logger.warn(`auth.login_failed reason=user_missing_or_inactive email=${loginDto.email}`);
+      this.logger.warn(`auth.login_failed reason=user_missing_or_inactive email=${email}`);
+      this.loginSecurity.recordEmailFailedAttempt(email);
+      this.loginAudit.record({
+        traceId: ctx.traceId,
+        email,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+        status: 'failed',
+        failureReason: 'invalid_credentials',
+      });
+      this.securityAlerts.recordLoginFailed(email);
       throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials');
+    }
+
+    try {
+      await this.loginSecurity.assertAccountNotLocked(user);
+    } catch (err) {
+      this.loginAudit.record({
+        traceId: ctx.traceId,
+        email,
+        userId: user.id,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+        status: 'failed',
+        failureReason: 'account_locked',
+      });
+      throw err;
     }
 
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.password_hash);
     if (!isPasswordValid) {
-      this.logger.warn(`auth.login_failed reason=bad_password email=${loginDto.email}`);
+      this.logger.warn(`auth.login_failed reason=bad_password email=${email}`);
+      this.loginSecurity.recordEmailFailedAttempt(email);
+      const { locked, lockedUntil } = await this.loginSecurity.recordFailedLogin(user.id);
+      this.loginAudit.record({
+        traceId: ctx.traceId,
+        email,
+        userId: user.id,
+        ipAddress: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+        status: 'failed',
+        failureReason: locked ? 'account_locked' : 'invalid_credentials',
+      });
+      this.securityAlerts.recordLoginFailed(email);
+      if (locked) {
+        this.securityAlerts.recordAccountLocked(email);
+        // Intentional enumeration tradeoff: AUTH_ACCOUNT_LOCKED (403) reveals the email
+        // exists and is locked, unlike AUTH_INVALID_CREDENTIALS (401). This is accepted
+        // UX behaviour — legitimate users need Retry-After; the account being locked
+        // already implies prior failed attempts are recorded. See docs/DOMAIN.md.
+        const retryAfter = lockedUntil
+          ? Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 1000))
+          : this.loginSecurity.getLockoutRetryAfterSeconds();
+        throw new AppException(
+          ErrorCode.AUTH_ACCOUNT_LOCKED,
+          'Account temporarily locked due to too many failed login attempts. Please try again later.',
+          [],
+          undefined,
+          retryAfter,
+        );
+      }
       throw new AppException(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials');
     }
+
+    await this.loginSecurity.recordSuccessfulLogin(user.id, email);
 
     const defaultShopId = await this.resolveDefaultShopIdForUser(user.id);
     const accessToken = this.generateAccessToken(user.id, defaultShopId);
     const refreshToken = await this.generateRefreshToken(user.id);
+
+    this.loginAudit.record({
+      traceId: ctx.traceId,
+      email,
+      userId: user.id,
+      shopId: defaultShopId ?? null,
+      ipAddress: ctx.ipAddress,
+      userAgent: ctx.userAgent,
+      status: 'success',
+    });
 
     return {
       access_token: accessToken,

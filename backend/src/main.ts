@@ -10,6 +10,7 @@ import helmet from 'helmet';
 import { createCsrfMiddleware } from './common/middleware/csrf.middleware';
 import { validateRuntimeSecurityConfig } from './common/security/runtime-security';
 import { buildHelmetOptions } from './common/security/security-headers';
+import { SecurityAlertService } from './common/security/security-alert.service';
 
 /** Merge FRONTEND_URL + FRONTEND_URLS and add localhost ↔ 127.0.0.1 variants (same port). */
 function buildCorsAllowedOrigins(): string[] {
@@ -120,7 +121,12 @@ async function bootstrap() {
   });
 
   // Run after CORS so error responses (e.g. CSRF 403) still get Access-Control-Allow-Origin.
-  app.use(createCsrfMiddleware());
+  const securityAlerts = app.get(SecurityAlertService);
+  app.use(
+    createCsrfMiddleware({
+      onReject: () => securityAlerts.recordCsrfRejected(),
+    }),
+  );
 
   const port = process.env.PORT || 3000;
   // Default 0.0.0.0 so IPv4 probes (curl 127.0.0.1) work; some Node/OS combos only open :: otherwise.

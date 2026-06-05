@@ -47,6 +47,10 @@ export const LoginPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (isTurnstile && !captchaToken) {
+      setError('Vui lòng hoàn tất xác minh bảo mật trước khi đăng nhập.');
+      return;
+    }
     setLoading(true);
 
     let token: string | undefined = captchaToken ?? undefined;

@@ -1,7 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { ThrottlerExceptionFilter } from './throttler-exception.filter';
-import { LoginAuditService } from '../../auth/login-audit.service';
+import { LoginAuditService } from '../security/login-audit.service';
 import { ErrorCode } from '../constants/error-codes';
 
 jest.mock('../../auth/login-trace-id', () => ({
@@ -59,8 +59,8 @@ describe('ThrottlerExceptionFilter', () => {
       expect.objectContaining({
         email: 'admin@test.com',
         status: 'failed',
-        failure_reason: 'rate_limited',
-        ip_address: '203.0.113.2',
+        failureReason: 'rate_limited',
+        ipAddress: '203.0.113.2',
       }),
     );
     expect(response.status).toHaveBeenCalledWith(HttpStatus.TOO_MANY_REQUESTS);

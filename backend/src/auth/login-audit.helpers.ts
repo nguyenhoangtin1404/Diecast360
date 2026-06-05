@@ -1,14 +1,11 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
+import { LoginFailureReason } from '../common/security/login-failure-reason';
+
+export type { LoginFailureReason };
 
 export const LOGIN_TRACE_ID_KEY = 'loginTraceId';
-
-export type LoginFailureReason =
-  | 'invalid_credentials'
-  | 'validation_error'
-  | 'rate_limited'
-  | 'internal_error';
 
 export function isLoginEndpoint(path: string | undefined): boolean {
   return typeof path === 'string' && path.endsWith('/auth/login');
@@ -37,6 +34,25 @@ export function extractLoginEmail(body: unknown): string {
   return typeof raw === 'string' ? raw.slice(0, 254) : '';
 }
 
+/**
+ * Error codes where AuthService records audit before throwing.
+ * Both AUTH_INVALID_CREDENTIALS (user not found / bad password) and
+ * AUTH_ACCOUNT_LOCKED (pre-locked via assertAccountNotLocked, and
+ * lock-after-bad-password) are now recorded by AuthService before throw.
+ */
+const AUDITED_BY_SERVICE = new Set<string>([
+  ErrorCode.AUTH_INVALID_CREDENTIALS,
+  ErrorCode.AUTH_ACCOUNT_LOCKED,
+]);
+
+/**
+ * Returns true when the interceptor should skip recording audit because
+ * AuthService has already written a record with the same trace_id.
+ */
+export function isAlreadyAuditedByService(error: unknown): boolean {
+  return error instanceof AppException && AUDITED_BY_SERVICE.has(error.errorCode);
+}
+
 export function mapLoginFailureReason(error: unknown): LoginFailureReason {
   if (error instanceof ThrottlerException) {
     return 'rate_limited';
@@ -46,8 +62,14 @@ export function mapLoginFailureReason(error: unknown): LoginFailureReason {
     if (error.errorCode === ErrorCode.AUTH_INVALID_CREDENTIALS) {
       return 'invalid_credentials';
     }
+    if (error.errorCode === ErrorCode.AUTH_ACCOUNT_LOCKED) {
+      return 'account_locked';
+    }
+    if (error.errorCode === ErrorCode.RATE_LIMIT_EXCEEDED) {
+      return 'rate_limited';
+    }
     if (error.errorCode === ErrorCode.CAPTCHA_FAILED) {
-      return 'validation_error';
+      return 'captcha_failed';
     }
     return 'internal_error';
   }
