@@ -36,17 +36,25 @@ export const CaptchaWidget = ({ onToken, onExpire, onError, onLoadError, resetKe
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | undefined>(undefined);
 
+  // Use refs so callback identity changes never destroy/re-create the widget.
+  const onTokenRef = useRef(onToken);
+  const onExpireRef = useRef(onExpire);
+  const onErrorRef = useRef(onError);
+  useEffect(() => { onTokenRef.current = onToken; });
+  useEffect(() => { onExpireRef.current = onExpire; });
+  useEffect(() => { onErrorRef.current = onError; });
+
   const renderWidget = useCallback(() => {
     if (!containerRef.current || !window.turnstile || !CAPTCHA_SITE_KEY) return;
     if (widgetIdRef.current !== undefined) return;
     widgetIdRef.current = window.turnstile.render(containerRef.current, {
       sitekey: CAPTCHA_SITE_KEY,
-      callback: onToken,
-      'expired-callback': onExpire,
-      'error-callback': onError,
+      callback: (t) => onTokenRef.current(t),
+      'expired-callback': () => onExpireRef.current(),
+      'error-callback': () => onErrorRef.current?.(),
       theme: 'light',
     });
-  }, [onToken, onExpire, onError]);
+  }, []);
 
   useEffect(() => {
     if (!CAPTCHA_SITE_KEY) return;
