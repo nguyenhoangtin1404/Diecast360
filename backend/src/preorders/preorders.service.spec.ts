@@ -4,6 +4,9 @@ import { PlatformRole, PreOrderStatus, ShopRole } from '../generated/prisma/clie
 import { AppException } from '../common/exceptions/http-exception.filter';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PreordersService } from './preorders.service';
+import { PreordersCrudService } from './services/preorders-crud.service';
+import { PreordersStatusService } from './services/preorders-status.service';
+import { PreordersFinancialService } from './services/preorders-financial.service';
 import { MembersService } from '../members/members.service';
 
 const testJwtSecret = 'test-jwt-secret-for-preorders-spec-32';
@@ -39,6 +42,9 @@ describe('PreordersService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PreordersService,
+        PreordersCrudService,
+        PreordersStatusService,
+        PreordersFinancialService,
         { provide: PrismaService, useValue: prisma },
         { provide: 'IStorageService', useValue: storage },
         { provide: MembersService, useValue: membersService },
@@ -61,6 +67,31 @@ describe('PreordersService', () => {
     prisma.$transaction.mockImplementation(async (fn: (client: typeof prisma) => Promise<unknown>) =>
       fn(prisma as never),
     );
+  });
+
+  // ─── Tenant scope enforcement ─────────────────────────────────────────────
+  describe('tenant scope enforcement', () => {
+    it('throws AUTH_FORBIDDEN when tenantId is empty for transitionStatus', async () => {
+      await expect(
+        service.transitionStatus('po-1', PreOrderStatus.WAITING_FOR_GOODS, '', 'u1'),
+      ).rejects.toMatchObject({ errorCode: 'AUTH_FORBIDDEN' });
+    });
+
+    it('throws AUTH_FORBIDDEN when tenantId is empty for create', async () => {
+      await expect(
+        service.create(
+          { item_id: 'item-1', quantity: 1 } as never,
+          '',
+          { userId: 'u1', platformRole: null },
+        ),
+      ).rejects.toMatchObject({ errorCode: 'AUTH_FORBIDDEN' });
+    });
+
+    it('throws AUTH_FORBIDDEN when tenantId is empty for findAdminList', async () => {
+      await expect(
+        service.findAdminList({}, ''),
+      ).rejects.toMatchObject({ errorCode: 'AUTH_FORBIDDEN' });
+    });
   });
 
   it('rejects invalid transition', async () => {
@@ -231,7 +262,17 @@ describe('PreordersService', () => {
       paid_amount: { toNumber: () => 20 },
     });
     prisma.userShopRole.findUnique.mockResolvedValue({ role: ShopRole.shop_admin });
-    prisma.preOrder.update.mockResolvedValue({ id: 'po-1' });
+    prisma.preOrder.updateMany.mockResolvedValue({ count: 1 });
+    prisma.preOrder.findFirst.mockResolvedValueOnce({
+      id: 'po-1',
+      shop_id: tenantId,
+      user_id: null,
+      status: PreOrderStatus.WAITING_FOR_GOODS,
+      quantity: 2,
+      unit_price: { toNumber: () => 100 },
+      deposit_amount: { toNumber: () => 20 },
+      paid_amount: { toNumber: () => 20 },
+    }).mockResolvedValueOnce({ id: 'po-1' });
 
     await service.update(
       'po-1',
@@ -243,7 +284,7 @@ describe('PreordersService', () => {
       { userId: 'shop-admin-1', platformRole: null },
     );
 
-    expect(prisma.preOrder.update).toHaveBeenCalledWith(
+    expect(prisma.preOrder.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           expected_arrival_at: null,
@@ -313,6 +354,34 @@ describe('PreordersService', () => {
     expect(prisma.userShopRole.findUnique).not.toHaveBeenCalled();
   });
 
+  it('on non-CANCELLED transition, does not write cancelled_at to updateMany data', async () => {
+    const preorderId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+    prisma.preOrder.findFirst
+      .mockResolvedValueOnce({
+        id: preorderId,
+        shop_id: tenantId,
+        status: PreOrderStatus.ARRIVED,
+        member_id: memberId,
+        paid_amount: { toNumber: () => 50_000 },
+        total_amount: { toNumber: () => 100_000 },
+      })
+      .mockResolvedValueOnce({
+        id: preorderId,
+        shop_id: tenantId,
+        status: PreOrderStatus.PAID,
+        member_id: memberId,
+      });
+    prisma.shop.findFirst.mockResolvedValue({
+      loyalty_json: { vnd_per_point: 1000, preorder_points_basis: 'paid_amount' },
+    });
+    prisma.preOrder.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.transitionStatus(preorderId, PreOrderStatus.PAID, tenantId, 'actor-1');
+
+    const updateCall = prisma.preOrder.updateMany.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data).not.toHaveProperty('cancelled_at');
+  });
+
   it('on PAID transition, applies earn via MembersService when member and amounts present', async () => {
     const preorderId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
     prisma.preOrder.findFirst
@@ -344,6 +413,54 @@ describe('PreordersService', () => {
         memberId,
         basisVnd: 50_000,
         vndPerPoint: 1000,
+        actorUserId: 'actor-1',
+      }),
+    );
+  });
+
+  it('on PAID transition, throws VALIDATION_ERROR when member_id is null', async () => {
+    const preorderId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    prisma.preOrder.findFirst.mockResolvedValueOnce({
+      id: preorderId,
+      shop_id: tenantId,
+      status: PreOrderStatus.ARRIVED,
+      member_id: null,
+      paid_amount: { toNumber: () => 50_000 },
+      total_amount: { toNumber: () => 100_000 },
+    });
+    prisma.preOrder.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      service.transitionStatus(preorderId, PreOrderStatus.PAID, tenantId, 'actor-1'),
+    ).rejects.toMatchObject({ errorCode: 'VALIDATION_ERROR' });
+  });
+
+  it('on REFUNDED transition, calls applyPreorderRefundRedeemIfNeededInTx', async () => {
+    const preorderId = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+    prisma.preOrder.findFirst
+      .mockResolvedValueOnce({
+        id: preorderId,
+        shop_id: tenantId,
+        status: PreOrderStatus.PAID,
+        member_id: memberId,
+        paid_amount: { toNumber: () => 100_000 },
+        total_amount: { toNumber: () => 100_000 },
+      })
+      .mockResolvedValueOnce({
+        id: preorderId,
+        shop_id: tenantId,
+        status: PreOrderStatus.REFUNDED,
+        member_id: memberId,
+      });
+    prisma.preOrder.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.transitionStatus(preorderId, PreOrderStatus.REFUNDED, tenantId, 'actor-1');
+
+    expect(membersService.applyPreorderRefundRedeemIfNeededInTx).toHaveBeenCalledWith(
+      prisma,
+      expect.objectContaining({
+        preorderId,
+        memberId,
         actorUserId: 'actor-1',
       }),
     );
@@ -423,7 +540,7 @@ describe('PreordersService', () => {
         { userId: 'admin-user', platformRole: null },
       ),
     ).rejects.toThrow('Cannot change item, quantity, or amounts');
-    expect(prisma.preOrder.update).not.toHaveBeenCalled();
+    expect(prisma.preOrder.updateMany).not.toHaveBeenCalled();
   });
 
   it('handles concurrent transition conflict', async () => {

@@ -18,6 +18,16 @@ Prisma ORM dùng `DATABASE_URL` cho runtime và `DIRECT_URL` cho migrate/introsp
 
 ## Backend
 - Layering: **Controller/Route → Service → PrismaService/Storage/Processor → DB/Object storage**. Không đưa business rule trực tiếp vào controller.
+
+### Service split pattern (facade + sub-services)
+
+Các module lớn (Items, Preorders, Shops, AI) được chia theo pattern:
+
+- **Facade** (`XxxService`): class gốc, giữ nguyên public API với controller. Chỉ delegate sang sub-services — không chứa business logic trực tiếp, ngoại trừ orchestration giữa sub-services (ví dụ: fire-and-forget vector sync sau khi create/update item).
+- **Sub-services** (`XxxCrudService`, `XxxStatusService`, ...): `@Injectable()`, đăng ký trong `providers[]` của module và được inject vào facade qua NestJS DI. Không inject lẫn nhau để tránh coupling — logic dùng chung giữa sub-services phải được extract ra utility (`src/common/utils/`) và gọi trực tiếp.
+- **Shared utility**: Logic validation dùng chung giữa sub-services (ví dụ `requireActiveShopId`) được đặt tại `src/common/utils/` và gọi trực tiếp — không inject sub-service chỉ để dùng một hàm.
+- **External client (OpenAI, ...)**: inject qua custom token (`OPENAI_CLIENT`) được factory trong module, **không** tự `new` trong constructor service.
+
 - Module chính:
   - **Auth**: JWT access + refresh, lưu refresh token để revoke; middleware guard cho route admin.
   - **Items**: CRUD item (soft delete), toggle `is_public`, quản lý trạng thái kho.

@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { ShopsService } from './shops.service';
+import { ShopsAuditService } from './services/shops-audit.service';
+import { ShopsCrudService } from './services/shops-crud.service';
+import { ShopsMembersService } from './services/shops-members.service';
+import { ShopsAppearanceService } from './services/shops-appearance.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException } from '../common/exceptions/http-exception.filter';
 import { UploadSupportService } from '../common/upload/upload-support.service';
@@ -92,6 +96,10 @@ describe('ShopsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ShopsService,
+        ShopsAuditService,
+        ShopsCrudService,
+        ShopsMembersService,
+        ShopsAppearanceService,
         { provide: PrismaService, useValue: prisma },
         { provide: 'IStorageService', useValue: storage },
         { provide: UploadSupportService, useValue: uploadSupport },
@@ -480,6 +488,15 @@ describe('ShopsService', () => {
       expect(prisma.shopAuditLog.count).toHaveBeenCalledWith({
         where: { shop_id: shopId, action: 'deactivate_shop' },
       });
+    });
+
+    it('should throw NOT_FOUND when shop does not exist', async () => {
+      prisma.shop.findUnique.mockResolvedValue(null);
+
+      await expect(service.findAuditLogs(shopId, { page: 1, page_size: 20 })).rejects.toThrow(
+        AppException,
+      );
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 
