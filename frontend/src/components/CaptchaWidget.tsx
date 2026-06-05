@@ -40,9 +40,13 @@ export const CaptchaWidget = ({ onToken, onExpire, onError, onLoadError, resetKe
   const onTokenRef = useRef(onToken);
   const onExpireRef = useRef(onExpire);
   const onErrorRef = useRef(onError);
-  useEffect(() => { onTokenRef.current = onToken; });
-  useEffect(() => { onExpireRef.current = onExpire; });
-  useEffect(() => { onErrorRef.current = onError; });
+  const onLoadErrorRef = useRef(onLoadError);
+  useEffect(() => {
+    onTokenRef.current = onToken;
+    onExpireRef.current = onExpire;
+    onErrorRef.current = onError;
+    onLoadErrorRef.current = onLoadError;
+  });
 
   const renderWidget = useCallback(() => {
     if (!containerRef.current || !window.turnstile || !CAPTCHA_SITE_KEY) return;
@@ -70,7 +74,7 @@ export const CaptchaWidget = ({ onToken, onExpire, onError, onLoadError, resetKe
           'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit';
         script.async = true;
         script.defer = true;
-        script.onerror = () => onLoadError?.();
+        script.onerror = () => onLoadErrorRef.current?.();
         document.head.appendChild(script);
       }
     }
@@ -81,7 +85,7 @@ export const CaptchaWidget = ({ onToken, onExpire, onError, onLoadError, resetKe
         widgetIdRef.current = undefined;
       }
     };
-  }, [renderWidget, onLoadError]);
+  }, [renderWidget]);
 
   useEffect(() => {
     if (!resetKey || resetKey <= 0) return;
