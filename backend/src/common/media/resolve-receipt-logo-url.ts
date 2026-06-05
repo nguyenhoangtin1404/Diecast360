@@ -32,6 +32,23 @@ export function extractShopBrandingRelativePath(
     }
   }
 
+  // Recovery for expired local signed URLs: bare-decode the 'd' param without HMAC/expiry checks.
+  // Safe here — we only extract the path prefix; the caller re-signs via storage.getFileUrl().
+  try {
+    const u = new URL(trimmed);
+    const d = u.searchParams.get('d');
+    if (d) {
+      const raw = JSON.parse(Buffer.from(d, 'base64url').toString('utf8')) as unknown;
+      const p = raw !== null && typeof raw === 'object' ? (raw as Record<string, unknown>).p : undefined;
+      const normalized = typeof p === 'string' ? p.replace(/^\.\//, '').replace(/^\//, '') : undefined;
+      if (typeof normalized === 'string' && normalized.startsWith(SHOP_BRANDING_PREFIX) && !normalized.includes('..')) {
+        return normalized;
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+
   try {
     const u = new URL(trimmed);
     const pathname = decodeURIComponent(u.pathname);

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { PublicService } from './public.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException } from '../common/exceptions/http-exception.filter';
@@ -10,6 +11,7 @@ describe('PublicService', () => {
     shop: Record<string, jest.Mock>;
   };
   let storage: Record<string, jest.Mock>;
+  let config: { get: jest.Mock };
 
   const mockPublicItem = {
     id: 'item-1',
@@ -47,11 +49,14 @@ describe('PublicService', () => {
       getFileUrl: jest.fn(async (path: string) => `http://localhost/uploads/${path}`),
     };
 
+    config = { get: jest.fn().mockReturnValue(undefined) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PublicService,
         { provide: PrismaService, useValue: prisma },
         { provide: 'IStorageService', useValue: storage },
+        { provide: ConfigService, useValue: config },
       ],
     }).compile();
 
@@ -87,6 +92,40 @@ describe('PublicService', () => {
       prisma.shop.findFirst.mockResolvedValue(null);
 
       await expect(service.getShopContact('nope')).rejects.toBeInstanceOf(AppException);
+    });
+
+    it('re-signs stored branding relative path via storage.getFileUrl', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        id: 'shop-1',
+        name: 'My Shop',
+        slug: 'my-shop',
+        contact_json: {},
+        appearance_json: {
+          logo_url: 'shop-branding/shop-1_logo_abc.png',
+          favicon_url: 'shop-branding/shop-1_favicon_def.png',
+        },
+      });
+
+      const out = await service.getShopContact('shop-1');
+
+      expect(storage.getFileUrl).toHaveBeenCalledWith('shop-branding/shop-1_logo_abc.png');
+      expect(storage.getFileUrl).toHaveBeenCalledWith('shop-branding/shop-1_favicon_def.png');
+      expect(out.appearance.logo_url).toBe('http://localhost/uploads/shop-branding/shop-1_logo_abc.png');
+    });
+
+    it('passes through external CDN URLs without re-signing', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        id: 'shop-1',
+        name: 'My Shop',
+        slug: 'my-shop',
+        contact_json: {},
+        appearance_json: { logo_url: 'https://cdn.example.com/logo.png' },
+      });
+
+      const out = await service.getShopContact('shop-1');
+
+      expect(storage.getFileUrl).not.toHaveBeenCalled();
+      expect(out.appearance.logo_url).toBe('https://cdn.example.com/logo.png');
     });
   });
 

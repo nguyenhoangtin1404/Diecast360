@@ -1,6 +1,8 @@
 import { Injectable, Inject } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { IStorageService } from '../storage/storage.interface';
+import { resolveMediaSigningSecret } from '../common/media/media-signing-secret';
 import { AppException, ErrorCode } from '../common/exceptions/http-exception.filter';
 import { QueryPublicItemsDto } from './dto/query-public-items.dto';
 import { Prisma } from '../generated/prisma/client';
@@ -8,6 +10,7 @@ import { toNumber } from '../common/utils/decimal.utils';
 import { totalPagesFromCount } from '../common/utils/pagination.utils';
 import { parseShopContactJson, ShopContactSettings } from '../shops/types/shop-contact.types';
 import { parseShopAppearanceJson } from '../shops/types/shop-appearance.types';
+import { extractShopBrandingRelativePath } from '../common/media/resolve-receipt-logo-url';
 
 @Injectable()
 export class PublicService {
@@ -20,6 +23,7 @@ export class PublicService {
   constructor(
     private prisma: PrismaService,
     @Inject('IStorageService') private storage: IStorageService,
+    private config: ConfigService,
   ) {}
 
   private defaultContact(shopName: string): ShopContactSettings {
@@ -81,6 +85,16 @@ export class PublicService {
     const stored = parseShopContactJson(shop.contact_json);
     const contact = this.mergeWithDefaults(shop.name, stored);
     const appearance = parseShopAppearanceJson(shop.appearance_json);
+    let mediaSecret: string | undefined;
+    try {
+      mediaSecret = resolveMediaSigningSecret(this.config);
+    } catch { /* ignore */ }
+    for (const key of ['logo_url', 'favicon_url'] as const) {
+      const val = appearance[key];
+      if (!val) continue;
+      const rel = extractShopBrandingRelativePath(val, mediaSecret);
+      if (rel) appearance[key] = await this.storage.getFileUrl(rel);
+    }
     return {
       shop: { id: shop.id, name: shop.name, slug: shop.slug },
       contact,

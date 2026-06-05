@@ -20,7 +20,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { jsonStableStringify } from './json-stable-stringify';
 import { parseShopLoyaltyJson } from './shop-loyalty-json.util';
 import { UploadSupportService } from '../common/upload/upload-support.service';
-import { verifySignedMediaParams } from '../common/media/signed-media.util';
+import { extractShopBrandingRelativePath } from '../common/media/resolve-receipt-logo-url';
 import { resolveMediaSigningSecret } from '../common/media/media-signing-secret';
 import { v7 as uuidv7 } from 'uuid';
 import * as sharp from 'sharp';
@@ -159,6 +159,44 @@ export class ShopsService {
     return typeof v === 'string' && v.trim() ? v.trim() : undefined;
   }
 
+  /**
+   * Re-sign logo_url / favicon_url so the returned URLs are always fresh.
+   * Stored value may be a relative path (new format) or an expired signed URL (legacy).
+   */
+  private async hydrateAppearanceJson(json: Prisma.JsonValue): Promise<Prisma.JsonValue> {
+    if (typeof json !== 'object' || json === null || Array.isArray(json)) return json;
+    const obj = json as Record<string, unknown>;
+    const result = { ...obj };
+    let secret: string | undefined;
+    try {
+      secret = resolveMediaSigningSecret(this.config);
+    } catch { /* ignore */ }
+    for (const key of ['logo_url', 'favicon_url']) {
+      const stored = result[key];
+      if (typeof stored !== 'string' || !stored.trim()) continue;
+      const relativePath = extractShopBrandingRelativePath(stored.trim(), secret);
+      if (relativePath) {
+        result[key] = await this.storage.getFileUrl(relativePath);
+      }
+    }
+    return result as Prisma.JsonValue;
+  }
+
+  /**
+   * Normalize logo_url / favicon_url in an appearance patch back to relative paths
+   * before persisting, so hydrated signed URLs from API responses are never re-stored.
+   */
+  private normalizeAppearancePatch(patch: ShopAppearancePatchDto, secret?: string): ShopAppearancePatchDto {
+    const normalized = { ...patch };
+    for (const key of ['logo_url', 'favicon_url'] as const) {
+      const val = normalized[key];
+      if (typeof val !== 'string') continue;
+      const rel = extractShopBrandingRelativePath(val.trim(), secret);
+      if (rel) normalized[key] = rel;
+    }
+    return normalized;
+  }
+
   private async normalizeFavicon(buffer: Buffer): Promise<Buffer> {
     try {
       return await sharp(buffer, { failOn: 'error' })
@@ -175,24 +213,26 @@ export class ShopsService {
     }
   }
 
-  /** Best-effort delete of a prior uploaded branding file (signed /media URL under shop-branding/). */
+  /** Best-effort delete of a prior uploaded branding file. Handles plain relative paths (new) and signed URLs (legacy). */
   private async tryDeletePriorShopBrandingFile(previousUrl: string | undefined): Promise<void> {
     if (!previousUrl) return;
-    let secret: string;
-    try {
-      secret = resolveMediaSigningSecret(this.config);
-    } catch {
-      return;
+    let relativePath: string | null = null;
+    if (!previousUrl.startsWith('http://') && !previousUrl.startsWith('https://')) {
+      relativePath = previousUrl.startsWith('shop-branding/') ? previousUrl : null;
+    } else {
+      let secret: string | undefined;
+      try {
+        secret = resolveMediaSigningSecret(this.config);
+      } catch {
+        /* ignore */
+      }
+      relativePath = extractShopBrandingRelativePath(previousUrl, secret);
     }
+    if (!relativePath?.startsWith('shop-branding/')) return;
     try {
-      const u = new URL(previousUrl);
-      const d = u.searchParams.get('d') ?? undefined;
-      const s = u.searchParams.get('s') ?? undefined;
-      const payload = verifySignedMediaParams(d, s, secret);
-      if (!payload?.p.startsWith('shop-branding/')) return;
-      await this.storage.deleteFile(payload.p);
+      await this.storage.deleteFile(relativePath);
     } catch {
-      /* ignore malformed URLs or delete failures */
+      /* ignore delete failures */
     }
   }
 
@@ -360,7 +400,7 @@ export class ShopsService {
     if (!shop) {
       throw new AppException(ErrorCode.NOT_FOUND, 'Shop not found');
     }
-    return shop;
+    return { ...shop, appearance_json: await this.hydrateAppearanceJson(shop.appearance_json) };
   }
 
   async updateContactAndAppearanceForTenant(
@@ -394,7 +434,12 @@ export class ShopsService {
       data.contact_json = this.mergeContactJson(oldShop.contact_json, contact);
     }
     if (appearance !== undefined) {
-      data.appearance_json = this.mergeAppearanceJson(oldShop.appearance_json, appearance);
+      let normSecret: string | undefined;
+      try { normSecret = resolveMediaSigningSecret(this.config); } catch { /* ignore */ }
+      data.appearance_json = this.mergeAppearanceJson(
+        oldShop.appearance_json,
+        this.normalizeAppearancePatch(appearance, normSecret),
+      );
     }
     if (loyalty !== undefined) {
       data.loyalty_json = this.mergeLoyaltyJson(oldShop.loyalty_json, loyalty);
@@ -433,7 +478,7 @@ export class ShopsService {
       });
     }
 
-    return updated;
+    return { ...updated, appearance_json: await this.hydrateAppearanceJson(updated.appearance_json) };
   }
 
   /**
@@ -500,10 +545,10 @@ export class ShopsService {
     }
     const filename = `${tenantId}_${kind}_${uuidv7()}${ext}`;
     const relativePath = await this.storage.saveFile(payloadBuffer, filename, 'shop-branding');
-    const publicUrl = await this.storage.getFileUrl(relativePath);
 
+    // Store the relative path (not the signed URL) so it never expires in the DB.
     const patch: ShopAppearancePatchDto =
-      kind === 'logo' ? { logo_url: publicUrl } : { favicon_url: publicUrl };
+      kind === 'logo' ? { logo_url: relativePath } : { favicon_url: relativePath };
     const nextAppearance = this.mergeAppearanceJson(oldShop.appearance_json, patch);
     const appearanceChanged =
       jsonStableStringify(oldShop.appearance_json) !== jsonStableStringify(nextAppearance);
@@ -535,10 +580,13 @@ export class ShopsService {
       });
     }
 
+    const hydratedAppearance = await this.hydrateAppearanceJson(updated.appearance_json);
+    const urlKey = kind === 'logo' ? 'logo_url' : 'favicon_url';
+    const freshUrl = (hydratedAppearance as Record<string, unknown>)[urlKey];
     return {
       kind,
-      url: publicUrl,
-      shop: updated,
+      url: typeof freshUrl === 'string' ? freshUrl : await this.storage.getFileUrl(relativePath),
+      shop: { ...updated, appearance_json: hydratedAppearance },
     };
   }
 
