@@ -47,7 +47,7 @@ export class PreordersStatusService {
       const now = new Date();
       const data: Prisma.PreOrderUpdateManyMutationInput = {
         status: nextStatus,
-        cancelled_at: nextStatus === PreOrderStatus.CANCELLED ? now : null,
+        ...(nextStatus === PreOrderStatus.CANCELLED ? { cancelled_at: now } : {}),
       };
       if (nextStatus === PreOrderStatus.PAID) {
         data.completed_at = now;

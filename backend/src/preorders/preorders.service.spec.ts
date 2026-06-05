@@ -69,6 +69,31 @@ describe('PreordersService', () => {
     );
   });
 
+  // ─── Tenant scope enforcement ─────────────────────────────────────────────
+  describe('tenant scope enforcement', () => {
+    it('throws AUTH_FORBIDDEN when tenantId is empty for transitionStatus', async () => {
+      await expect(
+        service.transitionStatus('po-1', PreOrderStatus.WAITING_FOR_GOODS, '', 'u1'),
+      ).rejects.toMatchObject({ errorCode: 'AUTH_FORBIDDEN' });
+    });
+
+    it('throws AUTH_FORBIDDEN when tenantId is empty for create', async () => {
+      await expect(
+        service.create(
+          { item_id: 'item-1', quantity: 1 } as never,
+          '',
+          { userId: 'u1', platformRole: null },
+        ),
+      ).rejects.toMatchObject({ errorCode: 'AUTH_FORBIDDEN' });
+    });
+
+    it('throws AUTH_FORBIDDEN when tenantId is empty for findAdminList', async () => {
+      await expect(
+        service.findAdminList({}, ''),
+      ).rejects.toMatchObject({ errorCode: 'AUTH_FORBIDDEN' });
+    });
+  });
+
   it('rejects invalid transition', async () => {
     prisma.preOrder.findFirst.mockResolvedValue({
       id: 'po-1',

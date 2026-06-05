@@ -8,9 +8,10 @@ import { ShopsMembersService } from './services/shops-members.service';
 import { ShopsAuditService } from './services/shops-audit.service';
 import { StorageModule } from '../storage/storage.module';
 import { UploadSupportModule } from '../common/upload/upload-support.module';
+import { PrismaModule } from '../common/prisma/prisma.module';
 
 @Module({
-  imports: [StorageModule, UploadSupportModule],
+  imports: [PrismaModule, StorageModule, UploadSupportModule],
   controllers: [ShopsController, ShopSettingsController],
   providers: [ShopsService, ShopsCrudService, ShopsAppearanceService, ShopsMembersService, ShopsAuditService],
   exports: [ShopsService],
