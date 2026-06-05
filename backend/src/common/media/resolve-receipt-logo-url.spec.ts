@@ -24,6 +24,25 @@ describe('extractShopBrandingRelativePath', () => {
     expect(extractShopBrandingRelativePath(signed, secret)).toBe('shop-branding/logo.png');
   });
 
+  it('extracts path from expired signed API media URL (bare-decode fallback)', () => {
+    const expired = buildSignedMediaFileUrl(
+      'https://api.example.com/api/v1',
+      'shop-branding/logo.png',
+      secret,
+      -1, // expired immediately
+    );
+    // Without secret: bare-decode still recovers the path
+    expect(extractShopBrandingRelativePath(expired)).toBe('shop-branding/logo.png');
+    // With secret: verifySignedMediaParams rejects expired URL, bare-decode fallback kicks in
+    expect(extractShopBrandingRelativePath(expired, secret)).toBe('shop-branding/logo.png');
+  });
+
+  it('extracts path from plain relative path (new storage format)', () => {
+    expect(extractShopBrandingRelativePath('shop-branding/tenant_logo.png')).toBe(
+      'shop-branding/tenant_logo.png',
+    );
+  });
+
   it('returns null for unrelated URLs', () => {
     expect(extractShopBrandingRelativePath('https://cdn.example.com/logo.png')).toBeNull();
   });

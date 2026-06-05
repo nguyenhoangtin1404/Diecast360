@@ -167,6 +167,10 @@ export class ShopsService {
     if (typeof json !== 'object' || json === null || Array.isArray(json)) return json;
     const obj = json as Record<string, unknown>;
     const result = { ...obj };
+    let secret: string | undefined;
+    try {
+      secret = resolveMediaSigningSecret(this.config);
+    } catch { /* ignore */ }
     for (const key of ['logo_url', 'favicon_url']) {
       const stored = result[key];
       if (typeof stored !== 'string' || !stored.trim()) continue;
@@ -175,13 +179,28 @@ export class ShopsService {
       if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
         relativePath = trimmed.startsWith('shop-branding/') ? trimmed : null;
       } else {
-        relativePath = extractShopBrandingRelativePath(trimmed);
+        relativePath = extractShopBrandingRelativePath(trimmed, secret);
       }
       if (relativePath) {
         result[key] = await this.storage.getFileUrl(relativePath);
       }
     }
     return result as Prisma.JsonValue;
+  }
+
+  /**
+   * Normalize logo_url / favicon_url in an appearance patch back to relative paths
+   * before persisting, so hydrated signed URLs from API responses are never re-stored.
+   */
+  private normalizeAppearancePatch(patch: ShopAppearancePatchDto): ShopAppearancePatchDto {
+    const normalized = { ...patch };
+    for (const key of ['logo_url', 'favicon_url'] as const) {
+      const val = normalized[key];
+      if (typeof val !== 'string') continue;
+      const rel = extractShopBrandingRelativePath(val.trim());
+      if (rel) normalized[key] = rel;
+    }
+    return normalized;
   }
 
   private async normalizeFavicon(buffer: Buffer): Promise<Buffer> {
@@ -421,7 +440,10 @@ export class ShopsService {
       data.contact_json = this.mergeContactJson(oldShop.contact_json, contact);
     }
     if (appearance !== undefined) {
-      data.appearance_json = this.mergeAppearanceJson(oldShop.appearance_json, appearance);
+      data.appearance_json = this.mergeAppearanceJson(
+        oldShop.appearance_json,
+        this.normalizeAppearancePatch(appearance),
+      );
     }
     if (loyalty !== undefined) {
       data.loyalty_json = this.mergeLoyaltyJson(oldShop.loyalty_json, loyalty);
