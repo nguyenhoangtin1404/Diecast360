@@ -98,6 +98,28 @@ export function useAuditLogs() {
     setAuditError(null);
   }, []);
 
+  const handleAuditActionFilterChange = useCallback(async (value: string) => {
+    setAuditActionFilter(value);
+    if (!auditModalShopId) return;
+    await loadAuditLogs(auditModalShopId, 1, auditPageSize, value);
+  }, [auditModalShopId, auditPageSize, loadAuditLogs]);
+
+  const handleAuditPageSizeChange = useCallback(async (nextSize: 10 | 20 | 50 | 100) => {
+    setAuditPageSize(nextSize);
+    if (!auditModalShopId) return;
+    await loadAuditLogs(auditModalShopId, 1, nextSize, auditActionFilter);
+  }, [auditModalShopId, auditActionFilter, loadAuditLogs]);
+
+  const handleAuditPrevPage = useCallback(async () => {
+    if (!auditModalShopId || auditPage <= 1) return;
+    await loadAuditLogs(auditModalShopId, auditPage - 1, auditPageSize, auditActionFilter);
+  }, [auditModalShopId, auditPage, auditPageSize, auditActionFilter, loadAuditLogs]);
+
+  const handleAuditNextPage = useCallback(async () => {
+    if (!auditModalShopId || auditPage >= auditTotalPages) return;
+    await loadAuditLogs(auditModalShopId, auditPage + 1, auditPageSize, auditActionFilter);
+  }, [auditModalShopId, auditPage, auditTotalPages, auditPageSize, auditActionFilter, loadAuditLogs]);
+
   return {
     auditModalShopId,
     auditModalShopName,
@@ -113,5 +135,9 @@ export function useAuditLogs() {
     loadAuditLogs,
     openAuditModal,
     closeAuditModal,
+    handleAuditActionFilterChange,
+    handleAuditPageSizeChange,
+    handleAuditPrevPage,
+    handleAuditNextPage,
   };
 }
