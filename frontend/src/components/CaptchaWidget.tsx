@@ -13,7 +13,7 @@ declare global {
           'error-callback'?: () => void;
           theme?: 'light' | 'dark' | 'auto';
         },
-      ) => string;
+      ) => string | undefined;
       reset: (widgetId: string) => void;
       remove: (widgetId: string) => void;
     };
@@ -51,13 +51,14 @@ export const CaptchaWidget = ({ onToken, onExpire, onError, onLoadError, resetKe
   const renderWidget = useCallback(() => {
     if (!containerRef.current || !window.turnstile || !CAPTCHA_SITE_KEY) return;
     if (widgetIdRef.current !== undefined) return;
-    widgetIdRef.current = window.turnstile.render(containerRef.current, {
+    const id = window.turnstile.render(containerRef.current, {
       sitekey: CAPTCHA_SITE_KEY,
       callback: (t) => onTokenRef.current(t),
       'expired-callback': () => onExpireRef.current(),
       'error-callback': () => onErrorRef.current?.(),
       theme: 'light',
     });
+    if (id !== undefined) widgetIdRef.current = id;
   }, []);
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export const CaptchaWidget = ({ onToken, onExpire, onError, onLoadError, resetKe
     }
 
     return () => {
+      window.onTurnstileLoad = undefined;
       if (widgetIdRef.current !== undefined && window.turnstile) {
         window.turnstile.remove(widgetIdRef.current);
         widgetIdRef.current = undefined;
