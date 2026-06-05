@@ -55,10 +55,18 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 | PINECONE_INDEX | Pinecone index | `diecast360` | Tùy chọn; code có default |
 | THROTTLE_TTL | TTL rate limit global | `60000` | Tùy chọn; Nest Throttler đọc theo ms |
 | THROTTLE_LIMIT | Số request trong TTL | `100` | Tùy chọn; default code là `100` |
-| CAPTCHA_ENABLED | Bật xác minh CAPTCHA cho login | `false` | Tùy chọn; đặt `true` để bật |
-| CAPTCHA_PROVIDER | Nhà cung cấp CAPTCHA | `cloudflare` | `cloudflare` (Turnstile) hoặc `google` (reCAPTCHA v3) |
+| CAPTCHA_ENABLED | Bật xác minh CAPTCHA cho login | `false` | Tùy chọn; đặt `true` để bật; cần `CAPTCHA_SECRET_KEY` + frontend `VITE_*` |
+| CAPTCHA_PROVIDER | Nhà cung cấp CAPTCHA | `cloudflare` | `cloudflare` (Turnstile) hoặc `google` (reCAPTCHA v3); khớp với `VITE_CAPTCHA_PROVIDER` |
 | CAPTCHA_SECRET_KEY | Secret key từ dashboard CAPTCHA | `...` | Bắt buộc khi `CAPTCHA_ENABLED=true`; **không commit** |
 | CAPTCHA_MIN_SCORE | Ngưỡng score tối thiểu (Google v3) | `0.5` | Tùy chọn; chỉ dùng với `CAPTCHA_PROVIDER=google`; 0.0–1.0 |
+| AUTH_EMAIL_RATE_LIMIT | Số lần thử login / email / window | `10` | Chống brute-force đổi IP. **In-memory per-process** — không chia sẻ giữa replica, reset khi restart. Phù hợp Pi single-instance; cần Redis nếu scale horizontal (#239). |
+| AUTH_EMAIL_RATE_WINDOW_MS | Window email rate limit (ms) | `900000` | 15 phút |
+| AUTH_LOCKOUT_THRESHOLD | Số lần sai liên tiếp trước khi khóa | `5` | Chỉ user tồn tại |
+| AUTH_LOCKOUT_DURATION_MS | Thời gian khóa tạm (ms) | `1800000` | 30 phút |
+| SECURITY_ALERTS_ENABLED | Gửi cảnh báo Telegram | `false` | Runtime ops |
+| TELEGRAM_BOT_TOKEN | Bot token @BotFather | — | Không commit |
+| TELEGRAM_CHAT_ID | Chat nhận alert | — | |
+| SECURITY_ALERT_COOLDOWN_MS | Cooldown dedupe alert | `300000` | 5 phút |
 
 ## Frontend build-time env
 
@@ -72,7 +80,7 @@ Các biến `VITE_*` được đọc lúc Vite start/build; đổi giá trị c�
 | VITE_PUBLIC_CATALOG_SHOP_ID | Shop mặc định cho catalog `/` public | UUID hoặc slug shop | Production public catalog cần shop scope nếu khách không có JWT active shop |
 | VITE_MAX_SPINNER_FRAMES | Giới hạn frame spinner ở UI | `48` | Phải khớp hoặc nhỏ hơn `MAX_SPINNER_FRAMES` backend |
 | VITE_CAPTCHA_ENABLED | Bật CAPTCHA ở frontend | `false` | **Phải đồng bộ** với `CAPTCHA_ENABLED` backend để tránh lệch hành vi FE/BE |
-| VITE_CAPTCHA_PROVIDER | Provider CAPTCHA cho frontend | `cloudflare` | Phải khớp với `CAPTCHA_PROVIDER` backend |
+| VITE_CAPTCHA_PROVIDER | Provider CAPTCHA cho frontend | `cloudflare` | `cloudflare` hoặc `google`; phải khớp với `CAPTCHA_PROVIDER` backend |
 | VITE_CAPTCHA_SITE_KEY | Site key từ dashboard CAPTCHA | `...` | Dùng khi `VITE_CAPTCHA_ENABLED=true`; nếu thiếu thì frontend sẽ không render CAPTCHA |
 
 ## Object storage (Cloudflare R2)

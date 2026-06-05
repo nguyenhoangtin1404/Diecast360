@@ -51,7 +51,13 @@ export function isCsrfExemptRoute(fullUrl: string): boolean {
  * GET/HEAD/OPTIONS always pass. Bootstrap CSRF uses GET /auth/csrf (safe method).
  * Raw binary endpoint GET /api/v1/media is also safe method — not listed here intentionally.
  */
-export function createCsrfMiddleware(): (req: Request, res: Response, next: NextFunction) => void {
+export interface CsrfMiddlewareOptions {
+  onReject?: () => void;
+}
+
+export function createCsrfMiddleware(
+  options: CsrfMiddlewareOptions = {},
+): (req: Request, res: Response, next: NextFunction) => void {
   const logger = new Logger('CsrfMiddleware');
   return (req: Request, res: Response, next: NextFunction) => {
     const method = (req.method || 'GET').toUpperCase();
@@ -74,6 +80,7 @@ export function createCsrfMiddleware(): (req: Request, res: Response, next: Next
     if (!header || !cookie || header !== cookie) {
       const pathOnly = pathWithoutQuery(fullPath);
       logger.warn(`csrf.rejected method=${method} path=${pathOnly}`);
+      options.onReject?.();
       res.status(403).json({
         ok: false,
         error: { code: 'CSRF_INVALID', details: [] },

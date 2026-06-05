@@ -9,7 +9,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { IsEmail, IsString, MinLength } from 'class-validator';
 import { LoginAuditInterceptor } from './login-audit.interceptor';
-import { LoginAuditService } from './login-audit.service';
+import { LoginAuditService } from '../common/security/login-audit.service';
 
 jest.mock('./login-trace-id', () => ({
   createLoginTraceId: jest.fn(() => 'trace-mock-00000000-0000-7000-8000-000000000003'),
@@ -80,7 +80,7 @@ describe('Login audit integration (validation failures)', () => {
     expect(loginAuditService.record).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'failed',
-        failure_reason: 'validation_error',
+        failureReason: 'validation_error',
       }),
     );
   });

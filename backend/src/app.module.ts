@@ -21,9 +21,11 @@ import { MediaModule } from './common/media/media.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { ReportsModule } from './reports/reports.module';
 import { MembersModule } from './members/members.module';
+import { SecurityModule } from './common/security/security.module';
 
 @Module({
   imports: [
+    SecurityModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',

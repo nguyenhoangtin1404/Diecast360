@@ -49,7 +49,24 @@ Tài liệu này phản ánh `backend/prisma/schema.prisma` hiện tại. Runtim
 | `role` | string | Legacy role, default `admin` |
 | `platform_role` | enum? | `platform_super` cho quản trị nền tảng |
 | `is_active` | boolean | default `true` |
+| `failed_login_count` | int | default `0`; reset khi login thành công |
+| `locked_until` | datetime? | Khóa tạm sau brute-force |
 | `created_at`, `updated_at` | datetime | timestamps |
+
+### login_audit_logs
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid | PK |
+| `trace_id` | uuid | UNIQUE (UUIDv7), correlate với header `X-Trace-Id` |
+| `user_id` | uuid? | FK `users`, null nếu email không tồn tại |
+| `email` | string | Normalized lowercase |
+| `shop_id` | uuid? | Shop active lúc login thành công |
+| `ip_address` | string? | Client IP |
+| `user_agent` | text? | |
+| `status` | enum | `LoginAuditStatus` |
+| `failure_reason` | string? | Ví dụ `invalid_credentials`, `account_locked` |
+| `created_at` | datetime | timestamp |
 
 ### user_shop_roles
 

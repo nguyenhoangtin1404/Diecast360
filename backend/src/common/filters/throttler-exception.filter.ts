@@ -10,13 +10,19 @@ import { ThrottlerException } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { ErrorCode } from '../constants/error-codes';
 import { createLoginTraceId } from '../../auth/login-trace-id';
-import { LoginAuditService } from '../../auth/login-audit.service';
+import { LoginAuditService } from '../security/login-audit.service';
 import {
   extractClientIp,
   extractLoginEmail,
   extractUserAgent,
   isLoginEndpoint,
 } from '../../auth/login-audit.helpers';
+import { SecurityAlertService } from '../security/security-alert.service';
+
+function pathWithoutQuery(url: string): string {
+  const q = url.indexOf('?');
+  return q === -1 ? url : url.slice(0, q);
+}
 
 @Catch(ThrottlerException)
 export class ThrottlerExceptionFilter implements ExceptionFilter {
@@ -24,6 +30,7 @@ export class ThrottlerExceptionFilter implements ExceptionFilter {
 
   constructor(
     @Optional() private readonly loginAuditService?: LoginAuditService,
+    @Optional() private readonly securityAlerts?: SecurityAlertService,
   ) {
     if (!loginAuditService) {
       this.logger.warn('LoginAuditService not injected — throttled login attempts will not be audited');
@@ -35,17 +42,19 @@ export class ThrottlerExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
 
+    this.securityAlerts?.recordRateLimit(pathWithoutQuery(request.originalUrl || request.url || ''));
+
     if (isLoginEndpoint(request.path) && this.loginAuditService) {
       const traceId = createLoginTraceId();
       response.setHeader('X-Trace-Id', traceId);
 
       this.loginAuditService.record({
-        trace_id: traceId,
+        traceId,
         email: extractLoginEmail(request.body),
-        ip_address: extractClientIp(request),
-        user_agent: extractUserAgent(request),
+        ipAddress: extractClientIp(request),
+        userAgent: extractUserAgent(request),
         status: 'failed',
-        failure_reason: 'rate_limited',
+        failureReason: 'rate_limited',
       });
     }
 

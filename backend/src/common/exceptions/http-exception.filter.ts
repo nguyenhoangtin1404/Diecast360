@@ -19,6 +19,7 @@ export class AppException extends HttpException {
     message: string,
     public readonly details?: unknown[],
     statusCode?: number,
+    public readonly retryAfterSeconds?: number,
   ) {
     super(
       {
@@ -119,6 +120,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
           `http.client_error status=${status} method=${request.method} path=${logPath} code=${code}`,
         );
       }
+    }
+
+    if (exception instanceof AppException && exception.retryAfterSeconds != null) {
+      response.setHeader('Retry-After', String(exception.retryAfterSeconds));
     }
 
     response.status(status).json(errorResponse);

@@ -64,7 +64,7 @@ describe('login-audit.helpers', () => {
         mapLoginFailureReason(
           new AppException(ErrorCode.CAPTCHA_FAILED, 'captcha failed'),
         ),
-      ).toBe('validation_error');
+      ).toBe('captcha_failed');
       expect(mapLoginFailureReason(new BadRequestException('Validation failed'))).toBe(
         'validation_error',
       );

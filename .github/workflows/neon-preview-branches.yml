@@ -79,6 +79,13 @@ jobs:
         run: |
           pnpm install --frozen-lockfile --filter ./backend...
           pnpm --filter ./backend exec prisma generate
+          # Neon preview branches re-use the same DB across CI runs on the same PR.
+          # If a prior run partially applied this migration (e.g. enum created but ALTER failed),
+          # Prisma marks it as "failed" and blocks deploy. The resolve --rolled-back resets that
+          # state so the idempotent migration can re-run cleanly. The || true is safe because
+          # the command fails harmlessly when the migration is not in a failed state.
+          # Production (Pi) uses deploy-backend.yml which does NOT include this step.
+          pnpm --filter ./backend exec prisma migrate resolve --rolled-back 20260529000000_security_login_hardening || true
           pnpm --filter ./backend exec prisma migrate deploy
 
   # Optional: neondatabase/schema-diff-action with pull-requests: write — see Neon docs.

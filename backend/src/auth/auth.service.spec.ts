@@ -1,9 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException } from '../common/exceptions/http-exception.filter';
+import { ErrorCode } from '../common/constants/error-codes';
+import { CaptchaService } from '../common/security/captcha.service';
+import { LoginAuditService } from '../common/security/login-audit.service';
+import { LoginSecurityService } from '../common/security/login-security.service';
+import { SecurityAlertService } from '../common/security/security-alert.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -13,6 +19,17 @@ describe('AuthService', () => {
     userShopRole: Record<string, jest.Mock>;
   };
   let jwtService: { sign: jest.Mock; decode: jest.Mock };
+  let loginSecurity: {
+    normalizeEmail: jest.Mock;
+    assertEmailRateLimit: jest.Mock;
+    recordEmailFailedAttempt: jest.Mock;
+    assertAccountNotLocked: jest.Mock;
+    recordFailedLogin: jest.Mock;
+    recordSuccessfulLogin: jest.Mock;
+    getLockoutRetryAfterSeconds: jest.Mock;
+  };
+
+  const loginCtx = { traceId: '018f0000-0000-7000-8000-000000000001' };
 
   const mockUser = {
     id: 'user-1',
@@ -21,6 +38,8 @@ describe('AuthService', () => {
     full_name: 'Admin User',
     role: 'admin',
     is_active: true,
+    failed_login_count: 0,
+    locked_until: null,
     created_at: new Date(),
     updated_at: new Date(),
   };
@@ -29,6 +48,8 @@ describe('AuthService', () => {
     prisma = {
       user: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
       },
       refreshToken: {
         findUnique: jest.fn(),
@@ -48,11 +69,41 @@ describe('AuthService', () => {
       decode: jest.fn().mockReturnValue(null),
     };
 
+    loginSecurity = {
+      normalizeEmail: jest.fn((e: string) => e.trim().toLowerCase()),
+      assertEmailRateLimit: jest.fn(),
+      recordEmailFailedAttempt: jest.fn(),
+      assertAccountNotLocked: jest.fn(),
+      recordFailedLogin: jest.fn().mockResolvedValue({ locked: false }),
+      recordSuccessfulLogin: jest.fn().mockResolvedValue(undefined),
+      getLockoutRetryAfterSeconds: jest.fn().mockReturnValue(1800),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: jwtService },
+        {
+          provide: CaptchaService,
+          useValue: { assertValid: jest.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: LoginAuditService,
+          useValue: { record: jest.fn() },
+        },
+        { provide: LoginSecurityService, useValue: loginSecurity },
+        {
+          provide: SecurityAlertService,
+          useValue: {
+            recordLoginFailed: jest.fn(),
+            recordAccountLocked: jest.fn(),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -67,17 +118,17 @@ describe('AuthService', () => {
     expect(service).toBeDefined();
   });
 
-  // ============================================================
-  // login
-  // ============================================================
   describe('login', () => {
     it('should return tokens and user on successful login', async () => {
-      prisma.user.findUnique.mockResolvedValue(mockUser);
+      prisma.user.findFirst.mockResolvedValue(mockUser);
       jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
       prisma.refreshToken.create.mockResolvedValue({});
       prisma.userShopRole.findFirst.mockResolvedValue({ shop_id: 'shop-default' });
 
-      const result = await service.login({ email: 'admin@test.com', password: 'password123' });
+      const result = await service.login(
+        { email: 'admin@test.com', password: 'password123' },
+        loginCtx,
+      );
 
       expect(result.access_token).toBeDefined();
       expect(result.refresh_token).toBeDefined();
@@ -85,43 +136,74 @@ describe('AuthService', () => {
       expect(result.user.email).toBe('admin@test.com');
       expect(result.user.full_name).toBe('Admin User');
       expect(result.user.role).toBe('admin');
+      expect(loginSecurity.recordSuccessfulLogin).toHaveBeenCalledWith('user-1', 'admin@test.com');
+      expect(loginSecurity.recordEmailFailedAttempt).not.toHaveBeenCalled();
+    });
+
+    it('should use case-insensitive lookup (Admin@Test.com finds admin@test.com record)', async () => {
+      prisma.user.findFirst.mockResolvedValue(mockUser);
+      jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
+      prisma.refreshToken.create.mockResolvedValue({});
+      prisma.userShopRole.findFirst.mockResolvedValue({ shop_id: 'shop-default' });
+
+      await service.login({ email: 'Admin@Test.COM', password: 'password123' }, loginCtx);
+
+      expect(prisma.user.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { email: { equals: 'Admin@Test.COM', mode: 'insensitive' } },
+        }),
+      );
     });
 
     it('should throw if user not found', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.login({ email: 'noone@test.com', password: 'password123' }),
+        service.login({ email: 'noone@test.com', password: 'password123' }, loginCtx),
       ).rejects.toThrow(AppException);
+      expect(loginSecurity.recordEmailFailedAttempt).toHaveBeenCalledWith('noone@test.com');
     });
 
     it('should throw if user is inactive', async () => {
-      prisma.user.findUnique.mockResolvedValue({ ...mockUser, is_active: false });
+      prisma.user.findFirst.mockResolvedValue({ ...mockUser, is_active: false });
 
       await expect(
-        service.login({ email: 'admin@test.com', password: 'password123' }),
+        service.login({ email: 'admin@test.com', password: 'password123' }, loginCtx),
       ).rejects.toThrow(AppException);
+      expect(loginSecurity.recordEmailFailedAttempt).toHaveBeenCalledWith('admin@test.com');
     });
 
     it('should throw if password is wrong', async () => {
-      prisma.user.findUnique.mockResolvedValue(mockUser);
+      prisma.user.findFirst.mockResolvedValue(mockUser);
       jest.spyOn(bcrypt, 'compare').mockImplementation(async () => false);
 
       await expect(
-        service.login({ email: 'admin@test.com', password: 'wrong-password' }),
+        service.login({ email: 'admin@test.com', password: 'wrong-password' }, loginCtx),
       ).rejects.toThrow(AppException);
+      expect(loginSecurity.recordFailedLogin).toHaveBeenCalledWith('user-1');
+      expect(loginSecurity.recordEmailFailedAttempt).toHaveBeenCalledWith('admin@test.com');
+    });
+
+    it('should throw AUTH_ACCOUNT_LOCKED when recordFailedLogin locks account', async () => {
+      prisma.user.findFirst.mockResolvedValue(mockUser);
+      jest.spyOn(bcrypt, 'compare').mockImplementation(async () => false);
+      loginSecurity.recordFailedLogin.mockResolvedValue({ locked: true });
+
+      await expect(
+        service.login({ email: 'admin@test.com', password: 'wrong' }, loginCtx),
+      ).rejects.toMatchObject({
+        errorCode: ErrorCode.AUTH_ACCOUNT_LOCKED,
+      });
+      expect(loginSecurity.getLockoutRetryAfterSeconds).toHaveBeenCalled();
     });
   });
 
-  // ============================================================
-  // refreshFromCookie
-  // ============================================================
   describe('refreshFromCookie', () => {
     const mockRefreshTokenRecord = {
       id: 'rt-1',
       token_hash: 'hash-value',
-      expires_at: new Date(Date.now() + 86400000), // tomorrow
-      revoked_at: new Date(), // already revoked by updateMany
+      expires_at: new Date(Date.now() + 86400000),
+      revoked_at: new Date(),
       user: mockUser,
     };
 
@@ -148,16 +230,13 @@ describe('AuthService', () => {
     it('should throw if refresh token not found or already revoked or expired', async () => {
       prisma.refreshToken.updateMany.mockResolvedValue({ count: 0 });
 
-      await expect(
-        service.refreshFromCookie('invalid-token'),
-      ).rejects.toThrow(AppException);
+      await expect(service.refreshFromCookie('invalid-token')).rejects.toThrow(AppException);
     });
 
     it('should throw if second concurrent request races with the same token', async () => {
-      // First request wins (count=1); second request loses (count=0) — atomic guarantee
       prisma.refreshToken.updateMany
-        .mockResolvedValueOnce({ count: 1 })  // first caller wins
-        .mockResolvedValueOnce({ count: 0 }); // second caller rejected
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
       prisma.refreshToken.findUnique.mockResolvedValue(mockRefreshTokenRecord);
       prisma.refreshToken.create.mockResolvedValue({});
       prisma.userShopRole.findFirst.mockResolvedValue({ shop_id: 'shop-default' });
@@ -173,15 +252,10 @@ describe('AuthService', () => {
         user: { ...mockUser, is_active: false },
       });
 
-      await expect(
-        service.refreshFromCookie('valid-token'),
-      ).rejects.toThrow(AppException);
+      await expect(service.refreshFromCookie('valid-token')).rejects.toThrow(AppException);
     });
   });
 
-  // ============================================================
-  // logoutFromCookie
-  // ============================================================
   describe('logoutFromCookie', () => {
     it('should revoke refresh token', async () => {
       prisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
@@ -199,9 +273,6 @@ describe('AuthService', () => {
     });
   });
 
-  // ============================================================
-  // validateUser
-  // ============================================================
   describe('validateUser', () => {
     it('should return user data for active user', async () => {
       prisma.user.findUnique.mockResolvedValue(mockUser);
@@ -213,6 +284,7 @@ describe('AuthService', () => {
         email: 'admin@test.com',
         full_name: 'Admin User',
         role: 'admin',
+        platform_role: undefined,
       });
     });
 
@@ -317,9 +389,6 @@ describe('AuthService', () => {
     });
   });
 
-  // ============================================================
-  // calculateExpiresAt (private, tested indirectly via login)
-  // ============================================================
   describe('calculateExpiresAt (via login token generation)', () => {
     const originalRefreshExpiry = process.env.REFRESH_TOKEN_EXPIRES_IN;
 
@@ -333,17 +402,16 @@ describe('AuthService', () => {
 
     it('should handle days format', async () => {
       process.env.REFRESH_TOKEN_EXPIRES_IN = '7d';
-      prisma.user.findUnique.mockResolvedValue(mockUser);
+      prisma.user.findFirst.mockResolvedValue(mockUser);
       jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
       prisma.refreshToken.create.mockResolvedValue({});
+      prisma.userShopRole.findFirst.mockResolvedValue({ shop_id: 'shop-default' });
 
-      await service.login({ email: 'admin@test.com', password: 'pass' });
+      await service.login({ email: 'admin@test.com', password: 'pass' }, loginCtx);
 
       const createCall = prisma.refreshToken.create.mock.calls[0][0];
       const expiresAt = createCall.data.expires_at;
-      // Should be ~7 days from now
-      const diffMs = expiresAt.getTime() - Date.now();
-      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      const diffDays = (expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
       expect(diffDays).toBeGreaterThan(6.9);
       expect(diffDays).toBeLessThan(7.1);
     });
