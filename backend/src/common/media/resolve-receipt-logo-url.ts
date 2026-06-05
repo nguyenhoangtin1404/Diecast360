@@ -40,8 +40,9 @@ export function extractShopBrandingRelativePath(
     if (d) {
       const raw = JSON.parse(Buffer.from(d, 'base64url').toString('utf8')) as unknown;
       const p = raw !== null && typeof raw === 'object' ? (raw as Record<string, unknown>).p : undefined;
-      if (typeof p === 'string' && p.startsWith(SHOP_BRANDING_PREFIX)) {
-        return p;
+      const normalized = typeof p === 'string' ? p.replace(/^\.\//, '').replace(/^\//, '') : undefined;
+      if (typeof normalized === 'string' && normalized.startsWith(SHOP_BRANDING_PREFIX) && !normalized.includes('..')) {
+        return normalized;
       }
     }
   } catch {

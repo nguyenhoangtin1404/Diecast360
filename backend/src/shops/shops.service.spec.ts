@@ -731,6 +731,41 @@ describe('ShopsService', () => {
       );
     });
 
+    it('updateContactAndAppearanceForTenant keeps already-relative logo_url unchanged', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        id: tenantId,
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: { logo_url: 'shop-branding/logo.png' },
+        loyalty_json: {},
+      });
+      prisma.shop.update.mockResolvedValue({
+        id: tenantId,
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: { logo_url: 'shop-branding/logo.png' },
+        loyalty_json: {},
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({});
+
+      await service.updateContactAndAppearanceForTenant(
+        tenantId,
+        undefined,
+        { logo_url: 'shop-branding/logo.png' },
+        'u1',
+      );
+
+      expect(prisma.shop.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            appearance_json: expect.objectContaining({ logo_url: 'shop-branding/logo.png' }),
+          }),
+        }),
+      );
+    });
+
     it('uploadAppearanceAsset saves file and updates logo_url', async () => {
       prisma.shop.findFirst.mockResolvedValue({
         id: tenantId,
@@ -764,12 +799,12 @@ describe('ShopsService', () => {
           }),
         }),
       );
-      // Response URL is a fresh signed URL
-      expect(out.url).toContain('shop-branding');
-      // Hydrated appearance_json has fresh signed URL
+      // url and appearance_json.logo_url come from the same getFileUrl call (no double-sign)
+      expect(out.url).toBe('https://signed.example/shop-branding/x.png');
       expect(out.shop.appearance_json).toEqual({
         logo_url: 'https://signed.example/shop-branding/x.png',
       });
+      expect(out.url).toBe((out.shop.appearance_json as Record<string, unknown>).logo_url);
       expect(prisma.shopAuditLog.create).toHaveBeenCalled();
     });
 

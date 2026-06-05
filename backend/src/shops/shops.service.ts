@@ -174,13 +174,7 @@ export class ShopsService {
     for (const key of ['logo_url', 'favicon_url']) {
       const stored = result[key];
       if (typeof stored !== 'string' || !stored.trim()) continue;
-      const trimmed = stored.trim();
-      let relativePath: string | null = null;
-      if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-        relativePath = trimmed.startsWith('shop-branding/') ? trimmed : null;
-      } else {
-        relativePath = extractShopBrandingRelativePath(trimmed, secret);
-      }
+      const relativePath = extractShopBrandingRelativePath(stored.trim(), secret);
       if (relativePath) {
         result[key] = await this.storage.getFileUrl(relativePath);
       }
@@ -192,12 +186,12 @@ export class ShopsService {
    * Normalize logo_url / favicon_url in an appearance patch back to relative paths
    * before persisting, so hydrated signed URLs from API responses are never re-stored.
    */
-  private normalizeAppearancePatch(patch: ShopAppearancePatchDto): ShopAppearancePatchDto {
+  private normalizeAppearancePatch(patch: ShopAppearancePatchDto, secret?: string): ShopAppearancePatchDto {
     const normalized = { ...patch };
     for (const key of ['logo_url', 'favicon_url'] as const) {
       const val = normalized[key];
       if (typeof val !== 'string') continue;
-      const rel = extractShopBrandingRelativePath(val.trim());
+      const rel = extractShopBrandingRelativePath(val.trim(), secret);
       if (rel) normalized[key] = rel;
     }
     return normalized;
@@ -440,9 +434,11 @@ export class ShopsService {
       data.contact_json = this.mergeContactJson(oldShop.contact_json, contact);
     }
     if (appearance !== undefined) {
+      let normSecret: string | undefined;
+      try { normSecret = resolveMediaSigningSecret(this.config); } catch { /* ignore */ }
       data.appearance_json = this.mergeAppearanceJson(
         oldShop.appearance_json,
-        this.normalizeAppearancePatch(appearance),
+        this.normalizeAppearancePatch(appearance, normSecret),
       );
     }
     if (loyalty !== undefined) {
@@ -549,7 +545,6 @@ export class ShopsService {
     }
     const filename = `${tenantId}_${kind}_${uuidv7()}${ext}`;
     const relativePath = await this.storage.saveFile(payloadBuffer, filename, 'shop-branding');
-    const publicUrl = await this.storage.getFileUrl(relativePath);
 
     // Store the relative path (not the signed URL) so it never expires in the DB.
     const patch: ShopAppearancePatchDto =
@@ -585,10 +580,13 @@ export class ShopsService {
       });
     }
 
+    const hydratedAppearance = await this.hydrateAppearanceJson(updated.appearance_json);
+    const urlKey = kind === 'logo' ? 'logo_url' : 'favicon_url';
+    const freshUrl = (hydratedAppearance as Record<string, unknown>)[urlKey];
     return {
       kind,
-      url: publicUrl,
-      shop: { ...updated, appearance_json: await this.hydrateAppearanceJson(updated.appearance_json) },
+      url: typeof freshUrl === 'string' ? freshUrl : await this.storage.getFileUrl(relativePath),
+      shop: { ...updated, appearance_json: hydratedAppearance },
     };
   }
 
