@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import type { PreorderReceiptPayload } from '../../types/preorderReceipt';
 import { buildPreorderReceiptHtml } from '../../utils/preorderReceiptHtml';
 import type { PaperWidth } from '../../utils/preorderReceiptHtml';
-import { printPreorderReceipt } from '../../utils/printPreorderReceipt';
 import styles from './PrintReceiptModal.module.css';
 
 const PAPER_WIDTH_KEY = 'receipt_paper_width';
@@ -35,6 +34,7 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
   const [paperWidth, setPaperWidth] = useState<PaperWidth>(readPaperWidth);
   const [printing, setPrinting] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -42,6 +42,15 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
     document.addEventListener('keydown', onKey);
     modalRef.current?.focus();
     return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onMsg = (e: MessageEvent) => {
+      if (e.data === 'dc360:afterprint') onClose();
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
   }, [open, onClose]);
 
   if (!open) return null;
@@ -53,8 +62,12 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
 
   const handlePrint = () => {
     if (printing) return;
+    const win = previewRef.current?.contentWindow;
+    if (!win) return;
     setPrinting(true);
-    printPreorderReceipt(data, paperWidth);
+    // postMessage để iframe tự gọi window.print() từ bên trong —
+    // Chrome không cho phép parent gọi iframe.contentWindow.print() để in iframe content.
+    win.postMessage('dc360:print', '*');
     setTimeout(() => setPrinting(false), 2000);
   };
 
@@ -109,6 +122,7 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
           {/* key={paperWidth} buộc iframe remount khi đổi khổ giấy */}
           <iframe
             key={paperWidth}
+            ref={previewRef}
             srcDoc={previewHtml}
             className={styles.previewFrame}
             title="Xem trước phiếu"
