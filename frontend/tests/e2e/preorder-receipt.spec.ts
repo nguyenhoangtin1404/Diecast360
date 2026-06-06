@@ -146,7 +146,7 @@ test.describe('Pre-order receipt — print and share', () => {
     await expect(previewFrame.getByText('Giao cuối tuần — E2E')).toBeVisible();
 
     // Đóng modal
-    await modal.getByRole('button', { name: 'Đóng' }).click();
+    await modal.getByRole('button', { name: 'Đóng', exact: true }).click();
     await expect(modal).not.toBeVisible();
   });
 
