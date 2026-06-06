@@ -57,14 +57,13 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
     return () => window.removeEventListener('message', onMsg);
   }, [open, onClose]);
 
-  // key={paperWidth} remounts iframe khi đổi khổ giấy — reset readiness để
-  // tránh postMessage bị drop trước khi message listener trong srcdoc được đăng ký.
-  useEffect(() => { setIframeReady(false); }, [paperWidth]);
-
   if (!open) return null;
 
   const selectPaper = (pw: PaperWidth) => {
     setPaperWidth(pw);
+    // key={paperWidth} remounts iframe — reset readiness để tránh postMessage bị drop
+    // trước khi message listener trong srcdoc được đăng ký.
+    setIframeReady(false);
     try { localStorage.setItem(PAPER_WIDTH_KEY, pw); } catch { /* ignore */ }
   };
 
