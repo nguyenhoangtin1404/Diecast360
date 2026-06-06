@@ -4,6 +4,39 @@ import type { PaperWidth } from './preorderReceiptHtml';
 
 export type { PaperWidth };
 
+/** Message popup gửi opener sau khi in xong (đóng modal). */
+export const RECEIPT_AFTER_PRINT_MSG = 'dc360:afterprint';
+
+/**
+ * Gắn script in sau onload — popup phải tự gọi window.print() từ bên trong.
+ * Gọi popup.print() từ parent ngay sau document.write khiến Chrome in trang opener.
+ */
+export const wrapReceiptHtmlForPopupPrint = (html: string): string => {
+  const script = `<script>
+window.onload = function () {
+  window.onafterprint = function () {
+    if (window.opener) window.opener.postMessage('${RECEIPT_AFTER_PRINT_MSG}', '*');
+    window.close();
+  };
+  window.print();
+};
+</script>`;
+  return html.replace('</body>', `${script}</body>`);
+};
+
+export type OpenReceiptPrintPopupResult =
+  | { ok: true; popup: Window }
+  | { ok: false; reason: 'blocked' };
+
+/** Mở popup in phiếu — gọi đồng bộ trong click handler. */
+export const openReceiptPrintPopup = (html: string): OpenReceiptPrintPopupResult => {
+  const popup = window.open('', '_blank', 'width=400,height=640');
+  if (!popup) return { ok: false, reason: 'blocked' };
+  popup.document.write(wrapReceiptHtmlForPopupPrint(html));
+  popup.document.close();
+  return { ok: true, popup };
+};
+
 /**
  * In phiếu bằng iframe ẩn — không cần popup permission, hoạt động trên
  * cả desktop lẫn Android tablet (Chrome). iOS không hỗ trợ non-AirPrint.
