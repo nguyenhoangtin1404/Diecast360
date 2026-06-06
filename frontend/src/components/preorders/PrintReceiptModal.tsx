@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { PreorderReceiptPayload } from '../../types/preorderReceipt';
 import { buildPreorderReceiptHtml } from '../../utils/preorderReceiptHtml';
 import type { PaperWidth } from '../../utils/preorderReceiptHtml';
+import {
+  openReceiptPrintPopup,
+  RECEIPT_AFTER_PRINT_MSG,
+} from '../../utils/printPreorderReceipt';
 import styles from './PrintReceiptModal.module.css';
 
 const PAPER_WIDTH_KEY = 'receipt_paper_width';
@@ -34,8 +38,8 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
   const [paperWidth, setPaperWidth] = useState<PaperWidth>(readPaperWidth);
   const [printing, setPrinting] = useState(false);
   const [iframeReady, setIframeReady] = useState(false);
+  const [printBlocked, setPrintBlocked] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
-  const previewRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -45,37 +49,38 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onMsg = (e: MessageEvent) => {
-      if (e.source === previewRef.current?.contentWindow && e.data === 'dc360:afterprint') {
-        setPrinting(false);
-        onClose();
-      }
-    };
-    window.addEventListener('message', onMsg);
-    return () => window.removeEventListener('message', onMsg);
-  }, [open, onClose]);
-
   if (!open) return null;
 
   const selectPaper = (pw: PaperWidth) => {
     setPaperWidth(pw);
-    // key={paperWidth} remounts iframe — reset readiness để tránh postMessage bị drop
-    // trước khi message listener trong srcdoc được đăng ký.
     setIframeReady(false);
     try { localStorage.setItem(PAPER_WIDTH_KEY, pw); } catch { /* ignore */ }
   };
 
   const handlePrint = () => {
     if (printing || !iframeReady) return;
-    const win = previewRef.current?.contentWindow;
-    if (!win) return;
+    setPrintBlocked(false);
+    const result = openReceiptPrintPopup(previewHtml);
+    if (!result.ok) {
+      setPrintBlocked(true);
+      return;
+    }
+    const { popup } = result;
     setPrinting(true);
-    // postMessage để iframe tự gọi window.print() từ bên trong —
-    // Chrome không cho phép parent gọi iframe.contentWindow.print() để in iframe content.
-    win.postMessage('dc360:print', '*');
-    setTimeout(() => setPrinting(false), 2000);
+    const onMsg = (e: MessageEvent) => {
+      if (e.source === popup && e.data === RECEIPT_AFTER_PRINT_MSG) {
+        window.removeEventListener('message', onMsg);
+        setPrinting(false);
+        onClose();
+      }
+    };
+    window.addEventListener('message', onMsg);
+    // Fallback nếu afterprint/postMessage không fire (một số mobile browser)
+    setTimeout(() => {
+      window.removeEventListener('message', onMsg);
+      if (!popup.closed) popup.close();
+      setPrinting(false);
+    }, 60_000);
   };
 
   const previewHtml = buildPreorderReceiptHtml(data, 'thermal', { paperWidth });
@@ -129,7 +134,6 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
           {/* key={paperWidth} buộc iframe remount khi đổi khổ giấy */}
           <iframe
             key={paperWidth}
-            ref={previewRef}
             srcDoc={previewHtml}
             onLoad={() => setIframeReady(true)}
             className={styles.previewFrame}
@@ -138,6 +142,11 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
           />
         </div>
 
+        {printBlocked && (
+          <p style={{ color: '#b91c1c', fontSize: '0.875rem', margin: '0 0 8px', textAlign: 'center' }} role="alert">
+            Trình duyệt đã chặn cửa sổ in. Vui lòng cho phép popup và thử lại.
+          </p>
+        )}
         <div className={styles.actions}>
           <button type="button" className={styles.btnClose} onClick={onClose}>
             Đóng
