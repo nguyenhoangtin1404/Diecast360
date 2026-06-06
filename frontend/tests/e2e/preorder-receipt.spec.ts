@@ -111,7 +111,7 @@ async function routeReceipt(
 }
 
 test.describe('Pre-order receipt — print and share', () => {
-  test('admin list shows receipt actions and opens print window with receipt HTML', async ({ page }) => {
+  test('admin list shows receipt actions and opens print modal with receipt preview', async ({ page }) => {
     await mockAdminAuth(page);
     await page.route('**/api/v1/preorders/admin**', (route: Route) =>
       route.fulfill({
@@ -121,18 +121,6 @@ test.describe('Pre-order receipt — print and share', () => {
       }),
     );
     await routeReceipt(page, RECEIPT_PREORDER_ID);
-    // Receipt print HTML auto-invokes window.print() + close on afterprint — stub so E2E can assert content.
-    await page.addInitScript(() => {
-      const origOpen = window.open.bind(window);
-      window.open = (...args: Parameters<typeof window.open>) => {
-        const win = origOpen(...args);
-        if (win) {
-          win.print = () => {};
-          win.close = () => {};
-        }
-        return win;
-      };
-    });
 
     await page.goto('/admin/preorders');
     const actions = page.getByTestId('preorder-receipt-actions');
@@ -140,19 +128,26 @@ test.describe('Pre-order receipt — print and share', () => {
     await expect(page.getByTestId('preorder-receipt-print')).toBeEnabled();
     await expect(page.getByTestId('preorder-receipt-share-image')).toBeEnabled();
 
-    const popupPromise = page.waitForEvent('popup');
-    const receiptLoaded = page.waitForResponse(
-      (res) =>
-        res.url().includes(`/preorders/${RECEIPT_PREORDER_ID}/receipt`) && res.ok(),
-    );
     await page.getByTestId('preorder-receipt-print').click();
-    const [popup] = await Promise.all([popupPromise, receiptLoaded]);
-    await popup.waitForFunction(() =>
-      document.body?.innerText.includes('PHIẾU ĐẶT HÀNG'),
-    );
-    await expect(popup.getByText('Mini GT Porsche')).toBeVisible();
-    await expect(popup.getByText('Giao cuối tuần — E2E')).toBeVisible();
-    await popup.close();
+
+    // Modal mở với preview iframe
+    const modal = page.getByTestId('print-receipt-modal');
+    await expect(modal).toBeVisible();
+
+    // Kiểm tra paper selector và nút In ngay
+    await expect(modal.getByText('58mm (K57)')).toBeVisible();
+    await expect(modal.getByText('80mm (K80)')).toBeVisible();
+    await expect(page.getByTestId('print-receipt-confirm')).toBeEnabled();
+
+    // Preview iframe chứa dữ liệu phiếu đúng
+    const previewFrame = page.frameLocator('[data-testid="print-receipt-preview"]');
+    await expect(previewFrame.getByText('PHIẾU ĐẶT HÀNG')).toBeVisible();
+    await expect(previewFrame.getByText('Mini GT Porsche')).toBeVisible();
+    await expect(previewFrame.getByText('Giao cuối tuần — E2E')).toBeVisible();
+
+    // Đóng modal
+    await modal.getByRole('button', { name: 'Đóng' }).click();
+    await expect(modal).not.toBeVisible();
   });
 
   test('admin share image downloads PNG when Web Share is unavailable', async ({ page }) => {
