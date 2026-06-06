@@ -35,7 +35,6 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
   const [printing, setPrinting] = useState(false);
   const [iframeReady, setIframeReady] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
-  const previewRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -45,37 +44,35 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onMsg = (e: MessageEvent) => {
-      if (e.source === previewRef.current?.contentWindow && e.data === 'dc360:afterprint') {
-        setPrinting(false);
-        onClose();
-      }
-    };
-    window.addEventListener('message', onMsg);
-    return () => window.removeEventListener('message', onMsg);
-  }, [open, onClose]);
-
   if (!open) return null;
 
   const selectPaper = (pw: PaperWidth) => {
     setPaperWidth(pw);
-    // key={paperWidth} remounts iframe — reset readiness để tránh postMessage bị drop
-    // trước khi message listener trong srcdoc được đăng ký.
     setIframeReady(false);
     try { localStorage.setItem(PAPER_WIDTH_KEY, pw); } catch { /* ignore */ }
   };
 
   const handlePrint = () => {
     if (printing || !iframeReady) return;
-    const win = previewRef.current?.contentWindow;
-    if (!win) return;
     setPrinting(true);
-    // postMessage để iframe tự gọi window.print() từ bên trong —
-    // Chrome không cho phép parent gọi iframe.contentWindow.print() để in iframe content.
-    win.postMessage('dc360:print', '*');
-    setTimeout(() => setPrinting(false), 2000);
+    // window.open() mở popup riêng — đây là cách duy nhất Chrome cho phép in
+    // nội dung độc lập mà không in cả parent page. iframe.contentWindow.print()
+    // (kể cả qua postMessage) đều bị Chrome redirect về parent document.
+    const popup = window.open('', '_blank');
+    if (!popup) { setPrinting(false); return; }
+    popup.document.write(previewHtml);
+    popup.document.close();
+    popup.onafterprint = () => {
+      popup.close();
+      setPrinting(false);
+      onClose();
+    };
+    // Fallback nếu afterprint không fire (một số mobile browser)
+    setTimeout(() => {
+      if (!popup.closed) { popup.close(); setPrinting(false); }
+    }, 60_000);
+    popup.focus();
+    popup.print();
   };
 
   const previewHtml = buildPreorderReceiptHtml(data, 'thermal', { paperWidth });
@@ -129,7 +126,6 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
           {/* key={paperWidth} buộc iframe remount khi đổi khổ giấy */}
           <iframe
             key={paperWidth}
-            ref={previewRef}
             srcDoc={previewHtml}
             onLoad={() => setIframeReady(true)}
             className={styles.previewFrame}
