@@ -29,21 +29,21 @@ const mockData: PreorderReceiptPayload = {
 };
 
 describe('buildPreorderReceiptHtml', () => {
-  it('sinh @page { size: 58mm auto } cho K57', () => {
+  it('sinh @page { size: 58mm 9999mm } cho K57', () => {
     const html = buildPreorderReceiptHtml(mockData, 'thermal', { paperWidth: 'K57' });
-    expect(html).toContain('size: 58mm auto');
+    expect(html).toContain('size: 58mm 9999mm');
     expect(html).toContain('width: 58mm');
   });
 
-  it('sinh @page { size: 80mm auto } cho K80', () => {
+  it('sinh @page { size: 80mm 9999mm } cho K80', () => {
     const html = buildPreorderReceiptHtml(mockData, 'thermal', { paperWidth: 'K80' });
-    expect(html).toContain('size: 80mm auto');
+    expect(html).toContain('size: 80mm 9999mm');
     expect(html).toContain('width: 80mm');
   });
 
   it('mặc định là 58mm khi không truyền paperWidth', () => {
     const html = buildPreorderReceiptHtml(mockData, 'thermal');
-    expect(html).toContain('size: 58mm auto');
+    expect(html).toContain('size: 58mm 9999mm');
   });
 
   it('share mode không sinh @page size', () => {
@@ -113,14 +113,14 @@ describe('printPreorderReceipt', () => {
   it('set srcdoc với HTML chứa @page size 58mm cho K57', () => {
     printPreorderReceipt(mockData, 'K57');
     const iframe = appendSpy.mock.calls[0]?.[0] as HTMLIFrameElement;
-    expect(iframe.srcdoc).toContain('size: 58mm auto');
+    expect(iframe.srcdoc).toContain('size: 58mm 9999mm');
     expect(iframe.srcdoc).toContain('PHIẾU ĐẶT HÀNG');
   });
 
   it('set srcdoc với HTML chứa @page size 80mm cho K80', () => {
     printPreorderReceipt(mockData, 'K80');
     const iframe = appendSpy.mock.calls[0]?.[0] as HTMLIFrameElement;
-    expect(iframe.srcdoc).toContain('size: 80mm auto');
+    expect(iframe.srcdoc).toContain('size: 80mm 9999mm');
   });
 
   it('iframe style ẩn khỏi viewport', () => {

@@ -52,7 +52,7 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
       <div className={styles.modal} onClick={(e) => e.stopPropagation()} data-testid="print-receipt-modal">
         <div className={styles.header}>
           <h2 className={styles.title}>Xem trước và in phiếu</h2>
-          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Đóng">
+          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Đóng modal">
             ✕
           </button>
         </div>

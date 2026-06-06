@@ -176,7 +176,7 @@ export const buildPreorderReceiptHtml = (
     .totals .line { margin: 3px 0; }
     .totals .strong .value { font-weight: 700; }
     .words { margin-top: 8px; font-size: 0.88em; font-style: italic; text-align: center; line-height: 1.4; }
-    @page { ${mode === 'thermal' ? `size: ${paperMm}mm auto; ` : ''}margin: 3mm; }
+    @page { ${mode === 'thermal' ? `size: ${paperMm}mm 9999mm; ` : ''}margin: 3mm; }
     @media print {
       body { padding: 0; ${mode === 'thermal' ? `width: ${paperMm}mm;` : ''} }
       .logo { max-width: 44mm; max-height: 14mm; }

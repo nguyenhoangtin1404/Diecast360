@@ -36,7 +36,9 @@ export const printPreorderReceipt = (
     win.print();
   };
 
-  document.body.appendChild(iframe);
-  // srcdoc kích hoạt onload đáng tin cậy hơn document.write trên mobile
+  // Đặt srcdoc TRƯỚC appendChild để tránh race condition:
+  // một số browser fire onload cho about:blank ngay khi iframe được attach,
+  // dẫn đến in trang trắng trước khi content được load.
   iframe.srcdoc = html;
+  document.body.appendChild(iframe);
 };
