@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PreorderReceiptPayload } from '../../types/preorderReceipt';
 import { buildPreorderReceiptHtml } from '../../utils/preorderReceiptHtml';
 import type { PaperWidth } from '../../utils/preorderReceiptHtml';
@@ -33,6 +33,16 @@ interface PrintReceiptModalProps {
 
 export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProps) => {
   const [paperWidth, setPaperWidth] = useState<PaperWidth>(readPaperWidth);
+  const [printing, setPrinting] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    modalRef.current?.focus();
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -42,14 +52,26 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
   };
 
   const handlePrint = () => {
+    if (printing) return;
+    setPrinting(true);
     printPreorderReceipt(data, paperWidth);
+    setTimeout(() => setPrinting(false), 2000);
   };
 
   const previewHtml = buildPreorderReceiptHtml(data, 'thermal', { paperWidth });
 
   return (
     <div className={styles.overlay} onClick={onClose} data-testid="print-receipt-modal-overlay">
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()} data-testid="print-receipt-modal">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Xem trước và in phiếu"
+        tabIndex={-1}
+        className={styles.modal}
+        onClick={(e) => e.stopPropagation()}
+        data-testid="print-receipt-modal"
+      >
         <div className={styles.header}>
           <h2 className={styles.title}>Xem trước và in phiếu</h2>
           <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Đóng modal">
@@ -102,7 +124,7 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
             type="button"
             className={styles.btnPrint}
             onClick={handlePrint}
-            disabled={IS_IOS}
+            disabled={IS_IOS || printing}
             title={IS_IOS ? 'iOS không hỗ trợ in Bluetooth non-AirPrint' : undefined}
             data-testid="print-receipt-confirm"
           >
