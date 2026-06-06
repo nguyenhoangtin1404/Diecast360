@@ -44,6 +44,8 @@ const formatNullableVnd = (n: number | null | undefined): string =>
 
 export type ReceiptRenderMode = 'thermal' | 'share';
 
+export type PaperWidth = 'K57' | 'K80';
+
 export interface BuildReceiptOptions {
   /**
    * Data URL (base64) của logo đã fetch sẵn — dùng cho share/export mode để
@@ -51,6 +53,8 @@ export interface BuildReceiptOptions {
    * Không truyền = dùng `shop.logo_url` (in nhiệt).
    */
   logoDataUrl?: string | null;
+  /** Khổ giấy nhiệt. Chỉ áp dụng khi mode = 'thermal'. Default: 'K57' (58mm). */
+  paperWidth?: PaperWidth;
 }
 
 export const buildPreorderReceiptHtml = (
@@ -120,9 +124,10 @@ export const buildPreorderReceiptHtml = (
     preorder.unit_price ?? (subtotal != null && preorder.quantity > 0 ? subtotal / preorder.quantity : null);
   const lineTotal: number | null = unitPrice != null ? unitPrice * preorder.quantity : null;
 
+  const paperMm = options.paperWidth === 'K80' ? 80 : 58;
   const widthStyle =
     mode === 'thermal'
-      ? 'width: 58mm; max-width: 58mm;'
+      ? `width: ${paperMm}mm; max-width: ${paperMm}mm;`
       : 'width: 420px; max-width: 420px;';
 
   const baseFont = mode === 'thermal' ? '9pt' : '11pt';
@@ -171,9 +176,9 @@ export const buildPreorderReceiptHtml = (
     .totals .line { margin: 3px 0; }
     .totals .strong .value { font-weight: 700; }
     .words { margin-top: 8px; font-size: 0.88em; font-style: italic; text-align: center; line-height: 1.4; }
-    @page { margin: 3mm; }
+    @page { ${mode === 'thermal' ? `size: ${paperMm}mm 9999mm; ` : ''}margin: 3mm; }
     @media print {
-      body { padding: 0; ${mode === 'thermal' ? 'width: 58mm;' : ''} }
+      body { padding: 0; ${mode === 'thermal' ? `width: ${paperMm}mm;` : ''} }
       .logo { max-width: 44mm; max-height: 14mm; }
     }
   </style>

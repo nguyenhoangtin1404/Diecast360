@@ -7,13 +7,26 @@ import { PrismaModule } from '../common/prisma/prisma.module';
 import { StorageModule } from '../storage/storage.module';
 import { FacebookModule } from '../integrations/facebook/facebook.module';
 import { CategoriesModule } from '../categories/categories.module';
+import { ItemsCrudService } from './services/items-crud.service';
+import { ItemsSearchService } from './services/items-search.service';
+import { ItemsExportService } from './services/items-export.service';
+import { ItemsFacebookService } from './services/items-facebook.service';
+import { ItemsPreorderService } from './services/items-preorder.service';
 
 import { AiDraftController } from './ai-draft.controller';
 
 @Module({
   imports: [PrismaModule, StorageModule, AiModule, FacebookModule, CategoriesModule],
   controllers: [ItemsController, AiDraftController],
-  providers: [ItemsService, QrService],
+  providers: [
+    ItemsCrudService,
+    ItemsSearchService,
+    ItemsExportService,
+    ItemsFacebookService,
+    ItemsPreorderService,
+    ItemsService,
+    QrService,
+  ],
   exports: [ItemsService, QrService],
 })
 export class ItemsModule {}

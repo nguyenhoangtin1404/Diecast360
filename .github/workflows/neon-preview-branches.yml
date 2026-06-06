@@ -24,10 +24,21 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       branch: ${{ steps.branch_name.outputs.current_branch }}
+      neon_preview_branch: ${{ steps.neon_preview_branch.outputs.name }}
     steps:
       - name: Get branch name
         id: branch_name
         uses: tj-actions/branch-names@v8
+
+      # Git branch names may contain "/" (e.g. refactor/frontend-admin). Neon rejects some
+      # nested paths on create (422). Use a flat slug shared by create + delete jobs.
+      - name: Build Neon preview branch name
+        id: neon_preview_branch
+        run: |
+          git_branch="${{ steps.branch_name.outputs.current_branch }}"
+          sanitized="${git_branch//\//-}"
+          sanitized="$(echo "$sanitized" | sed 's/[^a-zA-Z0-9._-]/-/g')"
+          echo "name=preview/pr-${{ github.event.number }}-${sanitized}" >> "$GITHUB_OUTPUT"
 
   create_neon_branch:
     name: Create Neon Branch
@@ -45,12 +56,20 @@ jobs:
         id: get_expiration_date
         run: echo "EXPIRES_AT=$(date -u --date '+14 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
 
+      - name: Delete Neon Branch if exists
+        continue-on-error: true
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: ${{ needs.setup.outputs.neon_preview_branch }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
       - name: Create Neon Branch
         id: create_neon_branch
         uses: neondatabase/create-branch-action@v6
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch_name: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          branch_name: ${{ needs.setup.outputs.neon_preview_branch }}
           api_key: ${{ secrets.NEON_API_KEY }}
           expires_at: ${{ env.EXPIRES_AT }}
           prisma: true
@@ -102,5 +121,5 @@ jobs:
         uses: neondatabase/delete-branch-action@v3
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch: preview/pr-${{ github.event.number }}-${{ needs.setup.outputs.branch }}
+          branch: ${{ needs.setup.outputs.neon_preview_branch }}
           api_key: ${{ secrets.NEON_API_KEY }}

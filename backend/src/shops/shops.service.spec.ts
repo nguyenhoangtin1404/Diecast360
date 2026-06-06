@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { ShopsService } from './shops.service';
+import { ShopsAuditService } from './services/shops-audit.service';
+import { ShopsCrudService } from './services/shops-crud.service';
+import { ShopsMembersService } from './services/shops-members.service';
+import { ShopsAppearanceService } from './services/shops-appearance.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AppException } from '../common/exceptions/http-exception.filter';
 import { UploadSupportService } from '../common/upload/upload-support.service';
@@ -92,6 +96,10 @@ describe('ShopsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ShopsService,
+        ShopsAuditService,
+        ShopsCrudService,
+        ShopsMembersService,
+        ShopsAppearanceService,
         { provide: PrismaService, useValue: prisma },
         { provide: 'IStorageService', useValue: storage },
         { provide: UploadSupportService, useValue: uploadSupport },
@@ -481,6 +489,15 @@ describe('ShopsService', () => {
         where: { shop_id: shopId, action: 'deactivate_shop' },
       });
     });
+
+    it('should throw NOT_FOUND when shop does not exist', async () => {
+      prisma.shop.findUnique.mockResolvedValue(null);
+
+      await expect(service.findAuditLogs(shopId, { page: 1, page_size: 20 })).rejects.toThrow(
+        AppException,
+      );
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
   });
 
   describe('findItems', () => {
@@ -689,17 +706,95 @@ describe('ShopsService', () => {
       );
     });
 
-    it('uploadAppearanceAsset saves file and updates logo_url', async () => {
+    it('updateContactAndAppearanceForTenant normalizes signed logo_url back to relative path before storing', async () => {
+      const signedUrl = buildSignedMediaFileUrl(
+        'http://localhost:3000/api/v1',
+        'shop-branding/logo.png',
+        testJwtSecret,
+        3_600_000,
+      );
       prisma.shop.findFirst.mockResolvedValue({
         id: tenantId,
-        appearance_json: {},
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: { logo_url: 'shop-branding/logo.png' },
+        loyalty_json: {},
       });
       prisma.shop.update.mockResolvedValue({
         id: tenantId,
         name: 'T',
         slug: 't',
         contact_json: {},
-        appearance_json: { logo_url: 'https://signed.example/shop-branding/x.png' },
+        appearance_json: { logo_url: 'shop-branding/logo.png', primary_color: '#fff' },
+        loyalty_json: {},
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({});
+
+      await service.updateContactAndAppearanceForTenant(
+        tenantId,
+        undefined,
+        { logo_url: signedUrl, primary_color: '#fff' },
+        'u1',
+      );
+
+      // DB must receive relative path, not the signed URL
+      expect(prisma.shop.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            appearance_json: expect.objectContaining({ logo_url: 'shop-branding/logo.png' }),
+          }),
+        }),
+      );
+    });
+
+    it('updateContactAndAppearanceForTenant keeps already-relative logo_url unchanged', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        id: tenantId,
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: { logo_url: 'shop-branding/logo.png' },
+        loyalty_json: {},
+      });
+      prisma.shop.update.mockResolvedValue({
+        id: tenantId,
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: { logo_url: 'shop-branding/logo.png' },
+        loyalty_json: {},
+      });
+      prisma.shopAuditLog.create.mockResolvedValue({});
+
+      await service.updateContactAndAppearanceForTenant(
+        tenantId,
+        undefined,
+        { logo_url: 'shop-branding/logo.png' },
+        'u1',
+      );
+
+      expect(prisma.shop.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            appearance_json: expect.objectContaining({ logo_url: 'shop-branding/logo.png' }),
+          }),
+        }),
+      );
+    });
+
+    it('uploadAppearanceAsset saves file and updates logo_url', async () => {
+      prisma.shop.findFirst.mockResolvedValue({
+        id: tenantId,
+        appearance_json: {},
+      });
+      // DB now stores the relative path, not the signed URL
+      prisma.shop.update.mockResolvedValue({
+        id: tenantId,
+        name: 'T',
+        slug: 't',
+        contact_json: {},
+        appearance_json: { logo_url: 'shop-branding/x.png' },
       });
       prisma.shopAuditLog.create.mockResolvedValue({});
 
@@ -713,10 +808,20 @@ describe('ShopsService', () => {
 
       expect(uploadSupport.validateFile).toHaveBeenCalled();
       expect(storage.saveFile).toHaveBeenCalled();
-      expect(out.url).toContain('shop-branding');
+      // DB is written with the relative path
+      expect(prisma.shop.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            appearance_json: expect.objectContaining({ logo_url: 'shop-branding/x.png' }),
+          }),
+        }),
+      );
+      // url and appearance_json.logo_url come from the same getFileUrl call (no double-sign)
+      expect(out.url).toBe('https://signed.example/shop-branding/x.png');
       expect(out.shop.appearance_json).toEqual({
         logo_url: 'https://signed.example/shop-branding/x.png',
       });
+      expect(out.url).toBe((out.shop.appearance_json as Record<string, unknown>).logo_url);
       expect(prisma.shopAuditLog.create).toHaveBeenCalled();
     });
 
@@ -738,7 +843,7 @@ describe('ShopsService', () => {
         name: 'T',
         slug: 't',
         contact_json: {},
-        appearance_json: { logo_url: 'https://signed.example/shop-branding/x.png' },
+        appearance_json: { logo_url: 'shop-branding/x.png' },
       });
       prisma.shopAuditLog.create.mockResolvedValue({});
 
@@ -782,7 +887,7 @@ describe('ShopsService', () => {
         name: 'T',
         slug: 't',
         contact_json: {},
-        appearance_json: { favicon_url: 'https://signed.example/shop-branding/normalized.png' },
+        appearance_json: { favicon_url: 'shop-branding/normalized.png' },
       });
       prisma.shopAuditLog.create.mockResolvedValue({});
 

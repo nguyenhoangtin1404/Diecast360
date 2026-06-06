@@ -9,6 +9,11 @@ import { ItemStatus } from '../generated/prisma/client';
 import { FacebookGraphService } from '../integrations/facebook/facebook-graph.service';
 import { FacebookConfigService } from '../integrations/facebook/facebook-config.service';
 import { CategoriesService } from '../categories/categories.service';
+import { ItemsCrudService } from './services/items-crud.service';
+import { ItemsSearchService } from './services/items-search.service';
+import { ItemsExportService } from './services/items-export.service';
+import { ItemsFacebookService } from './services/items-facebook.service';
+import { ItemsPreorderService } from './services/items-preorder.service';
 
 
 describe('ItemsService', () => {
@@ -138,6 +143,11 @@ describe('ItemsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ItemsCrudService,
+        ItemsSearchService,
+        ItemsExportService,
+        ItemsFacebookService,
+        ItemsPreorderService,
         ItemsService,
         { provide: PrismaService, useValue: prisma },
         { provide: 'IStorageService', useValue: storage },
@@ -151,9 +161,10 @@ describe('ItemsService', () => {
 
     service = module.get<ItemsService>(ItemsService);
 
-    // Spy on logger.error to verify structured logging
-    jest.spyOn((service as unknown as { logger: { error: jest.Mock } }).logger, 'error').mockImplementation();
-    loggerErrorSpy = jest.spyOn((service as unknown as { logger: { error: jest.Mock } }).logger, 'error');
+    // Spy on crudService logger.error to verify structured logging
+    const crudService = module.get<ItemsCrudService>(ItemsCrudService);
+    jest.spyOn((crudService as unknown as { logger: { error: jest.Mock } }).logger, 'error').mockImplementation();
+    loggerErrorSpy = jest.spyOn((crudService as unknown as { logger: { error: jest.Mock } }).logger, 'error');
   });
 
   afterEach(() => {
@@ -827,7 +838,7 @@ describe('ItemsService', () => {
 
       expect(result.item.name).toBe('Updated Name');
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ name: 'Updated Name' }),
       });
     });
@@ -860,7 +871,7 @@ describe('ItemsService', () => {
         },
       });
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ car_brand: 'Toyota' }),
       });
     });
@@ -898,7 +909,7 @@ describe('ItemsService', () => {
       }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           quantity: 5,
           attributes: { color: 'green', release_year: 2024 },
@@ -915,7 +926,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { quantity: 0 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ quantity: 0 }),
       });
     });
@@ -930,7 +941,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { attributes: {} }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ attributes: {} }),
       });
     });
@@ -946,7 +957,7 @@ describe('ItemsService', () => {
       );
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           fb_post_content: 'Post content from AI',
         }),
@@ -1047,7 +1058,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { status: 'con_hang' }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           status: 'con_hang',
           quantity: 1,
@@ -1062,7 +1073,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { status: 'con_hang', quantity: 5 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           status: 'con_hang',
           quantity: 5,
@@ -1077,7 +1088,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { status: 'con_hang', quantity: 0 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           status: 'con_hang',
           quantity: 1,
@@ -1092,7 +1103,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { status: 'da_ban', quantity: 8 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           status: 'da_ban',
           quantity: 0,
@@ -1115,7 +1126,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { quantity: 6 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           quantity: 0,
         }),
@@ -1148,7 +1159,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { status: 'da_ban' }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({
           status: 'da_ban',
           quantity: 0,
@@ -1221,7 +1232,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { status: 'preorder', quantity: 0 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ status: 'preorder', quantity: 0 }),
       });
     });
@@ -1233,7 +1244,7 @@ describe('ItemsService', () => {
       await service.update('item-123', { quantity: 10 }, TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ quantity: 10 }),
       });
     });
@@ -1246,7 +1257,7 @@ describe('ItemsService', () => {
 
       expect(result.item.status).toBe('da_ban');
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: expect.objectContaining({ status: 'da_ban', quantity: 0 }),
       });
     });
@@ -1380,7 +1391,7 @@ describe('ItemsService', () => {
 
       expect(result).toEqual({});
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: { deleted_at: expect.any(Date) },
       });
     });
@@ -1410,7 +1421,7 @@ describe('ItemsService', () => {
       const result = await service.closePreorder('item-123', TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: { preorder_closes_at: expect.any(Date) },
       });
       expect(result.item).toBe(closedItem);
@@ -1478,7 +1489,7 @@ describe('ItemsService', () => {
       const result = await service.reopenPreorder('item-123', TEST_SHOP_ID);
 
       expect(prisma.item.update).toHaveBeenCalledWith({
-        where: { id: 'item-123' },
+        where: { id: 'item-123', shop_id: TEST_SHOP_ID, deleted_at: null },
         data: { preorder_closes_at: null, preorder_opens_at: expect.any(Date) },
       });
       expect(result.item).toBe(reopenedItem);
@@ -1911,7 +1922,8 @@ describe('ItemsService', () => {
     });
 
     it('should process pending tasks from queue', async () => {
-      const syncSpy = jest.spyOn(service, 'syncVectorStore').mockResolvedValue(undefined);
+      const searchSvc = (service as unknown as { searchService: ItemsSearchService }).searchService;
+      const syncSpy = jest.spyOn(searchSvc, 'syncVectorStore').mockResolvedValue(undefined);
       prisma.vectorSyncTask.findMany.mockResolvedValue([
         { item_id: vectorItem.id, item: vectorItem } as unknown as { item_id: string; item: typeof vectorItem },
       ]);
@@ -1937,7 +1949,8 @@ describe('ItemsService', () => {
     });
 
     it('should re-enqueue when syncVectorStore throws unexpectedly', async () => {
-      const syncSpy = jest.spyOn(service, 'syncVectorStore').mockRejectedValue(new Error('vector failure'));
+      const searchSvc = (service as unknown as { searchService: ItemsSearchService }).searchService;
+      const syncSpy = jest.spyOn(searchSvc, 'syncVectorStore').mockRejectedValue(new Error('vector failure'));
       prisma.vectorSyncTask.upsert.mockClear();
       prisma.vectorSyncTask.findMany.mockResolvedValue([
         { item_id: vectorItem.id, item: vectorItem } as unknown as { item_id: string; item: typeof vectorItem },

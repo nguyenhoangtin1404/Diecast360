@@ -13,7 +13,7 @@ declare global {
           'error-callback'?: () => void;
           theme?: 'light' | 'dark' | 'auto';
         },
-      ) => string;
+      ) => string | undefined;
       reset: (widgetId: string) => void;
       remove: (widgetId: string) => void;
     };
@@ -36,17 +36,30 @@ export const CaptchaWidget = ({ onToken, onExpire, onError, onLoadError, resetKe
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | undefined>(undefined);
 
+  // Use refs so callback identity changes never destroy/re-create the widget.
+  const onTokenRef = useRef(onToken);
+  const onExpireRef = useRef(onExpire);
+  const onErrorRef = useRef(onError);
+  const onLoadErrorRef = useRef(onLoadError);
+  useEffect(() => {
+    onTokenRef.current = onToken;
+    onExpireRef.current = onExpire;
+    onErrorRef.current = onError;
+    onLoadErrorRef.current = onLoadError;
+  });
+
   const renderWidget = useCallback(() => {
     if (!containerRef.current || !window.turnstile || !CAPTCHA_SITE_KEY) return;
     if (widgetIdRef.current !== undefined) return;
-    widgetIdRef.current = window.turnstile.render(containerRef.current, {
+    const id = window.turnstile.render(containerRef.current, {
       sitekey: CAPTCHA_SITE_KEY,
-      callback: onToken,
-      'expired-callback': onExpire,
-      'error-callback': onError,
+      callback: (t) => onTokenRef.current(t),
+      'expired-callback': () => onExpireRef.current(),
+      'error-callback': () => onErrorRef.current?.(),
       theme: 'light',
     });
-  }, [onToken, onExpire, onError]);
+    if (id !== undefined) widgetIdRef.current = id;
+  }, []);
 
   useEffect(() => {
     if (!CAPTCHA_SITE_KEY) return;
@@ -62,18 +75,19 @@ export const CaptchaWidget = ({ onToken, onExpire, onError, onLoadError, resetKe
           'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit';
         script.async = true;
         script.defer = true;
-        script.onerror = () => onLoadError?.();
+        script.onerror = () => onLoadErrorRef.current?.();
         document.head.appendChild(script);
       }
     }
 
     return () => {
+      window.onTurnstileLoad = undefined;
       if (widgetIdRef.current !== undefined && window.turnstile) {
         window.turnstile.remove(widgetIdRef.current);
         widgetIdRef.current = undefined;
       }
     };
-  }, [renderWidget, onLoadError]);
+  }, [renderWidget]);
 
   useEffect(() => {
     if (!resetKey || resetKey <= 0) return;

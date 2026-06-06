@@ -228,7 +228,6 @@ export const PreOrderManagementPage = () => {
               preorderId={participant.preorder_id}
               className={styles.controls}
               buttonClassName={styles.button}
-              compact
             />
             <div className={styles.controls}>
               {(PREORDER_TRANSITIONS[participant.status] ?? []).map((status) => (

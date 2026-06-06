@@ -1,47 +1,41 @@
 import { useState } from 'react';
 import { fetchPreorderReceipt } from '../../api/preorders';
+import type { PreorderReceiptPayload } from '../../types/preorderReceipt';
 import {
   downloadPreorderReceiptPng,
   exportPreorderReceiptImage,
   sharePreorderReceiptPng,
 } from '../../utils/exportPreorderReceiptImage';
-import {
-  fillReceiptPrintWindow,
-  openReceiptPrintWindow,
-} from '../../utils/printPreorderReceipt';
+import { PrintReceiptModal } from './PrintReceiptModal';
 
 type PreorderReceiptActionsProps = {
   preorderId: string;
   className?: string;
   buttonClassName?: string;
-  compact?: boolean;
 };
 
 export const PreorderReceiptActions = ({
   preorderId,
   className = '',
   buttonClassName = '',
-  compact = false,
 }: PreorderReceiptActionsProps) => {
   const [busy, setBusy] = useState<'print' | 'image' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [receiptData, setReceiptData] = useState<PreorderReceiptPayload | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const loadReceipt = async () => {
     setError(null);
     return fetchPreorderReceipt(preorderId);
   };
 
-  const handlePrint = async () => {
-    const printWindow = openReceiptPrintWindow();
-    if (!printWindow) {
-      return;
-    }
+  const handleOpenPrint = async () => {
     setBusy('print');
     try {
       const data = await loadReceipt();
-      fillReceiptPrintWindow(printWindow, data);
+      setReceiptData(data);
+      setModalOpen(true);
     } catch {
-      printWindow.close();
       setError('Không thể tải hoặc in phiếu. Vui lòng thử lại.');
     } finally {
       setBusy(null);
@@ -64,23 +58,21 @@ export const PreorderReceiptActions = ({
     }
   };
 
-  const btnClass = [buttonClassName, compact ? '' : ''].filter(Boolean).join(' ');
-
   return (
     <div className={className} data-testid="preorder-receipt-actions">
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
         <button
           type="button"
-          className={btnClass || undefined}
+          className={buttonClassName || undefined}
           disabled={busy !== null}
-          onClick={() => void handlePrint()}
+          onClick={() => void handleOpenPrint()}
           data-testid="preorder-receipt-print"
         >
-          {busy === 'print' ? 'Đang in...' : 'In phiếu'}
+          {busy === 'print' ? 'Đang tải...' : 'In phiếu'}
         </button>
         <button
           type="button"
-          className={btnClass}
+          className={buttonClassName}
           disabled={busy !== null}
           onClick={() => void handleShareImage()}
           data-testid="preorder-receipt-share-image"
@@ -92,6 +84,16 @@ export const PreorderReceiptActions = ({
         <p style={{ color: '#b91c1c', fontSize: '0.875rem', marginTop: '6px' }} role="alert">
           {error}
         </p>
+      )}
+      {receiptData && (
+        <PrintReceiptModal
+          data={receiptData}
+          open={modalOpen}
+          onClose={() => {
+            setModalOpen(false);
+            setReceiptData(null);
+          }}
+        />
       )}
     </div>
   );
