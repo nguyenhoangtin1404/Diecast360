@@ -222,7 +222,7 @@ export const buildPreorderReceiptHtml = (
     ${preorder.note?.trim() ? lineItem('Ghi chú', preorder.note.trim()) : ''}
   </div>
   <div class="words">${escapeHtml(totalAmount != null ? formatVndAmountInWords(totalAmount) : '')}</div>
-  <script>window.addEventListener('message',function(e){if(e.data==='dc360:print'){window.addEventListener('afterprint',function(){window.parent.postMessage('dc360:afterprint','*');},{once:true});window.print();}});</script>
+  ${mode === 'thermal' ? '<script>window.addEventListener(\'message\',function(e){if(e.data===\'dc360:print\'){window.addEventListener(\'afterprint\',function(){window.parent.postMessage(\'dc360:afterprint\',\'*\');},{once:true});window.print();}});</script>' : ''}
 </body>
 </html>`;
 };
