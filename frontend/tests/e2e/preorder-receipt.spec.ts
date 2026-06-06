@@ -150,6 +150,39 @@ test.describe('Pre-order receipt — print and share', () => {
     await expect(modal).not.toBeVisible();
   });
 
+  test('print opens popup with receipt HTML, not parent page', async ({ page, context }) => {
+    // Headless Chrome fires afterprint ngay sau window.print() → popup tự đóng trước khi assert.
+    // Stub print trên mọi page trong context (kể cả popup) để giữ popup mở trong E2E.
+    await context.addInitScript(() => {
+      window.print = () => {};
+    });
+
+    await mockAdminAuth(page);
+    await page.route('**/api/v1/preorders/admin**', (route: Route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(adminListResponse),
+      }),
+    );
+    await routeReceipt(page, RECEIPT_PREORDER_ID);
+
+    await page.goto('/admin/preorders');
+    await page.getByTestId('preorder-receipt-print').click();
+    await expect(page.getByTestId('print-receipt-modal')).toBeVisible();
+
+    const popupPromise = context.waitForEvent('page');
+    await page.getByTestId('print-receipt-confirm').click();
+    const popup = await popupPromise;
+    await popup.waitForLoadState('domcontentloaded');
+
+    await expect(popup.getByText('PHIẾU ĐẶT HÀNG')).toBeVisible();
+    await expect(popup.getByText('Mini GT Porsche')).toBeVisible();
+    await expect(popup.getByText('Giao cuối tuần — E2E')).toBeVisible();
+    // Parent admin list vẫn hiển thị — không bị thay bằng nội dung in
+    await expect(page.getByRole('heading', { name: 'Quản lý Pre-order' })).toBeVisible();
+  });
+
   test('admin share image downloads PNG when Web Share is unavailable', async ({ page }) => {
     await mockAdminAuth(page);
     await page.route('**/api/v1/preorders/admin**', (route: Route) =>

@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { PreorderReceiptPayload } from '../../types/preorderReceipt';
 import { buildPreorderReceiptHtml } from '../../utils/preorderReceiptHtml';
 import type { PaperWidth } from '../../utils/preorderReceiptHtml';
-import { printPreorderReceipt } from '../../utils/printPreorderReceipt';
+import {
+  openReceiptPrintPopup,
+  RECEIPT_AFTER_PRINT_MSG,
+} from '../../utils/printPreorderReceipt';
 import styles from './PrintReceiptModal.module.css';
 
 const PAPER_WIDTH_KEY = 'receipt_paper_width';
@@ -34,6 +37,8 @@ interface PrintReceiptModalProps {
 export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProps) => {
   const [paperWidth, setPaperWidth] = useState<PaperWidth>(readPaperWidth);
   const [printing, setPrinting] = useState(false);
+  const [iframeReady, setIframeReady] = useState(false);
+  const [printBlocked, setPrintBlocked] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,14 +53,34 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
 
   const selectPaper = (pw: PaperWidth) => {
     setPaperWidth(pw);
+    setIframeReady(false);
     try { localStorage.setItem(PAPER_WIDTH_KEY, pw); } catch { /* ignore */ }
   };
 
   const handlePrint = () => {
-    if (printing) return;
+    if (printing || !iframeReady) return;
+    setPrintBlocked(false);
+    const result = openReceiptPrintPopup(previewHtml);
+    if (!result.ok) {
+      setPrintBlocked(true);
+      return;
+    }
+    const { popup } = result;
     setPrinting(true);
-    printPreorderReceipt(data, paperWidth);
-    setTimeout(() => setPrinting(false), 2000);
+    const onMsg = (e: MessageEvent) => {
+      if (e.source === popup && e.data === RECEIPT_AFTER_PRINT_MSG) {
+        window.removeEventListener('message', onMsg);
+        setPrinting(false);
+        onClose();
+      }
+    };
+    window.addEventListener('message', onMsg);
+    // Fallback nếu afterprint/postMessage không fire (một số mobile browser)
+    setTimeout(() => {
+      window.removeEventListener('message', onMsg);
+      if (!popup.closed) popup.close();
+      setPrinting(false);
+    }, 60_000);
   };
 
   const previewHtml = buildPreorderReceiptHtml(data, 'thermal', { paperWidth });
@@ -110,12 +135,18 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
           <iframe
             key={paperWidth}
             srcDoc={previewHtml}
+            onLoad={() => setIframeReady(true)}
             className={styles.previewFrame}
             title="Xem trước phiếu"
             data-testid="print-receipt-preview"
           />
         </div>
 
+        {printBlocked && (
+          <p style={{ color: '#b91c1c', fontSize: '0.875rem', margin: '0 0 8px', textAlign: 'center' }} role="alert">
+            Trình duyệt đã chặn cửa sổ in. Vui lòng cho phép popup và thử lại.
+          </p>
+        )}
         <div className={styles.actions}>
           <button type="button" className={styles.btnClose} onClick={onClose}>
             Đóng
@@ -124,7 +155,7 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
             type="button"
             className={styles.btnPrint}
             onClick={handlePrint}
-            disabled={IS_IOS || printing}
+            disabled={IS_IOS || printing || !iframeReady}
             title={IS_IOS ? 'iOS không hỗ trợ in Bluetooth non-AirPrint' : undefined}
             data-testid="print-receipt-confirm"
           >
