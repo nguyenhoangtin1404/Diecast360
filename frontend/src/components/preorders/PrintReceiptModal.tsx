@@ -33,6 +33,7 @@ interface PrintReceiptModalProps {
 export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProps) => {
   const [paperWidth, setPaperWidth] = useState<PaperWidth>(readPaperWidth);
   const [printing, setPrinting] = useState(false);
+  const [iframeReady, setIframeReady] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLIFrameElement>(null);
 
@@ -47,11 +48,18 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
   useEffect(() => {
     if (!open) return;
     const onMsg = (e: MessageEvent) => {
-      if (e.data === 'dc360:afterprint') onClose();
+      if (e.source === previewRef.current?.contentWindow && e.data === 'dc360:afterprint') {
+        setPrinting(false);
+        onClose();
+      }
     };
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
   }, [open, onClose]);
+
+  // key={paperWidth} remounts iframe khi đổi khổ giấy — reset readiness để
+  // tránh postMessage bị drop trước khi message listener trong srcdoc được đăng ký.
+  useEffect(() => { setIframeReady(false); }, [paperWidth]);
 
   if (!open) return null;
 
@@ -61,7 +69,7 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
   };
 
   const handlePrint = () => {
-    if (printing) return;
+    if (printing || !iframeReady) return;
     const win = previewRef.current?.contentWindow;
     if (!win) return;
     setPrinting(true);
@@ -124,6 +132,7 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
             key={paperWidth}
             ref={previewRef}
             srcDoc={previewHtml}
+            onLoad={() => setIframeReady(true)}
             className={styles.previewFrame}
             title="Xem trước phiếu"
             data-testid="print-receipt-preview"
@@ -138,7 +147,7 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
             type="button"
             className={styles.btnPrint}
             onClick={handlePrint}
-            disabled={IS_IOS || printing}
+            disabled={IS_IOS || printing || !iframeReady}
             title={IS_IOS ? 'iOS không hỗ trợ in Bluetooth non-AirPrint' : undefined}
             data-testid="print-receipt-confirm"
           >
