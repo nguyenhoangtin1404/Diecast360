@@ -87,7 +87,7 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
           {/* key={paperWidth} buộc iframe remount khi đổi khổ giấy */}
           <iframe
             key={paperWidth}
-            srcdoc={previewHtml}
+            srcDoc={previewHtml}
             className={styles.previewFrame}
             title="Xem trước phiếu"
             data-testid="print-receipt-preview"
@@ -102,6 +102,8 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
             type="button"
             className={styles.btnPrint}
             onClick={handlePrint}
+            disabled={IS_IOS}
+            title={IS_IOS ? 'iOS không hỗ trợ in Bluetooth non-AirPrint' : undefined}
             data-testid="print-receipt-confirm"
           >
             🖨️ In ngay

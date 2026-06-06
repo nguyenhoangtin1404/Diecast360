@@ -72,8 +72,9 @@ Thay thế: dùng nút **"Tạo ảnh / Chia sẻ"** để xuất phiếu dướ
 
 | Triệu chứng | Nguyên nhân | Cách xử lý |
 |---|---|---|
-| "Trình duyệt đã chặn pop-up" | Browser block popup | Cho phép pop-up cho domain admin panel |
-| In ra giấy bị cắt / chữ quá to | Paper size chưa set đúng | Xem bước 4 (Windows) hoặc CUPS Media settings |
+| Print dialog không hiện sau khi bấm "In ngay" | Trình duyệt block iframe print | Thử reload trang, kiểm tra Content Security Policy |
+| Print dialog hiện nhưng không có MP-210 | Chưa pair hoặc driver chưa cài | Làm lại bước pair + thêm printer qua CUPS/Settings |
+| In ra giấy bị cắt / chữ quá to | Paper size chưa set đúng trên driver | Xem bước 4 (Windows) hoặc CUPS Media settings |
 | In ra giấy trắng | Printer nhận lệnh nhưng không render | Thử driver "Generic Text Only" |
-| Chữ bị vỡ / thiếu nét | Font render của driver | Thử khổ giấy K57 (58mm) thay K80 trong selector |
-| Không thấy MP-210 trong print dialog | Chưa pair hoặc driver chưa cài | Làm lại bước pair + thêm printer qua CUPS/Settings |
+| Chữ bị vỡ / thiếu nét | Font render của driver | Thử đổi khổ giấy K57/K80 trong modal preview |
+| Nút "In ngay" bị mờ (disabled) trên iOS | iOS không hỗ trợ non-AirPrint qua browser | Dùng "Tạo ảnh / Chia sẻ" thay thế |

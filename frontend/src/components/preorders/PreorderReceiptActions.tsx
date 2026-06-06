@@ -12,7 +12,6 @@ type PreorderReceiptActionsProps = {
   preorderId: string;
   className?: string;
   buttonClassName?: string;
-  compact?: boolean;
 };
 
 export const PreorderReceiptActions = ({
