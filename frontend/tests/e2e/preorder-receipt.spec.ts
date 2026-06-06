@@ -151,6 +151,12 @@ test.describe('Pre-order receipt — print and share', () => {
   });
 
   test('print opens popup with receipt HTML, not parent page', async ({ page, context }) => {
+    // Headless Chrome fires afterprint ngay sau window.print() → popup tự đóng trước khi assert.
+    // Stub print trên mọi page trong context (kể cả popup) để giữ popup mở trong E2E.
+    await context.addInitScript(() => {
+      window.print = () => {};
+    });
+
     await mockAdminAuth(page);
     await page.route('**/api/v1/preorders/admin**', (route: Route) =>
       route.fulfill({
