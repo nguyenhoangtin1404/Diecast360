@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import type { PreorderReceiptPayload } from '../../types/preorderReceipt';
 import { buildPreorderReceiptHtml } from '../../utils/preorderReceiptHtml';
 import type { PaperWidth } from '../../utils/preorderReceiptHtml';
-import { printPreorderReceipt } from '../../utils/printPreorderReceipt';
 import styles from './PrintReceiptModal.module.css';
 
 const PAPER_WIDTH_KEY = 'receipt_paper_width';
@@ -34,7 +33,9 @@ interface PrintReceiptModalProps {
 export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProps) => {
   const [paperWidth, setPaperWidth] = useState<PaperWidth>(readPaperWidth);
   const [printing, setPrinting] = useState(false);
+  const [iframeReady, setIframeReady] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -44,17 +45,36 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onMsg = (e: MessageEvent) => {
+      if (e.source === previewRef.current?.contentWindow && e.data === 'dc360:afterprint') {
+        setPrinting(false);
+        onClose();
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const selectPaper = (pw: PaperWidth) => {
     setPaperWidth(pw);
+    // key={paperWidth} remounts iframe — reset readiness để tránh postMessage bị drop
+    // trước khi message listener trong srcdoc được đăng ký.
+    setIframeReady(false);
     try { localStorage.setItem(PAPER_WIDTH_KEY, pw); } catch { /* ignore */ }
   };
 
   const handlePrint = () => {
-    if (printing) return;
+    if (printing || !iframeReady) return;
+    const win = previewRef.current?.contentWindow;
+    if (!win) return;
     setPrinting(true);
-    printPreorderReceipt(data, paperWidth);
+    // postMessage để iframe tự gọi window.print() từ bên trong —
+    // Chrome không cho phép parent gọi iframe.contentWindow.print() để in iframe content.
+    win.postMessage('dc360:print', '*');
     setTimeout(() => setPrinting(false), 2000);
   };
 
@@ -109,7 +129,9 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
           {/* key={paperWidth} buộc iframe remount khi đổi khổ giấy */}
           <iframe
             key={paperWidth}
+            ref={previewRef}
             srcDoc={previewHtml}
+            onLoad={() => setIframeReady(true)}
             className={styles.previewFrame}
             title="Xem trước phiếu"
             data-testid="print-receipt-preview"
@@ -124,7 +146,7 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
             type="button"
             className={styles.btnPrint}
             onClick={handlePrint}
-            disabled={IS_IOS || printing}
+            disabled={IS_IOS || printing || !iframeReady}
             title={IS_IOS ? 'iOS không hỗ trợ in Bluetooth non-AirPrint' : undefined}
             data-testid="print-receipt-confirm"
           >
