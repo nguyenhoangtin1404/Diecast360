@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildPreorderReceiptHtml } from '../../src/utils/preorderReceiptHtml';
-import { printPreorderReceipt } from '../../src/utils/printPreorderReceipt';
+import {
+  openReceiptPrintPopup,
+  printPreorderReceipt,
+  RECEIPT_AFTER_PRINT_MSG,
+  wrapReceiptHtmlForPopupPrint,
+} from '../../src/utils/printPreorderReceipt';
 import type { PreorderReceiptPayload } from '../../src/types/preorderReceipt';
 
 const mockData: PreorderReceiptPayload = {
@@ -74,6 +79,62 @@ describe('buildPreorderReceiptHtml', () => {
     const html = buildPreorderReceiptHtml(dataWithMember, 'thermal');
     expect(html).toContain('Khách hàng');
     expect(html).toContain('Nguyễn Văn A');
+  });
+});
+
+describe('wrapReceiptHtmlForPopupPrint', () => {
+  it('gắn script onload + window.print() trước </body>', () => {
+    const html = buildPreorderReceiptHtml(mockData, 'thermal');
+    const wrapped = wrapReceiptHtmlForPopupPrint(html);
+    expect(wrapped).toContain('window.onload = function ()');
+    expect(wrapped).toContain('window.print();');
+    expect(wrapped).toContain(RECEIPT_AFTER_PRINT_MSG);
+    expect(wrapped).not.toEqual(html);
+  });
+
+  it('không làm mất nội dung phiếu', () => {
+    const html = buildPreorderReceiptHtml(mockData, 'thermal');
+    const wrapped = wrapReceiptHtmlForPopupPrint(html);
+    expect(wrapped).toContain('PHIẾU ĐẶT HÀNG');
+    expect(wrapped).toContain('Mini GT BMW');
+  });
+});
+
+describe('openReceiptPrintPopup', () => {
+  let openMock: ReturnType<typeof vi.fn>;
+  let writeMock: ReturnType<typeof vi.fn>;
+  let closeMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    writeMock = vi.fn();
+    closeMock = vi.fn();
+    openMock = vi.fn(() => ({
+      document: { write: writeMock, close: closeMock },
+      closed: false,
+    }));
+    vi.stubGlobal('open', openMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('ghi HTML có script in vào popup', () => {
+    const html = buildPreorderReceiptHtml(mockData, 'thermal');
+    const result = openReceiptPrintPopup(html);
+    expect(result.ok).toBe(true);
+    expect(writeMock).toHaveBeenCalledOnce();
+    const written = writeMock.mock.calls[0]?.[0] as string;
+    expect(written).toContain('window.print();');
+    expect(written).toContain('PHIẾU ĐẶT HÀNG');
+    expect(closeMock).toHaveBeenCalledOnce();
+  });
+
+  it('trả blocked khi window.open null', () => {
+    openMock.mockReturnValue(null);
+    const result = openReceiptPrintPopup('<html></html>');
+    expect(result).toEqual({ ok: false, reason: 'blocked' });
+    expect(writeMock).not.toHaveBeenCalled();
   });
 });
 
