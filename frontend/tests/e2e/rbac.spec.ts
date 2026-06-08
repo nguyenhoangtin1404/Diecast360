@@ -7,6 +7,8 @@
  * 3. AddMemberModal renders role picker with shop_admin and shop_staff options
  * 4. Role picker defaults to shop_admin
  * 5. Role picker can be changed to shop_staff
+ * 6. shop_staff sees read-only banner and mutation buttons hidden on items list
+ * 7. shop_staff is redirected from /admin/items/new and /admin/items/import
  */
 import { test, expect, apiOk, authMePayload, stubAuthCsrf, type Route } from './fixtures';
 import type { MockUser, MockShop } from './fixtures';
@@ -42,6 +44,24 @@ const SHOP_ADMIN_USER: MockUser = {
   active_shop_id: 'shop-platform',
   allowed_shop_ids: ['shop-platform'],
   allowed_shops: [PLATFORM_SHOP],
+};
+
+const SHOP_STAFF_SHOP: MockShop = {
+  id: 'shop-staff',
+  name: 'Staff Shop',
+  slug: 'staff-shop',
+  is_active: true,
+  role: 'shop_staff',
+};
+
+const SHOP_STAFF_USER: MockUser = {
+  id: 'u-shop-staff',
+  email: 'staff@example.com',
+  full_name: 'Shop Staff',
+  role: 'admin',
+  active_shop_id: 'shop-staff',
+  allowed_shop_ids: ['shop-staff'],
+  allowed_shops: [SHOP_STAFF_SHOP],
 };
 
 function mockShopsList(page: import('@playwright/test').Page) {
@@ -180,5 +200,75 @@ test.describe('RBAC — AddMemberModal role picker', () => {
     expect(capturedBody).not.toBeNull();
     expect(capturedBody?.role).toBe('shop_staff');
     expect(capturedBody?.email).toBe('staff@example.com');
+  });
+});
+
+test.describe('RBAC — shop_staff read-only UI', () => {
+  test.beforeEach(async ({ page }) => {
+    await stubAuthCsrf(page);
+    await page.route('**/api/v1/auth/me', (route: Route) =>
+      route.fulfill({ json: authMePayload(SHOP_STAFF_USER) }),
+    );
+    await page.route('**/api/v1/items*', (route: Route) =>
+      route.fulfill({
+        json: apiOk({
+          items: [
+            {
+              id: 'item-1',
+              name: 'Test Diecast',
+              status: 'con_hang',
+              price: 500_000,
+              quantity: 3,
+              is_public: true,
+              created_at: '2026-04-01T00:00:00.000Z',
+              updated_at: '2026-04-01T00:00:00.000Z',
+            },
+          ],
+          pagination: { total: 1, page: 1, page_size: 20, total_pages: 1 },
+        }),
+      }),
+    );
+    await page.route('**/api/v1/categories*', (route: Route) =>
+      route.fulfill({ json: apiOk({ categories: [] }) }),
+    );
+  });
+
+  test('shop_staff sees read-only banner on admin pages', async ({ page }) => {
+    await page.goto('/admin/items');
+
+    await expect(page.getByTestId('shop-staff-readonly-banner')).toBeVisible();
+    await expect(page.getByTestId('shop-staff-readonly-banner')).toContainText('Chế độ chỉ xem');
+  });
+
+  test('shop_staff items list hides create/import actions but keeps search', async ({ page }) => {
+    await page.goto('/admin/items');
+
+    await expect(page.getByRole('link', { name: /Thêm sản phẩm/i })).not.toBeVisible();
+    await expect(page.getByRole('link', { name: /Thêm sản phẩm \(AI\)/i })).not.toBeVisible();
+    await expect(page.getByPlaceholder(/tìm kiếm ai/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Xuất dữ liệu/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /AI tool/i })).not.toBeVisible();
+  });
+
+  test('shop_staff items table hides delete and publish toggles', async ({ page }) => {
+    await page.goto('/admin/items');
+
+    await expect(page.getByRole('button', { name: /Xóa Test Diecast/i })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: /Ẩn Test Diecast/i })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: /Xem Test Diecast/i })).toBeVisible();
+  });
+
+  test('shop_staff navigating to /admin/items/new is redirected to items list', async ({ page }) => {
+    await page.goto('/admin/items/new');
+
+    await expect(page).toHaveURL(/\/admin\/items\/?$/, { timeout: 10_000 });
+    await expect(page.getByTestId('shop-staff-readonly-banner')).toBeVisible();
+  });
+
+  test('shop_staff navigating to /admin/items/import is redirected to items list', async ({ page }) => {
+    await page.goto('/admin/items/import');
+
+    await expect(page).toHaveURL(/\/admin\/items\/?$/, { timeout: 10_000 });
+    await expect(page.getByTestId('shop-staff-readonly-banner')).toBeVisible();
   });
 });
