@@ -5,6 +5,7 @@ import { apiClient } from '../../api/client';
 import type { CategoryItem, ApiError, ApiResponse, CategoryType } from '../../types/category';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useShop } from '../../hooks/useShop';
+import { isShopStaffReadOnly } from '../../utils/shopStaffReadOnly';
 import { useOptionalPlatformSuper } from '../../hooks/useOptionalPlatformSuper';
 import { cn } from '../../lib/utils';
 import styles from './CategoriesPage.module.css';
@@ -20,12 +21,14 @@ const TYPE_LABELS: Record<CategoryType, string> = {
 
 interface CategoryActionProps {
   category: CategoryItem;
+  readOnly?: boolean;
   onEdit: (category: CategoryItem) => void;
   onToggle: (id: string) => void;
   onDelete: (category: CategoryItem) => void;
 }
 
 interface CategoryListActionProps {
+  readOnly?: boolean;
   onEdit: (category: CategoryItem) => void;
   onToggle: (id: string) => void;
   onDelete: (category: CategoryItem) => void;
@@ -39,7 +42,12 @@ interface CategoryDesktopTableProps extends CategoryListActionProps {
   categories: CategoryItem[];
 }
 
-const CategoryActions = ({ category, onEdit, onToggle, onDelete }: CategoryActionProps) => (
+const CategoryActions = ({ category, readOnly = false, onEdit, onToggle, onDelete }: CategoryActionProps) => {
+  if (readOnly) {
+    return <span style={{ fontSize: '12px', color: '#94a3b8' }}>Chỉ xem</span>;
+  }
+
+  return (
   <>
     <button
       className={styles.iconButton}
@@ -67,10 +75,12 @@ const CategoryActions = ({ category, onEdit, onToggle, onDelete }: CategoryActio
       <Trash2 size={16} />
     </button>
   </>
-);
+  );
+};
 
 const CategoryMobileList = ({
   categories,
+  readOnly = false,
   onEdit,
   onToggle,
   onDelete,
@@ -96,6 +106,7 @@ const CategoryMobileList = ({
         <div className={styles.mobileActions}>
           <CategoryActions
             category={category}
+            readOnly={readOnly}
             onEdit={onEdit}
             onToggle={onToggle}
             onDelete={onDelete}
@@ -108,6 +119,7 @@ const CategoryMobileList = ({
 
 const CategoryDesktopTable = ({
   categories,
+  readOnly = false,
   onEdit,
   onToggle,
   onDelete,
@@ -137,6 +149,7 @@ const CategoryDesktopTable = ({
             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
               <CategoryActions
                 category={category}
+                readOnly={readOnly}
                 onEdit={onEdit}
                 onToggle={onToggle}
                 onDelete={onDelete}
@@ -154,6 +167,7 @@ export const CategoriesPage = () => {
   const isMobile = useIsMobile();
   const { activeShop } = useShop();
   const isPlatformSuper = useOptionalPlatformSuper();
+  const readOnly = isShopStaffReadOnly(activeShop?.role) && !isPlatformSuper;
   const [activeType, setActiveType] = useState<CategoryType>('car_brand');
 
   // Modal states
@@ -319,16 +333,18 @@ export const CategoriesPage = () => {
       </div>
 
       {/* Actions Bar */}
-      <div className={styles.actionsBar}>
-        <button
-          className={styles.addButton}
-          onClick={openCreateModal}
-          aria-label={`Thêm ${TYPE_LABELS[activeType].toLowerCase()}`}
-        >
-          <Plus size={18} />
-          Thêm {TYPE_LABELS[activeType].toLowerCase()}
-        </button>
-      </div>
+      {!readOnly && (
+        <div className={styles.actionsBar}>
+          <button
+            className={styles.addButton}
+            onClick={openCreateModal}
+            aria-label={`Thêm ${TYPE_LABELS[activeType].toLowerCase()}`}
+          >
+            <Plus size={18} />
+            Thêm {TYPE_LABELS[activeType].toLowerCase()}
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       {categories.length === 0 ? (
@@ -338,6 +354,7 @@ export const CategoriesPage = () => {
       ) : isMobile ? (
         <CategoryMobileList
           categories={categories}
+          readOnly={readOnly}
           onEdit={openEditModal}
           onToggle={(id) => toggleMutation.mutate(id)}
           onDelete={setDeleteConfirm}
@@ -345,6 +362,7 @@ export const CategoriesPage = () => {
       ) : (
         <CategoryDesktopTable
           categories={categories}
+          readOnly={readOnly}
           onEdit={openEditModal}
           onToggle={(id) => toggleMutation.mutate(id)}
           onDelete={setDeleteConfirm}

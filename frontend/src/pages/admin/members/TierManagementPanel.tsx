@@ -9,6 +9,7 @@ type TierFormState = {
 };
 
 type TierManagementPanelProps = {
+  readOnly?: boolean;
   form: TierFormState;
   tiers: MemberTier[];
   isLoading: boolean;
@@ -27,6 +28,9 @@ export function TierManagementPanel(props: TierManagementPanelProps) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="mb-3 text-lg font-semibold text-slate-900">Quản lý hạng hội viên</h2>
+      {props.readOnly ? (
+        <p className="mb-3 text-sm text-slate-500">Chế độ chỉ xem — không thể thêm hoặc xoá hạng hội viên.</p>
+      ) : (
       <form onSubmit={props.onSubmit} className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
         <label className="grid gap-1 text-sm">
           <span className="inline-flex items-center gap-1 font-medium text-slate-700">Tên hạng</span>
@@ -74,6 +78,7 @@ export function TierManagementPanel(props: TierManagementPanelProps) {
           {props.isSubmitting ? 'Đang thêm...' : 'Thêm hạng'}
         </button>
       </form>
+      )}
       {props.isLoading && <p className="mt-3 text-sm text-slate-500">Đang tải danh sách hạng...</p>}
       {props.loadError && (
         <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -94,14 +99,16 @@ export function TierManagementPanel(props: TierManagementPanelProps) {
                   Bậc hạng {tier.rank} · Từ {tier.min_points.toLocaleString('vi-VN')} điểm
               </div>
             </div>
-            <button
-              type="button"
-              className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700"
-              onClick={() => setConfirmTier(tier)}
-              disabled={props.isDeleting}
-            >
-              Xoá
-            </button>
+            {!props.readOnly && (
+              <button
+                type="button"
+                className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700"
+                onClick={() => setConfirmTier(tier)}
+                disabled={props.isDeleting}
+              >
+                Xoá
+              </button>
+            )}
           </div>
         ))}
       </div>

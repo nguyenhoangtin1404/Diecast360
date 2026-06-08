@@ -7,9 +7,13 @@ import { usePreorderTransition } from '../../hooks/usePreorderTransition';
 import type { PreOrderStatus } from '../../types/preorder';
 import { PREORDER_STATUS_COLORS, PREORDER_TRANSITIONS } from './preorders/status';
 import { PreorderReceiptActions } from '../../components/preorders/PreorderReceiptActions';
+import { useShop } from '../../hooks/useShop';
+import { isShopStaffReadOnly } from '../../utils/shopStaffReadOnly';
 import styles from './preorders/preordersAdmin.module.css';
 
 export const PreOrdersPage = () => {
+  const { activeShop } = useShop();
+  const readOnly = isShopStaffReadOnly(activeShop?.role);
   const [filterStatus, setFilterStatus] = useState<PreOrderStatus | 'ALL'>('ALL');
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery({
@@ -31,9 +35,11 @@ export const PreOrdersPage = () => {
       </header>
       <div className={styles.card}>
         <div className={styles.controls}>
-          <Link className={styles.buttonPrimary} to="/admin/preorders/create">
-            Tạo Pre-Order Mới
-          </Link>
+          {!readOnly && (
+            <Link className={styles.buttonPrimary} to="/admin/preorders/create">
+              Tạo Pre-Order Mới
+            </Link>
+          )}
           <Link className={styles.button} to="/admin/preorders/manage">
             Quản lý theo campaign
           </Link>
@@ -85,19 +91,21 @@ export const PreOrdersPage = () => {
               className={styles.controls}
               buttonClassName={styles.button}
             />
-            <div className={styles.controls}>
-              {(PREORDER_TRANSITIONS[preorder.status] ?? []).map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  className={styles.button}
-                  disabled={transitionMutation.isPending}
-                  onClick={() => transitionMutation.mutate({ id: preorder.id, status })}
-                >
-                  Chuyển sang: {PREORDER_STATUS_LABELS[status]}
-                </button>
-              ))}
-            </div>
+            {!readOnly && (
+              <div className={styles.controls}>
+                {(PREORDER_TRANSITIONS[preorder.status] ?? []).map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    className={styles.button}
+                    disabled={transitionMutation.isPending}
+                    onClick={() => transitionMutation.mutate({ id: preorder.id, status })}
+                  >
+                    Chuyển sang: {PREORDER_STATUS_LABELS[status]}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       ))}

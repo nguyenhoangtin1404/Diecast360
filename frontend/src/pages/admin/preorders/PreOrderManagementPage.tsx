@@ -7,11 +7,15 @@ import { usePreorderTransition } from '../../../hooks/usePreorderTransition';
 import { PREORDER_TRANSITIONS } from './status';
 import { PreorderCountdown } from '../../../components/preorder/PreorderCountdown';
 import { PreorderReceiptActions } from '../../../components/preorders/PreorderReceiptActions';
+import { useShop } from '../../../hooks/useShop';
+import { isShopStaffReadOnly } from '../../../utils/shopStaffReadOnly';
 import styles from './preordersAdmin.module.css';
 
 const PAGE_SIZE = 50;
 
 export const PreOrderManagementPage = () => {
+  const { activeShop } = useShop();
+  const readOnly = isShopStaffReadOnly(activeShop?.role);
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
 
@@ -183,23 +187,25 @@ export const PreOrderManagementPage = () => {
             >
               Xem chi tiết campaign
             </Link>
-            <Link
-              className={styles.button}
-              to={
-                effectiveCampaignId
-                  ? `/admin/preorders/create?item_id=${encodeURIComponent(effectiveCampaignId)}`
-                  : '#'
-              }
-              aria-disabled={!effectiveCampaignId}
-              tabIndex={effectiveCampaignId ? undefined : -1}
-              onClick={(event) => {
-                if (!effectiveCampaignId) {
-                  event.preventDefault();
+            {!readOnly && (
+              <Link
+                className={styles.button}
+                to={
+                  effectiveCampaignId
+                    ? `/admin/preorders/create?item_id=${encodeURIComponent(effectiveCampaignId)}`
+                    : '#'
                 }
-              }}
-            >
-              Thêm người tham gia
-            </Link>
+                aria-disabled={!effectiveCampaignId}
+                tabIndex={effectiveCampaignId ? undefined : -1}
+                onClick={(event) => {
+                  if (!effectiveCampaignId) {
+                    event.preventDefault();
+                  }
+                }}
+              >
+                Thêm người tham gia
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -229,22 +235,24 @@ export const PreOrderManagementPage = () => {
               className={styles.controls}
               buttonClassName={styles.button}
             />
-            <div className={styles.controls}>
-              {(PREORDER_TRANSITIONS[participant.status] ?? []).map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  className={styles.button}
-                  disabled={transitionMutation.isPending}
-                  data-testid="admin-participant-transition"
-                  onClick={() =>
-                    transitionMutation.mutate({ id: participant.preorder_id, status })
-                  }
-                >
-                  Chuyển sang: {PREORDER_STATUS_LABELS[status]}
-                </button>
-              ))}
-            </div>
+            {!readOnly && (
+              <div className={styles.controls}>
+                {(PREORDER_TRANSITIONS[participant.status] ?? []).map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    className={styles.button}
+                    disabled={transitionMutation.isPending}
+                    data-testid="admin-participant-transition"
+                    onClick={() =>
+                      transitionMutation.mutate({ id: participant.preorder_id, status })
+                    }
+                  >
+                    Chuyển sang: {PREORDER_STATUS_LABELS[status]}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
