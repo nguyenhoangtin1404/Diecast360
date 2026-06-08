@@ -55,6 +55,7 @@
 - Thuộc tính chính: `status`, `quantity`, `unit_price`, `total_amount`, `deposit_amount`, `paid_amount`, `expected_arrival_at`, `expected_delivery_at`, `cover_image_url`, `note`, `cancelled_at`, `completed_at`.
 - Trạng thái: `PENDING_CONFIRMATION`, `WAITING_FOR_GOODS`, `ARRIVED`, `PAID`, `REFUNDED`, `CANCELLED`.
 - Transition hợp lệ: `PENDING_CONFIRMATION → WAITING_FOR_GOODS|CANCELLED → ARRIVED|CANCELLED → PAID|CANCELLED → REFUNDED`; `REFUNDED` và `CANCELLED` là terminal.
+- Phiếu đặt hàng lấy dữ liệu từ đơn trong tenant hiện tại: thông tin shop (`name`, phone, address, logo), item name, khách hàng (ưu tiên member, fallback user), số lượng, giá, cọc/đã thu/còn lại, ghi chú và trạng thái. Phiếu hỗ trợ in nhiệt K57/K80 và xuất ảnh PNG để chia sẻ.
 
 ### Member / MembershipTier / MemberPointsLedger
 - Member thuộc shop, có `full_name`, optional `email`/`phone`, `points_balance`, optional tier.
@@ -80,6 +81,10 @@
 - Public catalog: chỉ hiển thị item `is_public = true` và chưa bị soft delete; trạng thái hiển thị nguyên giá trị (`con_hang/giu_cho/da_ban/preorder`). Production yêu cầu `shop_id` hoặc JWT có active shop để tránh aggregate nhiều shop.
 - Social selling: UI cần cung cấp thao tác copy caption/link dựa trên dữ liệu item (không thay đổi dữ liệu gốc).
 - Pre-order: lifecycle phải đi qua state machine; không cập nhật trạng thái tùy ý.
+- Phiếu pre-order:
+  - `GET /api/v1/preorders/:id/receipt` luôn scope theo active shop; `shop_admin`/`shop_staff` xem mọi đơn trong tenant, user thường chỉ xem đơn của chính họ.
+  - Logo shop dùng URL đã resolve qua media endpoint; khi xuất PNG frontend sẽ fetch logo thành data URL để tránh lỗi canvas CORS. Nếu logo không tải được, phiếu vẫn được tạo nhưng bỏ logo.
+  - Đơn `CANCELLED` hiển thị banner **ĐÃ HỦY** trên phiếu. `discount_amount` hiện là `null` cho đến khi có nghiệp vụ chiết khấu thật, nên dòng chiết khấu bị ẩn thay vì tự bịa giá trị.
 - Giá preorder (`preorder_price`): giá đặc biệt áp dụng trong thời gian cửa sổ preorder còn mở (tức `preorder_closes_at IS NULL OR preorder_closes_at > NOW()`). Sau khi cửa sổ đóng, catalog hiển thị `price` thông thường. Giá trị **không bị xóa khi item đổi status** — luôn được lưu trong DB để admin theo dõi. Admin luôn thấy đủ cả 3 giá: gốc, bán, pre-order. Catalog tự quyết định hiển thị giá nào dựa theo trạng thái preorder.
 - Cửa sổ đặt cọc: `preorder_opens_at` (mốc mở) và `preorder_closes_at` (mốc đóng). Khi item chuyển sang `preorder`, `preorder_opens_at` được gán bằng `created_at` của sản phẩm; tạo mới với `status=preorder` gán bằng thời điểm tạo. Thanh countdown UI dùng hai mốc này.
 - Đóng/mở lại preorder: admin có thể đóng sớm cửa sổ preorder qua `PATCH /items/:id/close-preorder` (set `preorder_closes_at = NOW()`). Để mở lại, dùng `PATCH /items/:id/reopen-preorder` (xóa `preorder_closes_at`, set `preorder_opens_at = NOW()` — đợt mới tính từ lúc bấm mở lại, không dùng `created_at`). Các hành động này không thay đổi `status` item. Admin tự đặt deadline mới qua PATCH thông thường sau khi mở lại.

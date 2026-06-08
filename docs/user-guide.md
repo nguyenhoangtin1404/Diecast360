@@ -299,6 +299,26 @@ Nút **Discard** (bỏ) dùng khi muốn **hủy bản nháp** hiện tại và 
 5. **Danh sách người tham gia:** với mỗi người, có các nút chuyển trạng thái tương tự trang danh sách tổng.
 6. Liên kết **Xem chi tiết campaign** mở trang **chi tiết sản phẩm** của mặt hàng đó để chỉnh mô tả, ảnh, v.v.
 
+### 11.4 In phiếu / tạo ảnh phiếu đặt hàng
+
+Bạn có thể thấy cụm nút **In phiếu** và **Tạo ảnh / Chia sẻ** ở danh sách pre-order, danh sách người tham gia campaign, sau khi tạo đơn thủ công, hoặc trên trang **Đơn hàng của tôi**.
+
+**In phiếu:**
+
+1. Nhấn **In phiếu** trên đơn cần in.
+2. Chờ modal **Xem trước và in phiếu** mở ra. Kiểm tra tên shop, khách hàng, sản phẩm, tiền cọc/đã thu/còn lại.
+3. Chọn khổ giấy **58mm (K57)** hoặc **80mm (K80)** đúng với máy in. Trình duyệt sẽ nhớ lựa chọn này cho lần sau trên cùng thiết bị.
+4. Nhấn **In ngay**. Nếu trình duyệt hỏi chọn máy in, chọn máy in nhiệt đã pair.
+5. Nếu trình duyệt báo chặn cửa sổ in, cho phép popup cho trang admin rồi bấm lại **In ngay**.
+
+**Tạo ảnh / Chia sẻ:**
+
+1. Nhấn **Tạo ảnh / Chia sẻ** để xuất phiếu thành PNG.
+2. Trên điện thoại có hỗ trợ chia sẻ file, hệ thống mở bảng chia sẻ để gửi qua Zalo/Messenger hoặc ứng dụng khác.
+3. Nếu thiết bị không hỗ trợ chia sẻ file trực tiếp, trình duyệt tải file PNG về máy.
+
+> iPhone/iPad không in trực tiếp được với máy in Bluetooth không hỗ trợ AirPrint như MP-210. Hãy dùng **Tạo ảnh / Chia sẻ**, rồi in hoặc gửi ảnh từ ứng dụng khác.
+
 ---
 
 ## 12. Bài đăng Facebook (`/admin/facebook-posts`)
@@ -427,6 +447,9 @@ Admin không cần nhớ hết URL; quan trọng là khi **bật Công khai** v�
 
 **Pre-order không có nút chuyển trạng thái**  
 - Đơn đã ở trạng thái **cuối chuỗi** (ví dụ đã hủy / đã thanh toán — tùy luật nghiệp vụ) hoặc không còn bước hợp lệ tiếp theo.
+
+**Bấm “In ngay” nhưng không thấy hộp thoại in**  
+- Trình duyệt có thể đang chặn popup in. Cho phép popup cho trang admin rồi thử lại. Nếu dùng iPhone/iPad hoặc máy in không xuất hiện, dùng **Tạo ảnh / Chia sẻ**.
 
 **Trang “Loading…” mãi sau đăng nhập**  
 - Mạng chậm hoặc máy chủ bảo trì. Tải lại trang; nếu vẫn lỗi, gửi thời điểm + ảnh chụp màn hình cho bộ phận kỹ thuật.

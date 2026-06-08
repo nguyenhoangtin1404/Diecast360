@@ -59,7 +59,16 @@ Các module lớn (Items, Preorders, Shops, AI) được chia theo pattern:
   - **Spinner360**: drag/touch, autoplay play/pause, preload dần (chỉ load frame kế tiếp), fallback ảnh thumb khi chưa tải full, giới hạn mặc định 48 frames qua `VITE_MAX_SPINNER_FRAMES`.
   - **Gallery**: hiển thị ảnh thường theo `display_order`, đánh dấu cover.
   - **ItemCard**: dùng cho catalog/public, hiển thị cover, status, nút copy caption/link.
+  - **PreorderReceiptActions**: dùng lại trên admin pre-order, campaign, sau tạo đơn và trang `my-orders`; tải payload receipt một lần cho từng thao tác, mở modal in hoặc xuất PNG chia sẻ.
 - UI rule: nếu item có spin set default → ưu tiên hiển thị Spinner360; nếu không có → fallback Gallery.
+
+### Pre-order receipt print/share pipeline
+
+- Backend endpoint: `GET /api/v1/preorders/:id/receipt` trong `PreordersController` → `PreordersService` facade → `PreordersFinancialService.getReceipt()`. Query luôn lọc `id + shop_id`; quyền xem cho shop role trong tenant hoặc user sở hữu đơn.
+- HTML receipt: `buildPreorderReceiptHtml()` render cùng payload cho 2 mode: `thermal` (K57/K80, `@page` mm width) và `share` (420px PNG-friendly layout).
+- Print path: `PrintReceiptModal` dùng iframe chỉ để preview. Khi bấm **In ngay**, `openReceiptPrintPopup()` mở popup đồng bộ trong click handler, ghi HTML đã gắn script `window.onload -> window.print()`, rồi popup gửi message `dc360:afterprint` về opener để đóng modal.
+- Share/download path: `exportPreorderReceiptImage()` render offscreen iframe, fetch logo thành data URL nếu có, rasterize bằng `html-to-image`, sau đó dùng Web Share API nếu thiết bị hỗ trợ file share; nếu không thì tải PNG.
+- iOS: non-AirPrint Bluetooth printer không in trực tiếp qua browser, nên UI disable nút in trong modal và operator dùng PNG share/download.
 
 ## API sử dụng
 - Base path `/api/v1`, JSON snake_case, envelope chuẩn (ok/data/message hoặc ok/error/message).
