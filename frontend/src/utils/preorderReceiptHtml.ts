@@ -1,5 +1,6 @@
 import { PREORDER_STATUS_LABELS } from '../constants/preorder';
 import type { PreorderReceiptPayload } from '../types/preorderReceipt';
+import { RECEIPT_AFTER_PRINT_MSG, RECEIPT_PRINT_MSG } from './receiptPrintConstants';
 import { formatVndAmountInWords } from './numberToVietnameseWords';
 import { formatVndLine } from './formatVnd';
 
@@ -222,6 +223,7 @@ export const buildPreorderReceiptHtml = (
     ${preorder.note?.trim() ? lineItem('Ghi chú', preorder.note.trim()) : ''}
   </div>
   <div class="words">${escapeHtml(totalAmount != null ? formatVndAmountInWords(totalAmount) : '')}</div>
+  ${mode === 'thermal' ? `<script>window.addEventListener('message',function(e){if(e.data==='${RECEIPT_PRINT_MSG}'){window.addEventListener('afterprint',function(){window.parent.postMessage('${RECEIPT_AFTER_PRINT_MSG}','*');},{once:true});setTimeout(function(){window.print();},100);}});</script>` : ''}
 </body>
 </html>`;
 };

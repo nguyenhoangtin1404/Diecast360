@@ -5,6 +5,8 @@ import {
   openReceiptPrintPopup,
   printPreorderReceipt,
   RECEIPT_AFTER_PRINT_MSG,
+  RECEIPT_PRINT_MSG,
+  shouldUsePreviewIframePrint,
   wrapReceiptHtmlForPopupPrint,
 } from '../../src/utils/printPreorderReceipt';
 import type { PreorderReceiptPayload } from '../../src/types/preorderReceipt';
@@ -61,6 +63,18 @@ describe('buildPreorderReceiptHtml', () => {
     const html = buildPreorderReceiptHtml(mockData, 'thermal');
     expect(html).toContain('Test Shop');
     expect(html).toContain('Mini GT BMW');
+  });
+
+  it('thermal mode gắn script postMessage in cho preview iframe', () => {
+    const html = buildPreorderReceiptHtml(mockData, 'thermal');
+    expect(html).toContain(RECEIPT_PRINT_MSG);
+    expect(html).toContain(RECEIPT_AFTER_PRINT_MSG);
+    expect(html).toContain('window.print()');
+  });
+
+  it('share mode không gắn script in', () => {
+    const html = buildPreorderReceiptHtml(mockData, 'share');
+    expect(html).not.toContain(RECEIPT_PRINT_MSG);
   });
 
   it('không hiển thị section khách hàng khi member = null', () => {
@@ -135,6 +149,24 @@ describe('openReceiptPrintPopup', () => {
     const result = openReceiptPrintPopup('<html></html>');
     expect(result).toEqual({ ok: false, reason: 'blocked' });
     expect(writeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('shouldUsePreviewIframePrint', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('true trên Android UA', () => {
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/120' });
+    expect(shouldUsePreviewIframePrint()).toBe(true);
+  });
+
+  it('false trên desktop UA', () => {
+    vi.stubGlobal('navigator', {
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120',
+    });
+    expect(shouldUsePreviewIframePrint()).toBe(false);
   });
 });
 

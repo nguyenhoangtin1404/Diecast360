@@ -1,11 +1,18 @@
 import type { PreorderReceiptPayload } from '../types/preorderReceipt';
+import { RECEIPT_AFTER_PRINT_MSG } from './receiptPrintConstants';
 import { buildPreorderReceiptHtml } from './preorderReceiptHtml';
 import type { PaperWidth } from './preorderReceiptHtml';
 
 export type { PaperWidth };
+export { RECEIPT_AFTER_PRINT_MSG, RECEIPT_PRINT_MSG } from './receiptPrintConstants';
 
-/** Message popup gửi opener sau khi in xong (đóng modal). */
-export const RECEIPT_AFTER_PRINT_MSG = 'dc360:afterprint';
+/** Android Chrome: in qua preview iframe (postMessage), không dùng popup/hidden iframe. */
+export const shouldUsePreviewIframePrint = (): boolean =>
+  /Android/i.test(navigator.userAgent);
+
+export type PrintPreorderReceiptOptions = {
+  onAfterPrint?: () => void;
+};
 
 /**
  * Gắn script in sau onload — popup phải tự gọi window.print() từ bên trong.
@@ -44,6 +51,7 @@ export const openReceiptPrintPopup = (html: string): OpenReceiptPrintPopupResult
 export const printPreorderReceipt = (
   data: PreorderReceiptPayload,
   paperWidth: PaperWidth = 'K57',
+  options: PrintPreorderReceiptOptions = {},
 ): void => {
   const html = buildPreorderReceiptHtml(data, 'thermal', { paperWidth });
 
@@ -59,12 +67,17 @@ export const printPreorderReceipt = (
     }
   };
 
+  const finish = () => {
+    cleanup();
+    options.onAfterPrint?.();
+  };
+
   iframe.onload = () => {
     const win = iframe.contentWindow;
-    if (!win) { cleanup(); return; }
-    win.addEventListener('afterprint', cleanup);
+    if (!win) { finish(); return; }
+    win.addEventListener('afterprint', finish);
     // Fallback: dọn iframe sau 60s nếu afterprint không fire (một số mobile browser)
-    setTimeout(cleanup, 60_000);
+    setTimeout(finish, 60_000);
     win.focus();
     win.print();
   };
