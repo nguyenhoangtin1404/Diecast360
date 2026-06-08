@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Get branch name
         id: branch_name
-        uses: tj-actions/branch-names@v8
+        uses: tj-actions/branch-names@v9
 
       # Git branch names may contain "/" (e.g. refactor/frontend-admin). Neon rejects some
       # nested paths on create (422). Use a flat slug shared by create + delete jobs.
