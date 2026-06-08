@@ -10,6 +10,7 @@ type AdjustFormState = {
 };
 
 type PointsAdjustmentFormProps = {
+  readOnly?: boolean;
   selectedMember: Member | null;
   form: AdjustFormState;
   isSubmitting: boolean;
@@ -26,6 +27,15 @@ export function PointsAdjustmentForm(props: PointsAdjustmentFormProps) {
     if (!props.selectedMember) return;
     setIsConfirmOpen(true);
   };
+
+  if (props.readOnly) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-lg font-semibold text-slate-900">Điều chỉnh điểm</h2>
+        <p className="text-sm text-slate-500">Chế độ chỉ xem — không thể điều chỉnh điểm hội viên.</p>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

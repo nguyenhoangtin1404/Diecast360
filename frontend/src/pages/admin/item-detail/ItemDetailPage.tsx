@@ -26,6 +26,8 @@ import {
 } from "../itemWorkflow";
 import { useIsMobile } from "../../../hooks/useIsMobile";
 import { useOptionalActiveShopId } from "../../../hooks/useOptionalActiveShopId";
+import { useShop } from "../../../hooks/useShop";
+import { isShopStaffReadOnly } from "../../../utils/shopStaffReadOnly";
 
 import type {
   AttributeRow,
@@ -73,6 +75,8 @@ export const ItemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { activeShop } = useShop();
+  const readOnly = isShopStaffReadOnly(activeShop?.role);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("con_hang");
@@ -213,6 +217,12 @@ export const ItemDetailPage = () => {
     () => (modelBrandsData?.categories || []).filter((c: CategoryItem) => c.is_active),
     [modelBrandsData],
   );
+
+  useEffect(() => {
+    if (readOnly && id === "new") {
+      navigate("/admin/items", { replace: true });
+    }
+  }, [readOnly, id, navigate]);
 
   useEffect(() => {
     imagePreviewUrlsRef.current = imagePreviewUrls;
@@ -877,6 +887,14 @@ export const ItemDetailPage = () => {
   };
 
   const goToStep = (step: ProductStep) => {
+    if (readOnly) {
+      if (isNewItem && step > 1) {
+        return;
+      }
+      setCurrentStep(step);
+      return;
+    }
+
     void (async () => {
       if (stepNavInFlightRef.current) return;
       if (isNewItem && step > 1) {
@@ -899,6 +917,13 @@ export const ItemDetailPage = () => {
   };
 
   const goToNextStep = async () => {
+    if (readOnly) {
+      if (currentStep < 5) {
+        setCurrentStep((currentStep + 1) as ProductStep);
+      }
+      return;
+    }
+
     if (isNewItem && currentStep === 1) {
       if (!name.trim()) {
         showToast("Vui lòng nhập tên sản phẩm trước khi chuyển bước.");
@@ -937,6 +962,13 @@ export const ItemDetailPage = () => {
   };
 
   const goToPrevStep = async () => {
+    if (readOnly) {
+      if (currentStep > 1) {
+        setCurrentStep((currentStep - 1) as ProductStep);
+      }
+      return;
+    }
+
     await navigateStepWithAutoSave({
       currentStep,
       direction: "prev",
@@ -1144,7 +1176,7 @@ export const ItemDetailPage = () => {
               <ArrowLeft size={18} />
               <span>Quay lại danh sách</span>
             </button>
-            {id && id !== "new" && (
+            {id && id !== "new" && !readOnly && (
               <Link
                 to={`/admin/preorders/create?item_id=${encodeURIComponent(id)}`}
                 style={{
@@ -1215,7 +1247,11 @@ export const ItemDetailPage = () => {
                   lineHeight: "1.15",
                 }}
               >
-                {id === "new" ? "Tạo sản phẩm mới" : "Chỉnh sửa sản phẩm"}
+                {id === "new"
+                  ? "Tạo sản phẩm mới"
+                  : readOnly
+                    ? "Xem sản phẩm"
+                    : "Chỉnh sửa sản phẩm"}
               </h1>
               <p
                 style={{
@@ -1227,7 +1263,9 @@ export const ItemDetailPage = () => {
               >
                 {id === "new"
                   ? "Thêm sản phẩm mới vào kho"
-                  : `Chỉnh sửa thông tin sản phẩm: ${item?.name || ""}`}
+                  : readOnly
+                    ? `Chế độ chỉ xem: ${item?.name || ""}`
+                    : `Chỉnh sửa thông tin sản phẩm: ${item?.name || ""}`}
               </p>
             </div>
           </div>
@@ -1271,6 +1309,10 @@ export const ItemDetailPage = () => {
           })}
         </div>
 
+        <fieldset
+          disabled={readOnly}
+          style={{ border: "none", margin: 0, padding: 0, minWidth: 0 }}
+        >
         <form
           onSubmit={(e) => e.preventDefault()}
           onKeyDown={preventEnterSubmit}
@@ -1403,6 +1445,7 @@ export const ItemDetailPage = () => {
             </div>
           </div>
         )}
+        </fieldset>
 
         {/* Step 5: QR Code — rendered outside the id/item guard so new items see the save-first prompt */}
         <div
@@ -1485,9 +1528,13 @@ export const ItemDetailPage = () => {
                   : "0 4px 14px 0 rgb(var(--shop-primary-rgb) / 0.28)",
             }}
           >
-            {saveMutation.isPending ? "Đang lưu..." : "Bước tiếp →"}
+            {readOnly
+              ? "Bước tiếp →"
+              : saveMutation.isPending
+                ? "Đang lưu..."
+                : "Bước tiếp →"}
           </button>
-          {currentStep === 5 && (
+          {currentStep === 5 && !readOnly && (
             <button
               type="button"
               onClick={handleSaveAndBackToList}

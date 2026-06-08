@@ -25,6 +25,7 @@ import { PreorderCountdown } from '../../../components/preorder/PreorderCountdow
 
 interface ItemsTableProps {
   items: AdminItem[];
+  readOnly?: boolean;
   onDelete: (id: string, name: string) => void;
   onTogglePublic: (id: string, isPublic: boolean) => void;
   onClosePreorder: (id: string) => Promise<void>;
@@ -35,6 +36,7 @@ interface ItemsTableProps {
 
 export const ItemsTable = ({
   items,
+  readOnly = false,
   onDelete,
   onTogglePublic,
   onClosePreorder,
@@ -289,11 +291,11 @@ export const ItemsTable = ({
                 <div className={styles.rowActions}>
                   <button
                     onClick={() => navigate(`/admin/items/${item.id}`)}
-                    title="Sửa"
+                    title={readOnly ? 'Xem chi tiết' : 'Sửa'}
                     className={styles.iconButton}
-                    aria-label={`Sửa ${item.name}`}
+                    aria-label={readOnly ? `Xem ${item.name}` : `Sửa ${item.name}`}
                   >
-                    <Pencil size={18} />
+                    {readOnly ? <Eye size={18} /> : <Pencil size={18} />}
                   </button>
                   <button
                     onClick={() => handlePrintQr(item)}
@@ -305,7 +307,7 @@ export const ItemsTable = ({
                   >
                     <Printer size={18} />
                   </button>
-                  {isPreorderOpen(item) && (
+                  {!readOnly && isPreorderOpen(item) && (
                     <button
                       onClick={() => handleClosePreorder(item.id)}
                       title="Đóng preorder"
@@ -317,7 +319,7 @@ export const ItemsTable = ({
                       <X size={18} />
                     </button>
                   )}
-                  {isPreorderClosed(item) && (
+                  {!readOnly && isPreorderClosed(item) && (
                     <button
                       onClick={() => handleReopenPreorder(item.id)}
                       title="Mở lại preorder"
@@ -329,25 +331,29 @@ export const ItemsTable = ({
                       <AlarmClock size={18} />
                     </button>
                   )}
-                  <button
-                    onClick={() => onDelete(item.id, item.name)}
-                    title="Xóa"
-                    disabled={isDeletePending}
-                    className={styles.deleteButton}
-                    aria-label={`Xóa ${item.name}`}
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                  <button
-                    onClick={() => onTogglePublic(item.id, item.is_public)}
-                    title={item.is_public ? 'Ẩn khỏi công khai' : 'Hiển thị công khai'}
-                    disabled={isTogglePublicPending}
-                    className={styles.iconButton}
-                    style={{ opacity: isTogglePublicPending ? 0.5 : 1 }}
-                    aria-label={item.is_public ? `Ẩn ${item.name}` : `Công khai ${item.name}`}
-                  >
-                    {item.is_public ? <Eye size={18} /> : <EyeOff size={18} />}
-                  </button>
+                  {!readOnly && (
+                    <button
+                      onClick={() => onDelete(item.id, item.name)}
+                      title="Xóa"
+                      disabled={isDeletePending}
+                      className={styles.deleteButton}
+                      aria-label={`Xóa ${item.name}`}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  )}
+                  {!readOnly && (
+                    <button
+                      onClick={() => onTogglePublic(item.id, item.is_public)}
+                      title={item.is_public ? 'Ẩn khỏi công khai' : 'Hiển thị công khai'}
+                      disabled={isTogglePublicPending}
+                      className={styles.iconButton}
+                      style={{ opacity: isTogglePublicPending ? 0.5 : 1 }}
+                      aria-label={item.is_public ? `Ẩn ${item.name}` : `Công khai ${item.name}`}
+                    >
+                      {item.is_public ? <Eye size={18} /> : <EyeOff size={18} />}
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

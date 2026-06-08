@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { API_CONFIG } from '../../config/api';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useShop } from '../../hooks/useShop';
+import { isShopStaffReadOnly } from '../../utils/shopStaffReadOnly';
 import type { ItemsResponse } from '../../types/item.types';
 import type { ApiResponse } from '../../types/category';
 import styles from './ItemsPage.module.css';
@@ -14,6 +16,8 @@ import { PaginationControl } from './components/PaginationControl';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 
 export const ItemsPage = () => {
+  const { activeShop } = useShop();
+  const readOnly = isShopStaffReadOnly(activeShop?.role);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [preorderOpenFilter, setPreorderOpenFilter] = useState(false);
@@ -162,6 +166,7 @@ export const ItemsPage = () => {
       {/* Action Bar: Search + Add */}
       <SearchHeader
         search={search}
+        readOnly={readOnly}
         onSearchChange={(value) => {
           setSearch(value);
           setPage(1);
@@ -191,6 +196,7 @@ export const ItemsPage = () => {
       {/* Table */}
       <ItemsTable
         items={data?.items || []}
+        readOnly={readOnly}
         onDelete={handleDelete}
         onTogglePublic={handleTogglePublic}
         onClosePreorder={handleClosePreorder}

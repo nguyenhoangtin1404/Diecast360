@@ -41,6 +41,15 @@ vi.mock('react-router-dom', () => ({
   },
 }));
 
+vi.mock('../../src/hooks/useShop', () => ({
+  useShop: () => ({
+    activeShop: { id: 'shop-1', name: 'Test Shop', slug: 'test-shop', is_active: true, role: 'shop_admin' },
+    allowedShops: [],
+    switchShop: vi.fn(),
+    loading: false,
+  }),
+}));
+
 vi.mock('../../src/api/client', () => ({
   apiClient: h.apiClient,
   uploadFile: vi.fn(async () => ({})),

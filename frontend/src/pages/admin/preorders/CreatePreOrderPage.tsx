@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useShop } from '../../../hooks/useShop';
+import { isShopStaffReadOnly } from '../../../utils/shopStaffReadOnly';
 import { createPreorder } from '../../../api/preorders';
 import { PreorderReceiptActions } from '../../../components/preorders/PreorderReceiptActions';
 import { fetchMembers } from '../../../api/members';
@@ -354,7 +356,20 @@ const CreatePreOrderForm = ({ initialItemId }: CreatePreOrderFormProps) => {
 
 export const CreatePreOrderPage = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { activeShop } = useShop();
+  const readOnly = isShopStaffReadOnly(activeShop?.role);
   const itemIdFromQuery = searchParams.get('item_id')?.trim() ?? '';
+
+  useEffect(() => {
+    if (readOnly) {
+      navigate('/admin/preorders', { replace: true });
+    }
+  }, [readOnly, navigate]);
+
+  if (readOnly) {
+    return null;
+  }
 
   return <CreatePreOrderForm key={itemIdFromQuery} initialItemId={itemIdFromQuery} />;
 };

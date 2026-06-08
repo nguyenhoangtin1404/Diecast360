@@ -6,6 +6,8 @@ import type { CategoryItem, ApiError } from '../../types/category';
 import styles from './CategoryQuickManage.module.css';
 import { useOptionalActiveShopId } from '../../hooks/useOptionalActiveShopId';
 import { useOptionalPlatformSuper } from '../../hooks/useOptionalPlatformSuper';
+import { useShop } from '../../hooks/useShop';
+import { isShopStaffReadOnly } from '../../utils/shopStaffReadOnly';
 
 interface Props {
   type: 'car_brand' | 'model_brand';
@@ -14,8 +16,10 @@ interface Props {
 
 export const CategoryQuickManage = ({ type, categories }: Props) => {
   const queryClient = useQueryClient();
+  const { activeShop } = useShop();
   const activeShopId = useOptionalActiveShopId();
   const isPlatformSuperUser = useOptionalPlatformSuper();
+  const readOnly = isShopStaffReadOnly(activeShop?.role) && !isPlatformSuperUser;
   const [isOpen, setIsOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [error, setError] = useState('');
@@ -157,6 +161,10 @@ export const CategoryQuickManage = ({ type, categories }: Props) => {
     if (a.is_active !== b.is_active) return a.is_active ? -1 : 1;
     return a.display_order - b.display_order;
   });
+
+  if (readOnly) {
+    return null;
+  }
 
   return (
     <div className={styles.wrapper} ref={popoverRef}>
