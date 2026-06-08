@@ -63,7 +63,7 @@ jobs:
           DIRECT_URL: 'postgresql://postgres:postgres@localhost:5432/diecast360'
 
       - name: Upload backend dist artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: backend-dist
           path: backend/dist
@@ -227,7 +227,7 @@ jobs:
         run: pnpm --filter ./frontend run test:e2e
 
       - name: Upload Playwright report on failure
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
@@ -235,7 +235,7 @@ jobs:
           retention-days: 14
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: github.ref == 'refs/heads/main'
         with:
           name: frontend-build
@@ -301,7 +301,7 @@ jobs:
           cat changed-files.txt
 
       - name: Upload artifact for Deploy backend (Pi)
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: push-changed-files-${{ github.sha }}
           path: changed-files.txt
