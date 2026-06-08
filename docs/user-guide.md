@@ -448,7 +448,7 @@ Admin không cần nhớ hết URL; quan trọng là khi **bật Công khai** v�
 **Pre-order không có nút chuyển trạng thái**  
 - Đơn đã ở trạng thái **cuối chuỗi** (ví dụ đã hủy / đã thanh toán — tùy luật nghiệp vụ) hoặc không còn bước hợp lệ tiếp theo.
 
-**Bấm “In ngay” nhưng không thấy hộp thoại in**  
+**Bấm “In ngay” nhưng không thấy hộp thoại in**
 - Trình duyệt có thể đang chặn popup in. Cho phép popup cho trang admin rồi thử lại. Nếu dùng iPhone/iPad hoặc máy in không xuất hiện, dùng **Tạo ảnh / Chia sẻ**.
 
 **Trang “Loading…” mãi sau đăng nhập**  
