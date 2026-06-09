@@ -63,6 +63,9 @@ Diecast360 dùng PostgreSQL làm chuẩn cho runtime và Prisma CLI:
 | AUTH_EMAIL_RATE_WINDOW_MS | Window email rate limit (ms) | `900000` | 15 phút |
 | AUTH_LOCKOUT_THRESHOLD | Số lần sai liên tiếp trước khi khóa | `5` | Chỉ user tồn tại |
 | AUTH_LOCKOUT_DURATION_MS | Thời gian khóa tạm (ms) | `1800000` | 30 phút |
+| EMAIL_PROVIDER | Provider gửi email | `mock` hoặc `resend` | `mock` chỉ log token ra console (dev); `resend` gọi Resend API thật. Rate limit 3/email/h là **in-memory per-process** (giống `AUTH_EMAIL_RATE_LIMIT`); phù hợp Pi single-instance, cần Redis nếu scale horizontal (#239). |
+| RESEND_API_KEY | API key của Resend | `re_...` | Bắt buộc khi `EMAIL_PROVIDER=resend`; **không commit** |
+| EMAIL_FROM | Địa chỉ gửi email | `noreply@diecast360.vn` | Tùy chọn; mặc định `noreply@diecast360.vn` |
 | SECURITY_ALERTS_ENABLED | Gửi cảnh báo Telegram | `false` | Runtime ops |
 | TELEGRAM_BOT_TOKEN | Bot token @BotFather | — | Không commit |
 | TELEGRAM_CHAT_ID | Chat nhận alert | — | |

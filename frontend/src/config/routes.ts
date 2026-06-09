@@ -7,6 +7,8 @@ export const ROUTES = {
   preorders: '/preorders',
   myOrders: '/my-orders',
   adminLogin: '/admin/login',
+  adminForgotPassword: '/admin/forgot-password',
+  adminResetPassword: '/admin/reset-password',
   admin: {
     items: '/admin/items',
     itemsImport: '/admin/items/import',

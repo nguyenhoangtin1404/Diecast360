@@ -123,13 +123,14 @@ model User {
   created_at    DateTime       @default(now())
   updated_at    DateTime       @updatedAt
 
-  refresh_tokens RefreshToken[]
-  shop_roles     UserShopRole[]
-  audit_logs     ShopAuditLog[] @relation("ShopAuditActor")
-  login_audit_logs LoginAuditLog[]
-  pre_orders     PreOrder[]
+  refresh_tokens         RefreshToken[]
+  shop_roles             UserShopRole[]
+  audit_logs             ShopAuditLog[] @relation("ShopAuditActor")
+  login_audit_logs       LoginAuditLog[]
+  pre_orders             PreOrder[]
   inventory_transactions InventoryTransaction[]
-  member_points_ledger MemberPointsLedger[]
+  member_points_ledger   MemberPointsLedger[]
+  password_reset_tokens  PasswordResetToken[]
 
   @@map("users")
 }
@@ -179,10 +180,24 @@ model RefreshToken {
   expires_at DateTime
   revoked_at DateTime?
   created_at DateTime  @default(now())
-  
+
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
+  @@index([user_id])
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid(7))
+  user_id    String
+  token_hash String    @unique
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime  @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
   @@index([user_id])
 }
 
