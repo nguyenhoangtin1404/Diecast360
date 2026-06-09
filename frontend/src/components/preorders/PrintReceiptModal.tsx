@@ -5,6 +5,8 @@ import type { PaperWidth } from '../../utils/preorderReceiptHtml';
 import {
   openReceiptPrintPopup,
   RECEIPT_AFTER_PRINT_MSG,
+  RECEIPT_PRINT_MSG,
+  shouldUsePreviewIframePrint,
 } from '../../utils/printPreorderReceipt';
 import styles from './PrintReceiptModal.module.css';
 
@@ -40,6 +42,7 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
   const [iframeReady, setIframeReady] = useState(false);
   const [printBlocked, setPrintBlocked] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -47,6 +50,18 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
     document.addEventListener('keydown', onKey);
     modalRef.current?.focus();
     return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPreviewAfterPrint = (e: MessageEvent) => {
+      if (e.source === previewRef.current?.contentWindow && e.data === RECEIPT_AFTER_PRINT_MSG) {
+        setPrinting(false);
+        onClose();
+      }
+    };
+    window.addEventListener('message', onPreviewAfterPrint);
+    return () => window.removeEventListener('message', onPreviewAfterPrint);
   }, [open, onClose]);
 
   if (!open) return null;
@@ -60,6 +75,17 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
   const handlePrint = () => {
     if (printing || !iframeReady) return;
     setPrintBlocked(false);
+
+    // Android: in từ preview iframe đã load — popup/hidden iframe hay báo lỗi in.
+    if (shouldUsePreviewIframePrint()) {
+      const win = previewRef.current?.contentWindow;
+      if (!win) return;
+      setPrinting(true);
+      win.postMessage(RECEIPT_PRINT_MSG, '*');
+      setTimeout(() => setPrinting(false), 60_000);
+      return;
+    }
+
     const result = openReceiptPrintPopup(previewHtml);
     if (!result.ok) {
       setPrintBlocked(true);
@@ -134,6 +160,7 @@ export const PrintReceiptModal = ({ data, open, onClose }: PrintReceiptModalProp
           {/* key={paperWidth} buộc iframe remount khi đổi khổ giấy */}
           <iframe
             key={paperWidth}
+            ref={previewRef}
             srcDoc={previewHtml}
             onLoad={() => setIframeReady(true)}
             className={styles.previewFrame}
