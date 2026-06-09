@@ -7,6 +7,8 @@ import { ROUTES } from './config/routes';
 import { ProtectedRoute } from './components/admin/ProtectedRoute';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/admin/LoginPage';
+import { ForgotPasswordPage } from './pages/admin/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/admin/ResetPasswordPage';
 import { ItemsPage } from './pages/admin/ItemsPage';
 import { ItemDetailPage } from './pages/admin/ItemDetailPage';
 import { AiImportPage } from './pages/admin/AiImportPage';
@@ -48,6 +50,8 @@ function App() {
               <Route path="/items/:id" element={<Layout><PublicItemDetailPage /></Layout>} />
               <Route path={ROUTES.contact} element={<Layout><ContactPage /></Layout>} />
               <Route path={ROUTES.adminLogin} element={<LoginPage />} />
+              <Route path={ROUTES.adminForgotPassword} element={<ForgotPasswordPage />} />
+              <Route path={ROUTES.adminResetPassword} element={<ResetPasswordPage />} />
               <Route
                 path={ROUTES.admin.preorders}
                 element={

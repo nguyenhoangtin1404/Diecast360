@@ -36,14 +36,16 @@ export function normalizeApiV1RoutePath(fullUrl: string): string {
   return rest.replace(/\/+$/, '') || '/';
 }
 
-/** Mutating requests exempt from CSRF (login chưa có cookie csrf_token). */
+const CSRF_EXEMPT_ROUTES = ['/auth/login', '/auth/forgot-password', '/auth/reset-password'];
+
+/** Mutating requests exempt from CSRF — public endpoints that have no session cookie yet. */
 export function isCsrfExemptRoute(fullUrl: string): boolean {
   const route = normalizeApiV1RoutePath(fullUrl);
-  if (route === '/auth/login') {
+  if (CSRF_EXEMPT_ROUTES.includes(route)) {
     return true;
   }
   const p = pathWithoutQuery(fullUrl);
-  return p.endsWith('/auth/login');
+  return CSRF_EXEMPT_ROUTES.some((r) => p.endsWith(r));
 }
 
 /**

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { useAuth } from '../../hooks/useAuth';
 import { Mail, Lock, LogIn, AlertCircle, Box, Loader2, Shield, RefreshCw } from 'lucide-react';
@@ -172,9 +172,18 @@ export const LoginPage = () => {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
-                  Mật khẩu
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
+                    Mật khẩu
+                  </label>
+                  <Link
+                    to={ROUTES.adminForgotPassword}
+                    className="text-xs font-medium text-shop hover:underline"
+                    tabIndex={-1}
+                  >
+                    Quên mật khẩu?
+                  </Link>
+                </div>
                 <div className="relative">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
                     <Lock className="h-5 w-5 text-slate-400" strokeWidth={2} aria-hidden />
