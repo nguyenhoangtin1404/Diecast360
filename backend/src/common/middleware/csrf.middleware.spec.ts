@@ -20,6 +20,11 @@ describe('isCsrfExemptRoute', () => {
     expect(isCsrfExemptRoute('/api/v1/auth/login')).toBe(true);
   });
 
+  it('exempts forgot-password and reset-password (public, no session cookie)', () => {
+    expect(isCsrfExemptRoute('/api/v1/auth/forgot-password')).toBe(true);
+    expect(isCsrfExemptRoute('/api/v1/auth/reset-password')).toBe(true);
+  });
+
   it('does not exempt other auth routes', () => {
     expect(isCsrfExemptRoute('/api/v1/auth/refresh')).toBe(false);
     expect(isCsrfExemptRoute('/api/v1/auth/csrf')).toBe(false);
@@ -33,6 +38,34 @@ describe('createCsrfMiddleware', () => {
     const req = {
       method: 'GET',
       originalUrl: '/api/v1/items',
+      cookies: {},
+      headers: {},
+    };
+    const res = { status: jest.fn(), json: jest.fn() };
+    mw(req as never, res as never, (err?: unknown) => {
+      expect(err).toBeUndefined();
+      done();
+    });
+  });
+
+  it('allows POST /api/v1/auth/forgot-password without CSRF', (done) => {
+    const req = {
+      method: 'POST',
+      originalUrl: '/api/v1/auth/forgot-password',
+      cookies: {},
+      headers: {},
+    };
+    const res = { status: jest.fn(), json: jest.fn() };
+    mw(req as never, res as never, (err?: unknown) => {
+      expect(err).toBeUndefined();
+      done();
+    });
+  });
+
+  it('allows POST /api/v1/auth/reset-password without CSRF', (done) => {
+    const req = {
+      method: 'POST',
+      originalUrl: '/api/v1/auth/reset-password',
       cookies: {},
       headers: {},
     };

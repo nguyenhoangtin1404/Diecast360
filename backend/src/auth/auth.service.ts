@@ -13,6 +13,7 @@ import { CaptchaService } from '../common/security/captcha.service';
 import { LoginAuditService } from '../common/security/login-audit.service';
 import { LoginSecurityService } from '../common/security/login-security.service';
 import { SecurityAlertService } from '../common/security/security-alert.service';
+import { MailService } from '../mail/mail.service';
 
 export interface LoginRequestContext {
   traceId: string;
@@ -20,9 +21,18 @@ export interface LoginRequestContext {
   userAgent?: string;
 }
 
+const PASSWORD_RESET_LIMIT = 3;
+const PASSWORD_RESET_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+// Constant-time floor to prevent timing-based email enumeration.
+// Both paths (email exists / does not exist) observe ≥ this delay before responding.
+// Set to 0 in test environment so unit tests stay fast.
+const FORGOT_PASSWORD_MIN_DELAY_MS = process.env.NODE_ENV === 'test' ? 0 : 800;
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly passwordResetEmailWindows = new Map<string, { count: number; windowStartMs: number }>();
 
   constructor(
     private prisma: PrismaService,
@@ -31,6 +41,7 @@ export class AuthService {
     private readonly loginAudit: LoginAuditService,
     private readonly loginSecurity: LoginSecurityService,
     private readonly securityAlerts: SecurityAlertService,
+    private readonly mail: MailService,
   ) {}
 
   async login(loginDto: LoginDto, ctx: LoginRequestContext) {
@@ -353,6 +364,140 @@ export class AuthService {
     });
 
     return token;
+  }
+
+  async forgotPassword(email: string, frontendUrl: string): Promise<void> {
+    // Start timing floor immediately — both paths (email found or not) await this before returning.
+    const minDelay = new Promise<void>((r) => setTimeout(r, FORGOT_PASSWORD_MIN_DELAY_MS));
+
+    const normalizedEmail = this.loginSecurity.normalizeEmail(email);
+    const now = Date.now();
+
+    // Check rate limit first (read-only — no increment yet)
+    const entry = this.passwordResetEmailWindows.get(normalizedEmail);
+    if (entry && now - entry.windowStartMs < PASSWORD_RESET_WINDOW_MS && entry.count >= PASSWORD_RESET_LIMIT) {
+      // Silent return — IP throttle is the primary DoS defence; counter only increments
+      // after a token is actually created so attacker cannot consume victim's quota.
+      await minDelay;
+      return;
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' }, is_active: true },
+      select: { id: true, email: true },
+    });
+
+    if (!user) {
+      await minDelay; // Silent exit — no email enumeration
+      return;
+    }
+
+    // Invalidate all prior unused tokens for this user
+    await this.prisma.passwordResetToken.updateMany({
+      where: { user_id: user.id, used_at: null },
+      data: { used_at: new Date() },
+    });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = this.hashToken(token);
+    const expiresAt = new Date(now + PASSWORD_RESET_TOKEN_TTL_MS);
+
+    await this.prisma.passwordResetToken.create({
+      data: { user_id: user.id, token_hash: tokenHash, expires_at: expiresAt },
+    });
+
+    // Increment counter here — token was created; email delivery is a best-effort side effect.
+    this.recordPasswordResetAttempt(normalizedEmail, now);
+
+    const resetUrl = `${frontendUrl}/admin/reset-password?token=${token}`;
+    try {
+      await this.mail.sendPasswordResetEmail(user.email, resetUrl);
+    } catch (mailErr) {
+      // Log at error level for ops alerting but do NOT rethrow.
+      // Rethrowing would return 500 and break the "always 200" anti-enumeration contract.
+      // The token is valid; the user can retry the forgot-password flow.
+      this.logger.error(`auth.forgot_password_mail_failed user_id=${user.id} err=${String(mailErr)}`);
+    }
+
+    this.logger.log(`auth.forgot_password_requested user_id=${user.id}`);
+    await minDelay;
+  }
+
+  private recordPasswordResetAttempt(normalizedEmail: string, now: number): void {
+    const existing = this.passwordResetEmailWindows.get(normalizedEmail);
+    if (existing && now - existing.windowStartMs < PASSWORD_RESET_WINDOW_MS) {
+      existing.count += 1;
+      return;
+    }
+    // New window — evict stale entries before inserting (prevents unbounded growth)
+    if (this.passwordResetEmailWindows.size >= 1000) {
+      for (const [k, v] of this.passwordResetEmailWindows) {
+        if (now - v.windowStartMs >= PASSWORD_RESET_WINDOW_MS) {
+          this.passwordResetEmailWindows.delete(k);
+        }
+      }
+      if (this.passwordResetEmailWindows.size >= 1000) {
+        let oldestKey = '';
+        let oldestTime = Infinity;
+        for (const [k, v] of this.passwordResetEmailWindows) {
+          if (v.windowStartMs < oldestTime) {
+            oldestTime = v.windowStartMs;
+            oldestKey = k;
+          }
+        }
+        if (oldestKey) this.passwordResetEmailWindows.delete(oldestKey);
+      }
+    }
+    this.passwordResetEmailWindows.set(normalizedEmail, { count: 1, windowStartMs: now });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const tokenHash = this.hashToken(token);
+
+    await this.prisma.$transaction(async (tx) => {
+      const record = await tx.passwordResetToken.findUnique({
+        where: { token_hash: tokenHash },
+        include: { user: { select: { id: true, is_active: true } } },
+      });
+
+      if (!record || !record.user.is_active) {
+        throw new AppException(ErrorCode.PASSWORD_RESET_TOKEN_INVALID, 'Link đặt lại mật khẩu không hợp lệ.');
+      }
+
+      if (record.used_at) {
+        throw new AppException(ErrorCode.PASSWORD_RESET_TOKEN_INVALID, 'Link đặt lại mật khẩu đã được sử dụng.');
+      }
+
+      if (record.expires_at < new Date()) {
+        throw new AppException(ErrorCode.PASSWORD_RESET_TOKEN_EXPIRED, 'Link đặt lại mật khẩu đã hết hạn. Vui lòng yêu cầu link mới.');
+      }
+
+      // Atomic consume: updateMany with used_at: null predicate wins the race.
+      // Under READ COMMITTED two concurrent requests can both pass the checks above,
+      // but only one updateMany will match (count=1); the loser gets count=0 and throws.
+      const { count } = await tx.passwordResetToken.updateMany({
+        where: { id: record.id, used_at: null },
+        data: { used_at: new Date() },
+      });
+      if (count !== 1) {
+        throw new AppException(ErrorCode.PASSWORD_RESET_TOKEN_INVALID, 'Link đặt lại mật khẩu đã được sử dụng.');
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, 12);
+
+      await tx.user.update({
+        where: { id: record.user_id },
+        data: { password_hash: passwordHash, failed_login_count: 0, locked_until: null },
+      });
+
+      // Revoke all active refresh tokens so old sessions can't be reused
+      await tx.refreshToken.updateMany({
+        where: { user_id: record.user_id, revoked_at: null },
+        data: { revoked_at: new Date() },
+      });
+
+      this.logger.log(`auth.password_reset_success user_id=${record.user_id}`);
+    });
   }
 
   private hashToken(token: string): string {

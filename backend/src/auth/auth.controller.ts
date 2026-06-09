@@ -8,6 +8,8 @@ import { LOGIN_TRACE_ID_KEY, extractClientIp, extractUserAgent } from './login-a
 import { createLoginTraceId } from './login-trace-id';
 import { LoginDto } from './dto/login.dto';
 import { SwitchShopDto } from './dto/switch-shop.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ConfigService } from '@nestjs/config';
 
@@ -192,6 +194,32 @@ export class AuthController {
     this.clearCsrfCookie(res);
 
     return { message: 'Logout successful' };
+  }
+
+  /**
+   * Request a password reset link — always returns 200 to prevent email enumeration.
+   * Rate limit: 10/IP/hour via @Throttle; 3/email/hour enforced in service.
+   * CSRF exempt (public endpoint — no session cookie exists yet).
+   */
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 3600000, limit: 10 } })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:5173');
+    await this.authService.forgotPassword(dto.email, frontendUrl);
+    return { message: 'Nếu email này tồn tại, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu trong ít phút.' };
+  }
+
+  /**
+   * Consume a password reset token and set a new password.
+   * CSRF exempt (public endpoint — no session cookie exists yet).
+   */
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.authService.resetPassword(dto.token, dto.password);
+    return { message: 'Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập lại.' };
   }
 
   /**

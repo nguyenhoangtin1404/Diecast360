@@ -56,6 +56,25 @@
 - Mọi lần gọi endpoint này đều ghi một bản ghi vào `login_audit_logs` với `trace_id`, `email`, `ip_address`, `user_agent`, `status` (`success`|`failed`) và `failure_reason` khi thất bại.
 - `failure_reason` khi thất bại: `invalid_credentials` (401), `account_locked` (403), `captcha_failed` (422), `validation_error` (422/400), `rate_limited` (429), `internal_error` (lỗi khác).
 
+### POST /api/v1/auth/forgot-password
+- Public. CSRF: exempt (chưa có session cookie).
+- Rate limit: 10/IP/giờ (Throttle); 3/email/giờ (in-memory, silent — không trả lỗi khi vượt).
+- Body JSON: `{ "email": "string" }`.
+- Luôn trả 200 dù email có tồn tại hay không — tránh enumeration.
+- Gửi email chứa link `{FRONTEND_URL}/admin/reset-password?token=<hex64>` nếu email khớp user active. Token TTL 1 giờ, one-time use, lưu SHA-256 hash trong DB.
+- Response 200: `data: { message }`.
+- Errors: `VALIDATION_ERROR (422)` nếu email sai format; `RATE_LIMIT_EXCEEDED (429)` nếu vượt IP limit.
+
+### POST /api/v1/auth/reset-password
+- Public. CSRF: exempt (chưa có session cookie).
+- Rate limit: 10/IP/phút (Throttle).
+- Body JSON: `{ "token": "string", "password": "string (min 8, phải có chữ hoa, chữ thường, số và ký tự đặc biệt)" }`.
+- Validate token (tồn tại, chưa dùng, chưa hết hạn, user active) trong transaction.
+- Set password_hash (bcrypt cost 12), reset failed_login_count và locked_until, revoke toàn bộ refresh tokens hiện tại.
+- Token bị mark `used_at` ngay trong cùng transaction.
+- Response 200: `data: { message }`.
+- Errors: `PASSWORD_RESET_TOKEN_INVALID (422)` — token không tồn tại hoặc đã dùng; `PASSWORD_RESET_TOKEN_EXPIRED (422)` — token hết hạn; `VALIDATION_ERROR (422)` — password không đủ độ phức tạp (thiếu chữ hoa, chữ thường, số hoặc ký tự đặc biệt, hoặc < 8 ký tự).
+
 ### POST /api/v1/auth/refresh
 - Auth: đọc `refresh_token` từ cookie path `/api/v1/auth`.
 - CSRF: cần `X-CSRF-Token`.
