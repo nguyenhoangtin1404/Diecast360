@@ -9,9 +9,10 @@ import { ROUTES } from '../../../config/routes';
 interface SearchHeaderProps {
   search: string;
   onSearchChange: (value: string) => void;
+  readOnly?: boolean;
 }
 
-export const SearchHeader = ({ search, onSearchChange }: SearchHeaderProps) => {
+export const SearchHeader = ({ search, onSearchChange, readOnly = false }: SearchHeaderProps) => {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExportCsv = async () => {
@@ -47,14 +48,18 @@ export const SearchHeader = ({ search, onSearchChange }: SearchHeaderProps) => {
           className={cn('input-trust py-2.5 pl-10 pr-3')}
         />
       </div>
-      <Link to={`${ROUTES.admin.items}/new`} className={styles.addButton}>
-        <Plus size={18} strokeWidth={2} />
-        <span>Thêm sản phẩm</span>
-      </Link>
-      <Link to={ROUTES.admin.itemsImport} className={styles.aiImportButton}>
-        <Sparkles size={18} strokeWidth={2} />
-        <span>Thêm sản phẩm (AI)</span>
-      </Link>
+      {!readOnly && (
+        <>
+          <Link to={`${ROUTES.admin.items}/new`} className={styles.addButton}>
+            <Plus size={18} strokeWidth={2} />
+            <span>Thêm sản phẩm</span>
+          </Link>
+          <Link to={ROUTES.admin.itemsImport} className={styles.aiImportButton}>
+            <Sparkles size={18} strokeWidth={2} />
+            <span>Thêm sản phẩm (AI)</span>
+          </Link>
+        </>
+      )}
       <button
         type="button"
         onClick={handleExportCsv}

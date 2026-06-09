@@ -23,6 +23,8 @@ import {
   validateAdjustPointsInput,
   validateCreateMemberInput,
 } from './members/memberFormValidation';
+import { useShop } from '../../hooks/useShop';
+import { isShopStaffReadOnly } from '../../utils/shopStaffReadOnly';
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return (
@@ -33,6 +35,8 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export const MembersPage = () => {
+  const { activeShop } = useShop();
+  const readOnly = isShopStaffReadOnly(activeShop?.role);
   const queryClient = useQueryClient();
   const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
@@ -246,6 +250,7 @@ export const MembersPage = () => {
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <MemberListPanel
+          readOnly={readOnly}
           keywordInput={keywordInput}
           summaryText={
             membersQuery.isLoading ? 'Đang tải hội viên...' : `${members.length} hội viên trong shop hiện tại`
@@ -283,6 +288,7 @@ export const MembersPage = () => {
 
         <div className="space-y-4">
           <PointsAdjustmentForm
+            readOnly={readOnly}
             selectedMember={selectedMember}
             form={adjustForm}
             isSubmitting={adjustMutation.isPending}
@@ -307,6 +313,7 @@ export const MembersPage = () => {
       </section>
 
       <TierManagementPanel
+        readOnly={readOnly}
         form={tierForm}
         tiers={tiers}
         isLoading={tiersQuery.isLoading}

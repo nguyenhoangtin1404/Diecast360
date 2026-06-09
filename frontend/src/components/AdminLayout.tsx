@@ -27,7 +27,9 @@ import { useShop } from '../hooks/useShop';
 import { useDocumentTitleAndFavicon } from '../hooks/useDocumentTitleAndFavicon';
 import { safeHttpUrlForAttribute } from '../utils/safeHttpUrl';
 import ShopSelector from './admin/ShopSelector';
+import { ShopStaffReadOnlyBanner } from './admin/ShopStaffReadOnlyBanner';
 import { BrandFallbackTile } from './BrandFallbackTile';
+import { isShopStaffReadOnly } from '../utils/shopStaffReadOnly';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -47,6 +49,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const { activeShop } = useShop();
   const adminShopBranding = useAdminShopBranding(true);
   const isSuperAdmin = useIsSuperAdmin();
+  const isStaffReadOnly = isShopStaffReadOnly(activeShop?.role);
   const [menuState, setMenuState] = useState({ open: false, pathname: location.pathname });
   const isMenuOpen = menuState.open && menuState.pathname === location.pathname;
 
@@ -208,14 +211,16 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
             <ShoppingBag size={18} strokeWidth={2} />
             <span>Sản phẩm</span>
           </Link>
-          <Link
-            to={ROUTES.admin.itemsImport}
-            className={cn(adminSidebarNavLinkBase, isAdminItemsImportActive(pathname) && adminSidebarNavLinkActive)}
-            onClick={closeMobileMenu}
-          >
-            <Sparkles size={18} strokeWidth={2} />
-            <span>AI tool</span>
-          </Link>
+          {!isStaffReadOnly && (
+            <Link
+              to={ROUTES.admin.itemsImport}
+              className={cn(adminSidebarNavLinkBase, isAdminItemsImportActive(pathname) && adminSidebarNavLinkActive)}
+              onClick={closeMobileMenu}
+            >
+              <Sparkles size={18} strokeWidth={2} />
+              <span>AI tool</span>
+            </Link>
+          )}
           <Link
             to={ROUTES.admin.preorders}
             className={cn(adminSidebarNavLinkBase, isAdminPreordersHubActive(pathname) && adminSidebarNavLinkActive)}
@@ -326,7 +331,10 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
           </button>
         </header>
 
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">
+          {isStaffReadOnly ? <ShopStaffReadOnlyBanner /> : null}
+          {children}
+        </main>
         {sharedFooter}
       </div>
     </div>

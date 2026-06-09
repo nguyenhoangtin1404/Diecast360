@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useShop } from '../../hooks/useShop';
+import { isShopStaffReadOnly } from '../../utils/shopStaffReadOnly';
 import { Upload, Loader2, Check, AlertCircle } from 'lucide-react';
 import { isAxiosError } from 'axios';
 import { apiClient, uploadFile } from '../../api/client';
@@ -40,12 +42,23 @@ interface ApiEnvelope<T> {
 
 export const AiImportPage = () => {
   const navigate = useNavigate();
+  const { activeShop } = useShop();
+  const readOnly = isShopStaffReadOnly(activeShop?.role);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [draft, setDraft] = useState<AiDraftResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   const [formData, setFormData] = useState<Partial<ItemFormData>>({});
+
+  useEffect(() => {
+    if (readOnly) {
+      navigate('/admin/items', { replace: true });
+    }
+  }, [readOnly, navigate]);
+
+  if (readOnly) {
+    return null;
+  }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {

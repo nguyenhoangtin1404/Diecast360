@@ -2,6 +2,7 @@ import { UserPlus } from 'lucide-react';
 import type { Member, Pagination } from '../../../types/member';
 
 type MemberListPanelProps = {
+  readOnly?: boolean;
   keywordInput: string;
   summaryText: string;
   members: Member[];
@@ -24,15 +25,17 @@ export function MemberListPanel(props: MemberListPanelProps) {
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-slate-900">Danh sách hội viên</h2>
-        <button
-          type="button"
-          onClick={props.onOpenCreateModal}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-shop text-white shadow-sm transition hover:bg-shop/90 active:bg-shop/80"
-          aria-label="Tạo hội viên mới"
-          title="Tạo hội viên mới"
-        >
-          <UserPlus size={18} strokeWidth={2.25} />
-        </button>
+        {!props.readOnly && (
+          <button
+            type="button"
+            onClick={props.onOpenCreateModal}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-shop text-white shadow-sm transition hover:bg-shop/90 active:bg-shop/80"
+            aria-label="Tạo hội viên mới"
+            title="Tạo hội viên mới"
+          >
+            <UserPlus size={18} strokeWidth={2.25} />
+          </button>
+        )}
       </div>
       <div className="mb-3 grid gap-2">
         <input
@@ -72,23 +75,25 @@ export function MemberListPanel(props: MemberListPanelProps) {
                 {member.points_balance.toLocaleString('vi-VN')} điểm · {member.tier?.name || 'Chưa xếp hạng'}
               </div>
             </button>
-            <div className="mt-2 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => props.onEditMember(member)}
-                className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-white"
-              >
-                Sửa
-              </button>
-              <button
-                type="button"
-                onClick={() => props.onDeleteMember(member)}
-                className="rounded-md border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={props.isDeletingMember}
-              >
-                Xoá
-              </button>
-            </div>
+            {!props.readOnly && (
+              <div className="mt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => props.onEditMember(member)}
+                  className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-white"
+                >
+                  Sửa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => props.onDeleteMember(member)}
+                  className="rounded-md border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={props.isDeletingMember}
+                >
+                  Xoá
+                </button>
+              </div>
+            )}
           </div>
         ))}
         {!props.isLoading && props.members.length === 0 && (
