@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode, type MouseEvent } from 'react';
-import { Phone, Facebook, MessageCircle } from 'lucide-react';
+import { Phone, Facebook, MessageCircle, MapPin } from 'lucide-react';
 import { usePublicShopContact } from '../hooks/usePublicShopContact';
 import { PublicBlobPageShell } from '../components/PublicBlobPageShell';
 
@@ -123,6 +123,7 @@ export const ContactPage = () => {
   const showPhone = Boolean(contact.phone?.tel?.trim() || contact.phone?.label?.trim());
   const showFacebook = Boolean(facebookUrl);
   const showZalo = Boolean(zaloUrl);
+  const showAddress = Boolean(contact.address?.trim());
 
   return (
     <PublicBlobPageShell>
@@ -392,9 +393,61 @@ export const ContactPage = () => {
               ) : null}
             </div>
           ) : null}
+
+          {showAddress ? (
+            <div
+              style={{
+                backgroundColor: '#fff',
+                padding: '32px',
+                borderRadius: '16px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                textAlign: 'center',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+              }}
+              onMouseEnter={cardHoverEnter}
+              onMouseLeave={cardHoverLeave}
+            >
+              <div
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  background: contactChannelAccent.iconBg,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 20px',
+                  boxShadow: contactChannelAccent.iconShadow,
+                }}
+              >
+                <MapPin size={32} color="white" />
+              </div>
+              <h3
+                style={{
+                  fontSize: '20px',
+                  fontWeight: '600',
+                  color: '#1a1a1a',
+                  margin: '0 0 8px 0',
+                }}
+              >
+                Địa chỉ
+              </h3>
+              <p
+                style={{
+                  fontSize: '16px',
+                  color: '#444',
+                  margin: 0,
+                  lineHeight: '1.6',
+                  whiteSpace: 'pre-line',
+                }}
+              >
+                {contact.address}
+              </p>
+            </div>
+          ) : null}
         </div>
 
-        {!showPhone && !showFacebook && !showZalo ? (
+        {!showPhone && !showFacebook && !showZalo && !showAddress ? (
           <p
             style={{
               textAlign: 'center',

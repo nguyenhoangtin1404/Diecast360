@@ -170,6 +170,7 @@ Các route dưới đây yêu cầu JWT đã gắn `active_shop_id` hợp lệ.
 ### PATCH /api/v1/shop-settings
 - Auth: `shop_admin`.
 - Body JSON: `{ "contact": {...}, "appearance": {...}, "loyalty": {...} }` (field optional theo DTO).
+- `contact` object: `{ page_title?, page_subtitle?, address?, phone?: { title?, label?, tel?, hint? }, facebook?: { title?, url?, label?, hint? }, zalo?: { title?, url?, label?, hint? }, hours?: { title?, schedule_line?, footer_note? } }`. Chuỗi rỗng sẽ xóa key khỏi JSON. `address` tối đa 1000 ký tự.
 - Response 200: settings sau cập nhật.
 
 ### POST /api/v1/shop-settings/branding-upload
@@ -560,7 +561,7 @@ Các route dưới đây yêu cầu JWT đã gắn **active shop** (`active_shop
 - Public optional JWT.
 - `shopId` là UUID hoặc slug shop active. Nếu không resolve được → `NOT_FOUND`.
 - Production áp dụng cùng rule scope như catalog; contact luôn shop-scoped, không có aggregate.
-- Response 200: `data: { shop: { id, name, slug }, contact, appearance }`.
+- Response 200: `data: { shop: { id, name, slug }, contact, appearance }`. `contact` shape: `{ page_title?, page_subtitle?, address?, phone?, facebook?, zalo?, hours? }`. `address` được trả khi admin đã cấu hình; hiển thị trên trang `/contact` public và phiếu in.
 
 ## Preorders
 Các route admin yêu cầu JWT + `active_shop_id`; `shop_admin` ghi được, `shop_staff` chỉ đọc theo guard chung.

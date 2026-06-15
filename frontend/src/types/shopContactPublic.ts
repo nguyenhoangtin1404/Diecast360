@@ -27,6 +27,7 @@ export type PublicShopContactResponse = {
       schedule_line?: string;
       footer_note?: string;
     };
+    address?: string;
   };
   /** Branding keys for future public UI; optional until storefront consumes them */
   appearance?: {

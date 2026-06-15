@@ -41,6 +41,10 @@ export function mergeContactJson(
     if (patch.page_subtitle.trim() === '') delete next.page_subtitle;
     else next.page_subtitle = patch.page_subtitle;
   }
+  if (patch.address !== undefined) {
+    if (patch.address.trim() === '') delete next.address;
+    else next.address = patch.address;
+  }
 
   const nested = ['phone', 'facebook', 'zalo', 'hours'] as const;
   for (const key of nested) {

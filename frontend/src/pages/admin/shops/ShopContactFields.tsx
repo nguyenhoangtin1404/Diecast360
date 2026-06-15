@@ -100,6 +100,26 @@ export const ShopContactFields = memo(function ShopContactFields({
         />
       </div>
 
+      <div style={styles.formRow} className={classNames?.hoursScheduleRow ?? rowClassName}>
+        <label style={styles.modalLabel} className={labelClassName} htmlFor={`${idPrefix}-contact-address`}>
+          Địa chỉ cửa hàng
+        </label>
+        <textarea
+          id={`${idPrefix}-contact-address`}
+          style={{ ...styles.modalInput, resize: 'vertical', minHeight: '72px' }}
+          className={textareaClassName ?? inputClassName}
+          value={value.address}
+          onChange={(e) => set({ address: e.target.value })}
+          autoComplete="off"
+          placeholder="Ví dụ: 123 Nguyễn Văn A, Phường 1, Quận 3, TP.HCM"
+          disabled={disabled}
+          maxLength={1000}
+        />
+        <p style={styles.modalHint} className={hintClassName}>
+          Hiển thị trên phiếu in, trang liên hệ. Để trống thì ẩn dòng địa chỉ.
+        </p>
+      </div>
+
       <div style={styles.sectionTitle} className={classNames?.sectionTitle}>
         Điện thoại
       </div>
