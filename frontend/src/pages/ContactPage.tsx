@@ -439,9 +439,10 @@ export const ContactPage = () => {
                   margin: 0,
                   lineHeight: '1.6',
                   whiteSpace: 'pre-line',
+                  wordBreak: 'break-word',
                 }}
               >
-                {contact.address}
+                {contact.address?.trim()}
               </p>
             </div>
           ) : null}
