@@ -143,6 +143,12 @@ export class ShopContactPatchDto {
   @ValidateNested()
   @Type(() => ShopContactHoursDto)
   hours?: ShopContactHoursDto;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== undefined && v !== null && String(v).trim().length > 0)
+  @IsString()
+  @MaxLength(1000)
+  address?: string;
 }
 
 export class UpdateShopDto {

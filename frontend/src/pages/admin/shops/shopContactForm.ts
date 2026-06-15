@@ -27,6 +27,7 @@ export function parseShopContactFormDefaults(contactJson: Shop['contact_json'] |
   return {
     page_title: str(root.page_title),
     page_subtitle: str(root.page_subtitle),
+    address: str(root.address),
     phone: {
       title: str(phone.title),
       label: str(phone.label),
@@ -60,6 +61,7 @@ export function buildShopContactPatch(form: ShopContactFormState): {
     contact: {
       page_title: form.page_title.trim(),
       page_subtitle: form.page_subtitle.trim(),
+      address: form.address.trim(),
       phone: {
         title: form.phone.title.trim(),
         label: form.phone.label.trim(),
