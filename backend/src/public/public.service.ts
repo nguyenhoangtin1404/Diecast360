@@ -61,6 +61,7 @@ export class PublicService {
     return {
       page_title: stored.page_title ?? d.page_title,
       page_subtitle: stored.page_subtitle ?? d.page_subtitle,
+      ...(stored.address ? { address: stored.address } : {}),
       phone: { ...d.phone, ...stored.phone },
       facebook: { ...d.facebook, ...stored.facebook },
       zalo: { ...d.zalo, ...stored.zalo },

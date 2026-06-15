@@ -100,7 +100,10 @@ export const ShopContactFields = memo(function ShopContactFields({
         />
       </div>
 
-      <div style={styles.formRow} className={classNames?.hoursScheduleRow ?? rowClassName}>
+      <div
+        style={styles.formRow}
+        className={[rowClassName, classNames?.hoursScheduleRow].filter(Boolean).join(' ')}
+      >
         <label style={styles.modalLabel} className={labelClassName} htmlFor={`${idPrefix}-contact-address`}>
           Địa chỉ cửa hàng
         </label>
