@@ -85,7 +85,9 @@ project: Diecast360
 **Main Flow (Tạo Item):**
 1. Admin click "Thêm sản phẩm mới"
 2. Hệ thống hiển thị form tạo item
-3. Admin nhập: name, brand, car_brand, model_brand, scale (default 1:64), condition, price, status, quantity, fb_post_content
+3. Admin nhập: name, brand, car_brand, model_brand, scale (default 1:64), condition, original_price, price, status, quantity, fb_post_content
+   - **Status options:** `con_hang` | `giu_cho` | `da_ban` | `preorder`
+   - Chọn `preorder`: hiện thêm trường `preorder_price` (giá ưu đãi, optional) và `expected_arrival_at` (ngày về hàng dự kiến, optional)
 4. Admin click "Lưu"
 5. Hệ thống validate input
 6. Hệ thống tạo item với `shop_id` từ active tenant
@@ -108,6 +110,11 @@ project: Diecast360
 *AF-02: Publish ngay khi tạo*
 - Bước 3: Admin check "Publish ngay" → `is_public = true` ngay sau khi tạo
 
+*AF-03: Tạo item với status preorder (campaign)*
+- Bước 3: Admin chọn status = preorder → hiện thêm: `preorder_price`, `expected_arrival_at`, `preorder_closes_at` (deadline đặt hàng)
+- Bước 6: Hệ thống gán `preorder_opens_at = created_at` của item mới tạo
+- Item xuất hiện trên trang `/preorders` công khai sau khi publish (xem UC-18)
+
 **Exception Flows:**
 
 *EF-01: Vi phạm invariant da_ban*
@@ -119,9 +126,14 @@ project: Diecast360
 *EF-03: Thay đổi quantity trực tiếp*
 - Bước 5: Phát hiện request thay đổi quantity không qua inventory → 422 "Vui lòng dùng chức năng nhập/xuất kho"
 
+*EF-04: Transition không hợp lệ*
+- Cập nhật item từ `da_ban` → `preorder` hoặc `giu_cho` → bị chặn; "Transition trạng thái không hợp lệ"
+- Transition `da_ban` → `con_hang` được phép (tự động set quantity=1 nếu không gửi)
+
 **Postconditions:**
 - Item được tạo/cập nhật với đúng thông tin
 - Nếu `is_public = true`: item xuất hiện trên public catalog
+- Item status `preorder`: item xuất hiện thêm trên trang `/preorders` công khai
 - Audit log ghi nhận thao tác
 
 ---
@@ -373,13 +385,15 @@ project: Diecast360
 | **Priority** | Must |
 
 **Preconditions:**
-- Item `is_public=true`, status là `con_hang` hoặc `giu_cho`
+- Item `is_public=true`, status là `con_hang`, `giu_cho`, hoặc `preorder` (và cửa sổ đặt hàng còn mở)
 - Shop active
 
 **Main Flow:**
 1. Khách click "Đặt hàng trước" trên trang chi tiết item
 2. Hệ thống hiển thị form pre-order
-3. Khách nhập: họ tên, số điện thoại, ghi chú (optional)
+3. Khách nhập: họ tên, số điện thoại, số lượng (mặc định 1), ghi chú (optional)
+   - Item status `preorder` và cửa sổ còn mở: form hiển thị `preorder_price` thay vì `price`
+   - Nếu shop yêu cầu đặt cọc: hiển thị `deposit_amount` cần thanh toán trước
 4. Khách click "Xác nhận đặt hàng"
 5. Hệ thống lookup SĐT trong bảng member của shop
 6. Hệ thống tạo pre-order với status `PENDING_CONFIRMATION`
@@ -430,7 +444,7 @@ project: Diecast360
 2. Admin xem danh sách pre-order (mặc định: tất cả trạng thái, mới nhất trước)
 3. Admin filter theo trạng thái cần xử lý
 4. Admin click vào đơn cần xử lý
-5. Admin xem chi tiết: thông tin khách, item, trạng thái hiện tại, lịch sử
+5. Admin xem chi tiết: thông tin khách, item, trạng thái hiện tại, lịch sử transition; thông tin tài chính: `total_amount`, `deposit_amount`, `paid_amount`, `remaining` (= max(0, total - paid))
 6. Admin chọn trạng thái mới từ dropdown (chỉ hiện transition hợp lệ)
 7. Hệ thống hiển thị confirm dialog
 8. Admin xác nhận
@@ -446,6 +460,9 @@ project: Diecast360
 *AF-02: Refund*
 - Chỉ có thể REFUND từ PAID
 - Tự động tạo ledger entry trừ điểm
+
+*AF-03: Xuất biên lai*
+- Admin click "Xem biên lai" → hiển thị receipt với: thông tin khách, item, total_amount, deposit_amount, paid_amount, remaining (xem UC-19)
 
 **Exception Flows:**
 
@@ -493,9 +510,9 @@ project: Diecast360
 - Bước 4: quantity_out > quantity_hiện_tại → "Không đủ hàng tồn kho (có: X, cần xuất: Y)"
 
 **Postconditions:**
-- Transaction ghi bất biến vào ledger
-- `items.quantity` được cập nhật đúng
-- Không thể undo transaction (chỉ có thể tạo transaction đối ứng)
+- Transaction ghi bất biến vào ledger (`type`, `quantity`, `delta`, `resulting_quantity`, `actor_user_id`, `created_at`, `note`)
+- `items.quantity` được cập nhật đúng (atomic)
+- Reversal chính thức: admin có thể tạo reversal liên kết qua `reversal_of_id`; mỗi transaction chỉ được reverse 1 lần (double-reversal bị chặn); reversal tự tạo transaction đối ứng và cập nhật `items.quantity`
 
 ---
 
@@ -552,23 +569,34 @@ project: Diecast360
 5. Hệ thống cập nhật `members.points_balance`
 6. Hệ thống kiểm tra tier upgrade: nếu total_points >= next_tier.threshold → upgrade tier
 
+**Main Flow (Redeem — Admin áp dụng điểm vào đơn hàng):**
+1. Khách yêu cầu dùng điểm để giảm tiền khi thanh toán
+2. Admin vào chi tiết pre-order hoặc profile member → "Dùng điểm"
+3. Admin nhập số điểm muốn redeem (hệ thống kiểm tra: `points_balance >= số điểm`)
+4. Hệ thống tính giá trị tương đương: `discount = points × (loyalty_json.vnd_per_point)`
+5. Hệ thống tạo `MemberPointsLedger` (type: `redeem`, reason ghi rõ số pre-order liên quan; `reference_type/reference_id` không được set tự động qua API redeem hiện tại — audit trail phân biệt qua `type = redeem`)
+6. Cập nhật `members.points_balance` giảm đi số điểm đã redeem
+7. Admin cập nhật `paid_amount` của pre-order để phản ánh phần được giảm
+
 **Main Flow (Manual Adjust):**
 1. Admin vào profile member → "Điều chỉnh điểm"
 2. Admin chọn: cộng/trừ điểm
 3. Admin nhập số điểm và lý do (bắt buộc)
 4. Admin click "Xác nhận"
-5. Hệ thống tạo ledger entry (type: manual)
+5. Hệ thống tạo ledger entry (type: `adjust`)
 6. Cập nhật points_balance
 
 **Exception Flows:**
 
-*EF-01: Trừ điểm vượt số dư*
-- Bước 3 (Manual): điểm trừ > points_balance → "Số dư điểm không đủ (hiện có: X, yêu cầu trừ: Y)"
+*EF-01: Trừ điểm vượt số dư (Redeem hoặc Adjust)*
+- Bước 3: điểm yêu cầu > points_balance → "Số dư điểm không đủ (hiện có: X, yêu cầu: Y)"
 
 **Postconditions:**
-- `MemberPointsLedger` có bản ghi mới (immutable)
+- `MemberPointsLedger` có bản ghi mới (immutable) với type `earn` / `redeem` / `adjust`
 - `members.points_balance` cập nhật đúng
-- Tier được upgrade nếu đủ điều kiện (không bao giờ downgrade tự động)
+- Tier được auto-evaluate sau mỗi thay đổi điểm: **upgrade khi vượt threshold lên, downgrade khi điểm giảm xuống dưới threshold hiện tại** (xem ghi chú bên dưới)
+
+> **Quyết định nghiệp vụ — Tier Auto-Downgrade:** Hệ thống tự động hạ tier khi `points_balance` giảm xuống dưới `min_points` của tier hiện tại (ví dụ: sau khi redeem hoặc refund). Điều này khác với nhiều loyalty program dùng "lifetime points" không bao giờ giảm. Trade-off: đảm bảo tier phản ánh đúng số dư thực tế nhưng có thể gây bất ngờ cho khách hàng. Shop owner cần thông báo rõ cho khách chính sách này.
 
 ---
 
@@ -702,3 +730,306 @@ project: Diecast360
 - AiItemDraft tồn tại với status PENDING/CONFIRMED/REJECTED
 - Nếu CONFIRMED: Item mới được tạo với thông tin từ draft
 - Lịch sử draft có thể audit
+
+---
+
+## UC-16: Logout / Session Management
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **ID** | UC-16 |
+| **Tên** | Đăng xuất và quản lý phiên đăng nhập |
+| **Actor chính** | Shop Admin, Shop Staff, Platform Super |
+| **Priority** | Must |
+
+**Preconditions:**
+- User đang có phiên đăng nhập hợp lệ (cookie access_token còn hiệu lực)
+
+**Main Flow (Đăng xuất chủ động):**
+1. User click "Đăng xuất" trong menu
+2. Hệ thống gọi `POST /api/v1/auth/logout`
+3. Hệ thống revoke refresh token hiện tại (set `revoked_at = NOW()`)
+4. Hệ thống xóa HttpOnly cookies: `access_token`, `refresh_token`, `csrf_token`
+5. Redirect đến trang login: "Bạn đã đăng xuất thành công"
+
+**Alternative Flows:**
+
+*AF-01: Access token hết hạn trong session (15 phút)*
+- Hệ thống tự động gọi refresh endpoint với refresh token
+- Nếu refresh thành công → phát JWT mới, session tiếp tục trong suốt
+- Nếu refresh token cũng hết hạn / bị revoke → redirect đến login (session expired)
+
+*AF-02: Đăng xuất khỏi tất cả thiết bị*
+- Xảy ra tự động sau khi reset password (UC-17): tất cả refresh token của user bị revoke
+- Thiết bị khác đang login → access token hết hạn → refresh fail → buộc login lại
+
+**Exception Flows:**
+
+*EF-01: Mạng lỗi khi gọi logout*
+- HttpOnly cookie không thể bị xóa bằng JavaScript — chỉ server mới có thể clear qua `Set-Cookie: Max-Age=0`
+- Nếu server call thất bại: client redirect về trang login; cookie vẫn tồn tại nhưng refresh token trên server sẽ expire sau 7 ngày
+- Hành vi an toàn: token hết hạn tự nhiên là fallback đủ dùng; không có action nào ở client
+
+**Postconditions:**
+- Refresh token bị revoke — không thể dùng để phát access token mới
+- Cookies bị xóa — browser không còn gửi credentials
+- Audit log ghi nhận thời điểm logout
+
+---
+
+## UC-17: Forgot Password / Password Reset
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **ID** | UC-17 |
+| **Tên** | Quên mật khẩu và đặt lại mật khẩu |
+| **Actor chính** | Shop Admin, Shop Staff, Platform Super |
+| **Actor phụ** | MailService (Resend / mock) |
+| **Priority** | Must |
+
+**Preconditions:**
+- User có tài khoản hợp lệ trong hệ thống
+- User chưa đăng nhập
+
+**Main Flow (Yêu cầu reset):**
+1. User click "Quên mật khẩu?" trên trang login
+2. User nhập địa chỉ email
+3. User click "Gửi link đặt lại"
+4. Hệ thống luôn trả về thông báo trung lập: "Nếu email tồn tại, bạn sẽ nhận được hướng dẫn trong vài phút" (không tiết lộ email có tồn tại hay không)
+5. Nếu email hợp lệ và active: hệ thống tạo reset token (SHA-256 hash, one-time use, TTL 1 giờ)
+6. Hệ thống gửi email chứa link đặt lại mật khẩu
+
+**Main Flow (Đặt lại mật khẩu):**
+1. User click link trong email
+2. Hệ thống kiểm tra token: hợp lệ + chưa dùng (`used_at IS NULL`) + chưa hết hạn
+3. Hệ thống hiển thị form đặt mật khẩu mới
+4. User nhập mật khẩu mới (≥ 8 ký tự) và xác nhận lại
+5. Hệ thống lưu mật khẩu mới (bcrypt, cost 12), đánh dấu token `used_at = NOW()`
+6. Hệ thống revoke tất cả refresh token hiện tại của user
+7. Redirect đến trang login: "Đặt lại mật khẩu thành công, vui lòng đăng nhập lại"
+
+**Exception Flows:**
+
+*EF-01: Rate limit*
+- Bước 3 (Reset): Cùng IP > 10 request/giờ → 429 Too Many Requests
+- Cùng email > 3 request/giờ → silent reject (vẫn trả 200 để tránh enumeration)
+
+*EF-02: Token hết hạn hoặc đã dùng*
+- Bước 2 (Đặt lại): Token không hợp lệ → "Link đặt lại không hợp lệ hoặc đã hết hạn"
+- Hiển thị nút "Yêu cầu link mới"
+
+*EF-03: Mật khẩu mới quá yếu*
+- Bước 4: < 8 ký tự → "Mật khẩu phải có ít nhất 8 ký tự"
+
+*EF-04: Gửi email thất bại*
+- Bước 6: Email provider lỗi → hệ thống log lỗi nhưng vẫn trả 200 (không tiết lộ gửi thất bại)
+
+**Postconditions:**
+- Mật khẩu mới được lưu (bcrypt hash)
+- Reset token bị đánh dấu `used_at = NOW()` — không thể dùng lại
+- Tất cả refresh token cũ bị revoke → buộc đăng nhập lại trên thiết bị khác
+
+---
+
+## UC-18: Pre-order Campaign (Item status `preorder`)
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **ID** | UC-18 |
+| **Tên** | Tạo và quản lý campaign đặt hàng trước theo thời gian |
+| **Actor chính** | Shop Admin |
+| **Actor phụ** | End Customer (xem campaign công khai) |
+| **Priority** | Must |
+
+**Preconditions:**
+- Admin đã đăng nhập
+- Item tồn tại với status bất kỳ, trừ `da_ban`
+
+**Main Flow (Mở campaign preorder):**
+1. Admin chọn item → "Mở Pre-order Campaign"
+2. Admin nhập (tất cả optional): `preorder_price` (giá ưu đãi), `preorder_closes_at` (deadline đặt hàng)
+3. Admin đổi status item → `preorder`
+4. Hệ thống gán `preorder_opens_at = item.created_at` — tính từ lúc sản phẩm được tạo, không phải lúc mở campaign (cả tạo mới lẫn update path đều dùng `created_at`)
+5. Pre-order đầu tiên của item xuất hiện trên trang công khai `/preorders`; trang này hiển thị các `PreOrder` row đang active (PENDING_CONFIRMATION / WAITING_FOR_GOODS) của item is_public — không phải item-based listing
+6. Catalog hiển thị `preorder_price` (nếu có) trong khi cửa sổ mở
+
+**Main Flow (Đóng campaign sớm):**
+1. Admin vào item đang ở status `preorder`
+2. Admin click "Đóng Campaign Sớm"
+3. Hệ thống `PATCH /items/:id/close-preorder`: set `preorder_closes_at = NOW()`
+4. Countdown về 0; trang public ẩn nút "Đặt hàng trước"
+5. Status item vẫn là `preorder` (không tự động đổi)
+
+**Main Flow (Mở lại campaign):**
+1. Admin click "Mở lại Campaign"
+2. Hệ thống `PATCH /items/:id/reopen-preorder`: xóa `preorder_closes_at`, set `preorder_opens_at = NOW()`
+3. Đợt mới tính từ thời điểm bấm mở lại (không dùng `created_at` gốc)
+4. Admin set deadline mới qua PATCH thông thường nếu cần
+
+**Main Flow (Kết thúc campaign — hàng về):**
+1. Admin chuyển item `preorder → con_hang`
+2. Hệ thống tự động advance tất cả đơn `WAITING_FOR_GOODS → ARRIVED`
+3. Đơn `PENDING_CONFIRMATION` **không** tự động advance; response trả `preorders_pending_count` → UI cảnh báo admin xem xét thủ công
+
+**Main Flow (Hủy campaign — nhà cung cấp hủy):**
+1. Admin chuyển item `preorder → da_ban`
+2. Hệ thống set `quantity = 0`
+3. Đơn đã có `paid_amount > 0` **không** tự động hủy; admin phải xử lý hoàn tiền thủ công
+
+**Alternative Flows:**
+
+*AF-01: Item giu_cho → preorder*
+- Được phép; admin tự kiểm tra các hold trước khi chuyển — không có guard tự động
+
+*AF-02: Khách xem trang campaign công khai (`/preorders`)*
+- Không cần đăng nhập
+- Thấy danh sách campaign đang mở: ảnh cover, tên item, countdown, preorder_price, nút "Đặt hàng trước"
+
+**Exception Flows:**
+
+*EF-01: Chuyển da_ban → preorder*
+- Bị chặn: "Không thể mở pre-order cho item đã bán hết"
+
+*EF-02: Cửa sổ đã đóng nhưng khách vẫn cố submit*
+- Chỉ trigger khi `preorder_closes_at IS NOT NULL AND preorder_closes_at < NOW()`
+- Nếu `preorder_closes_at IS NULL` (cửa sổ vô hạn), EF-02 không bao giờ kích hoạt — cửa sổ luôn mở
+- Hệ thống trả 422 "Cửa sổ đặt hàng đã đóng"
+
+**Postconditions:**
+- Item ở status `preorder`, hiển thị trang `/preorders` khi `is_public = true`
+- Countdown UI tính từ `preorder_opens_at` đến `preorder_closes_at`; nếu `preorder_closes_at IS NULL` → hiển thị "Không giới hạn thời gian" (không có countdown)
+- Sau khi reopen (`PATCH /reopen-preorder`): `preorder_closes_at` về NULL — cửa sổ mặc định là vô hạn cho đến khi admin tự set deadline mới
+- Sau khi cửa sổ đóng: catalog hiển thị `price` thông thường thay vì `preorder_price`
+
+---
+
+## UC-19: Pre-order Financial Tracking & Receipt
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **ID** | UC-19 |
+| **Tên** | Theo dõi tài chính pre-order và xuất biên lai |
+| **Actor chính** | Shop Admin |
+| **Actor phụ** | End Customer (xem biên lai) |
+| **Priority** | Must |
+
+**Preconditions:**
+- Pre-order đã tồn tại (status bất kỳ non-terminal)
+- Admin đã đăng nhập với quyền trong shop
+
+**Main Flow (Ghi nhận đặt cọc):**
+1. Khách liên hệ / đến shop và đặt cọc
+2. Admin mở chi tiết pre-order
+3. Admin nhập `deposit_amount` (tổng tiền cọc thực nhận — **ghi đè**, không cộng dồn; ví dụ: cọc đợt 1: 200k → nhập 200k; cọc thêm đợt 2: 100k → nhập 300k)
+4. Hệ thống cập nhật; `remaining` = `max(0, total_amount - paid_amount)`
+5. UI hiển thị tóm tắt: Tổng đơn / Đã cọc / Đã thu / Còn lại
+
+**Main Flow (Ghi nhận thanh toán cuối):**
+1. Khách đến lấy hàng và thanh toán phần còn lại
+2. Admin nhập `paid_amount` (tổng đã thu, bao gồm tiền cọc trước đó)
+3. Hệ thống tính `remaining = max(0, total_amount - paid_amount)`
+4. Admin chuyển pre-order → PAID (xem UC-09)
+5. Nếu member: điểm tự động cộng dựa trên `total_amount` (xem UC-12)
+
+**Main Flow (Xuất biên lai):**
+1. Admin click "Xem biên lai" trên pre-order
+2. Hệ thống render receipt gồm: tên khách, SĐT, tên item, `unit_price`, `quantity`, `total_amount` (= `unit_price × quantity`; nếu item đang trong cửa sổ preorder khi tạo đơn, `unit_price` = `preorder_price`), `deposit_amount`, `paid_amount`, `remaining`, timestamp
+3. Admin chia sẻ link biên lai hoặc in cho khách
+
+**Alternative Flows:**
+
+*AF-01: Admin in biên lai để trao cho khách*
+- Admin dùng print/screenshot trang receipt để chia sẻ với khách
+- Endpoint `GET /preorders/:id/receipt` yêu cầu auth (JwtAuthGuard + TenantGuard) — không có public receipt link; khách không thể tự xem online
+
+**Exception Flows:**
+
+*EF-01: paid_amount > total_amount*
+- API từ chối: 422 "paid_amount must be <= total_amount" (`validateFinancials` trong service)
+- Admin phải nhập giá trị đúng ≤ total_amount
+
+**Postconditions:**
+- `deposit_amount` và `paid_amount` được lưu trên pre-order
+- `remaining` là computed field (`max(0, total_amount - paid_amount)`) — không lưu riêng
+- Biên lai phản ánh trạng thái tài chính mới nhất
+
+---
+
+## UC-20: Chuyển Active Shop (Multi-role User)
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **ID** | UC-20 |
+| **Tên** | User đổi shop đang làm việc |
+| **Actor chính** | Shop Admin / Shop Staff có nhiều shop role |
+| **Priority** | Must |
+
+**Preconditions:**
+- User đã đăng nhập
+- User có `UserShopRole` ở ít nhất 2 shop khác nhau
+- Shop đích đang active
+
+**Main Flow:**
+1. User click menu "Chọn shop" (hiển thị tên shop đang active ở header)
+2. Hệ thống hiển thị danh sách các shop mà user có quyền truy cập (active only)
+3. User chọn shop mới
+4. Hệ thống validate: shop active + user có `UserShopRole` trong shop đó
+5. Hệ thống phát JWT mới với `active_shop_id = shop_moi_id`, set lại HttpOnly cookie
+6. Hệ thống reload dashboard của shop mới
+7. Header cập nhật tên shop; tất cả dữ liệu hiển thị thuộc về shop mới
+
+**Exception Flows:**
+
+*EF-01: Shop bị vô hiệu hóa sau khi list được tải*
+- Bước 4: Shop inactive → "Shop đang tạm ngưng, không thể chuyển sang shop này"
+
+*EF-02: User mất quyền sau khi list được tải*
+- Bước 4: Không có `UserShopRole` → 403 "Bạn không có quyền truy cập shop này"
+
+**Postconditions:**
+- JWT mới với `active_shop_id` mới được set trong cookie
+- Tất cả API call tiếp theo filter theo shop mới (TenantGuard đọc từ JWT)
+- Không cần logout / login lại
+
+---
+
+## UC-21: QR Code Generation & Scan
+
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **ID** | UC-21 |
+| **Tên** | Tạo mã QR cho item và xử lý quét QR |
+| **Actor chính** | Shop Admin (tạo) / End Customer (quét) |
+| **Priority** | Could |
+
+**Preconditions (Tạo):**
+- Item tồn tại và thuộc về shop của admin (TenantGuard)
+- Admin đã đăng nhập
+
+**Main Flow (Admin tạo QR):**
+1. Admin vào trang chi tiết item → tab/bước "Mã QR"
+2. Admin click "Tạo mã QR"
+3. Hệ thống kiểm tra `qr_token` trên item: nếu đã có → dùng lại; nếu chưa → tạo mới (16-ký tự hex, race-safe via `updateMany WHERE qr_token IS NULL`)
+4. Hệ thống hiển thị: ảnh QR, link resolve, nút "Tải PNG", nút "Copy link"
+5. Admin in QR hoặc dán vào bao bì / catalogue vật lý
+
+**Main Flow (Customer quét QR):**
+1. Khách quét QR bằng camera điện thoại
+2. Request đến `GET /api/v1/public/qr/:token` (không yêu cầu auth)
+3. Hệ thống resolve token → tìm item → redirect 302 đến `FRONTEND_URL/items/:id?shop_id=...&source=qr&action=view`
+4. Frontend hiển thị trang chi tiết item với banner "Bạn đang xem sản phẩm qua mã QR"
+
+**Alternative Flows:**
+
+*AF-01: Item chưa public, admin tạo QR*
+- Bước 4: Banner cảnh báo "Item này chưa được publish — QR sẽ không hoạt động với khách cho đến khi bật is_public"
+- Admin vẫn có thể tạo và lưu QR trước khi publish (chuẩn bị trước)
+
+**Exception Flows:**
+
+*EF-01: QR token không tồn tại*
+- Bước 3: Token không khớp bất kỳ item nào → 404 "Mã QR không hợp lệ hoặc sản phẩm không còn tồn tại"
+
+**Postconditions:**
+- `qr_token` bất biến sau khi tạo — không thay đổi dù item cập nhật
+- QR in vật lý hoạt động khi: item chưa soft-delete, `is_public = true`, và shop đang active. Unpublish item (`is_public = false`) hoặc deactivate shop sẽ khiến QR trả 404 — admin cần cân nhắc trước khi in QR vật lý
