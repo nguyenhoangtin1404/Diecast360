@@ -115,7 +115,7 @@ For multi-step tasks, state a brief plan:
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
 **Diecast360 examples:**
-- "Add member tier upgrade" → "Points crossing a tier threshold auto-upgrade the member. Downgrade does not happen automatically. Ledger records the event with `reference_type/reference_id`."
+- "Add member tier upgrade" → "Points crossing a tier threshold auto-upgrades the member. **Downgrade also happens automatically** when points_balance drops below current tier threshold (e.g., after redeem or refund). Ledger records the event with `reference_type/reference_id`."
 - "Fix spinner upload" → "24-frame upload succeeds. Frame order preserved after reorder. `(spin_set_id, frame_index)` unique constraint not violated. Exceeding `VITE_MAX_SPINNER_FRAMES` shows an error."
 - "Fix public catalog tenant isolation" → "Requests with `shop_id` query param never bleed into another shop. Inactive shop returns 404. Anonymous requests in production return `PUBLIC_SHOP_REQUIRED (422)`."
 
@@ -131,7 +131,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **Member FK RESTRICT:** cannot delete a member who has active (non-terminal) pre-orders. Service must check before calling DELETE; the DB will reject otherwise.
 
-**Member points:** every points change must go through the ledger (`MemberPointsLedger`) — never mutate `points_balance` directly.
+**Member points:** every points change must go through the ledger (`MemberPointsLedger`) — never mutate `points_balance` directly. Tier auto-evaluates on every ledger entry: both upgrade and downgrade happen automatically when `points_balance` crosses tier thresholds.
 
 **Item `da_ban` invariant:** `quantity` is always `0` when `status = da_ban`. Service enforces this on both create and update; don't bypass.
 

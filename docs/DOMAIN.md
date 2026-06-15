@@ -29,13 +29,16 @@
 
 ### Shop / User / RBAC
 - `Shop` là tenant dữ liệu, có `name`, `slug`, `is_active`, `contact_json`, `appearance_json`, `loyalty_json`.
+  - `loyalty_json` structure: `{ vnd_per_point: number, preorder_points_basis: 'paid_amount' | 'total_amount' }`. `vnd_per_point` là số VND cần chi để được 1 điểm (integer ≥1, default 1000 — tức 1 điểm / 1.000 VND). `preorder_points_basis` xác định cơ sở tính điểm khi PAID: `paid_amount` (mặc định) hoặc `total_amount`.
 - `User` có `email`, `password_hash`, `full_name`, `role` legacy, `platform_role`, `is_active`.
 - `UserShopRole` gán user vào shop với vai trò `shop_admin` hoặc `shop_staff`; `shop_staff` là read-only cho mutating API theo guard chung; `platform_super` thao tác quản trị nền tảng không cần active tenant.
 - `ShopAuditLog` ghi thay đổi nhạy cảm: thêm admin/staff, reset password, active/inactive user, update/deactivate/activate shop, đổi role.
+- **Switch active shop:** Khi user gọi `POST /api/v1/auth/switch-shop`, server xác minh user có `UserShopRole` tại shop yêu cầu và shop đang active, sau đó phát JWT mới với claim `active_shop_id` cập nhật và set lại HttpOnly cookie. `TenantGuard` đọc `active_shop_id` từ JWT để scope mọi query — không có session state phía server.
 
 ### RefreshToken
 - Lưu refresh token đã phát hành để hỗ trợ revoke.
 - Thuộc tính: `id`, `user_id`, `token_hash`, `expires_at`, `revoked_at` (nullable), `created_at`.
+- TTL mặc định: access token **15 phút**, refresh token **7 ngày** (lưu trong `expires_at`). Bị revoke sau `POST /auth/logout` hoặc password reset (tất cả refresh token của user bị revoke).
 
 ### AiItemDraft
 - Bản nháp item do AI phân tích từ ảnh chụp sản phẩm.
@@ -88,7 +91,9 @@
   - `PENDING_CONFIRMATION` khi `preorder → con_hang`: **không** tự động advance. Lý do: đơn chưa được shop xác nhận nên admin phải xem xét thủ công. Response trả `preorders_pending_count` để UI cảnh báo.
   - Đơn đã cọc (`paid_amount > 0`) khi `preorder → da_ban`: **không** tự động hủy. Lý do: đã thu tiền khách, phải liên hệ hoàn tiền thủ công. Nếu sau đó admin làm `da_ban → con_hang`, các đơn này giữ nguyên trạng thái.
   - `giu_cho → preorder`: được phép. Admin có thể mở campaign cho item đang reserved. Không có guard tự động — admin tự kiểm tra holds trước khi chuyển.
-- Member points: mọi thay đổi điểm phải đi qua ledger để có audit trail.
+- Member points: mọi thay đổi điểm phải đi qua ledger để có audit trail. Ledger type: `earn` (auto khi PAID), `redeem` (admin áp dụng điểm vào đơn), `adjust` (manual cộng/trừ).
+- Tier auto-evaluate: sau **mỗi** thay đổi ledger, hệ thống so sánh `points_balance` với `min_points` của tất cả tier trong shop. **Upgrade và downgrade đều xảy ra tự động** khi số dư vượt/dưới threshold. Trade-off: tier phản ánh số dư thực tế, không phải điểm tích lũy lifetime — shop cần thông báo rõ chính sách này cho khách hàng.
+- Rate limiting: `POST /auth/forgot-password` tối đa 10 request/IP/giờ (429 Too Many Requests) và 3 request/email/giờ (silent reject — vẫn trả 200 để tránh enumeration). Window là sliding 1 giờ.
 - QR code:
   - Token chỉ được tạo nếu item thuộc về tenant đang request (TenantGuard enforcement).
   - Nếu hai request đồng thời cùng tạo token, race condition được xử lý bằng `updateMany WHERE qr_token IS NULL`; người thua đọc lại token của người thắng từ DB.

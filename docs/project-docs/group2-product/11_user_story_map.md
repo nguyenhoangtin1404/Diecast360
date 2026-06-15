@@ -19,6 +19,31 @@ Epic (Backbone)
 
 ---
 
+## Epic 0: Authentication & Session
+
+**Mục tiêu:** Đảm bảo user truy cập đúng quyền, quản lý phiên đăng nhập an toàn
+
+### Activity 0.1 — Đăng nhập / Đăng xuất
+
+| Story | Task |
+|-------|------|
+| US-008: Là user, tôi muốn đăng xuất để kết thúc phiên làm việc an toàn | T1: Nút "Đăng xuất" trong menu header |
+| | T2: API `POST /api/v1/auth/logout` — revoke refresh token |
+| | T3: Xóa HttpOnly cookies (access_token, refresh_token, csrf_token) |
+| | T4: Redirect về trang login sau khi logout |
+
+### Activity 0.2 — Quản lý Mật khẩu
+
+| Story | Task |
+|-------|------|
+| US-009: Là user, tôi muốn đặt lại mật khẩu khi quên để lấy lại quyền truy cập | T1: Link "Quên mật khẩu?" trên trang login |
+| | T2: API `POST /auth/forgot-password` (always 200, no enumeration) |
+| | T3: Email với reset link (Resend provider, SHA-256 token, 1h TTL) |
+| | T4: API `POST /auth/reset-password` — one-time use, revoke all refresh tokens |
+| | T5: Rate limiting: 10/IP/h, 3/email/h (silent reject) |
+
+---
+
 ## Epic 1: Catalog Management
 
 **Mục tiêu:** Shop admin quản lý toàn bộ vòng đời của item diecast
@@ -171,6 +196,28 @@ Epic (Backbone)
 | | T2: Tạo MemberPointsLedger entry |
 | | T3: Update member tier nếu cần |
 
+### Activity 4.4 — Quản lý Pre-order Campaign
+
+| Story | Task |
+|-------|------|
+| US-038: Là shop admin, tôi muốn mở campaign pre-order với cửa sổ thời gian để bán trước khi hàng về | T1: Chuyển item sang status `preorder` với preorder_price, expected_arrival_at |
+| | T2: preorder_opens_at gán tự động = NOW() |
+| | T3: API `PATCH /items/:id/close-preorder` (đóng sớm) |
+| | T4: API `PATCH /items/:id/reopen-preorder` (mở lại) |
+| | T5: Trang công khai `/preorders` hiển thị campaign với countdown timer |
+| | T6: Transition preorder → con_hang: auto-advance WAITING_FOR_GOODS → ARRIVED |
+| | T7: Cảnh báo preorders_pending_count (PENDING_CONFIRMATION không auto-advance) |
+| | T8: Transition preorder → da_ban: không tự hủy đơn đã cọc |
+
+### Activity 4.5 — Theo dõi Tài chính Pre-order
+
+| Story | Task |
+|-------|------|
+| US-039: Là shop admin, tôi muốn ghi nhận đặt cọc và thanh toán để theo dõi tài chính từng đơn | T1: Fields deposit_amount, paid_amount trên pre-order |
+| | T2: Computed remaining = max(0, total_amount - paid_amount) |
+| | T3: Receipt view với đầy đủ thông tin tài chính |
+| | T4: Admin chia sẻ link biên lai cho khách |
+
 ---
 
 ## Epic 5: Inventory Management
@@ -230,6 +277,15 @@ Epic (Backbone)
 | US-054: Là shop admin, tôi muốn cấu hình chương trình điểm để phù hợp chiến lược kinh doanh | T1: UI cấu hình: earn rate (X điểm / Y nghìn VND) |
 | | T2: UI cấu hình tier: tên + threshold + mô tả |
 | | T3: Lưu vào `shop.loyalty_json` |
+
+### Activity 6.4 — Đổi điểm (Redeem)
+
+| Story | Task |
+|-------|------|
+| US-057: Là shop admin, tôi muốn áp dụng điểm thành tiền giảm giá khi khách thanh toán để giữ chân khách | T1: Form redeem: nhập số điểm muốn dùng (validate <= points_balance) |
+| | T2: Tính giá trị discount theo loyalty_json.redeem_rate |
+| | T3: Tạo MemberPointsLedger (type: redeem, reference: pre_order_id) |
+| | T4: Tier auto-evaluate sau redeem (downgrade nếu < threshold) |
 
 ---
 
@@ -313,6 +369,15 @@ Epic (Backbone)
 | | T2: Form gán role vào shop |
 | | T3: 1 user có thể có nhiều role ở nhiều shop |
 
+### Activity 9.3 — Multi-shop Navigation
+
+| Story | Task |
+|-------|------|
+| US-085: Là user có nhiều shop role, tôi muốn chuyển qua lại giữa các shop mà không cần đăng xuất | T1: Menu dropdown "Chọn shop" ở header (hiển thị shop đang active) |
+| | T2: API switch-shop: validate shop active + user có UserShopRole |
+| | T3: Phát JWT mới với active_shop_id mới, set lại HttpOnly cookie |
+| | T4: Reload dashboard, tất cả data filter theo shop mới |
+
 ---
 
 ## Epic 10: Reports & Analytics
@@ -338,3 +403,27 @@ Epic (Backbone)
 | | T2: Giá trị tồn kho ước tính |
 | US-093: Là shop admin, tôi muốn xem báo cáo member để biết ai là khách VIP | T1: Bảng top member theo điểm |
 | | T2: Member sinh nhật tháng này |
+
+---
+
+## Epic 11: QR Code
+
+**Mục tiêu:** Kết nối offline (vật lý) và online catalog qua mã QR dán lên sản phẩm
+
+### Activity 11.1 — Tạo QR Code (Admin)
+
+| Story | Task |
+|-------|------|
+| US-095: Là shop admin, tôi muốn tạo mã QR cho item để dán lên sản phẩm vật lý | T1: Tab/bước "Mã QR" trong trang chi tiết item |
+| | T2: API `GET /items/:id/qr` — lazy-create qr_token (16-hex, race-safe via `updateMany WHERE qr_token IS NULL`) |
+| | T2b: Backend generate QR PNG từ resolve URL (`qrcode` library hoặc tương đương) |
+| | T3: Hiển thị ảnh QR, link resolve, nút "Tải PNG", nút "Copy link" |
+| | T4: Banner cảnh báo nếu `is_public = false`: "Bật công khai trước khi in QR" |
+
+### Activity 11.2 — Quét QR (Customer)
+
+| Story | Task |
+|-------|------|
+| US-096: Là khách hàng, tôi muốn quét QR trên sản phẩm để xem catalog online ngay lập tức | T1: `GET /public/qr/:token` — no auth, redirect 302 đến item detail |
+| | T2: Frontend hiển thị banner "Bạn đang xem qua mã QR" khi URL có source=qr |
+| | T3: 404 friendly nếu token không tồn tại |
