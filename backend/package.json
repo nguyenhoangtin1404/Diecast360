@@ -42,7 +42,7 @@
     "@nestjs/core": "^11.1.10",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
-    "@nestjs/platform-express": "^11.1.24",
+    "@nestjs/platform-express": "^11.1.27",
     "@nestjs/throttler": "^6.5.0",
     "@pinecone-database/pinecone": "^7.0.0",
     "@prisma/client": "^6.19.1",
