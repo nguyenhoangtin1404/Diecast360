@@ -42,7 +42,7 @@ export function mergeContactJson(
     else next.page_subtitle = patch.page_subtitle;
   }
   if (patch.address !== undefined) {
-    if (patch.address.trim() === '') delete next.address;
+    if (patch.address === null || patch.address.trim() === '') delete next.address;
     else next.address = patch.address;
   }
 
